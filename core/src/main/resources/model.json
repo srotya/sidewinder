@@ -1,0 +1,38 @@
+{
+	"version": "1.0",
+	"defaultSchema": "test",
+	"schemas": [{
+		"name": "test",
+		"type": "custom",
+		"factory": "com.srotya.sidewinder.core.sql.calcite.SidewinderSchemaFactory",
+		"operand": {
+			"db": "test"
+		},
+		"functions": [
+			{
+				"name":"now",
+				"className":"com.srotya.sidewinder.core.sql.calcite.functions.NowFunction",
+				"methodName": "apply",
+				"path": []
+			},
+			{
+				"name":"datediff",
+				"className":"com.srotya.sidewinder.core.sql.calcite.functions.DateDiffFunction",
+				"methodName": "apply",
+				"path": []
+			},
+			{
+				"name":"tomilli",
+				"className":"com.srotya.sidewinder.core.sql.calcite.functions.ToMilliseconds",
+				"methodName": "apply",
+				"path": []
+			},
+			{
+				"name":"totimestamp",
+				"className":"com.srotya.sidewinder.core.sql.calcite.functions.ToTimestamp",
+				"methodName": "apply",
+				"path": []
+			}
+		]
+	}]
+}
