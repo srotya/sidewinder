@@ -1,0 +1,53 @@
+<query-editor-row query-ctrl="ctrl" class="generic-datasource-query-row"
+	has-text-edit-mode="true">
+<div class="gf-form-inline">
+	<!--     <div class="gf-form max-width-8"> -->
+	<!--       <select class="gf-form-input" ng-model="ctrl.target.type" ng-options="f as f for f in ['timeserie']"></select> -->
+	<!--     </div> -->
+
+	<div ng-if="!ctrl.target.rawQuery">
+		<div class="gf-form gf-form--grow">
+			<label class="gf-form-label query-keyword width-8">MEASUREMENT</label>
+			<metric-segment-model property="ctrl.target.target"
+				get-options="ctrl.getMeasurementOptions()"
+				on-change="ctrl.onChangeInternal()"
+				css-class="tight-form-item-xxlarge"></metric-segment-model>
+			<label class="gf-form-label query-keyword width-5">WHERE</label>
+			<div class="gf-form" ng-repeat="segment in ctrl.target.filters">
+				<div class="gf-form" ng-if="!segment.type">
+					<metric-segment-model property="segment.value"
+						get-options="ctrl.getTagOptions()"
+						on-change="ctrl.onChangeFilter($index, segment)"
+						css-class="tight-form-item-xxlarge"></metric-segment-model>
+					<label class="gf-form-label gf-form--grow query-keyword width-3">
+						<a ng-click="ctrl.removeFilter($index, segment)"><i
+							class="fa fa-close"></i></a>
+					</label>
+				</div>
+				<div class="gf-form" ng-if="segment.type">
+					<metric-segment-model property="segment.value"
+						get-options="ctrl.getConditionOptions()"
+						on-change="ctrl.onChangeFilter($index, segment)"
+						css-class="query-keyword width-4 tight-form-item-xxlarge"></metric-segment-model>
+				</div>
+			</div>
+			<label class="gf-form-label gf-form--grow query-keyword width-3">
+				<a ng-click="ctrl.addFilter()"><i class="fa fa-plus"></i></a>
+			</label>
+		</div>
+		<div class="gf-form gf-form--grow">
+			<label class="gf-form-label query-keyword width-5">SELECT</label>
+			<metric-segment-model property="ctrl.target.field"
+				get-options="ctrl.getFieldOptions()"
+				on-change="ctrl.onChangeInternal()"
+				css-class="tight-form-item-xxlarge"></metric-segment-model>
+			<label class="gf-form-label query-keyword width-7">AGGREGATE</label>
+		</div>
+		<div class="gf-form gf-form--grow">
+			<label class="gf-form-label query-keyword width-9">CORRELATIONS</label>
+			<editor-checkbox text="Auto-correlate" model="ctrl.target.correlate"></editor-checkbox>
+		</div>
+
+	</div>
+</div>
+</query-editor-row>
