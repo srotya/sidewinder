@@ -35,6 +35,20 @@ Sidewinder offers a standard REST API to query and perform database operations.
 
 Sidewinder uses Apache Calcite to offer standard SQL support with some additional Timseries functions to make it user friendly.
 
+# Downloads
+
+#### Releases
+
+Releases can be access through the Sidewinder releases page: https://github.com/srotya/sidewinder/releases
+
+#### Jar
+
+Sidewinder Jars can be found on [Maven Central](http://search.maven.org/#search%7Cga%7C1%7Csidewinder)
+
+
+#### Docker
+Docker images are available ```docker push ambuds/sidewinder:latest```
+
 # License
 
 Sidewinder is licensed under Apache 2.0, Copyright 2017 Ambud Sharma and contains sources from other projects documented in the LICENSE file.
