@@ -24,6 +24,8 @@ import org.junit.Test;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
+ * Unit tests for {@link HTTPDataPointDecoder}
+ * 
  * @author ambud
  */
 public class TestHttpDataPointDecoder {
