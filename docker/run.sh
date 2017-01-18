@@ -1,8 +1,6 @@
 #!/bin/bash
 #
 # Author: Ambud Sharma
-# 
-# Purpose: Run script for Sidewinder Server
 #
 
 envsubst < /opt/sidewinder/template.properties > /opt/sidewinder/config.properties
