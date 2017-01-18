@@ -43,13 +43,15 @@ import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
  * In-memory Timeseries {@link StorageEngine} implementation that uses the
  * following hierarchy:
  * <ul>
- * <li>Database</li>
+ * <li>Database
  * <ul>
- * <li>Measurement</li>
+ * <li>Measurement
  * <ul>
  * <li>Time Series</li>
  * </ul>
+ * </li>
  * </ul>
+ * </li>
  * </ul>
  * 
  * {@link TimeSeriesBucket} is uses compressed in-memory representation of the

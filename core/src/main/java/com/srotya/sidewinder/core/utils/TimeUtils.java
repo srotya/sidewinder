@@ -37,9 +37,11 @@ public class TimeUtils {
 	/**
 	 * Floor long time to supplied Window
 	 * 
-	 * @param timeInMilliSeconds
+	 * @param unit
+	 * @param timestamp
 	 * @param bucketSizeInSeconds
-	 * @return windowedTime
+	 * @return
+	 * @throws IllegalArgumentException
 	 */
 	public static int getTimeBucket(TimeUnit unit, long timestamp, int bucketSizeInSeconds)
 			throws IllegalArgumentException {
@@ -50,8 +52,7 @@ public class TimeUtils {
 	/**
 	 * @param unit
 	 * @param timestamp
-	 * @param windowSizeInBinarySeconds
-	 *            (must be a power of 2)
+	 * @param windowSizeInSeconds (must be a power of 2)
 	 * @return
 	 */
 	public static int getWindowFlooredBinaryTime(TimeUnit unit, long timestamp, int windowSizeInSeconds) {
@@ -100,7 +101,7 @@ public class TimeUtils {
 
 	/**
 	 * @param unit
-	 * @param timeInSeconds
+	 * @param time
 	 * @return
 	 */
 	public static long timeToNanoSeconds(TimeUnit unit, long time) {
