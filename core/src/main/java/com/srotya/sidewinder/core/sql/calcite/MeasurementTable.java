@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -75,7 +77,7 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 			types.add(typeFactory.createSqlType(SqlTypeName.DOUBLE, 10));
 		} else {
 			names.add(measurementName + "_" + fieldName);
-			types.add(typeFactory.createSqlType(SqlTypeName.INTEGER, 10));
+			types.add(typeFactory.createSqlType(SqlTypeName.BIGINT, 10));
 		}
 
 		names.add("time_stamp");
@@ -94,8 +96,6 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 
 	@Override
 	public Enumerable<Object[]> scan(DataContext root, List<RexNode> filters) {
-		// final String[] filterValues = new String[types.size()];
-		System.err.println("Filters:" + filters);
 		Entry<Long, Long> findTimeRange = null;
 		for (RexNode filter : filters) {
 			Entry<Long, Long> temp = findTimeRange(filter);
@@ -116,8 +116,7 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 			findTimeRange = new AbstractMap.SimpleEntry<Long, Long>(System.currentTimeMillis() - (3600 * 1000),
 					System.currentTimeMillis());
 		} else if (findTimeRange.getKey().equals(findTimeRange.getValue())) {
-			findTimeRange = new AbstractMap.SimpleEntry<Long, Long>(findTimeRange.getKey(),
-					System.currentTimeMillis());
+			findTimeRange = new AbstractMap.SimpleEntry<Long, Long>(findTimeRange.getKey(), System.currentTimeMillis());
 		}
 
 		final Entry<Long, Long> range = findTimeRange;
@@ -126,9 +125,10 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 			public Enumerator<Object[]> enumerator() {
 				return new Enumerator<Object[]>() {
 
-					private List<Reader> readers;
-					private int i;
+					private LinkedHashMap<Reader, Boolean> readers;
 					private DataPoint dataPoint;
+					private Iterator<Entry<Reader, Boolean>> iterator;
+					private Entry<Reader, Boolean> next;
 
 					@Override
 					public void reset() {
@@ -138,21 +138,28 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 					public boolean moveNext() {
 						if (readers == null) {
 							try {
-								readers = new ArrayList<>();
-								readers.addAll(engine.queryReaders(dbName, measurementName, fieldName,
-										range.getKey(), range.getValue()));
-								System.err.println("Received readers:" + readers);
+								readers = new LinkedHashMap<>();
+								readers.putAll(engine.queryReaders(dbName, measurementName, fieldName, range.getKey(),
+										range.getValue()));
+								iterator = readers.entrySet().iterator();
+								if (iterator.hasNext()) {
+									next = iterator.next();
+								}
 							} catch (Exception e) {
 								e.printStackTrace();
 								return false;
 							}
 						}
-						if (i < readers.size()) {
+						if (next != null) {
 							try {
-								dataPoint = readers.get(i).readPair();
+								dataPoint = next.getKey().readPair();
 							} catch (IOException e) {
-								i++;
-								if (i < readers.size()) {
+								if (iterator.hasNext()) {
+									next = iterator.next();
+								}else {
+									next = null;
+								}
+								if (next != null) {
 									return true;
 								} else {
 									return false;
@@ -166,7 +173,13 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 
 					@Override
 					public Object[] current() {
-						return new Object[] { dataPoint.getValue(), dataPoint.getTimestamp(), dataPoint.getTags().toString() };
+						if (next.getValue()) {
+							return new Object[] { (Double) dataPoint.getValue(), dataPoint.getTimestamp(),
+									dataPoint.getTags().toString() };
+						} else {
+							return new Object[] { (Long) dataPoint.getLongValue(), dataPoint.getTimestamp(),
+									dataPoint.getTags().toString() };
+						}
 					}
 
 					@Override
