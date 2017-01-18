@@ -17,9 +17,14 @@ package com.srotya.sidewinder.core.utils;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 
 /**
- * @author ambudsharma
+ * @author ambud
  *
  */
 public class ByteUtils {
@@ -36,14 +41,6 @@ public class ByteUtils {
 		ou[1] = (byte) ((in >> 16) & 0xff);
 		ou[2] = (byte) ((in >> 8) & 0xff);
 		ou[3] = (byte) (in & 0xff);
-		return ou;
-	}
-	
-	public static byte[] intToByteMSBTruncated(int in) {
-		byte[] ou = new byte[3];
-		ou[0] = (byte) ((in >> 24) & 0xff);
-		ou[1] = (byte) ((in >> 16) & 0xff);
-		ou[2] = (byte) ((in >> 8) & 0xff);
 		return ou;
 	}
 	
@@ -117,16 +114,20 @@ public class ByteUtils {
 	 * @param in
 	 * @return
 	 */
-	public static String intToHex(int in) {
-		return Integer.toOctalString(in);
+	public static String byteAryToAscii(byte[] in) {
+		return new String(in, DEF_CHARSET);
 	}
 
 	/**
-	 * @param in
+	 * @param array
 	 * @return
 	 */
-	public static String byteAryToAscii(byte[] in) {
-		return new String(in, DEF_CHARSET);
+	public static List<String> jsonArrayToStringList(JsonArray array) {
+		List<String> ary = new ArrayList<>();
+		for (JsonElement jsonElement : array) {
+			ary.add(jsonElement.getAsString());
+		}
+		return ary;
 	}
 
 }

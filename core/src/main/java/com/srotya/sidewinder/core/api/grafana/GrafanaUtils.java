@@ -26,7 +26,7 @@ import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.utils.GenericUtils;
+import com.srotya.sidewinder.core.utils.ByteUtils;
 
 /**
  * @author ambud
@@ -67,7 +67,7 @@ public class GrafanaUtils {
 			if (jsonElement != null) {
 				targetSeries.add(new TargetSeries(jsonElement.get("target").getAsString(),
 						jsonElement.get("field").getAsString(),
-						GenericUtils.jsonArrayToStringArray(jsonElement.get("filters").getAsJsonArray()),
+						ByteUtils.jsonArrayToStringList(jsonElement.get("filters").getAsJsonArray()),
 						jsonElement.get("correlate").getAsBoolean()));
 			}
 		}
