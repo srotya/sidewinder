@@ -11,7 +11,6 @@
   <properties>
     <dropwizard.version>1.0.2</dropwizard.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <rocksdb.version>4.9.0</rocksdb.version>
   </properties>
   <dependencies>
     <dependency>
@@ -89,15 +88,24 @@
       <groupId>org.apache.calcite</groupId>
       <artifactId>calcite-core</artifactId>
       <version>1.11.0</version>
+      <exclusions>
+      	<exclusion>
+      		<groupId>com.fasterxml.jackson.core</groupId>
+      		<artifactId>jackson-core</artifactId>
+      	</exclusion>
+      	<exclusion>
+      		<groupId>com.fasterxml.jackson.core</groupId>
+      		<artifactId>jackson-databind</artifactId>
+      	</exclusion>
+      	<exclusion>
+      		<groupId>com.fasterxml.jackson.core</groupId>
+      		<artifactId>jackson-annotations</artifactId>
+      	</exclusion>
+      </exclusions>
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>org.rocksdb</groupId>
-      <artifactId>rocksdbjni</artifactId>
-      <version>${rocksdb.version}</version>
     </dependency>
   </dependencies>
   <build>
