@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.srotya.sidewinder</groupId>
     <artifactId>sidewinder-parent</artifactId>
-    <version>0.0.4-SNAPSHOT</version>
+    <version>0.0.4</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <artifactId>sidewinder-core</artifactId>
@@ -89,18 +89,18 @@
       <artifactId>calcite-core</artifactId>
       <version>1.11.0</version>
       <exclusions>
-      	<exclusion>
-      		<groupId>com.fasterxml.jackson.core</groupId>
-      		<artifactId>jackson-core</artifactId>
-      	</exclusion>
-      	<exclusion>
-      		<groupId>com.fasterxml.jackson.core</groupId>
-      		<artifactId>jackson-databind</artifactId>
-      	</exclusion>
-      	<exclusion>
-      		<groupId>com.fasterxml.jackson.core</groupId>
-      		<artifactId>jackson-annotations</artifactId>
-      	</exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-databind</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-annotations</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
