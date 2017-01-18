@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Ambud Sharma
+ * Copyright 2017 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,9 @@ package com.srotya.sidewinder.core;
 import java.util.HashMap;
 
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
-import com.srotya.sidewinder.core.api.InfluxAPI;
+import com.srotya.sidewinder.core.api.InfluxApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
+import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.ingress.http.NettyHTTPIngestionServer;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -44,7 +45,8 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		env.jersey().register(new GrafanaQueryApi(storageEngine));
 		env.jersey().register(new MeasurementOpsApi(storageEngine));
 		env.jersey().register(new DatabaseOpsApi(storageEngine));
-		env.jersey().register(new InfluxAPI(storageEngine));
+		env.jersey().register(new InfluxApi(storageEngine));
+		env.jersey().register(new SqlApi(storageEngine));
 		NettyHTTPIngestionServer server = new NettyHTTPIngestionServer();
 		server.init(storageEngine, new HashMap<>());
 		server.start();

@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.api.grafana;
 
 import java.io.IOException;
+import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -54,7 +55,7 @@ public class GrafanaQueryApi {
 	private StorageEngine engine;
 	private TimeZone tz;
 
-	public GrafanaQueryApi(StorageEngine engine) {
+	public GrafanaQueryApi(StorageEngine engine) throws SQLException {
 		this.engine = engine;
 		tz = TimeZone.getDefault();
 	}
@@ -69,7 +70,7 @@ public class GrafanaQueryApi {
 			throw new NotFoundException("Database:" + dbName + " doesn't exist");
 		}
 	}
-
+	
 	@Path("/query")
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -77,7 +78,7 @@ public class GrafanaQueryApi {
 	public List<Target> query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
-//		System.err.println(gson.toJson(json));
+		// System.err.println(gson.toJson(json));
 
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		JsonObject range = json.get("range").getAsJsonObject();

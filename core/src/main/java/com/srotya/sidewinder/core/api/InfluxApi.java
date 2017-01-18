@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Ambud Sharma
+ * Copyright 2017 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,36 +15,41 @@
  */
 package com.srotya.sidewinder.core.api;
 
+import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
+import com.srotya.sidewinder.core.ingress.http.HTTPDataPointDecoder;
+import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
- * @author ambud.sharma
+ * @author ambud
  */
-@Path("/database/{" + DatabaseOpsApi.DB_NAME + "}")
-public class SqlOpsApi {
+@Path("/http")
+public class InfluxApi {
 
-//	private StorageEngine storageEngine;
+	private StorageEngine storageEngine;
 
-	public SqlOpsApi(StorageEngine storageEngine) {
-//		this.storageEngine = storageEngine;
+	public InfluxApi(StorageEngine storageEngine) {
+		this.storageEngine = storageEngine;
 	}
-
-	@Consumes({ MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN })
-	@Produces({ MediaType.APPLICATION_JSON })
-	@GET
-	public List<Map<Long, Double>> getData(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String sql) {
-		
-		return null;
+	
+	@POST
+	@Consumes({ MediaType.TEXT_PLAIN })
+	public void insertData(@QueryParam("db") String dbName, String payload) {
+		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString(dbName, payload);
+		for (DataPoint dp : dps) {
+			try {
+				storageEngine.writeDataPoint(dbName, dp);
+			} catch (IOException e) {
+			}
+		}
 	}
 
 }

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -137,9 +138,10 @@ public class MemStorageEngine implements StorageEngine {
 			}
 		}
 	}
-	
-	public List<Reader> queryReaders(String dbName, String measurementName, String valueFieldName, long startTime, long endTime) throws Exception {
-		List<Reader> readers = new ArrayList<>();
+
+	public LinkedHashMap<Reader, Boolean> queryReaders(String dbName, String measurementName, String valueFieldName,
+			long startTime, long endTime) throws Exception {
+		LinkedHashMap<Reader, Boolean> readers = new LinkedHashMap<>();
 		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap != null) {
 			SortedMap<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
@@ -157,7 +159,9 @@ public class MemStorageEngine implements StorageEngine {
 						continue;
 					}
 					List<String> seriesTags = decodeStringToTags(memTagIndex, keys[1]);
-					readers.addAll(series.queryReader(valueFieldName, seriesTags, startTime, endTime, null));
+					for (Reader reader : series.queryReader(valueFieldName, seriesTags, startTime, endTime, null)) {
+						readers.put(reader, series.isFp());
+					}
 				}
 			} else {
 				throw new ItemNotFoundException("Measurement " + measurementName + " not found");

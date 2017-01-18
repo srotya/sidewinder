@@ -39,12 +39,11 @@ public class SidewinderDatabaseSchema extends AbstractSchema {
 	@Override
 	protected Map<String, Table> getTableMap() {
 		Map<String, Table> tableMap = new HashMap<>();
-
 		try {
 			for (String measurementName : engine.getAllMeasurementsForDb(dbName)) {
 				for (String fieldName : engine.getFieldsForMeasurement(dbName, measurementName)) {
 					boolean isFp = engine.isMeasurementFieldFP(dbName, measurementName, fieldName);
-					tableMap.put(measurementName + "_" + fieldName,
+					tableMap.put((measurementName + "_" + fieldName).toUpperCase(),
 							new MeasurementTable(engine, dbName, measurementName, fieldName, isFp));
 				}
 			}
@@ -52,7 +51,7 @@ public class SidewinderDatabaseSchema extends AbstractSchema {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		System.out.println(tableMap);
+		System.err.println(tableMap);
 		return tableMap;
 	}
 
