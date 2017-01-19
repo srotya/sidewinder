@@ -51,21 +51,37 @@ public class TimeSeries {
 	private SortedMap<String, TimeSeriesBucket> bucketMap;
 	private boolean fp;
 	private AtomicInteger retentionBuckets;
-	private Logger logger;
+	private static final Logger logger = Logger.getLogger(TimeSeries.class.getName());
 	private String seriesId;
 	private int timeBucketSize;
 
+	/**
+	 * @param seriesId used for logger name
+	 * @param retentionHours duration of data that will be stored in this time series
+	 * @param timeBucketSize size of each time bucket (partition)
+	 * @param fp
+	 */
 	public TimeSeries(String seriesId, int retentionHours, int timeBucketSize, boolean fp) {
 		this.seriesId = seriesId;
 		this.timeBucketSize = timeBucketSize;
-		logger = Logger.getLogger(seriesId);
-		logger.fine("Created timeseries with bucket" + timeBucketSize);
 		retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(retentionHours);
 		this.fp = fp;
 		bucketMap = new ConcurrentSkipListMap<>();
 	}
 
+	/**
+	 * Extract {@link DataPoint}s for the supplied time range and value predicate.
+	 * 
+	 * Each {@link DataPoint} has the appendFieldValue and appendTags set in it.
+	 * 
+	 * @param appendFieldValueName fieldname to append to each datapoint
+	 * @param appendTags tags to append to each datapoint
+	 * @param startTime time range beginning
+	 * @param endTime time range end
+	 * @param valuePredicate pushed down filter for values
+	 * @return list of datapoints
+	 */
 	public List<DataPoint> queryDataPoints(String appendFieldValueName, List<String> appendTags, long startTime,
 			long endTime, Predicate valuePredicate) {
 		if (startTime > endTime) {
@@ -81,45 +97,48 @@ public class TimeSeries {
 		int tsEndBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
 		String endTsBucket = Integer.toHexString(tsEndBucket);
 		SortedMap<String, TimeSeriesBucket> series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
-		if (series == null || series.isEmpty()) {
-			TimeSeriesBucket timeSeries = bucketMap.get(startTsBucket);
-			if (timeSeries != null) {
-				seriesToDataPoints(appendFieldValueName, appendTags, points, timeSeries, timeRangePredicate,
-						valuePredicate, fp);
-			}
-		} else {
-			for (TimeSeriesBucket timeSeries : series.values()) {
-				seriesToDataPoints(appendFieldValueName, appendTags, points, timeSeries, timeRangePredicate,
-						valuePredicate, fp);
-			}
+		for (TimeSeriesBucket timeSeries : series.values()) {
+			seriesToDataPoints(appendFieldValueName, appendTags, points, timeSeries, timeRangePredicate,
+					valuePredicate, fp);
 		}
 		return points;
 	}
 
+	/**
+	 * Extract list of readers for the supplied time range and value predicate.
+	 * 
+	 * Each {@link DataPoint} has the appendFieldValue and appendTags set in it.
+	 * 
+	 * @param appendFieldValueName fieldname to append to each datapoint
+	 * @param appendTags tags to append to each datapoint
+	 * @param startTime time range beginning
+	 * @param endTime time range end
+	 * @param valuePredicate pushed down filter for values
+	 * @return list of readers
+	 */
 	public List<Reader> queryReader(String appendFieldValueName, List<String> appendTags, long startTime, long endTime,
 			Predicate valuePredicate) {
-		List<Reader> points = new ArrayList<>();
+		List<Reader> readers = new ArrayList<>();
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
 		int tsStartBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;
 		String startTsBucket = Integer.toHexString(tsStartBucket);
 		int tsEndBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
 		String endTsBucket = Integer.toHexString(tsEndBucket);
 		SortedMap<String, TimeSeriesBucket> series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
-		if (series == null || series.isEmpty()) {
-			TimeSeriesBucket timeSeries = bucketMap.get(startTsBucket);
-			if (timeSeries != null) {
-				points.add(
-						timeSeries.getReader(timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
-			}
-		} else {
-			for (TimeSeriesBucket timeSeries : series.values()) {
-				points.add(
-						timeSeries.getReader(timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
-			}
+		for (TimeSeriesBucket timeSeries : series.values()) {
+			readers.add(
+					timeSeries.getReader(timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
 		}
-		return points;
+		return readers;
 	}
 
+	/**
+	 * Add data point with non floating point value
+	 * @param unit of time for the supplied timestamp
+	 * @param timestamp of this data point
+	 * @param value of this data point
+	 * @throws RejectException
+	 */
 	public void addDataPoint(TimeUnit unit, long timestamp, long value) throws RejectException {
 		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
 		String tsBucket = Integer.toHexString(bucket);
@@ -131,6 +150,13 @@ public class TimeSeries {
 		timeseriesBucket.addDataPoint(timestamp, value);
 	}
 
+	/**
+	 * Add data point with floating point value
+	 * @param unit of time for the supplied timestamp
+	 * @param timestamp of this data point
+	 * @param value of this data point
+	 * @throws RejectException
+	 */
 	public void addDataPoint(TimeUnit unit, long timestamp, double value) throws RejectException {
 		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
 		String tsBucket = Integer.toHexString(bucket);

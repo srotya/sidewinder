@@ -33,6 +33,7 @@ import com.srotya.sidewinder.core.storage.RejectException;
  */
 public class TimeSeriesBucket implements Serializable {
 
+	private static final int DEFAULT_BUFFER_SIZE = 4096;
 	private static final long serialVersionUID = 1L;
 	private static final RejectException OLD_DATA_POINT = new RejectException("Rejected older datapoint");
 	private Writer writer;
@@ -41,7 +42,7 @@ public class TimeSeriesBucket implements Serializable {
 	private long lastTs;
 
 	public TimeSeriesBucket(int timeBucketSize, long headerTimestamp) {
-		this.output = new ByteBufferBitOutput(4096 * 16);
+		this.output = new ByteBufferBitOutput(DEFAULT_BUFFER_SIZE);
 		this.writer = new Writer(headerTimestamp, output);
 	}
 

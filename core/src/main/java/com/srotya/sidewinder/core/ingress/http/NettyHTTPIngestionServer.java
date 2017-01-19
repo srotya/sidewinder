@@ -52,7 +52,7 @@ public class NettyHTTPIngestionServer {
 
 	public void start() throws InterruptedException {
 		EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-		EventLoopGroup workerGroup = new NioEventLoopGroup(1);
+		EventLoopGroup workerGroup = new NioEventLoopGroup(4);
 
 		ServerBootstrap bs = new ServerBootstrap();
 		channel = bs.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)

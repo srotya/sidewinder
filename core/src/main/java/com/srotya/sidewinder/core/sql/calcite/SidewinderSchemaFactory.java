@@ -16,7 +16,6 @@
 package com.srotya.sidewinder.core.sql.calcite;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,7 +23,6 @@ import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaFactory;
 import org.apache.calcite.schema.SchemaPlus;
 
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.gorilla.MemStorageEngine;
 
 /**
@@ -34,19 +32,10 @@ public class SidewinderSchemaFactory implements SchemaFactory {
 
 	private MemStorageEngine engine;
 
-	public SidewinderSchemaFactory() {
+	public SidewinderSchemaFactory() throws IOException {
 		this.engine = new MemStorageEngine();
-		try {
-			this.engine.configure(new HashMap<>());
-			this.engine.connect();
-			for (int i = 1; i < 10; i++) {
-				engine.writeDataPoint("test", new DataPoint("test", "cpu", "value", Arrays.asList("host"),
-						System.currentTimeMillis() - 1000 + i * 10, 2.2 * i));
-			}
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		this.engine.configure(new HashMap<>());
+		this.engine.connect();
 	}
 
 	@Override

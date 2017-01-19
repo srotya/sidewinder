@@ -16,7 +16,6 @@
 package com.srotya.sidewinder.core.ingress.binary;
 
 import java.io.IOException;
-import java.util.concurrent.TimeUnit;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -45,14 +44,7 @@ public class SeriesDataPointWriter extends ChannelInboundHandlerAdapter {
 			return;
 		}
 		try {
-			if (dp.isFp()) {
-				engine.writeSeries(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(), dp.getTags(),
-						TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getValue(), null);
-			} else {
-				engine.writeSeries(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(), dp.getTags(),
-						TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getLongValue(), null);
-			}
-
+			engine.writeDataPoint(dp);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

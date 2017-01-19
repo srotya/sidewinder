@@ -26,7 +26,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -46,13 +45,11 @@ import com.srotya.linea.clustering.Columbus;
 import com.srotya.linea.clustering.WorkerEntry;
 import com.srotya.sidewinder.cluster.Utils;
 import com.srotya.sidewinder.core.predicates.Predicate;
-import com.srotya.sidewinder.core.storage.Callback;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.gorilla.MemStorageEngine;
-import com.srotya.sidewinder.core.storage.gorilla.Reader;
 import com.srotya.sidewinder.core.storage.gorilla.TimeSeries;
 
 /**
@@ -118,37 +115,13 @@ public class ClusteredMemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public void writeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags,
-			TimeUnit unit, long timestamp, long value, Callback callback) throws IOException {
-		int workerId = computeWorkerId(dbName, measurementName);
+	public void writeDataPoint(DataPoint dp) throws IOException {
+		int workerId = computeWorkerId(dp.getDbName(), dp.getMeasurementName());
 		if (workerId == columbus.getSelfWorkerId()) {
-			local.writeSeries(dbName, measurementName, valueFieldName, tags, unit, timestamp, value, callback);
-		} else {
+			local.writeDataPoint(dp);
+		}else {
 			TCPClient tcpClient = clients.get(workerId);
-			tcpClient.write(dbName, measurementName, tags, unit, timestamp, value);
-		}
-	}
-
-	@Override
-	public void writeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags,
-			TimeUnit unit, long timestamp, double value, Callback callback) throws IOException {
-		int workerId = computeWorkerId(dbName, measurementName);
-		if (workerId == columbus.getSelfWorkerId()) {
-			local.writeSeries(dbName, measurementName, valueFieldName, tags, unit, timestamp, value, callback);
-		} else {
-			TCPClient tcpClient = clients.get(workerId);
-			tcpClient.write(dbName, measurementName, tags, unit, timestamp, value);
-		}
-	}
-
-	@Override
-	public void writeDataPoint(String dbName, DataPoint dp) throws IOException {
-		if (dp.isFp()) {
-			writeSeries(dbName, dp.getMeasurementName(), dp.getValueFieldName(), dp.getTags(), TimeUnit.MILLISECONDS,
-					dp.getTimestamp(), dp.getValue(), null);
-		} else {
-			writeSeries(dbName, dp.getMeasurementName(), dp.getValueFieldName(), dp.getTags(), TimeUnit.MILLISECONDS,
-					dp.getTimestamp(), dp.getLongValue(), null);
+			tcpClient.write(dp);
 		}
 	}
 

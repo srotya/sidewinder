@@ -19,11 +19,10 @@ import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.nio.ByteBuffer;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 import com.srotya.linea.clustering.WorkerEntry;
+import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
@@ -42,15 +41,14 @@ public class TCPClient {
 	public void connect() throws IOException {
 		retryConnectLoop(entry);
 	}
-	
+
 	public void disconnect() throws IOException {
 		outputStream.close();
 	}
 
-	public void write(String dbName, String measurementName, List<String> tags, TimeUnit unit, long timestamp,
-			long value) throws IOException {
+	public void write(DataPoint dp) throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
-		encodeDPointToBuf(buf, dbName, measurementName, tags, timestamp, value);
+		encodeDPointToBuf(buf, dp);
 		try {
 			outputStream.write(buf.array());
 		} catch (Exception e) {
@@ -58,41 +56,21 @@ public class TCPClient {
 		}
 	}
 
-	public void write(String dbName, String measurementName, List<String> tags, TimeUnit unit, long timestamp,
-			double value) throws IOException {
-		ByteBuffer buf = ByteBuffer.allocate(1024);
-		encodeDPointToBuf(buf, dbName, measurementName, tags, timestamp, value);
-		try {
-			outputStream.write(buf.array());
-		} catch (Exception e) {
-			retryConnectLoop(entry);
+	public static void encodeDPointToBuf(ByteBuffer buf, DataPoint dp) {
+		byte[] db = dp.getDbName().getBytes();
+		buf.putInt(db.length);
+		buf.put(db);
+		byte[] measurement = dp.getMeasurementName().getBytes();
+		buf.putInt(measurement.length);
+		buf.put(measurement);
+		buf.putLong(dp.getTimestamp());
+		if (dp.isFp()) {
+			buf.putChar('0');
+			buf.putDouble(dp.getValue());
+		}else {
+			buf.putChar('1');
+			buf.putDouble(dp.getLongValue());
 		}
-	}
-
-	public static void encodeDPointToBuf(ByteBuffer buf, String dbName, String measurementName, List<String> tags,
-			long timestamp, double value) {
-		byte[] db = dbName.getBytes();
-		buf.putInt(db.length);
-		buf.put(db);
-		byte[] measurement = measurementName.getBytes();
-		buf.putInt(measurement.length);
-		buf.put(measurement);
-		buf.putLong(timestamp);
-		buf.putChar('0');
-		buf.putDouble(value);
-	}
-
-	public static void encodeDPointToBuf(ByteBuffer buf, String dbName, String measurementName, List<String> tags,
-			long timestamp, long value) {
-		byte[] db = dbName.getBytes();
-		buf.putInt(db.length);
-		buf.put(db);
-		byte[] measurement = measurementName.getBytes();
-		buf.putInt(measurement.length);
-		buf.put(measurement);
-		buf.putLong(timestamp);
-		buf.putChar('1');
-		buf.putLong(value);
 	}
 
 	private void retryConnectLoop(WorkerEntry value) throws IOException {

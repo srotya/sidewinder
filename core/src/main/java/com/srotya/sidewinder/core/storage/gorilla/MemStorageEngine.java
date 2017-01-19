@@ -33,7 +33,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
-import com.srotya.sidewinder.core.storage.Callback;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.RejectException;
@@ -74,7 +73,9 @@ public class MemStorageEngine implements StorageEngine {
 	private static final String TAG_SEPARATOR = "_";
 	private static final Logger logger = Logger.getLogger(MemStorageEngine.class.getName());
 	private static RejectException NOT_FOUND_EXCEPTION = new RejectException("Item not found");
-	private static RejectException INVALID_DATAPOINT_EXCEPTION = new RejectException("Floating point mismatch");
+	private static RejectException FP_MISMATCH_EXCEPTION = new RejectException("Floating point mismatch");
+	private static RejectException INVALID_DATAPOINT_EXCEPTION = new RejectException(
+			"Datapoint is missing required values");
 	private Map<String, Map<String, SortedMap<String, TimeSeries>>> databaseMap;
 	private AtomicInteger counter = new AtomicInteger(0);
 	private Map<String, Map<String, MemTagIndex>> tagLookupTable;
@@ -139,6 +140,15 @@ public class MemStorageEngine implements StorageEngine {
 		}
 	}
 
+	/**
+	 * @param dbName
+	 * @param measurementName
+	 * @param valueFieldName
+	 * @param startTime
+	 * @param endTime
+	 * @return
+	 * @throws Exception
+	 */
 	public LinkedHashMap<Reader, Boolean> queryReaders(String dbName, String measurementName, String valueFieldName,
 			long startTime, long endTime) throws Exception {
 		LinkedHashMap<Reader, Boolean> readers = new LinkedHashMap<>();
@@ -243,13 +253,22 @@ public class MemStorageEngine implements StorageEngine {
 		}
 	}
 
+	public static void validateDataPoint(String dbName, String measurementName, String valueFieldName,
+			List<String> tags, TimeUnit unit) throws RejectException {
+		if (dbName == null || measurementName == null || valueFieldName == null || tags == null || unit == null) {
+			throw INVALID_DATAPOINT_EXCEPTION;
+		}
+	}
+
 	@Override
-	public void writeDataPoint(String dbName, DataPoint dp) throws IOException {
-		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, dp.getMeasurementName(), dp.getValueFieldName(),
-				dp.getTags(), DEFAULT_TIME_BUCKET_CONSTANT, dp.isFp());
+	public void writeDataPoint(DataPoint dp) throws IOException {
+		validateDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(), dp.getTags(),
+				TimeUnit.MILLISECONDS);
+		TimeSeries timeSeries = getOrCreateTimeSeries(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
+				dp.getTags(), DEFAULT_RETENTION_HOURS, dp.isFp());
 		if (dp.isFp() != timeSeries.isFp()) {
 			// drop this datapoint, mixed series are not allowed
-			throw INVALID_DATAPOINT_EXCEPTION;
+			throw FP_MISMATCH_EXCEPTION;
 		}
 		if (dp.isFp()) {
 			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getValue());
@@ -259,14 +278,25 @@ public class MemStorageEngine implements StorageEngine {
 		counter.incrementAndGet();
 	}
 
-	@Override
-	public void writeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags,
-			TimeUnit unit, long timestamp, long value, Callback callback) throws IOException {
-		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				DEFAULT_TIME_BUCKET_CONSTANT, false);
-		timeSeries.addDataPoint(unit, timestamp, value);
-		counter.incrementAndGet();
-	}
+	/*
+	 * @Override public void writeDataPoint(String dbName, String
+	 * measurementName, String valueFieldName, List<String> tags, TimeUnit unit,
+	 * long timestamp, long value) throws IOException {
+	 * validateDataPoint(dbName, measurementName, valueFieldName, tags, unit);
+	 * TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName,
+	 * valueFieldName, tags, DEFAULT_TIME_BUCKET_CONSTANT, false);
+	 * timeSeries.addDataPoint(unit, timestamp, value);
+	 * counter.incrementAndGet(); }
+	 * 
+	 * @Override public void writeDataPoint(String dbName, String
+	 * measurementName, String valueFieldName, List<String> tags, TimeUnit unit,
+	 * long timestamp, double value) throws IOException {
+	 * validateDataPoint(dbName, measurementName, valueFieldName, tags, unit);
+	 * TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName,
+	 * valueFieldName, tags, DEFAULT_TIME_BUCKET_CONSTANT, true);
+	 * timeSeries.addDataPoint(unit, timestamp, value);
+	 * counter.incrementAndGet(); }
+	 */
 
 	public static String encodeTagsToString(MemTagIndex tagLookupTable, List<String> tags) {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);
@@ -401,15 +431,6 @@ public class MemStorageEngine implements StorageEngine {
 			lookupMap.put(measurementName, memTagLookupTable);
 		}
 		return memTagLookupTable;
-	}
-
-	@Override
-	public void writeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags,
-			TimeUnit unit, long timestamp, double value, Callback callback) throws IOException {
-		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				DEFAULT_TIME_BUCKET_CONSTANT, true);
-		timeSeries.addDataPoint(unit, timestamp, value);
-		counter.incrementAndGet();
 	}
 
 	@Override
