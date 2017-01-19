@@ -47,7 +47,7 @@ Sidewinder Jars can be found on [Maven Central](http://search.maven.org/#search%
 
 
 #### Docker
-Docker images are available ```docker push ambuds/sidewinder:latest```
+Docker images are available ```docker pull srotya/sidewinder:latest```
 
 # License
 
