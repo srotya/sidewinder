@@ -50,9 +50,6 @@ import com.srotya.sidewinder.core.storage.gorilla.MemStorageEngine;
 /**
  * REST API to service SQL queries
  * 
- * e.g. "select cpu_value,time_stamp from test.cpu_value where cpu_value>11.0
- * and tags like '%host%' and time_stamp>totimestamp(1484646984784)"
- * 
  * @author ambud
  */
 @Path("/sql")
