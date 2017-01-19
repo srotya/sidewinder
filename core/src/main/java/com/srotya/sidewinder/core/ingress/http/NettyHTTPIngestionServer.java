@@ -15,12 +15,9 @@
  */
 package com.srotya.sidewinder.core.ingress.http;
 
-import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.gorilla.MemStorageEngine;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -72,14 +69,6 @@ public class NettyHTTPIngestionServer {
 
 	public void stop() throws InterruptedException {
 		channel.closeFuture().await();
-	}
-
-	public static void main(String[] args) throws InterruptedException, IOException {
-		StorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
-		NettyHTTPIngestionServer server = new NettyHTTPIngestionServer();
-		server.init(engine, new HashMap<>());
-		server.start();
 	}
 
 }

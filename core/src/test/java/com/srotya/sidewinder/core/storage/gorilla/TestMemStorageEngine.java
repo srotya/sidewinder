@@ -58,31 +58,40 @@ public class TestMemStorageEngine {
 		final MemStorageEngine engine = new MemStorageEngine();
 		engine.configure(new HashMap<>());
 		long timeMillis = System.currentTimeMillis();
-		int tcount = 128;
+		int tcount = 32;
 		ExecutorService es = Executors.newCachedThreadPool();
-		int count = 1000000;
+		int count = 10000000;
 		final AtomicInteger rejects = new AtomicInteger(0);
 		for (int k = 0; k < tcount; k++) {
 			final int j = k;
-			es.submit(() -> {
-				long ts = System.currentTimeMillis();
-				List<String> asList = Arrays.asList("test", "test2");
-				for (int i = 0; i < count; i++) {
-					try {
-						DataPoint dp = new DataPoint("test", j + "cpu" + (i % 1000000), "value", asList, ts + i,
-								i * 1.1);
-						engine.writeDataPoint(dp);
-					} catch (IOException e) {
-						rejects.incrementAndGet();
+			es.submit(new Thread() {
+				@Override
+				public void run() {
+					long ts = System.currentTimeMillis();
+					for (int i = 0; i < count; i++) {
+						if (isInterrupted()) {
+							break;
+						}
+						try {
+							DataPoint dp = new DataPoint("test", j + "cpu", "value",
+									Arrays.asList(String.valueOf(i % 10000), "test2"), ts + i, i * 1.1);
+							engine.writeDataPoint(dp);
+						} catch (IOException e) {
+							rejects.incrementAndGet();
+						}
 					}
 				}
 			});
 		}
 		es.shutdown();
-		es.awaitTermination(15, TimeUnit.SECONDS);
+		es.awaitTermination(120, TimeUnit.SECONDS);
+		int backOff = 30;
+		while (!es.isTerminated()) {
+			backOff = backOff * 2;
+			Thread.sleep(backOff);
+		}
 		System.out.println("Write throughput direct " + tcount + "x" + count + ":"
 				+ (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get() + " rejects using " + tcount);
-		es.shutdownNow();
 	}
 
 	@Test

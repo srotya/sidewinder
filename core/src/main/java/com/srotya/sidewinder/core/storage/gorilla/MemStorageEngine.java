@@ -25,8 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.TreeMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -59,8 +58,6 @@ import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
  * doesn't run out of memory. Each timeseries has a <br>
  * <br>
  * 
- * 
- * 
  * @author ambud
  */
 public class MemStorageEngine implements StorageEngine {
@@ -87,9 +84,9 @@ public class MemStorageEngine implements StorageEngine {
 		this.defaultRetentionHours = Integer
 				.parseInt(conf.getOrDefault(RETENTION_HOURS, String.valueOf(DEFAULT_RETENTION_HOURS)));
 		logger.info("Setting default timeseries retention hours policy to:" + defaultRetentionHours);
-		tagLookupTable = new ConcurrentHashMap<>();
-		databaseMap = new ConcurrentHashMap<>();
-		databaseRetentionPolicyMap = new ConcurrentHashMap<>();
+		tagLookupTable = new HashMap<>();
+		databaseMap = new HashMap<>();
+		databaseRetentionPolicyMap = new HashMap<>();
 		Executors.newSingleThreadScheduledExecutor(new BackgrounThreadFactory()).scheduleAtFixedRate(() -> {
 			for (Map<String, SortedMap<String, TimeSeries>> map : databaseMap.values()) {
 				for (SortedMap<String, TimeSeries> sortedMap : map.values()) {
@@ -278,26 +275,6 @@ public class MemStorageEngine implements StorageEngine {
 		counter.incrementAndGet();
 	}
 
-	/*
-	 * @Override public void writeDataPoint(String dbName, String
-	 * measurementName, String valueFieldName, List<String> tags, TimeUnit unit,
-	 * long timestamp, long value) throws IOException {
-	 * validateDataPoint(dbName, measurementName, valueFieldName, tags, unit);
-	 * TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName,
-	 * valueFieldName, tags, DEFAULT_TIME_BUCKET_CONSTANT, false);
-	 * timeSeries.addDataPoint(unit, timestamp, value);
-	 * counter.incrementAndGet(); }
-	 * 
-	 * @Override public void writeDataPoint(String dbName, String
-	 * measurementName, String valueFieldName, List<String> tags, TimeUnit unit,
-	 * long timestamp, double value) throws IOException {
-	 * validateDataPoint(dbName, measurementName, valueFieldName, tags, unit);
-	 * TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName,
-	 * valueFieldName, tags, DEFAULT_TIME_BUCKET_CONSTANT, true);
-	 * timeSeries.addDataPoint(unit, timestamp, value);
-	 * counter.incrementAndGet(); }
-	 */
-
 	public static String encodeTagsToString(MemTagIndex tagLookupTable, List<String> tags) {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);
 		for (String tag : tags) {
@@ -319,10 +296,15 @@ public class MemStorageEngine implements StorageEngine {
 	public Map<String, SortedMap<String, TimeSeries>> getOrCreateDatabase(String dbName) {
 		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap == null) {
-			measurementMap = new ConcurrentSkipListMap<>();
-			databaseMap.put(dbName, measurementMap);
-			databaseRetentionPolicyMap.put(dbName, defaultRetentionHours);
-			logger.info("Created new database:" + dbName + "\t" + defaultRetentionHours);
+			synchronized (databaseMap) {
+				if ((measurementMap = databaseMap.get(dbName)) == null) {
+					measurementMap = new HashMap<>();
+					databaseMap.put(dbName, measurementMap);
+					databaseRetentionPolicyMap.put(dbName, defaultRetentionHours);
+					logger.info("Created new database:" + dbName + "\t with retention period:" + defaultRetentionHours
+							+ " hours");
+				}
+			}
 		}
 		return measurementMap;
 	}
@@ -337,22 +319,20 @@ public class MemStorageEngine implements StorageEngine {
 	@Override
 	public SortedMap<String, TimeSeries> getOrCreateMeasurement(String dbName, String measurementName) {
 		Map<String, SortedMap<String, TimeSeries>> measurementMap = getOrCreateDatabase(dbName);
-		SortedMap<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
-		if (seriesMap == null) {
-			seriesMap = new ConcurrentSkipListMap<>();
-			measurementMap.put(measurementName, seriesMap);
-			logger.fine("Created new measurement:" + measurementName);
-		}
-		return seriesMap;
+		return getOrCreateMeasurement(measurementMap, measurementName);
 	}
 
 	protected SortedMap<String, TimeSeries> getOrCreateMeasurement(
 			Map<String, SortedMap<String, TimeSeries>> measurementMap, String measurementName) {
 		SortedMap<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
 		if (seriesMap == null) {
-			seriesMap = new ConcurrentSkipListMap<>();
-			measurementMap.put(measurementName, seriesMap);
-			logger.fine("Created new measurement:" + measurementName);
+			synchronized (measurementMap) {
+				if ((seriesMap = measurementMap.get(measurementName)) == null) {
+					seriesMap = new TreeMap<>();
+					measurementMap.put(measurementName, seriesMap);
+					logger.info("Created new measurement:" + measurementName);
+				}
+			}
 		}
 		return seriesMap;
 	}
@@ -373,11 +353,15 @@ public class MemStorageEngine implements StorageEngine {
 		// check and create timeseries
 		TimeSeries timeSeries = measurementMap.get(rowKey);
 		if (timeSeries == null) {
-			timeSeries = new TimeSeries(measurementName + "_" + rowKey, databaseRetentionPolicyMap.get(dbName),
-					timeBucketSize, fp);
-			measurementMap.put(rowKey, timeSeries);
-			logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t" + rowKey
-					+ "\t" + databaseRetentionPolicyMap.get(dbName));
+			synchronized (measurementMap) {
+				if ((timeSeries = measurementMap.get(rowKey)) == null) {
+					timeSeries = new TimeSeries(measurementName + "_" + rowKey, databaseRetentionPolicyMap.get(dbName),
+							timeBucketSize, fp);
+					measurementMap.put(rowKey, timeSeries);
+					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
+							+ rowKey + "\t" + databaseRetentionPolicyMap.get(dbName));
+				}
+			}
 		}
 		return timeSeries;
 	}
@@ -418,17 +402,25 @@ public class MemStorageEngine implements StorageEngine {
 		}
 	}
 
-	private MemTagIndex getOrCreateMemTagIndex(String dbName, String measurementName) {
+	protected MemTagIndex getOrCreateMemTagIndex(String dbName, String measurementName) {
 		Map<String, MemTagIndex> lookupMap = tagLookupTable.get(dbName);
 		if (lookupMap == null) {
-			lookupMap = new ConcurrentHashMap<>();
-			tagLookupTable.put(dbName, lookupMap);
+			synchronized (tagLookupTable) {
+				if ((lookupMap = tagLookupTable.get(dbName)) == null) {
+					lookupMap = new HashMap<>();
+					tagLookupTable.put(dbName, lookupMap);
+				}
+			}
 		}
 
 		MemTagIndex memTagLookupTable = lookupMap.get(measurementName);
 		if (memTagLookupTable == null) {
-			memTagLookupTable = new MemTagIndex();
-			lookupMap.put(measurementName, memTagLookupTable);
+			synchronized (lookupMap) {
+				if ((memTagLookupTable = lookupMap.get(measurementName)) == null) {
+					memTagLookupTable = new MemTagIndex();
+					lookupMap.put(measurementName, memTagLookupTable);
+				}
+			}
 		}
 		return memTagLookupTable;
 	}
@@ -529,5 +521,25 @@ public class MemStorageEngine implements StorageEngine {
 		}
 		return results;
 	}
+
+	/*
+	 * @Override public void writeDataPoint(String dbName, String
+	 * measurementName, String valueFieldName, List<String> tags, TimeUnit unit,
+	 * long timestamp, long value) throws IOException {
+	 * validateDataPoint(dbName, measurementName, valueFieldName, tags, unit);
+	 * TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName,
+	 * valueFieldName, tags, DEFAULT_TIME_BUCKET_CONSTANT, false);
+	 * timeSeries.addDataPoint(unit, timestamp, value);
+	 * counter.incrementAndGet(); }
+	 * 
+	 * @Override public void writeDataPoint(String dbName, String
+	 * measurementName, String valueFieldName, List<String> tags, TimeUnit unit,
+	 * long timestamp, double value) throws IOException {
+	 * validateDataPoint(dbName, measurementName, valueFieldName, tags, unit);
+	 * TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName,
+	 * valueFieldName, tags, DEFAULT_TIME_BUCKET_CONSTANT, true);
+	 * timeSeries.addDataPoint(unit, timestamp, value);
+	 * counter.incrementAndGet(); }
+	 */
 
 }

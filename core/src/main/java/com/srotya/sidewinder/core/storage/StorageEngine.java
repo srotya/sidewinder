@@ -88,7 +88,7 @@ public interface StorageEngine {
 	
 	public Map<String, SortedMap<String, TimeSeries>> getOrCreateDatabase(String dbName, int retentionPolicy);
 
-	public SortedMap<String, TimeSeries> getOrCreateMeasurement(String dbName, String measurementName);
+	public Map<String, TimeSeries> getOrCreateMeasurement(String dbName, String measurementName);
 
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags,
 			int timeBucketSize, boolean fp);

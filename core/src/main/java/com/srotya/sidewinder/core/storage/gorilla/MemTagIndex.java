@@ -59,12 +59,16 @@ public class MemTagIndex {
 	public void index(String tag, String rowKey) {
 		Set<String> rowKeySet = rowKeyIndex.get(tag);
 		if (rowKeySet == null) {
-			rowKeySet = new ConcurrentHashSet<>();
-			rowKeyIndex.put(tag, rowKeySet);
+			synchronized (rowKeyIndex) {
+				if ((rowKeySet = rowKeyIndex.get(tag)) == null) {
+					rowKeySet = new ConcurrentHashSet<>();
+					rowKeyIndex.put(tag, rowKeySet);
+				}
+			}
 		}
 		rowKeySet.add(rowKey);
 	}
-	
+
 	public Set<String> searchRowKeysForTag(String tag) {
 		return rowKeyIndex.get(tag);
 	}
