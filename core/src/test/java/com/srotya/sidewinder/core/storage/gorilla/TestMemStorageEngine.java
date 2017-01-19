@@ -53,7 +53,7 @@ public class TestMemStorageEngine {
 
 	private Map<String, String> conf = new HashMap<>();
 
-	@Test
+//	@Test
 	public void testWritePerformanceDirect() throws IOException, InterruptedException {
 		final MemStorageEngine engine = new MemStorageEngine();
 		engine.configure(new HashMap<>());
