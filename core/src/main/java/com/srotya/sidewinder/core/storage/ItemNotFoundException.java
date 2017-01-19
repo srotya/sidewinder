@@ -16,6 +16,9 @@
 package com.srotya.sidewinder.core.storage;
 
 /**
+ * {@link Exception} thrown when a requested item is not found. This is an
+ * optimized exception therefore it doesn't capture stack trace.
+ * 
  * @author ambud
  */
 public class ItemNotFoundException extends Exception {
@@ -23,7 +26,6 @@ public class ItemNotFoundException extends Exception {
 	private static final long serialVersionUID = 1L;
 
 	public ItemNotFoundException() {
-		super();
 	}
 
 	public ItemNotFoundException(String message, Throwable cause, boolean enableSuppression,
@@ -41,6 +43,11 @@ public class ItemNotFoundException extends Exception {
 
 	public ItemNotFoundException(Throwable cause) {
 		super(cause);
+	}
+
+	@Override
+	public final synchronized Throwable fillInStackTrace() {
+		return this;
 	}
 
 }

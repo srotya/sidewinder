@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.RejectException;
 
 /**
  * Unit tests for {@link TimeSeries}
@@ -43,7 +44,7 @@ public class TestTimeSeries {
 	}
 
 	@Test
-	public void testAddDataPoint() throws IOException {
+	public void testAddAndReadDataPoints() throws IOException {
 		TimeSeries series = new TimeSeries("43232", 24, 4096, true);
 		long curr = System.currentTimeMillis();
 		for (int i = 1; i <= 3; i++) {
@@ -66,9 +67,51 @@ public class TestTimeSeries {
 		List<DataPoint> values = series.queryDataPoints("value", Arrays.asList("test"), curr, curr + 3, null);
 		assertEquals(3, values.size());
 		for (int i = 1; i <= 3; i++) {
-			assertEquals("Value mismatch:" + values.get(i - 1).getValue() + "\t" + (2.2 * i) + "\t" + i,
-					values.get(i - 1).getValue(), 2.2 * i, 0.01);
+			DataPoint dp = values.get(i - 1);
+			assertEquals("Value mismatch:" + dp.getValue() + "\t" + (2.2 * i) + "\t" + i, dp.getValue(), 2.2 * i, 0.01);
+			assertEquals("value", dp.getValueFieldName());
+			assertEquals(Arrays.asList("test"), dp.getTags());
 		}
+
+		List<Reader> queryReaders = series.queryReader("value", Arrays.asList("test"), curr, curr + 3, null);
+		assertEquals(1, queryReaders.size());
+		reader = queryReaders.get(0);
+		for (int i = 1; i <= 3; i++) {
+			DataPoint dp = reader.readPair();
+			assertEquals("Value mismatch:" + dp.getValue() + "\t" + (2.2 * i) + "\t" + i, dp.getValue(), 2.2 * i, 0.01);
+			assertEquals("value", dp.getValueFieldName());
+			assertEquals(Arrays.asList("test"), dp.getTags());
+		}
+
+		values = series.queryDataPoints("value", Arrays.asList("test"), curr - 1, curr - 1, null);
+		assertEquals(0, values.size());
+	}
+
+	@Test
+	public void testGarbageCollector() throws RejectException {
+		TimeSeries series = new TimeSeries("43232", 24, 4096, true);
+		long curr = 1484788896586L;
+		for (int i = 0; i <= 24; i++) {
+			series.addDataPoint(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
+		}
+		List<Reader> readers = series.queryReader("test", Arrays.asList("test"), curr, curr + (4096_000) * 23, null);
+		// should return 3 partitions
+		assertEquals(24, readers.size());
+		series.collectGarbage();
+		readers = series.queryReader("test", Arrays.asList("test"), curr, curr + (4096_000) * 26, null);
+		assertEquals(21, readers.size());
+
+		series = new TimeSeries("43232", 28, 4096, true);
+		curr = 1484788896586L;
+		for (int i = 0; i <= 24; i++) {
+			series.addDataPoint(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
+		}
+		readers = series.queryReader("test", Arrays.asList("test"), curr, curr + (4096_000) * 28, null);
+		// should return 25 partitions
+		assertEquals(25, readers.size());
+		series.collectGarbage();
+		readers = series.queryReader("test", Arrays.asList("test"), curr, curr + (4096_000) * 28, null);
+		assertEquals(24, readers.size());
 	}
 
 }

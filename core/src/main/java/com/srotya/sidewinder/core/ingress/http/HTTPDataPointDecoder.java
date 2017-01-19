@@ -128,7 +128,7 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 						List<DataPoint> dps = dataPointsFromString(dbName, payload);
 						for (DataPoint dp : dps) {
 							try {
-								engine.writeDataPoint(dbName, dp);
+								engine.writeDataPoint(dp);
 								logger.fine("Accepted:" + dp + "\t" + new Date(dp.getTimestamp()));
 							} catch (IOException e) {
 								logger.fine("Dropped:" + dp + "\t" + e.getMessage());

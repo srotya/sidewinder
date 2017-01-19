@@ -46,7 +46,7 @@ public class InfluxApi {
 		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString(dbName, payload);
 		for (DataPoint dp : dps) {
 			try {
-				storageEngine.writeDataPoint(dbName, dp);
+				storageEngine.writeDataPoint(dp);
 			} catch (IOException e) {
 			}
 		}

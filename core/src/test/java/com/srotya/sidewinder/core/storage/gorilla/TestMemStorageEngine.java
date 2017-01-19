@@ -24,8 +24,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -51,52 +53,25 @@ public class TestMemStorageEngine {
 
 	private Map<String, String> conf = new HashMap<>();
 
-//	@Test
-	public void testWritePerformance() throws IOException, InterruptedException {
-		final MemStorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
-		long timeMillis = System.currentTimeMillis();
-		int tcount = 8;
-		ExecutorService es = Executors.newFixedThreadPool(tcount);
-		int count = 1000000;
-		final AtomicInteger rejects = new AtomicInteger(0);
-		for (int k = 0; k < tcount; k++) {
-			final int j = k;
-			es.submit(() -> {
-				long ts = System.currentTimeMillis();
-				for (int i = 0; i < count; i++) {
-					try {
-						engine.writeDataPoint("test", new DataPoint("test", j + "cpu" + (i % 1000000), "value",
-								Arrays.asList("test", "test2"), ts + i, i * 1.1));
-					} catch (IOException e) {
-						rejects.incrementAndGet();
-					}
-				}
-			});
-		}
-		es.shutdown();
-		es.awaitTermination(10, TimeUnit.SECONDS);
-		System.out.println("Write throughput object " + tcount + "x" + count + ":"
-				+ (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get() + " rejects using " + tcount);
-	}
-
-//	@Test
+	@Test
 	public void testWritePerformanceDirect() throws IOException, InterruptedException {
 		final MemStorageEngine engine = new MemStorageEngine();
 		engine.configure(new HashMap<>());
 		long timeMillis = System.currentTimeMillis();
-		int tcount = 8;
-		ExecutorService es = Executors.newFixedThreadPool(tcount);
+		int tcount = 128;
+		ExecutorService es = Executors.newCachedThreadPool();
 		int count = 1000000;
 		final AtomicInteger rejects = new AtomicInteger(0);
 		for (int k = 0; k < tcount; k++) {
 			final int j = k;
 			es.submit(() -> {
 				long ts = System.currentTimeMillis();
+				List<String> asList = Arrays.asList("test", "test2");
 				for (int i = 0; i < count; i++) {
 					try {
-						engine.writeSeries("test", j + "cpu" + (i % 1000000), "value", Arrays.asList("test", "test2"),
-								TimeUnit.MILLISECONDS, ts + i, i * 1.1, null);
+						DataPoint dp = new DataPoint("test", j + "cpu" + (i % 1000000), "value", asList, ts + i,
+								i * 1.1);
+						engine.writeDataPoint(dp);
 					} catch (IOException e) {
 						rejects.incrementAndGet();
 					}
@@ -104,9 +79,10 @@ public class TestMemStorageEngine {
 			});
 		}
 		es.shutdown();
-		es.awaitTermination(10, TimeUnit.SECONDS);
+		es.awaitTermination(15, TimeUnit.SECONDS);
 		System.out.println("Write throughput direct " + tcount + "x" + count + ":"
 				+ (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get() + " rejects using " + tcount);
+		es.shutdownNow();
 	}
 
 	@Test
@@ -121,7 +97,7 @@ public class TestMemStorageEngine {
 	public void testConfigure() {
 		StorageEngine engine = new MemStorageEngine();
 		try {
-			engine.writeDataPoint("test",
+			engine.writeDataPoint(
 					new DataPoint("test", "ss", "value", Arrays.asList("te"), System.currentTimeMillis(), 2.2));
 			fail("Engine not initialized, shouldn't be able to write a datapoint");
 		} catch (Exception e) {
@@ -133,7 +109,7 @@ public class TestMemStorageEngine {
 			fail("No IOException should be thrown");
 		}
 		try {
-			engine.writeDataPoint("test",
+			engine.writeDataPoint(
 					new DataPoint("test", "ss", "value", Arrays.asList("te"), System.currentTimeMillis(), 2.2));
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -146,9 +122,8 @@ public class TestMemStorageEngine {
 		StorageEngine engine = new MemStorageEngine();
 		engine.configure(conf);
 		long ts = System.currentTimeMillis();
-		engine.writeSeries("test", "cpu", "value", Arrays.asList("test"), TimeUnit.MILLISECONDS, ts, 1, null);
-		engine.writeSeries("test", "cpu", "value", Arrays.asList("test"), TimeUnit.MILLISECONDS, ts + (400 * 60000), 4,
-				null);
+		engine.writeDataPoint(new DataPoint("test", "cpu", "value", Arrays.asList("test"), ts, 1));
+		engine.writeDataPoint(new DataPoint("test", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
 		Map<String, List<DataPoint>> queryDataPoints = engine.queryDataPoints("test", "cpu", "value", ts,
 				ts + (400 * 60000), null, null);
 		assertEquals(2, queryDataPoints.values().iterator().next().size());
@@ -160,12 +135,12 @@ public class TestMemStorageEngine {
 	public void testGetMeasurementsLike() throws IOException {
 		StorageEngine engine = new MemStorageEngine();
 		engine.configure(conf);
-		engine.writeSeries("test", "cpu", "value", Arrays.asList("test"), TimeUnit.MILLISECONDS,
-				System.currentTimeMillis(), 2L, null);
-		engine.writeSeries("test", "mem", "value", Arrays.asList("test"), TimeUnit.MILLISECONDS,
-				System.currentTimeMillis() + 10, 3L, null);
-		engine.writeSeries("test", "netm", "value", Arrays.asList("test"), TimeUnit.MILLISECONDS,
-				System.currentTimeMillis() + 20, 5L, null);
+		engine.writeDataPoint(
+				new DataPoint("test", "cpu", "value", Arrays.asList("test"), System.currentTimeMillis(), 2L));
+		engine.writeDataPoint(
+				new DataPoint("test", "mem", "value", Arrays.asList("test"), System.currentTimeMillis() + 10, 3L));
+		engine.writeDataPoint(
+				new DataPoint("test", "netm", "value", Arrays.asList("test"), System.currentTimeMillis() + 20, 5L));
 		Set<String> result = engine.getMeasurementsLike("test", " ");
 		assertEquals(3, result.size());
 
@@ -204,8 +179,7 @@ public class TestMemStorageEngine {
 		System.out.println("Base timestamp=" + new Date(ts));
 
 		for (int i = 0; i < 100; i++) {
-			engine.writeSeries(dbName, measurementName, "value", tags, TimeUnit.MILLISECONDS, ts + (i * 60000), 2.2,
-					null);
+			engine.writeDataPoint(new DataPoint(dbName, measurementName, "value", tags, ts + (i * 60000), 2.2));
 		}
 		System.out.println("Buckets:" + engine.getSeriesMap(dbName, measurementName).size());
 		long endTs = ts + 99 * 60000;
@@ -273,8 +247,8 @@ public class TestMemStorageEngine {
 				long ts = System.currentTimeMillis();
 				for (int i = 0; i < 1000; i++) {
 					try {
-						engine.writeSeries("test", "helo" + p, "value", Arrays.asList(""), TimeUnit.MILLISECONDS,
-								ts + i * 60, ts + i, null);
+						engine.writeDataPoint(
+								new DataPoint("test", "helo" + p, "value", Arrays.asList(""), ts + i * 60, ts + i));
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
@@ -287,4 +261,91 @@ public class TestMemStorageEngine {
 		System.out.println("Write time:" + (System.currentTimeMillis() - ts1) + "\tms");
 	}
 
+	@Test
+	public void testAddAndReaderDataPoints() throws Exception {
+		MemStorageEngine engine = new MemStorageEngine();
+		engine.configure(new HashMap<>());
+		long curr = System.currentTimeMillis();
+
+		String dbName = "test";
+		String measurementName = "cpu";
+		String valueFieldName = "value";
+		try {
+			engine.writeDataPoint(new DataPoint(dbName, measurementName, valueFieldName, null, curr, 2.2 * 0));
+			fail("Must reject the above datapoint due to missing tags");
+		} catch (RejectException e) {
+		}
+		for (int i = 1; i <= 3; i++) {
+			engine.writeDataPoint(
+					new DataPoint(dbName, measurementName, valueFieldName, Arrays.asList(dbName), curr + i, 2.2 * i));
+		}
+		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
+		LinkedHashMap<Reader, Boolean> readers = engine.queryReaders(dbName, measurementName, valueFieldName, curr,
+				curr + 3);
+		int count = 0;
+		for (Entry<Reader, Boolean> entry : readers.entrySet()) {
+			assertTrue(entry.getValue());
+			while (true) {
+				try {
+					DataPoint readPair = entry.getKey().readPair();
+					assertEquals(2.2 * (count + 1), readPair.getValue(), 0.01);
+					count++;
+				} catch (RejectException e) {
+					break;
+				}
+			}
+		}
+		assertEquals(3, count);
+	}
+
+	@Test
+	public void testAddAndReadDataPoints() throws Exception {
+		MemStorageEngine engine = new MemStorageEngine();
+		engine.configure(new HashMap<>());
+		long curr = System.currentTimeMillis();
+
+		String dbName = "test";
+		String measurementName = "cpu";
+		String valueFieldName = "value";
+		try {
+			engine.writeDataPoint(new DataPoint(dbName, measurementName, valueFieldName, null, curr, 2 * 0));
+			fail("Must reject the above datapoint due to missing tags");
+		} catch (RejectException e) {
+		}
+		for (int i = 1; i <= 3; i++) {
+			engine.writeDataPoint(
+					new DataPoint(dbName, measurementName, valueFieldName, Arrays.asList(dbName), curr + i, 2 * i));
+		}
+		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
+		Map<String, List<DataPoint>> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName,
+				curr, curr + 3, Arrays.asList(dbName), null);
+		assertEquals(1, queryDataPoints.size());
+		int i = 1;
+		assertEquals(3, queryDataPoints.values().iterator().next().size());
+		for (List<DataPoint> list : queryDataPoints.values()) {
+			for (DataPoint dataPoint : list) {
+				assertEquals(curr + i, dataPoint.getTimestamp());
+				i++;
+			}
+		}
+	}
+
+	/*
+	 * Test used for performance assessment of the old mechnism for data writes
+	 * using more parameters public void testWritePerformance() throws
+	 * IOException, InterruptedException { final MemStorageEngine engine = new
+	 * MemStorageEngine(); engine.configure(new HashMap<>()); long timeMillis =
+	 * System.currentTimeMillis(); int tcount = 8; ExecutorService es =
+	 * Executors.newFixedThreadPool(tcount); int count = 1000000; final
+	 * AtomicInteger rejects = new AtomicInteger(0); for (int k = 0; k < tcount;
+	 * k++) { final int j = k; es.submit(() -> { long ts =
+	 * System.currentTimeMillis(); for (int i = 0; i < count; i++) { try {
+	 * engine.writeDataPoint("test", new DataPoint("test", j + "cpu" + (i %
+	 * 1000000), "value", Arrays.asList("test", "test2"), ts + i, i * 1.1)); }
+	 * catch (IOException e) { rejects.incrementAndGet(); } } }); }
+	 * es.shutdown(); es.awaitTermination(10, TimeUnit.SECONDS);
+	 * System.out.println("Write throughput object " + tcount + "x" + count +
+	 * ":" + (System.currentTimeMillis() - timeMillis) + "ms with " +
+	 * rejects.get() + " rejects using " + tcount); }
+	 */
 }

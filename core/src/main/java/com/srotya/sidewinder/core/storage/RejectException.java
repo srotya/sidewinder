@@ -18,12 +18,16 @@ package com.srotya.sidewinder.core.storage;
 import java.io.IOException;
 
 /**
+ * {@link IOException} thrown when a data point is rejected.
+ * 
+ * This is an optimized exception, it doesn't capture stack trace.
+ * 
  * @author ambud
  */
 public class RejectException extends IOException {
 
 	private static final long serialVersionUID = 1L;
-	
+
 	public RejectException() {
 		super();
 	}

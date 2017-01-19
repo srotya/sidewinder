@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.concurrent.TimeUnit;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.gorilla.TimeSeries;
@@ -50,13 +49,7 @@ public interface StorageEngine {
 	 */
 	public void disconnect() throws IOException;
 
-	public void writeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags,
-			TimeUnit unit, long timestamp, long value, Callback callback) throws IOException;
-
-	public void writeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags,
-			TimeUnit unit, long timestamp, double value, Callback callback) throws IOException;
-
-	public void writeDataPoint(String dbName, DataPoint dp) throws IOException;
+	public void writeDataPoint(DataPoint dp) throws IOException;
 
 	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName, long startTime,
 			long endTime, List<String> tags, Predicate valuePredicate) throws ItemNotFoundException;
@@ -82,7 +75,6 @@ public interface StorageEngine {
 	public Set<String> getFieldsForMeasurement(String dbName, String measurementName) throws Exception;
 
 	// retention policy update methods
-	
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
 			List<String> tags, int retentionHours);
 
