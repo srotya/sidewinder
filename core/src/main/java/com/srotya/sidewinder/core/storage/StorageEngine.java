@@ -49,8 +49,25 @@ public interface StorageEngine {
 	 */
 	public void disconnect() throws IOException;
 
+	/**
+	 * Write datapoint to the storage engine
+	 * 
+	 * @param dp
+	 * @throws IOException
+	 */
 	public void writeDataPoint(DataPoint dp) throws IOException;
 
+	/**
+	 * @param dbName
+	 * @param measurementName
+	 * @param valueFieldName
+	 * @param startTime
+	 * @param endTime
+	 * @param tags
+	 * @param valuePredicate
+	 * @return
+	 * @throws ItemNotFoundException
+	 */
 	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName, long startTime,
 			long endTime, List<String> tags, Predicate valuePredicate) throws ItemNotFoundException;
 
