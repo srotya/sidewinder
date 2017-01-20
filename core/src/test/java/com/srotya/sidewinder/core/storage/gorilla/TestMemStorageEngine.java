@@ -53,14 +53,15 @@ public class TestMemStorageEngine {
 
 	private Map<String, String> conf = new HashMap<>();
 
-//	@Test
-	public void testWritePerformanceDirect() throws IOException, InterruptedException {
+	@Test
+	public void testWritePerformance() throws Exception {
 		final MemStorageEngine engine = new MemStorageEngine();
 		engine.configure(new HashMap<>());
 		long timeMillis = System.currentTimeMillis();
-		int tcount = 32;
+		int tcount = 12;
 		ExecutorService es = Executors.newCachedThreadPool();
-		int count = 10000000;
+		int count = 1000000;
+		final int modulator = 100;
 		final AtomicInteger rejects = new AtomicInteger(0);
 		for (int k = 0; k < tcount; k++) {
 			final int j = k;
@@ -73,8 +74,8 @@ public class TestMemStorageEngine {
 							break;
 						}
 						try {
-							DataPoint dp = new DataPoint("test", j + "cpu", "value",
-									Arrays.asList(String.valueOf(i % 10000), "test2"), ts + i, i * 1.1);
+							DataPoint dp = new DataPoint("test" + j, "cpu" + (i % modulator), "value",
+									Arrays.asList("test2"), ts + i, i * 1.1);
 							engine.writeDataPoint(dp);
 						} catch (IOException e) {
 							rejects.incrementAndGet();
@@ -91,7 +92,66 @@ public class TestMemStorageEngine {
 			Thread.sleep(backOff);
 		}
 		System.out.println("Write throughput direct " + tcount + "x" + count + ":"
-				+ (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get() + " rejects using " + tcount);
+				+ (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get() + " rejects using " + tcount
+				+ "\nWriting " + tcount + " each with " + (modulator) + " measurements");
+		assertEquals(tcount, engine.getDatabases().size());
+		for (int i = 0; i < tcount; i++) {
+			String dbName = "test" + i;
+			Set<String> allMeasurementsForDb = engine.getAllMeasurementsForDb(dbName);
+			assertEquals(modulator, allMeasurementsForDb.size());
+			for (String measurementName : allMeasurementsForDb) {
+				Map<String, List<DataPoint>> queryDataPoints = engine.queryDataPoints(dbName, measurementName, "value",
+						timeMillis - (3600_000 * 2000), timeMillis + (3600_000 * 2000), Arrays.asList("test2"), null);
+				assertEquals(1, queryDataPoints.size());
+				assertEquals(count / modulator, queryDataPoints.entrySet().iterator().next().getValue().size());
+			}
+		}
+	}
+	
+//	@Test
+	public void testWritePerformanceStress() throws Exception {
+		final MemStorageEngine engine = new MemStorageEngine();
+		engine.configure(new HashMap<>());
+		long timeMillis = System.currentTimeMillis();
+		int tcount = 64;
+		ExecutorService es = Executors.newCachedThreadPool();
+		int count = 10000000;
+		final int modulator = 100;
+		final AtomicInteger rejects = new AtomicInteger(0);
+		for (int k = 0; k < tcount; k++) {
+			final int j = k;
+			es.submit(new Thread() {
+				@Override
+				public void run() {
+					long ts = System.currentTimeMillis();
+					for (int i = 0; i < count; i++) {
+						if (isInterrupted()) {
+							break;
+						}
+						try {
+							DataPoint dp = new DataPoint(ts + i, i * 1.1);
+							dp.setDbName("test"+j);
+							dp.setMeasurementName("cpu");
+							dp.setTags(Arrays.asList("test2", String.valueOf( + (i % modulator))));
+							dp.setValueFieldName("value");
+							engine.writeDataPoint(dp);
+						} catch (IOException e) {
+							rejects.incrementAndGet();
+						}
+					}
+				}
+			});
+		}
+		es.shutdown();
+		es.awaitTermination(120, TimeUnit.SECONDS);
+		int backOff = 30;
+		while (!es.isTerminated()) {
+			backOff = backOff * 2;
+			Thread.sleep(backOff);
+		}
+		System.out.println("Write throughput direct " + tcount + "x" + count + ":"
+				+ (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get() + " rejects"
+				+ "\nWriting " + tcount + " each with " + (count/modulator) + " series");
 	}
 
 	@Test

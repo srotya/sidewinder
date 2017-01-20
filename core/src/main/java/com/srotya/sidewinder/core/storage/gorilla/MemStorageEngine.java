@@ -201,8 +201,8 @@ public class MemStorageEngine implements StorageEngine {
 					TimeSeries value = seriesMap.get(entry);
 					String[] keys = entry.split(FIELD_TAG_SEPARATOR);
 					if (keys.length != 2) {
-						// TODO report major error, series ingested without tag
-						// field encoding
+						// TODO report major error, series ingested without tag field encoding
+						logger.severe("Invalid series tag encode, series ingested without tag field encoding");
 						continue;
 					}
 					if (!keys[0].equals(valueFieldName)) {
