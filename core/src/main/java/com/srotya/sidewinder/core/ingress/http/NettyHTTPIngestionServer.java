@@ -49,7 +49,8 @@ public class NettyHTTPIngestionServer {
 
 	public void start() throws InterruptedException {
 		EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-		EventLoopGroup workerGroup = new NioEventLoopGroup(4);
+		EventLoopGroup workerGroup = new NioEventLoopGroup(2);
+		EventLoopGroup processorGroup = new NioEventLoopGroup(4);
 
 		ServerBootstrap bs = new ServerBootstrap();
 		channel = bs.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
@@ -61,7 +62,7 @@ public class NettyHTTPIngestionServer {
 						ChannelPipeline p = ch.pipeline();
 						p.addLast(new HttpRequestDecoder());
 						p.addLast(new HttpResponseEncoder());
-						p.addLast(new HTTPDataPointDecoder(storageEngine));
+						p.addLast(processorGroup, new HTTPDataPointDecoder(storageEngine));
 					}
 
 				}).bind("localhost", 9928).sync().channel();
