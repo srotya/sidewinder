@@ -15,43 +15,11 @@
  */
 package com.srotya.sidewinder.core.analytics;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-
-import com.srotya.sidewinder.core.storage.DataPoint;
-
 /**
  * @author ambud
  */
 public class CorrelationEngine {
 
-	/**
-	 * @param series
-	 */
-	public void correlate(List<DataPoint> base, Map<String, List<DataPoint>> series) {
-		checkAndCorrectLength(base, series);
-	}
-
-	public static void checkAndCorrectLength(List<DataPoint> base, Map<String, List<DataPoint>> series) {
-		for (Entry<String, List<DataPoint>> entry : series.entrySet()) {
-			if (entry.getValue().size() != base.size()) {
-				// fix this series
-			}
-		}
-	}
-
-	public static void alignTimeSeries(List<DataPoint> base, List<DataPoint> candidate) {
-		int i = 0;
-		int j = 0;
-		while (i < base.size()) {
-			if ((base.get(i).getTimestamp() - candidate.get(j).getTimestamp()) > 1000) {
-				candidate.add(j, new DataPoint(base.get(i).getTimestamp(), 0));
-				j++;
-			} else {
-				i++;
-			}
-		}
-	}
+	
 
 }
