@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
+import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
@@ -201,7 +203,8 @@ public class MemStorageEngine implements StorageEngine {
 					TimeSeries value = seriesMap.get(entry);
 					String[] keys = entry.split(FIELD_TAG_SEPARATOR);
 					if (keys.length != 2) {
-						// TODO report major error, series ingested without tag field encoding
+						// TODO report major error, series ingested without tag
+						// field encoding
 						logger.severe("Invalid series tag encode, series ingested without tag field encoding");
 						continue;
 					}
@@ -384,7 +387,7 @@ public class MemStorageEngine implements StorageEngine {
 		}
 	}
 
-	public String constructRowKey(String dbName, String measurementName, String valueFieldName, List<String> tags) {
+	protected String constructRowKey(String dbName, String measurementName, String valueFieldName, List<String> tags) {
 		MemTagIndex memTagLookupTable = getOrCreateMemTagIndex(dbName, measurementName);
 		String encodeTagsToString = encodeTagsToString(memTagLookupTable, tags);
 		StringBuilder rowKeyBuilder = new StringBuilder(valueFieldName.length() + 1 + encodeTagsToString.length());
@@ -394,6 +397,41 @@ public class MemStorageEngine implements StorageEngine {
 		String rowKey = rowKeyBuilder.toString();
 		indexRowKey(memTagLookupTable, rowKey, tags);
 		return rowKey;
+	}
+
+	public List<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags) {
+		List<String> series = new ArrayList<>();
+		MemTagIndex memTagLookupTable = getOrCreateMemTagIndex(dbName, measurementName);
+		for (String tag : tags) {
+			series.addAll(memTagLookupTable.searchRowKeysForTag(tag));
+		}
+		return series;
+	}
+
+	public List<String> getFilteredSeriesTags(String dbName, String measurementName, String valueFieldName,
+			Filter<List<String>> tagFilterTree, List<String> rawTags) {
+		List<String> filteredSeries = getSeriesIdsWhereTags(dbName, measurementName, rawTags);
+		for (Iterator<String> iterator = filteredSeries.iterator(); iterator.hasNext();) {
+			String rowKey = iterator.next();
+			if (!rowKey.startsWith(valueFieldName)) {
+				continue;
+			}
+			String[] keys = rowKey.split(FIELD_TAG_SEPARATOR);
+			if (keys.length != 2) {
+				// TODO report major error, series ingested without tag
+				// field encoding
+				logger.severe("Invalid series tag encode, series ingested without tag field encoding");
+				continue;
+			}
+			if (!keys[0].equals(valueFieldName)) {
+				continue;
+			}
+			List<String> seriesTags = decodeStringToTags(getOrCreateMemTagIndex(dbName, measurementName), keys[1]);
+			if (!tagFilterTree.isRetain(seriesTags)) {
+				iterator.remove();
+			}
+		}
+		return filteredSeries;
 	}
 
 	protected void indexRowKey(MemTagIndex memTagLookupTable, String rowKey, List<String> tags) {

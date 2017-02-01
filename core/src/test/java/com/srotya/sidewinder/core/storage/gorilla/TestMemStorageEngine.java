@@ -24,11 +24,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -107,52 +109,54 @@ public class TestMemStorageEngine {
 			}
 		}
 	}
-	
-//	@Test
-	public void testWritePerformanceStress() throws Exception {
-		final MemStorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
-		long timeMillis = System.currentTimeMillis();
-		int tcount = 64;
-		ExecutorService es = Executors.newCachedThreadPool();
-		int count = 10000000;
-		final int modulator = 100;
-		final AtomicInteger rejects = new AtomicInteger(0);
-		for (int k = 0; k < tcount; k++) {
-			final int j = k;
-			es.submit(new Thread() {
-				@Override
-				public void run() {
-					long ts = System.currentTimeMillis();
-					for (int i = 0; i < count; i++) {
-						if (isInterrupted()) {
-							break;
-						}
-						try {
-							DataPoint dp = new DataPoint(ts + i, i * 1.1);
-							dp.setDbName("test"+j);
-							dp.setMeasurementName("cpu");
-							dp.setTags(Arrays.asList("test2", String.valueOf( + (i % modulator))));
-							dp.setValueFieldName("value");
-							engine.writeDataPoint(dp);
-						} catch (IOException e) {
-							rejects.incrementAndGet();
-						}
-					}
-				}
-			});
-		}
-		es.shutdown();
-		es.awaitTermination(120, TimeUnit.SECONDS);
-		int backOff = 30;
-		while (!es.isTerminated()) {
-			backOff = backOff * 2;
-			Thread.sleep(backOff);
-		}
-		System.out.println("Write throughput direct " + tcount + "x" + count + ":"
-				+ (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get() + " rejects"
-				+ "\nWriting " + tcount + " each with " + (count/modulator) + " series");
-	}
+
+	// @Test
+	// public void testWritePerformanceStress() throws Exception {
+	// final MemStorageEngine engine = new MemStorageEngine();
+	// engine.configure(new HashMap<>());
+	// long timeMillis = System.currentTimeMillis();
+	// int tcount = 64;
+	// ExecutorService es = Executors.newCachedThreadPool();
+	// int count = 10000000;
+	// final int modulator = 100;
+	// final AtomicInteger rejects = new AtomicInteger(0);
+	// for (int k = 0; k < tcount; k++) {
+	// final int j = k;
+	// es.submit(new Thread() {
+	// @Override
+	// public void run() {
+	// long ts = System.currentTimeMillis();
+	// for (int i = 0; i < count; i++) {
+	// if (isInterrupted()) {
+	// break;
+	// }
+	// try {
+	// DataPoint dp = new DataPoint(ts + i, i * 1.1);
+	// dp.setDbName("test"+j);
+	// dp.setMeasurementName("cpu");
+	// dp.setTags(Arrays.asList("test2", String.valueOf( + (i % modulator))));
+	// dp.setValueFieldName("value");
+	// engine.writeDataPoint(dp);
+	// } catch (IOException e) {
+	// rejects.incrementAndGet();
+	// }
+	// }
+	// }
+	// });
+	// }
+	// es.shutdown();
+	// es.awaitTermination(120, TimeUnit.SECONDS);
+	// int backOff = 30;
+	// while (!es.isTerminated()) {
+	// backOff = backOff * 2;
+	// Thread.sleep(backOff);
+	// }
+	// System.out.println("Write throughput direct " + tcount + "x" + count +
+	// ":"
+	// + (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get()
+	// + " rejects"
+	// + "\nWriting " + tcount + " each with " + (count/modulator) + " series");
+	// }
 
 	@Test
 	public void testTagEncodeDecode() throws IOException {
@@ -191,13 +195,27 @@ public class TestMemStorageEngine {
 		StorageEngine engine = new MemStorageEngine();
 		engine.configure(conf);
 		long ts = System.currentTimeMillis();
+		Map<String, SortedMap<String, TimeSeries>> db = engine.getOrCreateDatabase("test", 24);
+		assertEquals(0, db.size());
 		engine.writeDataPoint(new DataPoint("test", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(new DataPoint("test", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
+		assertEquals(1, engine.getOrCreateMeasurement("test", "cpu").size());
 		Map<String, List<DataPoint>> queryDataPoints = engine.queryDataPoints("test", "cpu", "value", ts,
 				ts + (400 * 60000), null, null);
+		assertTrue(!engine.isMeasurementFieldFP("test", "cpu", "value"));
+		try {
+			engine.isMeasurementFieldFP("test", "test", "test");
+			fail("Measurement should not exist");
+		} catch (Exception e) {
+		}
 		assertEquals(2, queryDataPoints.values().iterator().next().size());
 		assertEquals(ts, queryDataPoints.values().iterator().next().get(0).getTimestamp());
 		assertEquals(ts + (400 * 60000), queryDataPoints.values().iterator().next().get(1).getTimestamp());
+		try {
+			engine.dropDatabase("test");
+		} catch (Exception e) {
+		}
+		assertEquals(0, engine.getOrCreateMeasurement("test", "cpu").size());
 	}
 
 	@Test
@@ -365,6 +383,13 @@ public class TestMemStorageEngine {
 			}
 		}
 		assertEquals(3, count);
+		assertTrue(engine.checkIfExists(dbName, measurementName));
+		try {
+			engine.checkIfExists(dbName + "1");
+		} catch (Exception e) {
+		}
+		engine.dropMeasurement(dbName, measurementName);
+		assertEquals(0, engine.getAllMeasurementsForDb(dbName).size());
 	}
 
 	@Test
@@ -381,13 +406,14 @@ public class TestMemStorageEngine {
 			fail("Must reject the above datapoint due to missing tags");
 		} catch (RejectException e) {
 		}
+		String tag = "host123123";
 		for (int i = 1; i <= 3; i++) {
 			engine.writeDataPoint(
-					new DataPoint(dbName, measurementName, valueFieldName, Arrays.asList(dbName), curr + i, 2 * i));
+					new DataPoint(dbName, measurementName, valueFieldName, Arrays.asList(tag), curr + i, 2 * i));
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
 		Map<String, List<DataPoint>> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName,
-				curr, curr + 3, Arrays.asList(dbName), null);
+				curr, curr + 3, Arrays.asList(tag), null);
 		assertEquals(1, queryDataPoints.size());
 		int i = 1;
 		assertEquals(3, queryDataPoints.values().iterator().next().size());
@@ -396,6 +422,34 @@ public class TestMemStorageEngine {
 				assertEquals(curr + i, dataPoint.getTimestamp());
 				i++;
 			}
+		}
+		Set<String> tags = engine.getTagsForMeasurement(dbName, measurementName);
+		assertEquals(new HashSet<>(Arrays.asList(tag)), tags);
+		Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
+		assertEquals(new HashSet<>(Arrays.asList(valueFieldName)), fieldsForMeasurement);
+
+		try {
+			engine.getTagsForMeasurement(dbName + "1", measurementName);
+			fail("This measurement should not exist");
+		} catch (Exception e) {
+		}
+
+		try {
+			engine.getTagsForMeasurement(dbName, measurementName + "1");
+			fail("This measurement should not exist");
+		} catch (Exception e) {
+		}
+
+		try {
+			engine.getFieldsForMeasurement(dbName + "1", measurementName);
+			fail("This measurement should not exist");
+		} catch (Exception e) {
+		}
+
+		try {
+			engine.getFieldsForMeasurement(dbName, measurementName + "1");
+			fail("This measurement should not exist");
+		} catch (Exception e) {
 		}
 	}
 
