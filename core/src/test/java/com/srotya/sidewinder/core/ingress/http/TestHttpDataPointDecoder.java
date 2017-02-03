@@ -110,7 +110,7 @@ public class TestHttpDataPointDecoder {
 		assertEquals(0, dp.getTags().size());
 		assertEquals(1, dp.getLongValue());
 		long ts = System.currentTimeMillis();
-		assertEquals(1, (dp.getTimestamp() / ts));
+		assertEquals(1, (dp.getTimestamp() / ts), 1);
 	}
 
 	@Test
@@ -123,7 +123,7 @@ public class TestHttpDataPointDecoder {
 		assertEquals(0, dp.getTags().size());
 		assertEquals(1.2, dp.getValue(), 0.01);
 		long ts = System.currentTimeMillis();
-		assertEquals(1, (dp.getTimestamp() / ts));
+		assertEquals(1, (dp.getTimestamp() / ts), 1);
 	}
 
 }
