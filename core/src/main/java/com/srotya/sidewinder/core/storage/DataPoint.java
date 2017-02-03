@@ -38,6 +38,13 @@ public class DataPoint implements Serializable {
 	public DataPoint(long timestamp, long value) {
 		this.timestamp = timestamp;
 		this.value = value;
+		isFp = false;
+	}
+	
+	public DataPoint(long timestamp, double value) {
+		this.timestamp = timestamp;
+		this.value = Double.doubleToLongBits(value);
+		isFp = true;
 	}
 
 	public DataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags, long timestamp,

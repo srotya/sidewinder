@@ -15,12 +15,9 @@
  */
 package com.srotya.sidewinder.core.ingress.binary;
 
-import java.io.IOException;
-import java.util.HashMap;
 import java.util.Map;
 
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.gorilla.MemStorageEngine;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -69,13 +66,5 @@ public class NettyBinaryIngestionServer {
 
 	public void stop() throws InterruptedException {
 		channel.closeFuture().await();
-	}
-
-	public static void main(String[] args) throws InterruptedException, IOException {
-		StorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
-		NettyBinaryIngestionServer server = new NettyBinaryIngestionServer();
-		server.init(engine, new HashMap<>());
-		server.start();
 	}
 }

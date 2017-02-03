@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 
+import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.gorilla.TimeSeries;
 
@@ -49,10 +50,30 @@ public interface StorageEngine {
 	 */
 	public void disconnect() throws IOException;
 
+	/**
+	 * Write datapoint to the storage engine
+	 * 
+	 * @param dp
+	 * @throws IOException
+	 */
 	public void writeDataPoint(DataPoint dp) throws IOException;
 
+	/**
+	 * @param dbName
+	 * @param measurementName
+	 * @param valueFieldName
+	 * @param startTime
+	 * @param endTime
+	 * @param tags
+	 * @param valuePredicate
+	 * @return
+	 * @throws ItemNotFoundException
+	 */
 	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName, long startTime,
 			long endTime, List<String> tags, Predicate valuePredicate) throws ItemNotFoundException;
+	
+	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName, long startTime,
+			long endTime, List<String> tagList, Filter<List<String>> tagFilter, Predicate valuePredicate) throws ItemNotFoundException;
 
 	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws IOException;
 
@@ -88,7 +109,7 @@ public interface StorageEngine {
 	
 	public Map<String, SortedMap<String, TimeSeries>> getOrCreateDatabase(String dbName, int retentionPolicy);
 
-	public SortedMap<String, TimeSeries> getOrCreateMeasurement(String dbName, String measurementName);
+	public Map<String, TimeSeries> getOrCreateMeasurement(String dbName, String measurementName);
 
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags,
 			int timeBucketSize, boolean fp);

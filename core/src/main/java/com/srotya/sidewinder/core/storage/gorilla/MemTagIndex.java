@@ -39,6 +39,11 @@ public class MemTagIndex {
 		rowKeyIndex = new ConcurrentHashMap<>();
 	}
 
+	/**
+	 * Hashes the tag to UI
+	 * @param tag
+	 * @return uid
+	 */
 	public String createEntry(String tag) {
 		int hash32 = MurmurHash.hash32(tag);
 		String val = tagMap.get(hash32);
@@ -56,15 +61,24 @@ public class MemTagIndex {
 		return new HashSet<>(tagMap.values());
 	}
 
+	/**
+	 * Indexes tag in the row key, creating an adjacency list
+	 * @param tag
+	 * @param rowKey
+	 */
 	public void index(String tag, String rowKey) {
 		Set<String> rowKeySet = rowKeyIndex.get(tag);
 		if (rowKeySet == null) {
-			rowKeySet = new ConcurrentHashSet<>();
-			rowKeyIndex.put(tag, rowKeySet);
+			synchronized (rowKeyIndex) {
+				if ((rowKeySet = rowKeyIndex.get(tag)) == null) {
+					rowKeySet = new ConcurrentHashSet<>();
+					rowKeyIndex.put(tag, rowKeySet);
+				}
+			}
 		}
 		rowKeySet.add(rowKey);
 	}
-	
+
 	public Set<String> searchRowKeysForTag(String tag) {
 		return rowKeyIndex.get(tag);
 	}
