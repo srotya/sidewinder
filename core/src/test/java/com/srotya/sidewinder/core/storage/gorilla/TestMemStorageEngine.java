@@ -38,6 +38,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.AndFilter;
+import com.srotya.sidewinder.core.filters.ContainsFilter;
+import com.srotya.sidewinder.core.filters.Filter;
+import com.srotya.sidewinder.core.filters.OrFilter;
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -390,6 +394,44 @@ public class TestMemStorageEngine {
 		}
 		engine.dropMeasurement(dbName, measurementName);
 		assertEquals(0, engine.getAllMeasurementsForDb(dbName).size());
+	}
+
+	@Test
+	public void testTagFiltering() throws Exception {
+		MemStorageEngine engine = new MemStorageEngine();
+		engine.configure(new HashMap<>());
+		long curr = System.currentTimeMillis();
+		String dbName = "test";
+		String measurementName = "cpu";
+		String valueFieldName = "value";
+
+		for (int i = 1; i <= 3; i++) {
+			engine.writeDataPoint(new DataPoint(dbName, measurementName, valueFieldName,
+					Arrays.asList(String.valueOf(i), String.valueOf(i + 7)), curr, 2 * i));
+		}
+
+		for (int i = 1; i <= 3; i++) {
+			engine.writeDataPoint(new DataPoint(dbName, measurementName, valueFieldName + "2",
+					Arrays.asList(String.valueOf(i), String.valueOf(i + 12)), curr, 2 * i));
+		}
+		Set<String> tags = engine.getTagsForMeasurement(dbName, measurementName);
+		assertEquals(9, tags.size());
+		Set<String> series = engine.getSeriesIdsWhereTags(dbName, measurementName, Arrays.asList(String.valueOf(1)));
+		assertEquals(2, series.size());
+
+		Filter<List<String>> tagFilterTree = new OrFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("1"),
+				new ContainsFilter<String, List<String>>("2")));
+		series = engine.getFilteredSeriesTags(dbName, measurementName, valueFieldName, tagFilterTree,
+				Arrays.asList("1", "2"));
+		assertEquals(2, series.size());
+
+		System.out.println(engine.getTagsForMeasurement(dbName, measurementName));
+		tagFilterTree = new AndFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("1"),
+				new ContainsFilter<String, List<String>>("8")));
+		series = engine.getFilteredSeriesTags(dbName, measurementName, valueFieldName, tagFilterTree,
+				Arrays.asList("1", "8"));
+		System.out.println("Series::"+series);
+		assertEquals(1, series.size());
 	}
 
 	@Test
