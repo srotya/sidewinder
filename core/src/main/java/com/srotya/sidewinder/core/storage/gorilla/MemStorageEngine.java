@@ -194,10 +194,56 @@ public class MemStorageEngine implements StorageEngine {
 				if (tags != null && tags.size() > 0) {
 					for (String tag : tags) {
 						Set<String> temp = memTagIndex.searchRowKeysForTag(tag);
-						rowKeys.addAll(temp);
+						if (temp != null) {
+							rowKeys.addAll(temp);
+						}
 					}
 				} else {
 					rowKeys.addAll(seriesMap.keySet());
+				}
+				for (String entry : rowKeys) {
+					TimeSeries value = seriesMap.get(entry);
+					String[] keys = entry.split(FIELD_TAG_SEPARATOR);
+					if (keys.length != 2) {
+						// TODO report major error, series ingested without tag
+						// field encoding
+						logger.severe("Invalid series tag encode, series ingested without tag field encoding");
+						continue;
+					}
+					if (!keys[0].equals(valueFieldName)) {
+						continue;
+					}
+					List<DataPoint> points = new ArrayList<>();
+					List<String> seriesTags = decodeStringToTags(memTagIndex, keys[1]);
+					points.addAll(value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate));
+					if (points.size() > 0) {
+						resultMap.put(measurementName + "-" + keys[0] + tagToString(seriesTags), points);
+					}
+				}
+			} else {
+				throw new ItemNotFoundException("Measurement " + measurementName + " not found");
+			}
+		} else {
+			throw new ItemNotFoundException("Database " + dbName + " not found");
+		}
+		return resultMap;
+	}
+
+	@Override
+	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName,
+			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
+			Predicate valuePredicate) throws ItemNotFoundException {
+		Map<String, List<DataPoint>> resultMap = new HashMap<>();
+		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
+		if (measurementMap != null) {
+			SortedMap<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
+			if (seriesMap != null) {
+				MemTagIndex memTagIndex = getOrCreateMemTagIndex(dbName, measurementName);
+				Set<String> rowKeys = null;
+				if (tagList.size() == 0) {
+					rowKeys = seriesMap.keySet();
+				} else {
+					rowKeys = getTagFilteredRowKeys(dbName, measurementName, valueFieldName, tagFilter, tagList);
 				}
 				for (String entry : rowKeys) {
 					TimeSeries value = seriesMap.get(entry);
@@ -399,18 +445,21 @@ public class MemStorageEngine implements StorageEngine {
 		return rowKey;
 	}
 
-	public List<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags) {
-		List<String> series = new ArrayList<>();
+	public Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags) {
+		Set<String> series = new HashSet<>();
 		MemTagIndex memTagLookupTable = getOrCreateMemTagIndex(dbName, measurementName);
 		for (String tag : tags) {
-			series.addAll(memTagLookupTable.searchRowKeysForTag(tag));
+			Set<String> keys = memTagLookupTable.searchRowKeysForTag(tag);
+			if (keys != null) {
+				series.addAll(keys);
+			}
 		}
 		return series;
 	}
 
-	public List<String> getFilteredSeriesTags(String dbName, String measurementName, String valueFieldName,
+	public Set<String> getTagFilteredRowKeys(String dbName, String measurementName, String valueFieldName,
 			Filter<List<String>> tagFilterTree, List<String> rawTags) {
-		List<String> filteredSeries = getSeriesIdsWhereTags(dbName, measurementName, rawTags);
+		Set<String> filteredSeries = getSeriesIdsWhereTags(dbName, measurementName, rawTags);
 		for (Iterator<String> iterator = filteredSeries.iterator(); iterator.hasNext();) {
 			String rowKey = iterator.next();
 			if (!rowKey.startsWith(valueFieldName)) {
@@ -421,9 +470,11 @@ public class MemStorageEngine implements StorageEngine {
 				// TODO report major error, series ingested without tag
 				// field encoding
 				logger.severe("Invalid series tag encode, series ingested without tag field encoding");
+				iterator.remove();
 				continue;
 			}
 			if (!keys[0].equals(valueFieldName)) {
+				iterator.remove();
 				continue;
 			}
 			List<String> seriesTags = decodeStringToTags(getOrCreateMemTagIndex(dbName, measurementName), keys[1]);

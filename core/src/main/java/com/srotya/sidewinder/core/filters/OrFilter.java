@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.filters;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -23,6 +24,10 @@ import java.util.List;
  * @param <E>
  */
 public class OrFilter<E> extends ComplexFilter<E> {
+	
+	public OrFilter() {
+		super(new ArrayList<>());
+	}
 
 	public OrFilter(List<Filter<E>> filter) {
 		super(filter);

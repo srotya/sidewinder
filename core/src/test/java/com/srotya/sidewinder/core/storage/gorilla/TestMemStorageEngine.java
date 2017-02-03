@@ -421,17 +421,78 @@ public class TestMemStorageEngine {
 
 		Filter<List<String>> tagFilterTree = new OrFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("1"),
 				new ContainsFilter<String, List<String>>("2")));
-		series = engine.getFilteredSeriesTags(dbName, measurementName, valueFieldName, tagFilterTree,
+		series = engine.getTagFilteredRowKeys(dbName, measurementName, valueFieldName, tagFilterTree,
 				Arrays.asList("1", "2"));
 		assertEquals(2, series.size());
 
 		System.out.println(engine.getTagsForMeasurement(dbName, measurementName));
 		tagFilterTree = new AndFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("1"),
 				new ContainsFilter<String, List<String>>("8")));
-		series = engine.getFilteredSeriesTags(dbName, measurementName, valueFieldName, tagFilterTree,
+		series = engine.getTagFilteredRowKeys(dbName, measurementName, valueFieldName, tagFilterTree,
 				Arrays.asList("1", "8"));
-		System.out.println("Series::"+series);
+		System.out.println("Series::" + series);
 		assertEquals(1, series.size());
+	}
+
+	@Test
+	public void testAddAndReadDataPointsWithTagFilters() throws Exception {
+		MemStorageEngine engine = new MemStorageEngine();
+		engine.configure(new HashMap<>());
+		long curr = System.currentTimeMillis();
+
+		String dbName = "test";
+		String measurementName = "cpu";
+		String valueFieldName = "value";
+		String tag = "host123123";
+
+		for (int i = 1; i <= 3; i++) {
+			engine.writeDataPoint(new DataPoint(dbName, measurementName, valueFieldName,
+					Arrays.asList(tag + i, tag + (i + 1)), curr + i, 2 * i));
+		}
+		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
+
+		ContainsFilter<String, List<String>> filter1 = new ContainsFilter<String, List<String>>(tag + 1);
+		ContainsFilter<String, List<String>> filter2 = new ContainsFilter<String, List<String>>(tag + 2);
+
+		Map<String, List<DataPoint>> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName,
+				curr, curr + 3, Arrays.asList(tag + 1, tag + 2), new OrFilter<>(Arrays.asList(filter1, filter2)), null);
+		assertEquals(2, queryDataPoints.size());
+		int i = 1;
+		assertEquals(1, queryDataPoints.values().iterator().next().size());
+		for (List<DataPoint> list : queryDataPoints.values()) {
+			for (DataPoint dataPoint : list) {
+				assertEquals(curr + i, dataPoint.getTimestamp());
+				i++;
+			}
+		}
+		Set<String> tags = engine.getTagsForMeasurement(dbName, measurementName);
+		assertEquals(new HashSet<>(Arrays.asList(tag + 1, tag + 2, tag + 3, tag + 4)), tags);
+		Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
+		assertEquals(new HashSet<>(Arrays.asList(valueFieldName)), fieldsForMeasurement);
+
+		try {
+			engine.getTagsForMeasurement(dbName + "1", measurementName);
+			fail("This measurement should not exist");
+		} catch (Exception e) {
+		}
+
+		try {
+			engine.getTagsForMeasurement(dbName, measurementName + "1");
+			fail("This measurement should not exist");
+		} catch (Exception e) {
+		}
+
+		try {
+			engine.getFieldsForMeasurement(dbName + "1", measurementName);
+			fail("This measurement should not exist");
+		} catch (Exception e) {
+		}
+
+		try {
+			engine.getFieldsForMeasurement(dbName, measurementName + "1");
+			fail("This measurement should not exist");
+		} catch (Exception e) {
+		}
 	}
 
 	@Test
