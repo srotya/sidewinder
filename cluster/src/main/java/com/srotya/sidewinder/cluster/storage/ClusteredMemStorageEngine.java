@@ -44,6 +44,7 @@ import com.srotya.linea.Topology;
 import com.srotya.linea.clustering.Columbus;
 import com.srotya.linea.clustering.WorkerEntry;
 import com.srotya.sidewinder.cluster.Utils;
+import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
@@ -405,6 +406,14 @@ public class ClusteredMemStorageEngine implements StorageEngine {
 			throws RejectException {
 		// TODO Auto-generated method stub
 		return false;
+	}
+
+	@Override
+	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName,
+			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
+			Predicate valuePredicate) throws ItemNotFoundException {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

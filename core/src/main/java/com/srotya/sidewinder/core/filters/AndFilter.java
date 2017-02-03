@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.filters;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -23,6 +24,10 @@ import java.util.List;
  * @param <E>
  */
 public class AndFilter<E> extends ComplexFilter<E>{
+	
+	public AndFilter() {
+		super(new ArrayList<>());
+	}
 
 	public AndFilter(List<Filter<E>> filter) {
 		super(filter);

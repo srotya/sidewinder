@@ -35,4 +35,12 @@ public class ContainsFilter<K, E extends List<K>> implements Filter<E> {
 		return value.contains(literal);
 	}
 
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "ContainsFilter [literal=" + literal + "]";
+	}
+
 }

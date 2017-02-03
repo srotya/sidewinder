@@ -46,5 +46,17 @@ public abstract class ComplexFilter<E> implements Filter<E> {
 	public abstract boolean shortCircuit(boolean prev, boolean current);
 
 	public abstract boolean operator(boolean prev, Filter<E> next, E value);
+	
+	public void addFilter(Filter<E> operator) {
+		operators.add(operator);
+	}
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "ComplexFilter [operators=" + operators + "]";
+	}
 
 }
