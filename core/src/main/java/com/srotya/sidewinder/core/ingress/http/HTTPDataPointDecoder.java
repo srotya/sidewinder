@@ -26,9 +26,11 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import com.google.gson.Gson;
@@ -167,10 +169,11 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 				}
 				String[] key = parts[0].split(",");
 				String measurementName = key[0];
-				List<String> tags = new ArrayList<>();
+				Set<String> tTags = new HashSet<>();
 				for (int i = 1; i < key.length; i++) {
-					tags.add(key[i]);
+					tTags.add(key[i]);
 				}
+				List<String> tags = new ArrayList<>(tTags);
 				String[] fields = parts[1].split(",");
 				for (String field : fields) {
 					String[] fv = field.split("=");
