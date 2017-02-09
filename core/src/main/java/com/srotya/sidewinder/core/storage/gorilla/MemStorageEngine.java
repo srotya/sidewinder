@@ -26,7 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -377,7 +377,7 @@ public class MemStorageEngine implements StorageEngine {
 		if (seriesMap == null) {
 			synchronized (measurementMap) {
 				if ((seriesMap = measurementMap.get(measurementName)) == null) {
-					seriesMap = new TreeMap<>();
+					seriesMap = new ConcurrentSkipListMap<>();
 					measurementMap.put(measurementName, seriesMap);
 					logger.info("Created new measurement:" + measurementName);
 				}
