@@ -26,6 +26,7 @@ import javax.ws.rs.NotFoundException;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.filters.AndFilter;
+import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.filters.ComplexFilter;
 import com.srotya.sidewinder.core.filters.ContainsFilter;
 import com.srotya.sidewinder.core.filters.Filter;
@@ -71,14 +72,14 @@ public class GrafanaUtils {
 		JsonArray targets = json.get("targets").getAsJsonArray();
 		for (int i = 0; i < targets.size(); i++) {
 			JsonObject jsonElement = targets.get(i).getAsJsonObject();
-			if (jsonElement != null) {
+			if (jsonElement != null && jsonElement.has("target") && jsonElement.has("field")
+					&& jsonElement.has("correlate")) {
 				List<String> filterElements = new ArrayList<>();
 				Filter<List<String>> filter = extractGrafanaFilter(jsonElement, filterElements);
 				targetSeries.add(new TargetSeries(jsonElement.get("target").getAsString(),
 						jsonElement.get("field").getAsString(), filterElements, filter,
 						jsonElement.get("correlate").getAsBoolean()));
 			}
-			// ByteUtils.jsonArrayToStringList()
 		}
 	}
 
@@ -87,6 +88,9 @@ public class GrafanaUtils {
 		JsonArray array = element.get("filters").getAsJsonArray();
 		for (int i = 0; i < array.size(); i++) {
 			JsonObject obj = array.get(i).getAsJsonObject();
+			if (!obj.has("value")) {
+				continue;
+			}
 			String val = obj.get("value").getAsString();
 			if (obj.has("type")) {
 				if (predicateStack.isEmpty()) {
@@ -122,7 +126,11 @@ public class GrafanaUtils {
 				}
 			}
 		}
-		return predicateStack.pop();
+		if (predicateStack.isEmpty()) {
+			return new AnyFilter<>();
+		} else {
+			return predicateStack.pop();
+		}
 	}
 
 }
