@@ -24,7 +24,10 @@ import java.util.Stack;
 import javax.ws.rs.NotFoundException;
 
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.srotya.sidewinder.core.aggregators.AggregationFunction;
+import com.srotya.sidewinder.core.aggregators.FunctionTable;
 import com.srotya.sidewinder.core.filters.AndFilter;
 import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.filters.ComplexFilter;
@@ -50,7 +53,7 @@ public class GrafanaUtils {
 			// TODO fix query point
 			points = engine.queryDataPoints(dbName, targetSeriesEntry.getMeasurementName(),
 					targetSeriesEntry.getFieldName(), startTs, endTs, targetSeriesEntry.getTagList(),
-					targetSeriesEntry.getTagFilter(), null);
+					targetSeriesEntry.getTagFilter(), null, targetSeriesEntry.getAggregationFunction());
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
 		}
@@ -76,11 +79,59 @@ public class GrafanaUtils {
 					&& jsonElement.has("correlate")) {
 				List<String> filterElements = new ArrayList<>();
 				Filter<List<String>> filter = extractGrafanaFilter(jsonElement, filterElements);
+				AggregationFunction aggregationFunction = extractGrafanaAggregation(jsonElement);
 				targetSeries.add(new TargetSeries(jsonElement.get("target").getAsString(),
-						jsonElement.get("field").getAsString(), filterElements, filter,
+						jsonElement.get("field").getAsString(), filterElements, filter, aggregationFunction,
 						jsonElement.get("correlate").getAsBoolean()));
 			}
 		}
+	}
+
+	public static AggregationFunction extractGrafanaAggregation(JsonObject jsonElement) {
+		if (!jsonElement.has("aggregator")) {
+			return null;
+		}
+		JsonObject obj = jsonElement.get("aggregator").getAsJsonObject();
+		if (!obj.has("name") || !obj.has("args")) {
+			return null;
+		}
+		String name = obj.get("name").getAsString();
+		if (name.equalsIgnoreCase("none")) {
+			System.out.println("None aggregator");
+			return null;
+		}
+		Class<? extends AggregationFunction> lookupFunction = FunctionTable.get().lookupFunction(name);
+		if (lookupFunction != null) {
+			try {
+				AggregationFunction instance = lookupFunction.newInstance();
+				JsonArray ary = obj.get("args").getAsJsonArray();
+				Object[] args = new Object[ary.size()];
+				for (JsonElement element : ary) {
+					JsonObject arg = element.getAsJsonObject();
+					int index = arg.get("index").getAsInt();
+					switch (arg.get("type").getAsString().toLowerCase()) {
+					case "string":
+						args[index] = arg.get("value").getAsString();
+						break;
+					case "int":
+						args[index] = arg.get("value").getAsInt();
+						break;
+					case "long":
+						args[index] = arg.get("value").getAsLong();
+						break;
+					case "double":
+						args[index] = arg.get("value").getAsDouble();
+						break;
+					}
+				}
+				instance.init(args);
+				return instance;
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		return null;
 	}
 
 	public static Filter<List<String>> extractGrafanaFilter(JsonObject element, List<String> filterElements) {

@@ -26,13 +26,22 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 /**
  * @author ambud
  */
-public abstract class ReducingWindowedAggregator extends WindowedAggregator {
+public abstract class ReducingWindowedAggregator extends WindowedFunction {
 
-	private SingleValueAggregator aggregator;
+	private SingleResultFunction aggregator;
 
-	public ReducingWindowedAggregator(int timeWindow, SingleValueAggregator aggregator) {
-		super(timeWindow);
-		this.aggregator = aggregator;
+	public ReducingWindowedAggregator() {
+	}
+
+	@Override
+	public void init(Object[] args) throws Exception {
+		super.init(args);
+		String aggregatorName = "mean";
+		if (args.length > 1) {
+			aggregatorName = args[1].toString();
+		}
+		Class<? extends AggregationFunction> lookupFunction = FunctionTable.get().lookupFunction(aggregatorName);
+		this.aggregator = (SingleResultFunction) lookupFunction.newInstance();
 	}
 
 	@Override

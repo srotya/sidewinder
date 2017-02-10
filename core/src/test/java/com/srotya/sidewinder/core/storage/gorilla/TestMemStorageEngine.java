@@ -223,7 +223,7 @@ public class TestMemStorageEngine {
 	}
 
 	@Test
-	public void testGetMeasurementsLike() throws IOException {
+	public void testGetMeasurementsLike() throws Exception {
 		StorageEngine engine = new MemStorageEngine();
 		engine.configure(conf);
 		engine.writeDataPoint(
@@ -455,7 +455,7 @@ public class TestMemStorageEngine {
 		ContainsFilter<String, List<String>> filter2 = new ContainsFilter<String, List<String>>(tag + 2);
 
 		Map<String, List<DataPoint>> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName,
-				curr, curr + 3, Arrays.asList(tag + 1, tag + 2), new OrFilter<>(Arrays.asList(filter1, filter2)), null);
+				curr, curr + 3, Arrays.asList(tag + 1, tag + 2), new OrFilter<>(Arrays.asList(filter1, filter2)), null, null);
 		assertEquals(2, queryDataPoints.size());
 		int i = 1;
 		assertEquals(1, queryDataPoints.values().iterator().next().size());

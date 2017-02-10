@@ -37,7 +37,7 @@ public class TestSingleValueAggregators {
 		for (double d : values) {
 			dps.add(new DataPoint(ts, d));
 		}
-		SingleValueAggregator sva = new SumValueAggregator();
+		SingleResultFunction sva = new SumFunction();
 		List<DataPoint> result = sva.aggregate(dps);
 		assertEquals(1, result.size());
 		assertEquals(11, result.get(0).getValue(), 0.01);
@@ -60,7 +60,7 @@ public class TestSingleValueAggregators {
 		for (double d : values) {
 			dps.add(new DataPoint(ts, d));
 		}
-		SingleValueAggregator sva = new MeanValueAggregator();
+		SingleResultFunction sva = new MeanFunction();
 		List<DataPoint> result = sva.aggregate(dps);
 		assertEquals(1, result.size());
 		assertEquals(2.75, result.get(0).getValue(), 0.01);

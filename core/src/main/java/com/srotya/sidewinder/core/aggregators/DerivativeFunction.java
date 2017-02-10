@@ -22,14 +22,11 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 /**
  * @author ambud
  */
-public class DerivativeAggregator extends ReducingWindowedAggregator {
-
-	public DerivativeAggregator(int timeWindow, SingleValueAggregator aggregator) {
-		super(timeWindow, aggregator);
-	}
+public class DerivativeFunction extends ReducingWindowedAggregator {
 
 	@Override
 	public List<DataPoint> aggregateAfterReduction(List<DataPoint> datapoints) {
+		DataPoint origin = datapoints.get(datapoints.size() - 1);
 		int i = 0;
 		while (i < datapoints.size() - 1) {
 			if (!datapoints.get(0).isFp()) {
@@ -41,6 +38,9 @@ public class DerivativeAggregator extends ReducingWindowedAggregator {
 			}
 			datapoints.remove(i + 1);
 			i++;
+		}
+		if (datapoints.get(datapoints.size() - 1).getLongValue() == origin.getLongValue()) {
+			datapoints.remove(datapoints.size() - 1);
 		}
 		return datapoints;
 	}

@@ -44,6 +44,7 @@ import com.srotya.linea.Topology;
 import com.srotya.linea.clustering.Columbus;
 import com.srotya.linea.clustering.WorkerEntry;
 import com.srotya.sidewinder.cluster.Utils;
+import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -203,7 +204,7 @@ public class ClusteredMemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws IOException {
+	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws Exception {
 		List<String> proxies = new ArrayList<>();
 		dbName = decodeDbAndProxyNames(proxies, dbName);
 		if (proxies.size() > 0) {
@@ -411,7 +412,7 @@ public class ClusteredMemStorageEngine implements StorageEngine {
 	@Override
 	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName,
 			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
-			Predicate valuePredicate) throws ItemNotFoundException {
+			Predicate valuePredicate, AggregationFunction function) throws ItemNotFoundException {
 		// TODO Auto-generated method stub
 		return null;
 	}

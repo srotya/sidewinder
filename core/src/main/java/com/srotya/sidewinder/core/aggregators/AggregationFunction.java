@@ -15,7 +15,6 @@
  */
 package com.srotya.sidewinder.core.aggregators;
 
-import java.util.Arrays;
 import java.util.List;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -23,24 +22,10 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 /**
  * @author ambud
  */
-public abstract class SingleValueAggregator implements Aggregator {
-
-	@Override
-	public List<DataPoint> aggregate(List<DataPoint> dataPoints) {
-		if (dataPoints.size() > 0) {
-			DataPoint dp = new DataPoint(0, 0);
-			dp.setTags(dataPoints.get(0).getTags());
-			dp.setFp(dataPoints.get(0).isFp());
-			dp.setMeasurementName(dataPoints.get(0).getMeasurementName());
-			dp.setValueFieldName(dataPoints.get(0).getValueFieldName());
-			dp.setDbName(dataPoints.get(0).getDbName());
-			aggregateToSingle(dataPoints, dp);
-			return Arrays.asList(dp);
-		} else {
-			return Arrays.asList();
-		}
-	}
-
-	protected abstract void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output);
+public interface AggregationFunction {
+	
+	public List<DataPoint> aggregate(List<DataPoint> datapoints);
+	
+	public void init(Object[] args) throws Exception;
 
 }

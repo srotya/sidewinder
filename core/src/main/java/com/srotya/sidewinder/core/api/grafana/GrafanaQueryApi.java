@@ -15,7 +15,6 @@
  */
 package com.srotya.sidewinder.core.api.grafana;
 
-import java.io.IOException;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -26,6 +25,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
 
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
 import javax.ws.rs.InternalServerErrorException;
@@ -39,8 +39,10 @@ import javax.ws.rs.core.MediaType;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
+import com.srotya.sidewinder.core.aggregators.FunctionTable;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
+import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -76,9 +78,9 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public List<Target> query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
-		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		Gson gson = new GsonBuilder().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
-//		System.err.println(gson.toJson(json));
+		System.err.println(gson.toJson(json));
 
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		JsonObject range = json.get("range").getAsJsonObject();
@@ -106,7 +108,9 @@ public class GrafanaQueryApi {
 		System.out.println("Measurement query:" + dbName + "\t" + queryString);
 		try {
 			return engine.getMeasurementsLike(dbName, "");
-		} catch (IOException e) {
+		} catch (RejectException e) {
+			throw new BadRequestException(e);
+		} catch (Exception e) {
 			throw new InternalServerErrorException(e.getMessage());
 		}
 	}
@@ -120,10 +124,15 @@ public class GrafanaQueryApi {
 		try {
 			Gson gson = new Gson();
 			JsonObject measurement = gson.fromJson(queryString, JsonObject.class);
-			return engine.getTagsForMeasurement(dbName, measurement.get("target").getAsString());
+			if (measurement.has("target")) {
+				return engine.getTagsForMeasurement(dbName, measurement.get("target").getAsString());
+			} else {
+				throw new ItemNotFoundException("Bad request");
+			}
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
 		} catch (Exception e) {
+			e.printStackTrace();
 			throw new InternalServerErrorException(e.getMessage());
 		}
 	}
@@ -137,7 +146,11 @@ public class GrafanaQueryApi {
 		try {
 			Gson gson = new Gson();
 			JsonObject measurement = gson.fromJson(queryString, JsonObject.class);
-			return engine.getFieldsForMeasurement(dbName, measurement.get("target").getAsString());
+			if (measurement.has("target")) {
+				return engine.getFieldsForMeasurement(dbName, measurement.get("target").getAsString());
+			} else {
+				throw new ItemNotFoundException("Bad request");
+			}
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
 		} catch (Exception e) {
@@ -151,6 +164,14 @@ public class GrafanaQueryApi {
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryTags() {
 		return new HashSet<>(Arrays.asList("AND", "OR"));
+	}
+
+	@Path("/query/aggregators")
+	@POST
+	@Produces({ MediaType.APPLICATION_JSON })
+	@Consumes({ MediaType.APPLICATION_JSON })
+	public Set<String> queryAggregators() {
+		return FunctionTable.get().listFunctions();
 	}
 
 }

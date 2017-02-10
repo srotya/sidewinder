@@ -23,7 +23,7 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 /**
  * @author ambud
  */
-public class SumValueAggregator extends SingleValueAggregator {
+public class SumFunction extends SingleResultFunction {
 
 	@Override
 	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {

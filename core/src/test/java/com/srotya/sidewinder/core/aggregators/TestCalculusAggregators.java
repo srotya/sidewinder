@@ -30,7 +30,7 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 public class TestCalculusAggregators {
 
 	@Test
-	public void testDerivativeAggregator() {
+	public void testDerivativeAggregator() throws Exception {
 		double[] values = { 1.1, 2.2, 3.3, 4.4 };
 		List<DataPoint> dps = new ArrayList<>();
 		long ts = 1486617103629L;
@@ -39,7 +39,8 @@ public class TestCalculusAggregators {
 			ts = ts + (30_000);
 			dps.add(new DataPoint(ts, d));
 		}
-		ReducingWindowedAggregator rwa = new DerivativeAggregator(70_000, new MeanValueAggregator());
+		ReducingWindowedAggregator rwa = new DerivativeFunction();
+		rwa.init(new Object[] { 70_000, "mean" });
 		List<DataPoint> result = rwa.aggregate(dps);
 		// 1.65 and 3.85
 		assertEquals(1, result.size());
