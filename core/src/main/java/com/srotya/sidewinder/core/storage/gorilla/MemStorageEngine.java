@@ -32,6 +32,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
+import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -71,7 +72,7 @@ public class MemStorageEngine implements StorageEngine {
 	private static final String FIELD_TAG_SEPARATOR = "#";
 	private static final String TAG_SEPARATOR = "_";
 	private static final Logger logger = Logger.getLogger(MemStorageEngine.class.getName());
-	private static RejectException NOT_FOUND_EXCEPTION = new RejectException("Item not found");
+	private static ItemNotFoundException NOT_FOUND_EXCEPTION = new ItemNotFoundException("Item not found");
 	private static RejectException FP_MISMATCH_EXCEPTION = new RejectException("Floating point mismatch");
 	private static RejectException INVALID_DATAPOINT_EXCEPTION = new RejectException(
 			"Datapoint is missing required values");
@@ -232,7 +233,7 @@ public class MemStorageEngine implements StorageEngine {
 	@Override
 	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName,
 			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
-			Predicate valuePredicate) throws ItemNotFoundException {
+			Predicate valuePredicate, AggregationFunction aggregationFunction) throws ItemNotFoundException {
 		Map<String, List<DataPoint>> resultMap = new HashMap<>();
 		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap != null) {
@@ -257,9 +258,15 @@ public class MemStorageEngine implements StorageEngine {
 					if (!keys[0].equals(valueFieldName)) {
 						continue;
 					}
-					List<DataPoint> points = new ArrayList<>();
+					List<DataPoint> points = null;
 					List<String> seriesTags = decodeStringToTags(memTagIndex, keys[1]);
-					points.addAll(value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate));
+					points = value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate);
+					if (aggregationFunction != null) {
+						points = aggregationFunction.aggregate(points);
+					}
+					if (points == null) {
+						points = new ArrayList<>();
+					}
 					if (points.size() > 0) {
 						resultMap.put(measurementName + "-" + keys[0] + tagToString(seriesTags), points);
 					}
@@ -283,7 +290,10 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws IOException {
+	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws Exception {
+		if (!checkIfExists(dbName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
 		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		partialMeasurementName = partialMeasurementName.trim();
 		if (partialMeasurementName.isEmpty()) {
@@ -592,6 +602,9 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public Set<String> getFieldsForMeasurement(String dbName, String measurementName) throws Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
 		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap == null) {
 			throw new ItemNotFoundException("Database " + dbName + " not found");

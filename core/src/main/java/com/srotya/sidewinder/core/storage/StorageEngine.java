@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 
+import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.gorilla.TimeSeries;
@@ -73,9 +74,9 @@ public interface StorageEngine {
 			long endTime, List<String> tags, Predicate valuePredicate) throws ItemNotFoundException;
 	
 	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName, long startTime,
-			long endTime, List<String> tagList, Filter<List<String>> tagFilter, Predicate valuePredicate) throws ItemNotFoundException;
+			long endTime, List<String> tagList, Filter<List<String>> tagFilter, Predicate valuePredicate, AggregationFunction aggregationFunction) throws ItemNotFoundException;
 
-	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws IOException;
+	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws Exception;
 
 	public Set<String> getDatabases() throws Exception;
 

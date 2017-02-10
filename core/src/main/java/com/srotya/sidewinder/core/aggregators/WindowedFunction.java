@@ -15,23 +15,24 @@
  */
 package com.srotya.sidewinder.core.aggregators;
 
-import java.util.List;
-
-import com.srotya.sidewinder.core.storage.DataPoint;
-
 /**
  * @author ambud
  */
-public class MeanValueAggregator extends SumValueAggregator {
-
-	@Override
-	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {
-		super.aggregateToSingle(dataPoints, output);
-		if (output.isFp()) {
-			output.setValue(output.getValue() / dataPoints.size());
-		} else {
-			output.setLongValue(output.getLongValue() / dataPoints.size());
-		}
+public abstract class WindowedFunction implements AggregationFunction {
+	
+	private int timeWindow;
+	
+	public WindowedFunction() {
 	}
-
+	
+	public void init(Object[] args) throws Exception {
+		this.timeWindow = (Integer) args[0];
+	}
+	
+	/**
+	 * @return
+	 */
+	public int getTimeWindow() {
+		return timeWindow;
+	}
 }
