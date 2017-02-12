@@ -97,7 +97,6 @@ public class GrafanaUtils {
 		}
 		String name = obj.get("name").getAsString();
 		if (name.equalsIgnoreCase("none")) {
-			System.out.println("None aggregator");
 			return null;
 		}
 		Class<? extends AggregationFunction> lookupFunction = FunctionTable.get().lookupFunction(name);
