@@ -159,6 +159,57 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>rpm-maven-plugin</artifactId>
+        <version>2.1.4</version>
+        <configuration>
+          <name>${project.artifactId}</name>
+          <version>${project.version}</version>
+          <targetOS>linux</targetOS>
+          <license>Apache 2.0</license>
+          <distribution>${distributor.name}</distribution>
+          <group>Application/Collectors</group>
+          <packager>${distributor.name}</packager>
+          <defaultUsername>root</defaultUsername>
+          <defaultGroupname>root</defaultGroupname>
+          <defineStatements>
+            <defineStatement>_unpackaged_files_terminate_build 0</defineStatement>
+          </defineStatements>
+          <mappings>
+            <mapping>
+              <directory>/usr/sidewinder</directory>
+              <filemode>755</filemode>
+              <sources>
+                <source>
+                  <location>target/${project.artifactId}-${project.version}.jar</location>
+                </source>
+              </sources>
+            </mapping>
+            <mapping>
+              <directory>/etc/sidewinder</directory>
+              <filemode>755</filemode>
+              <sources>
+                <source>
+                  <location>src/main/resources/configs</location>
+                </source>
+              </sources>
+            </mapping>
+          </mappings>
+          <preinstallScriptlet>
+            <script>mkdir -p /usr/sidewinder</script>
+            <script>mkdir -p /etc/sidewinder</script>
+          </preinstallScriptlet>
+        </configuration>
+        <executions>
+          <execution>
+            <id>build-rpm</id>
+            <goals>
+              <goal>attached-rpm</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>

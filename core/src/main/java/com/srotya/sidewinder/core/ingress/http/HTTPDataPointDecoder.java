@@ -36,6 +36,7 @@ import java.util.logging.Logger;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.srotya.sidewinder.core.ResourceMonitor;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -81,6 +82,13 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
 		try {
+			if(ResourceMonitor.getInstance().isReject()) {
+				logger.warning("Write rejected, insufficient memory");
+				if (writeResponse(request, ctx)) {
+					ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
+				}
+				return;
+			}
 			if (msg instanceof HttpRequest) {
 				HttpRequest request = this.request = (HttpRequest) msg;
 				if (HttpUtil.is100ContinueExpected(request)) {
@@ -118,10 +126,6 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 				}
 
 				if (msg instanceof LastHttpContent) {
-					// LastHttpContent lastHttpContent = (LastHttpContent) msg;
-					// if (!lastHttpContent.trailingHeaders().isEmpty()) {
-					// }
-
 					if (dbName == null) {
 						responseString.append("Invalid database null");
 						logger.severe("Invalid database null");

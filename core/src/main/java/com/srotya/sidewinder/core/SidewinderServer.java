@@ -42,6 +42,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 	public void run(SidewinderConfig config, Environment env) throws Exception {
 		storageEngine = new MemStorageEngine();
 		storageEngine.configure(new HashMap<>());
+		ResourceMonitor.getInstance().init(storageEngine);
 		env.jersey().register(new GrafanaQueryApi(storageEngine));
 		env.jersey().register(new MeasurementOpsApi(storageEngine));
 		env.jersey().register(new DatabaseOpsApi(storageEngine));
