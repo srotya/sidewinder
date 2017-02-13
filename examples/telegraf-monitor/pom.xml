@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.srotya.sidewinder</groupId>
     <artifactId>sidewinder-examples</artifactId>
-    <version>0.0.15</version>
+    <version>0.0.16-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
   <groupId>com.srotya.sidewinder.examples</groupId>
