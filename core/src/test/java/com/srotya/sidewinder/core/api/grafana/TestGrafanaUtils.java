@@ -24,8 +24,10 @@ import java.util.List;
 import org.junit.Test;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.filters.Filter;
 
 /**
@@ -33,6 +35,25 @@ import com.srotya.sidewinder.core.filters.Filter;
  */
 public class TestGrafanaUtils {
 
+	@Test
+	public void testExtractTargetsFromJson() {
+		List<TargetSeries> targetSeries = new ArrayList<>();
+		String query = "{\"panelId\":3,\"range\":{\"from\":\"2017-02-09T21:20:53.328Z\",\"to\":\"2017-02-10T00:20:53.328Z\",\"raw\":{\"from\":\"now-3h\",\"to\":\"now\"}},\"rangeRaw\":{\"from\":\"now-3h\",\"to\":\"now\"},\"interval\":\"15s\",\"intervalMs\":15000,\"targets\":[{\"target\":\"interface\",\"filters\":[{}],\"correlate\":false,\"field\":\"if_octets_rx\",\"refId\":\"A\",\"type\":\"timeserie\"}],\"format\":\"json\",\"maxDataPoints\":640}";
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		JsonObject object = gson.fromJson(query, JsonObject.class);
+		System.out.println(gson.toJson(object));
+		GrafanaUtils.extractTargetsFromJson(object, targetSeries);
+		assertEquals(1, targetSeries.size());
+		assertEquals("interface", targetSeries.get(0).getMeasurementName());
+		assertEquals("if_octets_rx", targetSeries.get(0).getFieldName());
+		assertEquals(AnyFilter.class, targetSeries.get(0).getTagFilter().getClass());
+	}
+	
+	@Test
+	public void testExtractGrafanaAggregation() {
+		
+	}
+	
 	@Test
 	public void testFilterExtractor() {
 		List<String> filterElements = new ArrayList<>();
@@ -53,16 +74,16 @@ public class TestGrafanaUtils {
 		array.add(obj);
 
 		element.add("filters", array);
-		
+
 		System.out.println(new Gson().toJson(element));
 
 		Filter<List<String>> filter = GrafanaUtils.extractGrafanaFilter(element, filterElements);
 		System.out.println(filter);
-		
-		assertTrue(filter.isRetain(Arrays.asList("test","test2")));
+
+		assertTrue(filter.isRetain(Arrays.asList("test", "test2")));
 		assertTrue(!filter.isRetain(Arrays.asList("test")));
 	}
-	
+
 	@Test
 	public void testMultiFilterExtractor() {
 		List<String> filterElements = new ArrayList<>();
@@ -81,24 +102,24 @@ public class TestGrafanaUtils {
 		obj = new JsonObject();
 		obj.addProperty("value", "test2");
 		array.add(obj);
-		
+
 		obj = new JsonObject();
 		obj.addProperty("type", "condition");
 		obj.addProperty("value", "AND");
 		array.add(obj);
-		
+
 		obj = new JsonObject();
 		obj.addProperty("value", "test3");
 		array.add(obj);
 
 		element.add("filters", array);
-		
+
 		System.out.println(new Gson().toJson(element));
 
 		Filter<List<String>> filter = GrafanaUtils.extractGrafanaFilter(element, filterElements);
 		System.out.println(filter);
-		
-		assertTrue(filter.isRetain(Arrays.asList("test","test2","test3")));
+
+		assertTrue(filter.isRetain(Arrays.asList("test", "test2", "test3")));
 		assertTrue(!filter.isRetain(Arrays.asList("test")));
 	}
 

@@ -77,31 +77,24 @@ System.register(['lodash'], function (_export, _context) {
               }
             });
           }
-        }, {
-          key: 'annotationQuery',
-          value: function annotationQuery(options) {
-            var query = this.templateSrv.replace(options.annotation.query, {}, 'glob');
-            var annotationQuery = {
-              range: options.range,
-              annotation: {
-                name: options.annotation.name,
-                datasource: options.annotation.datasource,
-                enable: options.annotation.enable,
-                iconColor: options.annotation.iconColor,
-                query: query
-              },
-              rangeRaw: options.rangeRaw
-            };
+        },
+        {
+            key: 'getAggregators',
+            value: function getAggregators(options) {
+              var target = typeof options === "string" ? options : options.target;
+              var interpolated = {
+                target: this.templateSrv.replace(target, null, 'regex')
+              };
 
-            return this.backendSrv.datasourceRequest({
-              url: this.url + '/annotations',
-              method: 'POST',
-              data: annotationQuery
-            }).then(function (result) {
-              return result.data;
-            });
-          }
-        }, {
+              return this.backendSrv.datasourceRequest({
+                url: this.url + '/query/aggregators',
+                data: interpolated,
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              }).then(this.mapToTextValue);
+            }
+          },
+        {
           key: 'metricFindQuery',
           value: function metricFindQuery(options) {
             var target = typeof options === "string" ? options : options.target;
@@ -180,6 +173,7 @@ System.register(['lodash'], function (_export, _context) {
               return {
                 target: _this.templateSrv.replace(target.target),
                 filters: target.filters,
+                aggregator: target.aggregator,
                 correlate: false,
                 field: target.field,
                 refId: target.refId,

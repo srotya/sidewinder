@@ -1,6 +1,9 @@
 FROM java:8-jre
 MAINTAINER Ambud Sharma
 
+EXPOSE 9928
+EXPOSE 8080
+
 RUN apt-get -y update
 RUN apt-get -y --force-yes install gettext telnet wget netcat
 
