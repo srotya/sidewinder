@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
@@ -70,7 +70,7 @@ public class TimeSeries {
 		retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(retentionHours);
 		this.fp = fp;
-		bucketMap = new TreeMap<>();
+		bucketMap = new ConcurrentSkipListMap<>();
 	}
 
 	/**

@@ -113,11 +113,15 @@ public class DataPoint implements Serializable {
 		return Double.longBitsToDouble(value);
 	}
 
+	public void setValue(double value) {
+		this.value = Double.doubleToLongBits(value);
+	}
+	
 	/**
 	 * @param value
 	 *            the value to set
 	 */
-	public void setValue(long value) {
+	public void setLongValue(long value) {
 		this.value = value;
 	}
 

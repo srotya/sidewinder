@@ -26,14 +26,17 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.srotya.sidewinder.core.ResourceMonitor;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -63,6 +66,7 @@ import io.netty.util.CharsetUtil;
  */
 public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 
+	private static final int LENGTH_OF_MILLISECOND_TS = 13;
 	private static final Logger logger = Logger.getLogger(HTTPDataPointDecoder.class.getName());
 	private StringBuilder responseString = new StringBuilder();
 	private HttpRequest request;
@@ -78,6 +82,13 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
 		try {
+			if(ResourceMonitor.getInstance().isReject()) {
+				logger.warning("Write rejected, insufficient memory");
+				if (writeResponse(request, ctx)) {
+					ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
+				}
+				return;
+			}
 			if (msg instanceof HttpRequest) {
 				HttpRequest request = this.request = (HttpRequest) msg;
 				if (HttpUtil.is100ContinueExpected(request)) {
@@ -115,10 +126,6 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 				}
 
 				if (msg instanceof LastHttpContent) {
-					// LastHttpContent lastHttpContent = (LastHttpContent) msg;
-					// if (!lastHttpContent.trailingHeaders().isEmpty()) {
-					// }
-
 					if (dbName == null) {
 						responseString.append("Invalid database null");
 						logger.severe("Invalid database null");
@@ -163,14 +170,18 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 				}
 				long timestamp = System.currentTimeMillis();
 				if (parts.length == 3) {
-					timestamp = Long.parseLong(parts[2]) / (1000 * 1000);
+					timestamp = Long.parseLong(parts[2]);
+					if (parts[2].length() > LENGTH_OF_MILLISECOND_TS) {
+						timestamp = timestamp / (1000 * 1000);
+					}
 				}
 				String[] key = parts[0].split(",");
 				String measurementName = key[0];
-				List<String> tags = new ArrayList<>();
+				Set<String> tTags = new HashSet<>();
 				for (int i = 1; i < key.length; i++) {
-					tags.add(key[i]);
+					tTags.add(key[i]);
 				}
+				List<String> tags = new ArrayList<>(tTags);
 				String[] fields = parts[1].split(",");
 				for (String field : fields) {
 					String[] fv = field.split("=");

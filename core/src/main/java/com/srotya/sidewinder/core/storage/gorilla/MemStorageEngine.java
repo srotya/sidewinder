@@ -26,12 +26,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.TreeMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 
+import com.srotya.sidewinder.core.aggregators.AggregationFunction;
+import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -71,7 +73,7 @@ public class MemStorageEngine implements StorageEngine {
 	private static final String FIELD_TAG_SEPARATOR = "#";
 	private static final String TAG_SEPARATOR = "_";
 	private static final Logger logger = Logger.getLogger(MemStorageEngine.class.getName());
-	private static RejectException NOT_FOUND_EXCEPTION = new RejectException("Item not found");
+	private static ItemNotFoundException NOT_FOUND_EXCEPTION = new ItemNotFoundException("Item not found");
 	private static RejectException FP_MISMATCH_EXCEPTION = new RejectException("Floating point mismatch");
 	private static RejectException INVALID_DATAPOINT_EXCEPTION = new RejectException(
 			"Datapoint is missing required values");
@@ -167,7 +169,12 @@ public class MemStorageEngine implements StorageEngine {
 					if (!keys[0].equals(valueFieldName)) {
 						continue;
 					}
-					List<String> seriesTags = decodeStringToTags(memTagIndex, keys[1]);
+					List<String> seriesTags = null;
+					if (keys.length > 1) {
+						seriesTags = decodeStringToTags(memTagIndex, keys[1]);
+					} else {
+						seriesTags = new ArrayList<>();
+					}
 					for (Reader reader : series.queryReader(valueFieldName, seriesTags, startTime, endTime, null)) {
 						readers.put(reader, series.isFp());
 					}
@@ -184,55 +191,14 @@ public class MemStorageEngine implements StorageEngine {
 	@Override
 	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName,
 			long startTime, long endTime, List<String> tags, Predicate valuePredicate) throws ItemNotFoundException {
-		Map<String, List<DataPoint>> resultMap = new HashMap<>();
-		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
-		if (measurementMap != null) {
-			SortedMap<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
-			if (seriesMap != null) {
-				MemTagIndex memTagIndex = getOrCreateMemTagIndex(dbName, measurementName);
-				Set<String> rowKeys = new HashSet<>();
-				if (tags != null && tags.size() > 0) {
-					for (String tag : tags) {
-						Set<String> temp = memTagIndex.searchRowKeysForTag(tag);
-						if (temp != null) {
-							rowKeys.addAll(temp);
-						}
-					}
-				} else {
-					rowKeys.addAll(seriesMap.keySet());
-				}
-				for (String entry : rowKeys) {
-					TimeSeries value = seriesMap.get(entry);
-					String[] keys = entry.split(FIELD_TAG_SEPARATOR);
-					if (keys.length != 2) {
-						// TODO report major error, series ingested without tag
-						// field encoding
-						logger.severe("Invalid series tag encode, series ingested without tag field encoding");
-						continue;
-					}
-					if (!keys[0].equals(valueFieldName)) {
-						continue;
-					}
-					List<DataPoint> points = new ArrayList<>();
-					List<String> seriesTags = decodeStringToTags(memTagIndex, keys[1]);
-					points.addAll(value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate));
-					if (points.size() > 0) {
-						resultMap.put(measurementName + "-" + keys[0] + tagToString(seriesTags), points);
-					}
-				}
-			} else {
-				throw new ItemNotFoundException("Measurement " + measurementName + " not found");
-			}
-		} else {
-			throw new ItemNotFoundException("Database " + dbName + " not found");
-		}
-		return resultMap;
+		return queryDataPoints(dbName, measurementName, valueFieldName, startTime, endTime, tags,
+				new AnyFilter<List<String>>(), valuePredicate, null);
 	}
 
 	@Override
 	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName,
 			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
-			Predicate valuePredicate) throws ItemNotFoundException {
+			Predicate valuePredicate, AggregationFunction aggregationFunction) throws ItemNotFoundException {
 		Map<String, List<DataPoint>> resultMap = new HashMap<>();
 		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap != null) {
@@ -240,7 +206,7 @@ public class MemStorageEngine implements StorageEngine {
 			if (seriesMap != null) {
 				MemTagIndex memTagIndex = getOrCreateMemTagIndex(dbName, measurementName);
 				Set<String> rowKeys = null;
-				if (tagList.size() == 0) {
+				if (tagList == null || tagList.size() == 0) {
 					rowKeys = seriesMap.keySet();
 				} else {
 					rowKeys = getTagFilteredRowKeys(dbName, measurementName, valueFieldName, tagFilter, tagList);
@@ -248,18 +214,23 @@ public class MemStorageEngine implements StorageEngine {
 				for (String entry : rowKeys) {
 					TimeSeries value = seriesMap.get(entry);
 					String[] keys = entry.split(FIELD_TAG_SEPARATOR);
-					if (keys.length != 2) {
-						// TODO report major error, series ingested without tag
-						// field encoding
-						logger.severe("Invalid series tag encode, series ingested without tag field encoding");
-						continue;
-					}
 					if (!keys[0].equals(valueFieldName)) {
 						continue;
 					}
-					List<DataPoint> points = new ArrayList<>();
-					List<String> seriesTags = decodeStringToTags(memTagIndex, keys[1]);
-					points.addAll(value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate));
+					List<DataPoint> points = null;
+					List<String> seriesTags = null;
+					if (keys.length > 1) {
+						seriesTags = decodeStringToTags(memTagIndex, keys[1]);
+					} else {
+						seriesTags = new ArrayList<>();
+					}
+					points = value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate);
+					if (aggregationFunction != null) {
+						points = aggregationFunction.aggregate(points);
+					}
+					if (points == null) {
+						points = new ArrayList<>();
+					}
 					if (points.size() > 0) {
 						resultMap.put(measurementName + "-" + keys[0] + tagToString(seriesTags), points);
 					}
@@ -283,7 +254,10 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws IOException {
+	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws Exception {
+		if (!checkIfExists(dbName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
 		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		partialMeasurementName = partialMeasurementName.trim();
 		if (partialMeasurementName.isEmpty()) {
@@ -335,6 +309,9 @@ public class MemStorageEngine implements StorageEngine {
 
 	public static List<String> decodeStringToTags(MemTagIndex tagLookupTable, String tagString) {
 		List<String> tagList = new ArrayList<>();
+		if (tagString == null || tagString.isEmpty()) {
+			return tagList;
+		}
 		for (String tag : tagString.split(TAG_SEPARATOR)) {
 			tagList.add(tagLookupTable.getEntry(tag));
 		}
@@ -377,7 +354,7 @@ public class MemStorageEngine implements StorageEngine {
 		if (seriesMap == null) {
 			synchronized (measurementMap) {
 				if ((seriesMap = measurementMap.get(measurementName)) == null) {
-					seriesMap = new TreeMap<>();
+					seriesMap = new ConcurrentSkipListMap<>();
 					measurementMap.put(measurementName, seriesMap);
 					logger.info("Created new measurement:" + measurementName);
 				}
@@ -477,7 +454,12 @@ public class MemStorageEngine implements StorageEngine {
 				iterator.remove();
 				continue;
 			}
-			List<String> seriesTags = decodeStringToTags(getOrCreateMemTagIndex(dbName, measurementName), keys[1]);
+			List<String> seriesTags = null;
+			if (keys.length > 1) {
+				seriesTags = decodeStringToTags(getOrCreateMemTagIndex(dbName, measurementName), keys[1]);
+			} else {
+				seriesTags = new ArrayList<>();
+			}
 			if (!tagFilterTree.isRetain(seriesTags)) {
 				iterator.remove();
 			}
@@ -592,6 +574,9 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public Set<String> getFieldsForMeasurement(String dbName, String measurementName) throws Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
 		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap == null) {
 			throw new ItemNotFoundException("Database " + dbName + " not found");

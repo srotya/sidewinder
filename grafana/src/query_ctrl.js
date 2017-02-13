@@ -70,10 +70,13 @@ System.register(['app/plugins/sdk', './css/query-editor.css!'], function (_expor
 
           _this.scope = $scope;
           _this.uiSegmentSrv = uiSegmentSrv;
-          _this.target.target = _this.target.target || 'select metric';
-          _this.target.type = _this.target.type || 'timeserie';
+          _this.target.target = _this.target.target;
+          _this.target.type = 'timeserie';
           if(!_this.target.filters) {
-        	  _this.target.filters = [{}];
+        	  _this.target.filters = [];
+          }
+          if(!_this.target.aggregator) {
+        	  _this.target.aggregator = { name:"none", args:[{ index:0, type: "int", value: 1000 }] };
           }
           console.log(_this.target);
           return _this;
@@ -109,6 +112,18 @@ System.register(['app/plugins/sdk', './css/query-editor.css!'], function (_expor
 				// by metric-segment-model directive
               }
             },
+             {
+                key: 'getAggregators',
+                value: function getAggregators() {
+                  return this.datasource.getAggregators(this.target).then(this.uiSegmentSrv.transformToSegments(false));
+                }
+              },
+              {
+                 key: 'removeAggregator',
+                 value: function getAggregators() {
+                	 this.target.aggregator = {};
+                 }
+               },
          {
           key: 'toggleEditorMode',
           value: function toggleEditorMode() {
@@ -122,6 +137,16 @@ System.register(['app/plugins/sdk', './css/query-editor.css!'], function (_expor
             		this.target.filters.push({'type':'condition', 'value':'AND'});
             	}
             	this.target.filters.push({});
+            	this.panelCtrl.refresh();
+            }
+          },
+        {
+            key: 'addArgs',
+            value: function addArgs() {
+            	if(this.target.aggregators.name && !this.target.aggregators.args) {
+            		this.target.aggregators.args = []; 
+            	}
+            	this.target.aggregators.args.push({});
             	this.panelCtrl.refresh();
             }
           }
@@ -148,7 +173,7 @@ System.register(['app/plugins/sdk', './css/query-editor.css!'], function (_expor
             key: 'onChangeFilter',
             value: function onChangeFilter(index, segment) {
             	this.target.filters[index] = segment;
-              // this.panelCtrl.refresh(); // Asks the panel to refresh data.
+                this.panelCtrl.refresh(); // Asks the panel to refresh data.
             }
           }]);
 

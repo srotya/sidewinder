@@ -21,16 +21,11 @@ package com.srotya.sidewinder.core.storage;
  * 
  * @author ambud
  */
-public class ItemNotFoundException extends Exception {
+public class ItemNotFoundException extends RejectException {
 
 	private static final long serialVersionUID = 1L;
 
 	public ItemNotFoundException() {
-	}
-
-	public ItemNotFoundException(String message, Throwable cause, boolean enableSuppression,
-			boolean writableStackTrace) {
-		super(message, cause, enableSuppression, writableStackTrace);
 	}
 
 	public ItemNotFoundException(String message, Throwable cause) {
@@ -43,11 +38,6 @@ public class ItemNotFoundException extends Exception {
 
 	public ItemNotFoundException(Throwable cause) {
 		super(cause);
-	}
-
-	@Override
-	public final synchronized Throwable fillInStackTrace() {
-		return this;
 	}
 
 }
