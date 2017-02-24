@@ -76,7 +76,7 @@ System.register(['app/plugins/sdk', './css/query-editor.css!'], function (_expor
         	  _this.target.filters = [];
           }
           if(!_this.target.aggregator) {
-        	  _this.target.aggregator = { name:"none", args:[{ index:0, type: "int", value: 1000 }] };
+        	  _this.target.aggregator = { name:"none", args:[{ index:0, type: "int", value: 1000 }], unit: "secs" };
           }
           console.log(_this.target);
           return _this;
@@ -118,6 +118,12 @@ System.register(['app/plugins/sdk', './css/query-editor.css!'], function (_expor
                   return this.datasource.getAggregators(this.target).then(this.uiSegmentSrv.transformToSegments(false));
                 }
               },
+              {
+                 key: 'getUnits',
+                 value: function getUnits() {
+                   return this.datasource.getUnits(this.target).then(this.uiSegmentSrv.transformToSegments(false));
+                 }
+               },
               {
                  key: 'removeAggregator',
                  value: function getAggregators() {

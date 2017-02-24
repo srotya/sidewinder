@@ -22,6 +22,8 @@ import java.util.List;
 
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.aggregators.single.MeanFunction;
+import com.srotya.sidewinder.core.aggregators.single.SumFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**

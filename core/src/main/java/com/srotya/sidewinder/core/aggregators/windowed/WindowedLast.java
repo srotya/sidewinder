@@ -13,30 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.aggregators;
+package com.srotya.sidewinder.core.aggregators.windowed;
+
+import java.util.List;
+
+import com.srotya.sidewinder.core.aggregators.FunctionTable;
+import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
-public abstract class WindowedFunction implements AggregationFunction {
+public class WindowedLast extends ReducingWindowedAggregator {
 
-	private int timeWindow;
-
-	public WindowedFunction() {
-	}
-
+	@Override
 	public void init(Object[] args) throws Exception {
-		timeWindow = ((Integer) args[0]);
-		if(timeWindow==0) {
-			timeWindow = 1;
+		if (args.length > 1) {
+			args[1] = FunctionTable.SLAST;
+		} else {
+			args = new Object[] { args[0], FunctionTable.SLAST };
 		}
-		timeWindow = timeWindow * 1000;
+		super.init(args);
 	}
 
-	/**
-	 * @return
-	 */
-	public int getTimeWindow() {
-		return timeWindow;
+	@Override
+	public List<DataPoint> aggregateAfterReduction(List<DataPoint> datapoints) {
+		return datapoints;
 	}
+
 }

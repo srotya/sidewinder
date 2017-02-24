@@ -80,7 +80,7 @@ public class GrafanaQueryApi {
 	public List<Target> query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		Gson gson = new GsonBuilder().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
-//		System.err.println(gson.toJson(json));
+		// System.err.println(gson.toJson(json));
 
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		JsonObject range = json.get("range").getAsJsonObject();
@@ -105,7 +105,8 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryMeasurementNames(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
-//		System.out.println("Measurement query:" + dbName + "\t" + queryString);
+		// System.out.println("Measurement query:" + dbName + "\t" +
+		// queryString);
 		try {
 			return engine.getMeasurementsLike(dbName, "");
 		} catch (RejectException e) {
@@ -120,7 +121,7 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryTags(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
-//		System.out.println("Tag query:" + dbName + "\t" + queryString);
+		// System.out.println("Tag query:" + dbName + "\t" + queryString);
 		try {
 			Gson gson = new Gson();
 			JsonObject measurement = gson.fromJson(queryString, JsonObject.class);
@@ -172,6 +173,14 @@ public class GrafanaQueryApi {
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryAggregators() {
 		return FunctionTable.get().listFunctions();
+	}
+
+	@Path("/query/units")
+	@POST
+	@Produces({ MediaType.APPLICATION_JSON })
+	@Consumes({ MediaType.APPLICATION_JSON })
+	public Set<String> queryTimeUnits() {
+		return new HashSet<>(Arrays.asList("secs", "mins", "hours", "days", "weeks", "years"));
 	}
 
 }

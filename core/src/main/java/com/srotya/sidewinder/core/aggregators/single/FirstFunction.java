@@ -13,30 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.aggregators;
+package com.srotya.sidewinder.core.aggregators.single;
+
+import java.util.List;
+
+import com.srotya.sidewinder.core.aggregators.SingleResultFunction;
+import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
-public abstract class WindowedFunction implements AggregationFunction {
-
-	private int timeWindow;
-
-	public WindowedFunction() {
-	}
-
-	public void init(Object[] args) throws Exception {
-		timeWindow = ((Integer) args[0]);
-		if(timeWindow==0) {
-			timeWindow = 1;
+public class FirstFunction extends SingleResultFunction {
+	
+	@Override
+	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {
+		if (output.isFp()) {
+			output.setValue(dataPoints.get(0).getValue());
+		} else {
+			output.setLongValue(dataPoints.get(0).getLongValue());
 		}
-		timeWindow = timeWindow * 1000;
 	}
 
-	/**
-	 * @return
-	 */
-	public int getTimeWindow() {
-		return timeWindow;
-	}
 }

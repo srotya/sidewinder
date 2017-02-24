@@ -18,7 +18,6 @@ package com.srotya.sidewinder.core;
 import java.util.HashMap;
 
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
-import com.srotya.sidewinder.core.api.InfluxApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
 import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
@@ -46,7 +45,6 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		env.jersey().register(new GrafanaQueryApi(storageEngine));
 		env.jersey().register(new MeasurementOpsApi(storageEngine));
 		env.jersey().register(new DatabaseOpsApi(storageEngine));
-		env.jersey().register(new InfluxApi(storageEngine));
 		env.jersey().register(new SqlApi(storageEngine));
 		NettyHTTPIngestionServer server = new NettyHTTPIngestionServer();
 		server.init(storageEngine, new HashMap<>());
