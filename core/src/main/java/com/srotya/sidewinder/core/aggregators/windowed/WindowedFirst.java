@@ -13,29 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.aggregators;
+package com.srotya.sidewinder.core.aggregators.windowed;
 
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionTable;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
-public class MeanFunction extends SumFunction {
-	
-	static {
-		FunctionTable.get().register("mean", MeanFunction.class);
+public class WindowedFirst extends ReducingWindowedAggregator {
+
+	@Override
+	public void init(Object[] args) throws Exception {
+		if (args.length > 1) {
+			args[1] = FunctionTable.SFIRST;
+		} else {
+			args = new Object[] { args[0], FunctionTable.SFIRST };
+		}
+		super.init(args);
 	}
 
 	@Override
-	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {
-		super.aggregateToSingle(dataPoints, output);
-		if (output.isFp()) {
-			output.setValue(output.getValue() / dataPoints.size());
-		} else {
-			output.setLongValue(output.getLongValue() / dataPoints.size());
-		}
+	public List<DataPoint> aggregateAfterReduction(List<DataPoint> datapoints) {
+		return datapoints;
 	}
 
 }

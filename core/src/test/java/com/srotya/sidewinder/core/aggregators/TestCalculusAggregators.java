@@ -22,6 +22,8 @@ import java.util.List;
 
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.aggregators.windowed.DerivativeFunction;
+import com.srotya.sidewinder.core.aggregators.windowed.ReducingWindowedAggregator;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
