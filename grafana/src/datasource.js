@@ -94,6 +94,22 @@ System.register(['lodash'], function (_export, _context) {
               }).then(this.mapToTextValue);
             }
           },
+          {
+              key: 'getUnits',
+              value: function getUnits(options) {
+                var target = typeof options === "string" ? options : options.target;
+                var interpolated = {
+                  target: this.templateSrv.replace(target, null, 'regex')
+                };
+
+                return this.backendSrv.datasourceRequest({
+                  url: this.url + '/query/units',
+                  data: interpolated,
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' }
+                }).then(this.mapToTextValue);
+              }
+            },
         {
           key: 'metricFindQuery',
           value: function metricFindQuery(options) {
@@ -164,13 +180,27 @@ System.register(['lodash'], function (_export, _context) {
           value: function buildQueryParameters(options) {
             var _this = this;
 
-            //remove placeholder targets
+            // remove placeholder targets
             options.targets = _.filter(options.targets, function (target) {
               return target.target !== 'select metric';
             });
 
             var targets = _.map(options.targets, function (target) {
-              return {
+            	var ts = target.aggregator.args[0].value;
+            	if(target.aggregator.unit=='mins') {
+            		ts = target.aggregator.args[0].value*60; 
+            	}else if(target.aggregator.unit=='hours') {
+            		ts = target.aggregator.args[0].value*3600; 
+            	}else if(target.aggregator.unit=='days') {
+            		ts = target.aggregator.args[0].value*3600*24; 
+            	}else if(target.aggregator.unit=='weeks') {
+            		ts = target.aggregator.args[0].value*3600*24*7; 
+            	}else if(target.aggregator.unit=='months') {
+            		ts = target.aggregator.args[0].value*3600*24*30; 
+            	}else if(target.aggregator.unit=='months') {
+            		ts = target.aggregator.args[0].value*3600*24*365; 
+            	}
+              var req = {
                 target: _this.templateSrv.replace(target.target),
                 filters: target.filters,
                 aggregator: target.aggregator,
@@ -180,6 +210,8 @@ System.register(['lodash'], function (_export, _context) {
                 hide: target.hide,
                 type: target.type || 'timeserie'
               };
+              
+              return req;
             });
 
             options.targets = targets;
@@ -195,4 +227,4 @@ System.register(['lodash'], function (_export, _context) {
     }
   };
 });
-//# sourceMappingURL=datasource.js.map
+// # sourceMappingURL=datasource.js.map

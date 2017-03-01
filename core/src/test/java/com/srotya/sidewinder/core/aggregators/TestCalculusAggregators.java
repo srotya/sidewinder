@@ -22,6 +22,8 @@ import java.util.List;
 
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.aggregators.windowed.DerivativeFunction;
+import com.srotya.sidewinder.core.aggregators.windowed.ReducingWindowedAggregator;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
@@ -40,11 +42,30 @@ public class TestCalculusAggregators {
 			dps.add(new DataPoint(ts, d));
 		}
 		ReducingWindowedAggregator rwa = new DerivativeFunction();
-		rwa.init(new Object[] { 70_000, "mean" });
+		rwa.init(new Object[] { 70, "smean" });
 		List<DataPoint> result = rwa.aggregate(dps);
 		// 1.65 and 3.85
 		assertEquals(1, result.size());
-		assertEquals(0.00003666666667 * 1000, result.get(0).getValue() * 1000, 0.01);
+		assertEquals(0.00003666666667 * 1000, result.get(0).getValue(), 0.01);
+		System.out.println(result.get(0).getValue() * 1000 + "\t" + ts);
+	}
+
+	@Test
+	public void testDerivativeAggregator2() throws Exception {
+		long[] values = { 1, 4, 1, 4, 1 };
+		List<DataPoint> dps = new ArrayList<>();
+		long ts = 1486617103629L;
+		for (int i = 0; i < values.length; i++) {
+			long d = values[i];
+			ts = ts + (10_000);
+			dps.add(new DataPoint(ts, d));
+		}
+		ReducingWindowedAggregator rwa = new DerivativeFunction();
+		rwa.init(new Object[] { 20, "smean" });
+		List<DataPoint> result = rwa.aggregate(dps);
+		assertEquals(1, result.size());
+		assertEquals(false, result.get(0).isFp());
+		assertEquals(0, result.get(0).getValue() * 1000, 0.01);
 		System.out.println(result.get(0).getValue() * 1000 + "\t" + ts);
 	}
 

@@ -56,6 +56,20 @@ public class MathUtils {
 	}
 
 	/**
+	 * Compute mean or average of the supplied array
+	 * 
+	 * @param a
+	 * @return average / mean
+	 */
+	public static long mean(long[] a) {
+		long avg = 0;
+		for (int i = 0; i < a.length; i++) {
+			avg += a[i];
+		}
+		avg = avg / a.length;
+		return avg;
+	}
+	/**
 	 * Compute co-variance of the supplied array pair
 	 * 
 	 * @param a
@@ -70,6 +84,23 @@ public class MathUtils {
 			t += (a[i] - amean) * (b[i] - bmean);
 		}
 		return t / a.length;
+	}
+	
+	/**
+	 * Compute standard deviation for the supplied array
+	 * 
+	 * @param a
+	 * @param avg
+	 * @return standard deviation
+	 */
+	public static long standardDeviation(long[] a, long avg) {
+		long aStdDev = 0;
+		for (int i = 0; i < a.length; i++) {
+			double tmp = (a[i] - avg);
+			aStdDev += tmp * tmp;
+		}
+		aStdDev = (long) Math.sqrt(aStdDev / (a.length));
+		return aStdDev;
 	}
 
 	/**
