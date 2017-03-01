@@ -17,6 +17,8 @@ package com.srotya.sidewinder.core.api.grafana;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class Target implements Serializable {
@@ -69,6 +71,17 @@ public class Target implements Serializable {
 	@Override
 	public String toString() {
 		return "Target [target=" + target + ", datapoints=" + datapoints + "]";
+	}
+
+	public void sort() {
+		Collections.sort(datapoints, new Comparator<Number[]>() {
+
+			@Override
+			public int compare(Number[] o1, Number[] o2) {
+				return Long.compare(o1[1].longValue(), o2[1].longValue());
+			}
+
+		});
 	}
 
 }
