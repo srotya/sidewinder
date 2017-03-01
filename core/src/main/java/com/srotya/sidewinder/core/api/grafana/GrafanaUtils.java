@@ -68,6 +68,7 @@ public class GrafanaUtils {
 				}
 			}
 			output.add(tar);
+			tar.sort();
 		}
 	}
 
