@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.aggregators;
+package com.srotya.sidewinder.core.aggregators.windowed;
 
 import java.util.List;
 
@@ -30,10 +30,12 @@ public class DerivativeFunction extends ReducingWindowedAggregator {
 		int i = 0;
 		while (i < datapoints.size() - 1) {
 			if (!datapoints.get(0).isFp()) {
-				long val = (datapoints.get(i + 1).getLongValue() - datapoints.get(i).getLongValue()) / getTimeWindow();
+				long val = (datapoints.get(i + 1).getLongValue() - datapoints.get(i).getLongValue())
+						/ (getTimeWindow() / 1000);
 				datapoints.get(i).setLongValue(val);
 			} else {
-				double val = (datapoints.get(i + 1).getValue() - datapoints.get(i).getValue()) / getTimeWindow();
+				double val = (datapoints.get(i + 1).getValue() - datapoints.get(i).getValue())
+						/ (getTimeWindow() / 1000);
 				datapoints.get(i).setValue(val);
 			}
 			datapoints.remove(i + 1);

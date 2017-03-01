@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.aggregators;
+package com.srotya.sidewinder.core.aggregators.windowed;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -21,6 +21,10 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import com.srotya.sidewinder.core.aggregators.AggregationFunction;
+import com.srotya.sidewinder.core.aggregators.FunctionTable;
+import com.srotya.sidewinder.core.aggregators.SingleResultFunction;
+import com.srotya.sidewinder.core.aggregators.WindowedFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
@@ -36,7 +40,7 @@ public abstract class ReducingWindowedAggregator extends WindowedFunction {
 	@Override
 	public void init(Object[] args) throws Exception {
 		super.init(args);
-		String aggregatorName = "mean";
+		String aggregatorName = FunctionTable.SMEAN;
 		if (args.length > 1) {
 			aggregatorName = args[1].toString();
 		}
@@ -48,13 +52,17 @@ public abstract class ReducingWindowedAggregator extends WindowedFunction {
 	public final List<DataPoint> aggregate(List<DataPoint> datapoints) {
 		SortedMap<Long, List<DataPoint>> map = new TreeMap<>();
 		for (DataPoint dataPoint : datapoints) {
-			long bucket = (dataPoint.getTimestamp() / getTimeWindow()) * getTimeWindow();
-			List<DataPoint> list = map.get(bucket);
-			if (list == null) {
-				list = new ArrayList<>();
-				map.put(bucket, list);
+			try {
+				long bucket = (dataPoint.getTimestamp() / getTimeWindow()) * getTimeWindow();
+				List<DataPoint> list = map.get(bucket);
+				if (list == null) {
+					list = new ArrayList<>();
+					map.put(bucket, list);
+				}
+				list.add(dataPoint);
+			} catch (Exception e) {
+				System.err.println("Exception :" + getTimeWindow());
 			}
-			list.add(dataPoint);
 		}
 		List<DataPoint> reducedDataPoints = new ArrayList<>();
 		for (Entry<Long, List<DataPoint>> entry : map.entrySet()) {
