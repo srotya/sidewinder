@@ -204,5 +204,8 @@ public class Reader {
 			storedVal = value;
 		}
 	}
-
+	
+	public byte[] toByteArray() {
+		return in.toByteArray();
+	}
 }

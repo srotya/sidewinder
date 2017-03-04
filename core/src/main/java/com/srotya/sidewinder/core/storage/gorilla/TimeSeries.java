@@ -22,6 +22,7 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
@@ -163,7 +164,7 @@ public class TimeSeries {
 		if (timeseriesBucket == null) {
 			synchronized (bucketMap) {
 				if ((timeseriesBucket = bucketMap.get(tsBucket)) == null) {
-					timeseriesBucket = new TimeSeriesBucket(timeBucketSize, timestamp);
+					timeseriesBucket = new TimeSeriesBucket(timestamp);
 					bucketMap.put(tsBucket, timeseriesBucket);
 				}
 			}
@@ -187,7 +188,7 @@ public class TimeSeries {
 		String tsBucket = Integer.toHexString(bucket);
 		TimeSeriesBucket timeseriesBucket = bucketMap.get(tsBucket);
 		if (timeseriesBucket == null) {
-			timeseriesBucket = new TimeSeriesBucket(timeBucketSize, timestamp);
+			timeseriesBucket = new TimeSeriesBucket(timestamp);
 			bucketMap.put(tsBucket, timeseriesBucket);
 		}
 		timeseriesBucket.addDataPoint(timestamp, value);
@@ -233,14 +234,17 @@ public class TimeSeries {
 	/**
 	 * Cleans stale series
 	 */
-	public void collectGarbage() {
+	public List<TimeSeriesBucket> collectGarbage() {
+		List<TimeSeriesBucket> gcedBuckets = new ArrayList<>();
 		while (bucketMap.size() > retentionBuckets.get()) {
 			int oldSize = bucketMap.size();
 			String key = bucketMap.firstKey();
-			bucketMap.remove(key);
-			logger.info("GC, removing bucket:" + key + ": as it passed retention period of:" + retentionBuckets.get()
-					+ ":old size:" + oldSize + ":newsize:" + bucketMap.size() + ":");
+			TimeSeriesBucket bucket = bucketMap.remove(key);
+			gcedBuckets.add(bucket);
+			logger.log(Level.FINE, "GC, removing bucket:" + key + ": as it passed retention period of:"
+					+ retentionBuckets.get() + ":old size:" + oldSize + ":newsize:" + bucketMap.size() + ":");
 		}
+		return gcedBuckets;
 	}
 
 	/**

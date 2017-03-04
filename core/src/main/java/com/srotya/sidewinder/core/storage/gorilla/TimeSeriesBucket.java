@@ -40,12 +40,20 @@ public class TimeSeriesBucket implements Serializable {
 	private ByteBufferBitOutput output;
 	private int count;
 	private long lastTs;
+	private long headerTimestamp;
 
-	public TimeSeriesBucket(int timeBucketSize, long headerTimestamp) {
+	public TimeSeriesBucket(long headerTimestamp) {
+		this.headerTimestamp = headerTimestamp;
 		this.output = new ByteBufferBitOutput(DEFAULT_BUFFER_SIZE);
 		this.writer = new Writer(headerTimestamp, output);
 	}
 
+	public TimeSeriesBucket(long headerTimestamp, int count, ByteBufferBitOutput output) {
+		this.headerTimestamp = headerTimestamp;
+		this.count = count;
+		this.output = output;
+		
+	}
 	/**
 	 * Add data point with a double value and timestamp.<br>
 	 * <br>
@@ -163,6 +171,13 @@ public class TimeSeriesBucket implements Serializable {
 			double expectedSize = count * 8 * 2;
 			return expectedSize / buf.position();
 		}
+	}
+	
+	/**
+	 * @return the headerTimestamp
+	 */
+	public long getHeaderTimestamp() {
+		return headerTimestamp;
 	}
 
 	/*

@@ -101,4 +101,12 @@ public class ByteBufferBitInput implements BitInput {
 	public ByteBuffer getByteBuffer() {
 		return this.bb;
 	}
+
+	@Override
+	public byte[] toByteArray() {
+		byte[] temp = new byte[bb.remaining()];
+		bb.rewind();
+		bb.get(temp);
+		return temp;
+	}
 }
