@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Michael Burman
+ * Copyright 2017 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,33 +15,21 @@
  */
 package com.srotya.sidewinder.core.storage.gorilla;
 
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+import com.srotya.sidewinder.core.storage.gorilla.archival.TimeSeriesArchivalObject;
+
 /**
- * This interface is used for reading a compressed time series.
- *
- * @author Michael Burman
  * @author ambud
  */
-public interface BitInput {
-
-	/**
-	 * Reads the next bit and returns true if bit is set and false if not.
-	 *
-	 * @return true == 1, false == 0
-	 */
-	boolean readBit();
-
-	/**
-	 * Returns a long that was stored in the next X bits in the stream.
-	 *
-	 * @param bits
-	 *            Amount of least significant bits to read from the stream.
-	 * @return reads the next long in the series using bits meaningful bits
-	 */
-	long getLong(int bits);
+public interface Archiver {
 	
-	/**
-	 * Convert to byte array
-	 * @return
-	 */
-	byte[] toByteArray();
+	public void init(Map<String, String> conf) throws IOException;
+	
+	public void archive(TimeSeriesArchivalObject archivalObject) throws ArchiveException;
+	
+	public List<TimeSeriesArchivalObject> unarchive() throws ArchiveException;
+
 }
