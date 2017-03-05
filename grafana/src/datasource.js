@@ -204,7 +204,7 @@ System.register(['lodash'], function (_export, _context) {
                 target: _this.templateSrv.replace(target.target),
                 filters: target.filters,
                 aggregator: target.aggregator,
-                correlate: false,
+                correlate: target.correlate,
                 field: target.field,
                 refId: target.refId,
                 hide: target.hide,

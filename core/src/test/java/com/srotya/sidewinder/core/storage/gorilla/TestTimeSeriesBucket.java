@@ -37,12 +37,12 @@ public class TestTimeSeriesBucket {
 
 	@Test
 	public void testDataPointWrite() throws RejectException {
-		TimeSeriesBucket bucket = new TimeSeriesBucket(4096, System.currentTimeMillis());
+		TimeSeriesBucket bucket = new TimeSeriesBucket(System.currentTimeMillis());
 		bucket.addDataPoint(System.currentTimeMillis(), 2.2);
 		bucket.addDataPoint(System.currentTimeMillis() + 1, 2.3);
 		assertEquals(2, bucket.getCount());
 
-		bucket = new TimeSeriesBucket(4096, System.currentTimeMillis());
+		bucket = new TimeSeriesBucket(System.currentTimeMillis());
 		bucket.addDataPoint(System.currentTimeMillis(), 2);
 		bucket.addDataPoint(System.currentTimeMillis() + 1, 3);
 		assertEquals(2, bucket.getCount());
@@ -50,7 +50,7 @@ public class TestTimeSeriesBucket {
 
 	@Test
 	public void testCompressionRatio() throws RejectException {
-		TimeSeriesBucket bucket = new TimeSeriesBucket(4096, System.currentTimeMillis());
+		TimeSeriesBucket bucket = new TimeSeriesBucket(System.currentTimeMillis());
 		bucket.addDataPoint(System.currentTimeMillis(), 2.2);
 		bucket.addDataPoint(System.currentTimeMillis() + 1, 2.3);
 		assertEquals(2, bucket.getCount());
@@ -59,7 +59,7 @@ public class TestTimeSeriesBucket {
 
 	@Test
 	public void testWriteReject() {
-		TimeSeriesBucket bucket = new TimeSeriesBucket(4096, System.currentTimeMillis());
+		TimeSeriesBucket bucket = new TimeSeriesBucket(System.currentTimeMillis());
 		try {
 			bucket.addDataPoint(System.currentTimeMillis(), 2.2);
 			bucket.addDataPoint(System.currentTimeMillis()-1, 2.3);
@@ -72,7 +72,7 @@ public class TestTimeSeriesBucket {
 	public void testReadWriteLongs() throws RejectException {
 		long ts = System.currentTimeMillis();
 		int count = 10000;
-		TimeSeriesBucket series = new TimeSeriesBucket(MemStorageEngine.DEFAULT_TIME_BUCKET_CONSTANT, ts);
+		TimeSeriesBucket series = new TimeSeriesBucket(ts);
 		for (int i = 0; i < count; i++) {
 			series.addDataPoint(ts + (i * 1000), i);
 		}
@@ -96,7 +96,7 @@ public class TestTimeSeriesBucket {
 	public void testReadWriteDoubles() throws RejectException {
 		long ts = System.currentTimeMillis();
 		int count = 1000;
-		TimeSeriesBucket series = new TimeSeriesBucket(MemStorageEngine.DEFAULT_TIME_BUCKET_CONSTANT, ts);
+		TimeSeriesBucket series = new TimeSeriesBucket(ts);
 		for (int i = 0; i < 1000; i++) {
 			series.addDataPoint(ts + (i * 1000), i * 1.2);
 		}
@@ -116,25 +116,25 @@ public class TestTimeSeriesBucket {
 	@Test
 	public void testCompressionRatios() throws RejectException {
 		long ts = System.currentTimeMillis();
-		TimeSeriesBucket series = new TimeSeriesBucket(MemStorageEngine.DEFAULT_TIME_BUCKET_CONSTANT, ts);
+		TimeSeriesBucket series = new TimeSeriesBucket(ts);
 		for (int i = 0; i < 10000; i++) {
 			series.addDataPoint(ts + (i * 1000), i);
 		}
 		System.out.println("Test compression ratio (10K longs 1s frequency):" + series.getCompressionRatio());
 
-		series = new TimeSeriesBucket(MemStorageEngine.DEFAULT_TIME_BUCKET_CONSTANT, ts);
+		series = new TimeSeriesBucket(ts);
 		for (int i = 0; i < 10000; i++) {
 			series.addDataPoint(ts + i, i);
 		}
 		System.out.println("Test compression ratio (10K longs 1ms frequency):" + series.getCompressionRatio());
 
-		series = new TimeSeriesBucket(MemStorageEngine.DEFAULT_TIME_BUCKET_CONSTANT, ts);
+		series = new TimeSeriesBucket(ts);
 		for (int i = 0; i < 10000; i++) {
 			series.addDataPoint(ts + (i * 1000), i * 1.2);
 		}
 		System.out.println("Test compression ratio (10K double 1s frequency):" + series.getCompressionRatio());
 
-		series = new TimeSeriesBucket(MemStorageEngine.DEFAULT_TIME_BUCKET_CONSTANT, ts);
+		series = new TimeSeriesBucket(ts);
 		Random rand = new Random();
 		for (int i = 0; i < 10000; i++) {
 			series.addDataPoint(ts + (i * 1000), rand.nextLong());
@@ -145,7 +145,7 @@ public class TestTimeSeriesBucket {
 	@Test
 	public void testConcurrentReadWrites() throws RejectException {
 		final long ts = System.currentTimeMillis();
-		final TimeSeriesBucket series = new TimeSeriesBucket(MemStorageEngine.DEFAULT_TIME_BUCKET_CONSTANT, ts);
+		final TimeSeriesBucket series = new TimeSeriesBucket(ts);
 		final AtomicBoolean startFlag = new AtomicBoolean(false);
 		ExecutorService es = Executors.newCachedThreadPool();
 		for (int i = 0; i < 2; i++) {
