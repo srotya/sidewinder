@@ -80,7 +80,7 @@ public class GrafanaQueryApi {
 	public List<Target> query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		Gson gson = new GsonBuilder().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
-//		 System.err.println(gson.toJson(json));
+		 System.err.println(gson.toJson(json));
 
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		JsonObject range = json.get("range").getAsJsonObject();

@@ -246,7 +246,7 @@ public class TestMemStorageEngine {
 	public void testSeriesToDataPointConversion() throws RejectException {
 		List<DataPoint> points = new ArrayList<>();
 		long headerTimestamp = System.currentTimeMillis();
-		TimeSeriesBucket timeSeries = new TimeSeriesBucket(4096, headerTimestamp);
+		TimeSeriesBucket timeSeries = new TimeSeriesBucket(headerTimestamp);
 		timeSeries.addDataPoint(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, null, null, false);
 		assertEquals(1, points.size());
