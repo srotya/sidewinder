@@ -24,6 +24,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -40,6 +41,8 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.gorilla.archival.NoneArchiver;
+import com.srotya.sidewinder.core.storage.gorilla.archival.TimeSeriesArchivalObject;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 /**
@@ -82,6 +85,7 @@ public class MemStorageEngine implements StorageEngine {
 	private Map<String, Map<String, MemTagIndex>> tagLookupTable;
 	private Map<String, Integer> databaseRetentionPolicyMap;
 	private int defaultRetentionHours;
+	private Archiver archiver;
 
 	@Override
 	public void configure(Map<String, String> conf) throws IOException {
@@ -91,11 +95,29 @@ public class MemStorageEngine implements StorageEngine {
 		tagLookupTable = new HashMap<>();
 		databaseMap = new HashMap<>();
 		databaseRetentionPolicyMap = new HashMap<>();
+		try {
+			archiver = (Archiver) Class.forName(conf.getOrDefault("archiver.class", NoneArchiver.class.getName())).newInstance();
+			archiver.init(conf);
+		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		
 		Executors.newSingleThreadScheduledExecutor(new BackgrounThreadFactory()).scheduleAtFixedRate(() -> {
-			for (Map<String, SortedMap<String, TimeSeries>> map : databaseMap.values()) {
-				for (SortedMap<String, TimeSeries> sortedMap : map.values()) {
-					for (TimeSeries timeSeries : sortedMap.values()) {
-						timeSeries.collectGarbage();
+			for (Entry<String, Map<String, SortedMap<String, TimeSeries>>> measurementMap : databaseMap.entrySet()) {
+				String db = measurementMap.getKey();
+				for (Entry<String, SortedMap<String, TimeSeries>> measurementEntry : measurementMap.getValue()
+						.entrySet()) {
+					String measurement = measurementEntry.getKey();
+					for (Entry<String, TimeSeries> entry : measurementEntry.getValue().entrySet()) {
+						List<TimeSeriesBucket> buckets = entry.getValue().collectGarbage();
+						for (TimeSeriesBucket bucket : buckets) {
+							try {
+								archiver.archive(new TimeSeriesArchivalObject(db, measurement, entry.getKey(), bucket));
+							} catch (ArchiveException e) {
+								e.printStackTrace();
+							}
+						}
 					}
 				}
 			}
