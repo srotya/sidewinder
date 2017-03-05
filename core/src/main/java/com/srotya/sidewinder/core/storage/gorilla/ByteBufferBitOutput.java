@@ -54,6 +54,11 @@ public class ByteBufferBitOutput implements BitOutput {
 		}
 		b = bb.get(bb.position());
 	}
+	
+	public ByteBufferBitOutput(ByteBuffer buf) {
+		bb = buf;
+		bb.rewind();
+	}
 
 	private void expandAllocation() {
 		ByteBuffer largerBB = null;
