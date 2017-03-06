@@ -22,6 +22,7 @@
       <groupId>com.srotya.sidewinder</groupId>
       <artifactId>sidewinder-core</artifactId>
       <version>${project.version}</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
