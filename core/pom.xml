@@ -151,9 +151,6 @@
             <configuration>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
-                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>com.srotya.sidewinder.core.SidewinderServer</mainClass>
-                </transformer>
               </transformers>
             </configuration>
           </execution>
@@ -178,8 +175,9 @@
           </defineStatements>
           <mappings>
             <mapping>
-              <directory>/usr/sidewinder</directory>
+              <directory>/usr/sidewinder/lib/</directory>
               <filemode>755</filemode>
+              <username>sidewinder</username>
               <sources>
                 <source>
                   <location>target/${project.artifactId}-${project.version}.jar</location>
@@ -195,11 +193,28 @@
                 </source>
               </sources>
             </mapping>
+            <mapping>
+              <directory>/usr/sidewinder/bin/</directory>
+              <filemode>755</filemode>
+              <username>sidewinder</username>
+              <sources>
+                <source>
+                  <location>src/main/resources/install</location>
+                </source>
+              </sources>
+            </mapping>
           </mappings>
           <preinstallScriptlet>
-            <script>mkdir -p /usr/sidewinder</script>
+            <script>useradd sidewinder</script>
+            <script>mkdir -p /usr/sidewinder/lib</script>
+            <script>mkdir -p /usr/sidewinder/bin</script>
             <script>mkdir -p /etc/sidewinder</script>
           </preinstallScriptlet>
+          <postinstallScriptlet>
+            <script>chmod +x /usr/sidewinder/bin/sidewinder</script>
+            <script>chmod +x /etc/sidewinder/jq</script>
+            <script>cp /usr/sidewinder/bin/sidewinder /etc/init.d/</script>
+          </postinstallScriptlet>
         </configuration>
         <executions>
           <execution>
@@ -207,6 +222,48 @@
             <goals>
               <goal>attached-rpm</goal>
             </goals>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.vafer</groupId>
+        <artifactId>jdeb</artifactId>
+        <version>1.5</version>
+        <executions>
+          <execution>
+            <goals>
+              <goal>jdeb</goal>
+            </goals>
+            <phase>package</phase>
+            <configuration>
+              <controlDir>${basedir}/src/main/resources/deb/control</controlDir>
+              <dataSet>
+                <data>
+                  <src>${project.build.directory}/${project.build.finalName}.jar</src>
+                  <type>file</type>
+                  <mapper>
+                    <type>perm</type>
+                    <prefix>/usr/sidewinder/lib/</prefix>
+                  </mapper>
+                </data>
+                <data>
+                  <src>src/main/resources/configs</src>
+                  <type>directory</type>
+                  <mapper>
+                    <type>perm</type>
+                    <prefix>/etc/sidewinder/</prefix>
+                  </mapper>
+                </data>
+                <data>
+                  <src>src/main/resources/install</src>
+                  <type>directory</type>
+                  <mapper>
+                    <type>perm</type>
+                    <prefix>/usr/sidewinder/bin/</prefix>
+                  </mapper>
+                </data>
+              </dataSet>
+            </configuration>
           </execution>
         </executions>
       </plugin>
