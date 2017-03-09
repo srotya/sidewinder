@@ -96,13 +96,14 @@ public class MemStorageEngine implements StorageEngine {
 		databaseMap = new HashMap<>();
 		databaseRetentionPolicyMap = new HashMap<>();
 		try {
-			archiver = (Archiver) Class.forName(conf.getOrDefault("archiver.class", NoneArchiver.class.getName())).newInstance();
+			archiver = (Archiver) Class.forName(conf.getOrDefault("archiver.class", NoneArchiver.class.getName()))
+					.newInstance();
 			archiver.init(conf);
 		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
-		
+
 		Executors.newSingleThreadScheduledExecutor(new BackgrounThreadFactory()).scheduleAtFixedRate(() -> {
 			for (Entry<String, Map<String, SortedMap<String, TimeSeries>>> measurementMap : databaseMap.entrySet()) {
 				String db = measurementMap.getKey();

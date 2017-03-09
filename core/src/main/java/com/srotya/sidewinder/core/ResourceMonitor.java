@@ -51,11 +51,11 @@ public class ResourceMonitor {
 		this.storageEngine = storageEngine;
 		storageEngine.getOrCreateDatabase(DB, 28);
 		Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
-			memMonitor();
+			memAndCPUMonitor();
 		}, 0, 5, TimeUnit.SECONDS);
 	}
 
-	public void memMonitor() {
+	public void memAndCPUMonitor() {
 		MemoryMXBean mem = ManagementFactory.getMemoryMXBean();
 		MemoryUsage heap = mem.getHeapMemoryUsage();
 		MemoryUsage nonheap = mem.getNonHeapMemoryUsage();

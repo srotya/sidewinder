@@ -58,10 +58,10 @@ public class DataPoint implements Serializable {
 		this.isFp = false;
 	}
 
-	public DataPoint(String dbName, String seriesName, String valueFieldName, List<String> tags, long timestamp,
+	public DataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags, long timestamp,
 			double value) {
 		this.dbName = dbName;
-		this.measurementName = seriesName;
+		this.measurementName = measurementName;
 		this.valueFieldName = valueFieldName;
 		this.tags = tags;
 		this.timestamp = timestamp;
@@ -193,10 +193,10 @@ public class DataPoint implements Serializable {
 	@Override
 	public String toString() {
 		if (isFp) {
-			return "DataPoint [measurementName=" + measurementName + ", timestamp=" + timestamp + ", value="
+			return "DataPoint [db="+dbName+",measurementName=" + measurementName + ", timestamp=" + timestamp + ", value="
 					+ getValue() + "]";
 		} else {
-			return "DataPoint [measurementName=" + measurementName + ", timestamp=" + timestamp + ", value="
+			return "DataPoint [db="+dbName+",measurementName=" + measurementName + ", timestamp=" + timestamp + ", value="
 					+ getLongValue() + "]";
 		}
 	}
