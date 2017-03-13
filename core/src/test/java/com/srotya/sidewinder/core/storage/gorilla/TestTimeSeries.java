@@ -48,7 +48,7 @@ public class TestTimeSeries {
 		TimeSeries series = new TimeSeries("43232", 24, 4096, true);
 		long curr = System.currentTimeMillis();
 		for (int i = 1; i <= 3; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr, 2.2 * i);
+			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
 		}
 		assertEquals(1, series.getBucketMap().size());
 		TimeSeriesBucket bucket = series.getBucketMap().values().iterator().next();

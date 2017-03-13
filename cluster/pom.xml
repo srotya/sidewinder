@@ -15,6 +15,11 @@
   </properties>
   <dependencies>
     <dependency>
+      <groupId>com.facebook.jcommon</groupId>
+      <artifactId>util</artifactId>
+      <version>0.1.29</version>
+    </dependency>
+    <dependency>
       <groupId>com.srotya</groupId>
       <artifactId>linea</artifactId>
       <version>${linea.version}</version>

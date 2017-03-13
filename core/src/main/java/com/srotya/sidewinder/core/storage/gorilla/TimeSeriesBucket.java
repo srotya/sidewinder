@@ -66,7 +66,7 @@ public class TimeSeriesBucket implements Serializable {
 	 */
 	public void addDataPoint(long timestamp, double value) throws RejectException {
 		synchronized (output) {
-			if (timestamp < lastTs) {
+			if (timestamp <= lastTs) {
 				// drop this datapoint
 				throw OLD_DATA_POINT;
 			}
@@ -88,7 +88,7 @@ public class TimeSeriesBucket implements Serializable {
 	 */
 	public void addDataPoint(long timestamp, long value) throws RejectException {
 		synchronized (output) {
-			if (timestamp < lastTs) {
+			if (timestamp <= lastTs) {
 				// drop this datapoint
 				throw OLD_DATA_POINT;
 			}

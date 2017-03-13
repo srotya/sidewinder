@@ -188,8 +188,12 @@ public class TimeSeries {
 		String tsBucket = Integer.toHexString(bucket);
 		TimeSeriesBucket timeseriesBucket = bucketMap.get(tsBucket);
 		if (timeseriesBucket == null) {
-			timeseriesBucket = new TimeSeriesBucket(timestamp);
-			bucketMap.put(tsBucket, timeseriesBucket);
+			synchronized (bucketMap) {
+				if ((timeseriesBucket = bucketMap.get(tsBucket)) == null) {
+					timeseriesBucket = new TimeSeriesBucket(timestamp);
+					bucketMap.put(tsBucket, timeseriesBucket);
+				}
+			}
 		}
 		timeseriesBucket.addDataPoint(timestamp, value);
 	}
