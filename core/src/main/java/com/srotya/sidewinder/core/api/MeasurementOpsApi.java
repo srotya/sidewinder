@@ -57,7 +57,6 @@ public class MeasurementOpsApi {
 		this.engine = storageEngine;
 	}
 
-	@Path("/")
 	@PUT
 	public void createMeasurement(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
 			@PathParam(MEASUREMENT) String measurementName) {

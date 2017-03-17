@@ -26,8 +26,8 @@ import java.util.Arrays;
 
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
-import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -45,7 +45,7 @@ import com.srotya.sidewinder.core.sql.calcite.functions.NowFunction;
 import com.srotya.sidewinder.core.sql.calcite.functions.ToMilliseconds;
 import com.srotya.sidewinder.core.sql.calcite.functions.ToTimestamp;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.gorilla.MemStorageEngine;
+import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 
 /**
  * REST API to service SQL queries
@@ -95,7 +95,7 @@ public class SqlApi {
 	@Path("/database/{" + DatabaseOpsApi.DB_NAME + "}")
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.TEXT_PLAIN })
-	@GET
+	@POST
 	public String queryResults(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String sql) {
 		try {
 			if (!checkAndAddSchema(dbName)) {

@@ -13,26 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.utils;
+package com.srotya.sidewinder.core.storage.mem;
 
-import java.util.concurrent.ThreadFactory;
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
  * @author ambud
  */
-public class BackgrounThreadFactory implements ThreadFactory{
+public interface Archiver {
 	
-	private String name;
-
-	public BackgrounThreadFactory(String name) {
-		this.name = name;
-	}
-
-	@Override
-	public Thread newThread(Runnable r) {
-		Thread th = new Thread(r, name);
-		th.setDaemon(true);
-		return th;
-	}
+	public void init(Map<String, String> conf) throws IOException;
+	
+	public void archive(TimeSeriesArchivalObject archivalObject) throws ArchiveException;
+	
+	public List<TimeSeriesArchivalObject> unarchive() throws ArchiveException;
 
 }

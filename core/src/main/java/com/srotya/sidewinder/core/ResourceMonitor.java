@@ -21,13 +21,13 @@ import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 /**
  * @author ambud
@@ -50,33 +50,43 @@ public class ResourceMonitor {
 	public void init(StorageEngine storageEngine) {
 		this.storageEngine = storageEngine;
 		storageEngine.getOrCreateDatabase(DB, 28);
-		Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() -> {
-			memAndCPUMonitor();
-		}, 0, 5, TimeUnit.SECONDS);
+		Executors.newSingleThreadExecutor(new BackgrounThreadFactory("sidewinder-rm")).submit(() -> {
+			while (true) {
+				try {
+					memAndCPUMonitor();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				Thread.sleep(2000);
+			}
+		});
 	}
 
 	public void memAndCPUMonitor() {
 		MemoryMXBean mem = ManagementFactory.getMemoryMXBean();
 		MemoryUsage heap = mem.getHeapMemoryUsage();
 		MemoryUsage nonheap = mem.getNonHeapMemoryUsage();
-		double systemLoadAverage = ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage();
-
-		DataPoint dp = new DataPoint(DB, "cpu", "load", Arrays.asList(), System.currentTimeMillis(),
-				systemLoadAverage);
-		try {
-			storageEngine.writeDataPoint(dp);
-		} catch (IOException e) {
-			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
-		}
+		
+		validateCPUUsage();
 
 		validateMemoryUsage("heap", heap, 10_485_760);
 		validateMemoryUsage("nonheap", nonheap, 1_073_741_824);
 	}
 
+	private void validateCPUUsage() {
+		double systemLoadAverage = ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage();
+		DataPoint dp = new DataPoint(DB, "cpu", "load", Arrays.asList(), System.currentTimeMillis(), systemLoadAverage);
+		try {
+			storageEngine.writeDataPoint(dp);
+		} catch (IOException e) {
+			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
+		}
+	}
+
 	public void validateMemoryUsage(String type, MemoryUsage mem, int min) {
 		long max = mem.getMax();
 		if (max == -1) {
-			max = Long.MAX_VALUE;
+			max = Integer.MAX_VALUE;
 		}
 		long used = mem.getUsed();
 		DataPoint dp = new DataPoint(DB, "memory", "used", Arrays.asList(type), System.currentTimeMillis(), used);
