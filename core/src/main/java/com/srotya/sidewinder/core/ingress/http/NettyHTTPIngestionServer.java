@@ -17,7 +17,10 @@ package com.srotya.sidewinder.core.ingress.http;
 
 import java.util.Map;
 
+import com.codahale.metrics.Meter;
+import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -34,7 +37,7 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
 /**
- * 
+ * A Netty based HTTP ingress server implementation for Sidewinder
  * 
  * @author ambud
  */
@@ -42,15 +45,17 @@ public class NettyHTTPIngestionServer {
 
 	private Channel channel;
 	private StorageEngine storageEngine;
+	private Meter meter;
 
-	public void init(StorageEngine storageEngine, Map<String, String> conf) {
+	public void init(StorageEngine storageEngine, Map<String, String> conf, MetricRegistry registry) {
 		this.storageEngine = storageEngine;
+		meter = registry.meter("writes");
 	}
 
 	public void start() throws InterruptedException {
-		EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-		EventLoopGroup workerGroup = new NioEventLoopGroup(2);
-		EventLoopGroup processorGroup = new NioEventLoopGroup(4);
+		EventLoopGroup bossGroup = new NioEventLoopGroup(1, new BackgrounThreadFactory("httpBossGroup"));
+		EventLoopGroup workerGroup = new NioEventLoopGroup(1, new BackgrounThreadFactory("httpWorkerGroup"));
+		EventLoopGroup processorGroup = new NioEventLoopGroup(2, new BackgrounThreadFactory("httpProcessorGroup"));
 
 		ServerBootstrap bs = new ServerBootstrap();
 		channel = bs.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
@@ -60,9 +65,9 @@ public class NettyHTTPIngestionServer {
 					@Override
 					protected void initChannel(SocketChannel ch) throws Exception {
 						ChannelPipeline p = ch.pipeline();
-						p.addLast(new HttpRequestDecoder());
-						p.addLast(new HttpResponseEncoder());
-						p.addLast(processorGroup, new HTTPDataPointDecoder(storageEngine));
+						p.addLast(processorGroup, new HttpRequestDecoder());
+						p.addLast(processorGroup, new HttpResponseEncoder());
+						p.addLast(processorGroup, new HTTPDataPointDecoder(storageEngine, meter));
 					}
 
 				}).bind("localhost", 9928).sync().channel();

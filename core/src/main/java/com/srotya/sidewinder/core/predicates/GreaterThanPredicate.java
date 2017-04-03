@@ -16,6 +16,10 @@
 package com.srotya.sidewinder.core.predicates;
 
 /**
+ * {@link Predicate} implementing Greater than operator, where the
+ * supplied (tested) value is greater than the predicate's configured
+ * value.
+ * 
  * @author ambud
  */
 public class GreaterThanPredicate implements Predicate {
@@ -28,7 +32,7 @@ public class GreaterThanPredicate implements Predicate {
 
 	@Override
 	public boolean apply(long value) {
-		return value >= rhs;
+		return value > rhs;
 	}
 
 }

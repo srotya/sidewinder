@@ -32,7 +32,9 @@ public abstract class SingleResultFunction implements AggregationFunction {
 	@Override
 	public List<DataPoint> aggregate(List<DataPoint> dataPoints) {
 		if (dataPoints.size() > 0) {
-			DataPoint dp = new DataPoint(0, 0);
+			DataPoint dp = new DataPoint();
+			dp.setTimestamp(0);
+			dp.setValue(0);
 			dp.setTags(dataPoints.get(0).getTags());
 			dp.setFp(dataPoints.get(0).isFp());
 			dp.setMeasurementName(dataPoints.get(0).getMeasurementName());

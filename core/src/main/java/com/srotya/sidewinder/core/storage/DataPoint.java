@@ -35,39 +35,41 @@ public class DataPoint implements Serializable {
 	private long timestamp;
 	private long value;
 
-	public DataPoint(long timestamp, long value) {
-		this.timestamp = timestamp;
-		this.value = value;
-		isFp = false;
-	}
+	// public DataPoint(long timestamp, long value) {
+	// this.timestamp = timestamp;
+	// this.value = value;
+	// isFp = false;
+	// }
+	//
+	// public DataPoint(long timestamp, double value) {
+	// this.timestamp = timestamp;
+	// this.value = Double.doubleToLongBits(value);
+	// isFp = true;
+	// }
+	//
+	// public DataPoint(String dbName, String measurementName, String
+	// valueFieldName, List<String> tags, long timestamp,
+	// long value) {
+	// this.dbName = dbName;
+	// this.measurementName = measurementName;
+	// this.valueFieldName = valueFieldName;
+	// this.tags = tags;
+	// this.timestamp = timestamp;
+	// this.value = value;
+	// this.isFp = false;
+	// }
 
-	public DataPoint(long timestamp, double value) {
-		this.timestamp = timestamp;
-		this.value = Double.doubleToLongBits(value);
-		isFp = true;
-	}
-
-	public DataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags, long timestamp,
-			long value) {
-		this.dbName = dbName;
-		this.measurementName = measurementName;
-		this.valueFieldName = valueFieldName;
-		this.tags = tags;
-		this.timestamp = timestamp;
-		this.value = value;
-		this.isFp = false;
-	}
-
-	public DataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags, long timestamp,
-			double value) {
-		this.dbName = dbName;
-		this.measurementName = measurementName;
-		this.valueFieldName = valueFieldName;
-		this.tags = tags;
-		this.timestamp = timestamp;
-		this.value = Double.doubleToLongBits(value);
-		this.isFp = true;
-	}
+	// public DataPoint(String dbName, String measurementName, String
+	// valueFieldName, List<String> tags, long timestamp,
+	// double value) {
+	// this.dbName = dbName;
+	// this.measurementName = measurementName;
+	// this.valueFieldName = valueFieldName;
+	// this.tags = tags;
+	// this.timestamp = timestamp;
+	// this.value = Double.doubleToLongBits(value);
+	// this.isFp = true;
+	// }
 
 	/**
 	 * @return the seriesName
@@ -193,11 +195,11 @@ public class DataPoint implements Serializable {
 	@Override
 	public String toString() {
 		if (isFp) {
-			return "DataPoint [db=" + dbName + ",measurementName=" + measurementName + ", timestamp=" + timestamp
-					+ ", value=" + getValue() + "]";
+			return "DataPoint [db=" + dbName + ", measurementName=" + measurementName + ", timestamp=" + timestamp
+					+ ", " + getValueFieldName() + "=" + getValue() + ", tags=" + tags + ", fp:" + isFp + "]";
 		} else {
-			return "DataPoint [db=" + dbName + ",measurementName=" + measurementName + ", timestamp=" + timestamp
-					+ ", value=" + getLongValue() + "]";
+			return "DataPoint [db=" + dbName + ", measurementName=" + measurementName + ", timestamp=" + timestamp
+					+ ", " + getValueFieldName() + "=" + getLongValue() + ", tags=" + tags + ", fp:" + isFp + "]";
 		}
 	}
 

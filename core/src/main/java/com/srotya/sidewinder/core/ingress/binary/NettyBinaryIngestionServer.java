@@ -18,6 +18,7 @@ package com.srotya.sidewinder.core.ingress.binary;
 import java.util.Map;
 
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -33,6 +34,8 @@ import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
 /**
+ * A Netty based binary ingress server.
+ * 
  * @author ambud
  */
 public class NettyBinaryIngestionServer {
@@ -45,8 +48,10 @@ public class NettyBinaryIngestionServer {
 	}
 
 	public void start() throws InterruptedException {
-		EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-		EventLoopGroup workerGroup = new NioEventLoopGroup(4);
+		EventLoopGroup bossGroup = new NioEventLoopGroup(1, new BackgrounThreadFactory("binBossGroup"));
+		EventLoopGroup workerGroup = new NioEventLoopGroup(1, new BackgrounThreadFactory("binWorkerGroup"));
+		EventLoopGroup decoderGroup = new NioEventLoopGroup(1, new BackgrounThreadFactory("binDecoderGroup"));
+		EventLoopGroup writerGroup = new NioEventLoopGroup(2, new BackgrounThreadFactory("binWriterGroup"));
 
 		ServerBootstrap bs = new ServerBootstrap();
 		channel = bs.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
@@ -56,9 +61,9 @@ public class NettyBinaryIngestionServer {
 					@Override
 					protected void initChannel(SocketChannel ch) throws Exception {
 						ChannelPipeline p = ch.pipeline();
-						p.addLast(new LengthFieldBasedFrameDecoder(3000, 0, 4, 0, 4));
-						p.addLast(new SeriesDataPointDecoder());
-						p.addLast(new SeriesDataPointWriter(storageEngine));
+						p.addLast(new LengthFieldBasedFrameDecoder(1024 * 1024, 0, 4, 0, 4));
+						p.addLast(decoderGroup, new SeriesDataPointDecoder());
+						p.addLast(writerGroup, new SeriesDataPointWriter(storageEngine));
 					}
 
 				}).bind("localhost", 9927).sync().channel();

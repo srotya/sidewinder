@@ -16,6 +16,8 @@
 package com.srotya.sidewinder.core.predicates;
 
 /**
+ * {@link Predicate} implementing equals operator.
+ * 
  * @author ambud
  */
 public class EqualsPredicate implements Predicate {

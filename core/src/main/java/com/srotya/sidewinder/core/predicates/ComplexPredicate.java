@@ -18,18 +18,24 @@ package com.srotya.sidewinder.core.predicates;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * An abstract {@link Predicate} implementation for predicates that take one or
+ * more other predicates as arugments and apply an operator between them.
+ * 
+ * @author ambud
+ */
 public abstract class ComplexPredicate implements Predicate {
 
 	private List<Predicate> predicates;
 
 	public ComplexPredicate(List<Predicate> predicates) {
-		if(predicates==null) {
+		if (predicates == null) {
 			this.predicates = new ArrayList<>();
-		}else {
+		} else {
 			this.predicates = predicates;
 		}
 	}
-	
+
 	@Override
 	public boolean apply(long value) {
 		boolean result = predicates.get(0).apply(value);
@@ -42,7 +48,7 @@ public abstract class ComplexPredicate implements Predicate {
 		}
 		return result;
 	}
-	
+
 	public abstract boolean shortCircuit(boolean prev, boolean current);
 
 	public abstract boolean predicate(boolean prev, Predicate next, long value);
@@ -50,7 +56,7 @@ public abstract class ComplexPredicate implements Predicate {
 	public void addPredicate(Predicate predicate) {
 		predicates.add(predicate);
 	}
-	
+
 	public void addPredicates(List<Predicate> operators) {
 		predicates.addAll(operators);
 	}

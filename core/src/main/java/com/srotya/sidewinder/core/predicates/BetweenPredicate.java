@@ -15,6 +15,12 @@
  */
 package com.srotya.sidewinder.core.predicates;
 
+/**
+ * {@link Predicate} implementing Between i.e. greater than equal to and less
+ * than equal to operator
+ * 
+ * @author ambud
+ */
 public class BetweenPredicate implements Predicate {
 
 	private long startTs;

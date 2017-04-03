@@ -15,10 +15,10 @@
  */
 package com.srotya.sidewinder.core.api.grafana;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
 import java.util.Stack;
 
 import javax.ws.rs.NotFoundException;
@@ -36,6 +36,7 @@ import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.filters.OrFilter;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
+import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -47,8 +48,8 @@ public class GrafanaUtils {
 	}
 
 	public static void queryAndGetData(StorageEngine engine, String dbName, long startTs, long endTs,
-			List<Target> output, TargetSeries targetSeriesEntry) {
-		Map<String, List<DataPoint>> points;
+			List<Target> output, TargetSeries targetSeriesEntry) throws IOException {
+		Set<SeriesQueryOutput> points;
 		try {
 			points = engine.queryDataPoints(dbName, targetSeriesEntry.getMeasurementName(),
 					targetSeriesEntry.getFieldName(), startTs, endTs, targetSeriesEntry.getTagList(),
@@ -56,9 +57,9 @@ public class GrafanaUtils {
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
 		}
-		for (Entry<String, List<DataPoint>> entry : points.entrySet()) {
-			List<DataPoint> dataPoints = entry.getValue();
-			Target tar = new Target(entry.getKey());
+		for (SeriesQueryOutput entry : points) {
+			List<DataPoint> dataPoints = entry.getDataPoints();
+			Target tar = new Target(entry.toString());
 			for (DataPoint dataPoint : dataPoints) {
 				if (!dataPoint.isFp()) {
 					tar.getDatapoints().add(new Number[] { dataPoint.getLongValue(), dataPoint.getTimestamp() });
