@@ -26,24 +26,25 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.srotya.sidewinder.core.compression.gorilla.GorillaWriter;
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.Reader;
+import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.compression.gorilla.GorillaWriter;
 import com.srotya.sidewinder.core.storage.mem.ArchiveException;
 import com.srotya.sidewinder.core.storage.mem.Archiver;
-import com.srotya.sidewinder.core.storage.mem.Reader;
-import com.srotya.sidewinder.core.storage.mem.TimeSeriesBucket;
 
 /**
  * @author ambud
  */
+@Deprecated
 public class TestDiskArchiver {
-	
+
 	private String className = GorillaWriter.class.getName();
 
-//	@Test
+	// @Test
 	public void testStreamSerDe() throws IOException {
 		long ts = System.currentTimeMillis();
-		TimeSeriesBucket bucket = new TimeSeriesBucket(className, ts);
+		TimeSeriesBucket bucket = new TimeSeriesBucket("seriesId", className, ts, false, new HashMap<>());
 		for (int i = 0; i < 1000; i++) {
 			bucket.addDataPoint(ts + i * 1000, i);
 		}
@@ -89,14 +90,14 @@ public class TestDiskArchiver {
 		}
 	}
 
-//	@Test
+	// @Test
 	public void testDiskArchiver() throws IOException, ArchiveException {
 		Archiver archiver = new DiskArchiver();
 		Map<String, String> conf = new HashMap<>();
 		conf.put(DiskArchiver.ARCHIVAL_DISK_DIRECTORY, "target/test-diskbackup-" + System.currentTimeMillis());
 		archiver.init(conf);
 		long ts = System.currentTimeMillis();
-		TimeSeriesBucket bucket = new TimeSeriesBucket(className, ts);
+		TimeSeriesBucket bucket = new TimeSeriesBucket("seriesId", className, ts, false, new HashMap<>());
 		for (int i = 0; i < 1000; i++) {
 			bucket.addDataPoint(ts + i * 1000, i);
 		}

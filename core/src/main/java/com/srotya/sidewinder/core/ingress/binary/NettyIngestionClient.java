@@ -34,8 +34,9 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldPrepender;
 
 /**
+ * Netty Ingress client for binary protocol
+ * 
  * @author ambud
- *
  */
 public class NettyIngestionClient {
 
@@ -60,14 +61,19 @@ public class NettyIngestionClient {
 			Channel channel = f.channel();
 			for (int k = 0; k < TOTAL; k++) {
 				List<DataPoint> data = new ArrayList<>();
-				for (int i = 0; i < 100; i++) {
-					DataPoint dp = new DataPoint("test", "cpu" + i, "value", Arrays.asList("2"), System.currentTimeMillis() + i * k,
-							System.currentTimeMillis() + i * k);
+				for (int i = 0; i < 500; i++) {
+					DataPoint dp = new DataPoint();
+					dp.setDbName(args[0]);
+					dp.setMeasurementName("cpu" + i);
+					dp.setValueFieldName("value");
+					dp.setTags(Arrays.asList("2"));
+					dp.setTimestamp(System.currentTimeMillis() + i * k);
+					dp.setLongValue(System.currentTimeMillis() + i * k);
 					dp.setFp(false);
 					data.add(dp);
 				}
 				// Thread.sleep(1);
-				channel.writeAndFlush(data);
+				channel.writeAndFlush(data).sync();
 			}
 			System.out.println("Data points:" + TOTAL);
 			channel.flush();

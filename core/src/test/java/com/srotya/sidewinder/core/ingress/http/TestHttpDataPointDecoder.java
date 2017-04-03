@@ -32,7 +32,7 @@ public class TestHttpDataPointDecoder {
 
 	@Test
 	public void testIdenticalWriteSinglePoint() {
-		String testPoints = "cpu,host=server01,region=uswest value=1 1434055562000000000";
+		String testPoints = "cpu,host=server01,region=uswest value=1i 1434055562000000000";
 		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
 		DataPoint dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
@@ -44,7 +44,7 @@ public class TestHttpDataPointDecoder {
 
 	@Test
 	public void testIdenticalWriteMultipoints() {
-		String testPoints = "cpu,host=server01,region=uswest value=1 1434055562000000000\ncpu,host=server01,region=uswest value=1 1434055562000000000\ncpu,host=server01,region=uswest value=1 1434055562000000000";
+		String testPoints = "cpu,host=server01,region=uswest value=1i 1434055562000000000\ncpu,host=server01,region=uswest value=1i 1434055562000000000\ncpu,host=server01,region=uswest value=1i 1434055562000000000";
 		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
 		for (DataPoint dp : dps) {
 			assertEquals("cpu", dp.getMeasurementName());
@@ -57,7 +57,7 @@ public class TestHttpDataPointDecoder {
 
 	@Test
 	public void testDoublePointMeasurementValue() {
-		String testPoints = "cpu value=1,value1=2 1434055562000000000";
+		String testPoints = "cpu value=1i,value1=2i 1434055562000000000";
 		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
 
 		assertEquals(2, dps.size());
@@ -77,7 +77,7 @@ public class TestHttpDataPointDecoder {
 
 	@Test
 	public void testSinglePointMeasurementValue() {
-		String testPoints = "cpu value=1 1434055562000000000";
+		String testPoints = "cpu value=1i 1434055562000000000";
 		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
 		assertEquals(1, dps.size());
 		DataPoint dp = dps.get(0);
@@ -89,7 +89,7 @@ public class TestHttpDataPointDecoder {
 
 	@Test
 	public void testSinglePointMeasurementValueWithoutTimestamp() {
-		String testPoints = "cpu value=1";
+		String testPoints = "cpu value=1i";
 		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
 		assertEquals(1, dps.size());
 		DataPoint dp = dps.get(0);

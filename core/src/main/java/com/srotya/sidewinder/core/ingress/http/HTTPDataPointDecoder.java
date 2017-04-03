@@ -33,10 +33,13 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import com.codahale.metrics.Meter;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.ResourceMonitor;
+import com.srotya.sidewinder.core.rpc.Point;
+import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -74,15 +77,17 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 	private String dbName;
 	private String path;
 	private StringBuilder requestBuffer = new StringBuilder();
+	private Meter meter;
 
-	public HTTPDataPointDecoder(StorageEngine engine) {
+	public HTTPDataPointDecoder(StorageEngine engine, Meter meter) {
 		this.engine = engine;
+		this.meter = meter;
 	}
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
 		try {
-			if(ResourceMonitor.getInstance().isReject()) {
+			if (ResourceMonitor.getInstance().isReject()) {
 				logger.warning("Write rejected, insufficient memory");
 				if (writeResponse(request, ctx)) {
 					ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
@@ -133,6 +138,7 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 						String payload = requestBuffer.toString();
 						logger.fine("Request:" + payload);
 						List<DataPoint> dps = dataPointsFromString(dbName, payload);
+						meter.mark(dps.size());
 						for (DataPoint dp : dps) {
 							try {
 								engine.writeDataPoint(dp);
@@ -174,7 +180,7 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 					if (parts[2].length() > LENGTH_OF_MILLISECOND_TS) {
 						timestamp = timestamp / (1000 * 1000);
 					}
-				}else {
+				} else {
 					System.out.println("DB timestamp");
 				}
 				String[] key = parts[0].split(",");
@@ -188,19 +194,91 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 				for (String field : fields) {
 					String[] fv = field.split("=");
 					String valueFieldName = fv[0];
-					if (fv[1].contains(".")) {
+					if (!fv[1].endsWith("i")) {
 						double value = Double.parseDouble(fv[1]);
-						DataPoint dp = new DataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value);
+						DataPoint dp = new DataPoint();
+						dp.setDbName(dbName);
+						dp.setMeasurementName(measurementName);
+						dp.setValueFieldName(valueFieldName);
+						dp.setValue(value);
+						dp.setTags(tags);
+						dp.setTimestamp(timestamp);
 						dp.setFp(true);
 						dps.add(dp);
 					} else {
-						if (fv[1].endsWith("i")) {
-							fv[1] = fv[1].substring(0, fv[1].length() - 1);
-						}
+						fv[1] = fv[1].substring(0, fv[1].length() - 1);
 						long value = Long.parseLong(fv[1]);
-						DataPoint dp = new DataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value);
+						DataPoint dp = new DataPoint();
+						dp.setDbName(dbName);
+						dp.setMeasurementName(measurementName);
+						dp.setValueFieldName(valueFieldName);
+						dp.setLongValue(value);
+						dp.setTags(tags);
+						dp.setTimestamp(timestamp);
 						dp.setFp(false);
 						dps.add(dp);
+					}
+				}
+			} catch (Exception e) {
+				logger.fine("Rejected:" + split);
+			}
+		}
+		return dps;
+	}
+
+	public static List<Point> pointsFromString(String dbName, String payload) {
+		List<Point> dps = new ArrayList<>();
+		String[] splits = payload.split("[\\r\\n]+");
+		for (String split : splits) {
+			try {
+				String[] parts = split.split("\\s+");
+				if (parts.length < 2 || parts.length > 3) {
+					// invalid datapoint => drop
+					continue;
+				}
+				long timestamp = System.currentTimeMillis();
+				if (parts.length == 3) {
+					timestamp = Long.parseLong(parts[2]);
+					if (parts[2].length() > LENGTH_OF_MILLISECOND_TS) {
+						timestamp = timestamp / (1000 * 1000);
+					}
+				} else {
+					System.out.println("DB timestamp");
+				}
+				String[] key = parts[0].split(",");
+				String measurementName = key[0];
+				Set<String> tTags = new HashSet<>();
+				for (int i = 1; i < key.length; i++) {
+					tTags.add(key[i]);
+				}
+				List<String> tags = new ArrayList<>(tTags);
+				String[] fields = parts[1].split(",");
+				for (String field : fields) {
+					String[] fv = field.split("=");
+					String valueFieldName = fv[0];
+					if (!fv[1].endsWith("i")) {
+						double value = Double.parseDouble(fv[1]);
+						Builder builder = Point.newBuilder();
+						builder.setDbName(dbName);
+						builder.setMeasurementName(measurementName);
+						builder.setValueFieldName(valueFieldName);
+						builder.setValue(Double.doubleToLongBits(value));
+						builder.addAllTags(tags);
+						builder.setTimestamp(timestamp);
+						builder.setFp(true);
+						dps.add(builder.build());
+					} else {
+						fv[1] = fv[1].substring(0, fv[1].length() - 1);
+						long value = Long.parseLong(fv[1]);
+						Builder builder = Point.newBuilder();
+						builder.setDbName(dbName);
+						builder.setMeasurementName(measurementName);
+						builder.setValueFieldName(valueFieldName);
+						builder.setValue(value);
+						builder.addAllTags(tags);
+						builder.setTimestamp(timestamp);
+						builder.setFp(false);
+						dps.add(builder.build());
 					}
 				}
 			} catch (Exception e) {
