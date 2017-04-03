@@ -36,10 +36,10 @@ import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
-import com.srotya.sidewinder.core.storage.gorilla.ArchiveException;
-import com.srotya.sidewinder.core.storage.gorilla.Archiver;
-import com.srotya.sidewinder.core.storage.gorilla.archival.DiskArchiver;
-import com.srotya.sidewinder.core.storage.gorilla.archival.TimeSeriesArchivalObject;
+import com.srotya.sidewinder.core.storage.mem.ArchiveException;
+import com.srotya.sidewinder.core.storage.mem.Archiver;
+import com.srotya.sidewinder.core.storage.mem.archival.DiskArchiver;
+import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
  * @author ambud

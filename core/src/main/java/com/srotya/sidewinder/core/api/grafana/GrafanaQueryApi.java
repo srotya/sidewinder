@@ -143,7 +143,7 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryFields(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
-		System.out.println("Tag query:" + dbName + "\t" + queryString);
+//		System.out.println("Tag query:" + dbName + "\t" + queryString);
 		try {
 			Gson gson = new Gson();
 			JsonObject measurement = gson.fromJson(queryString, JsonObject.class);

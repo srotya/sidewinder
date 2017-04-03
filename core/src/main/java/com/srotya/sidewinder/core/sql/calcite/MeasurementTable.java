@@ -41,8 +41,8 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.gorilla.MemStorageEngine;
-import com.srotya.sidewinder.core.storage.gorilla.Reader;
+import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
+import com.srotya.sidewinder.core.storage.mem.Reader;
 
 /**
  * @author ambud

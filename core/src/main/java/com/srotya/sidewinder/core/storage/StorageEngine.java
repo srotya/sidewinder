@@ -24,7 +24,7 @@ import java.util.SortedMap;
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
-import com.srotya.sidewinder.core.storage.gorilla.TimeSeries;
+import com.srotya.sidewinder.core.storage.mem.TimeSeries;
 
 /**
  * @author ambudsharma

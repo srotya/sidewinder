@@ -13,13 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.predicates;
+package com.srotya.sidewinder.core.storage.mem;
+
+import java.io.IOException;
+import java.util.List;
+
+import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
-public interface Predicate {
+public interface Reader {
 
-	boolean apply(long value);
+	public DataPoint readPair() throws IOException;
+	
+	public int getCounter();
+	
+	public int getPairCount();
+	
+	public void setTimePredicate(Predicate timePredicate);
+	
+	public void setValuePredicate(Predicate valuePredicate);
+	
+	public void setIsFP(boolean fp);
+	
+	public void setFieldName(String fieldName);
+	
+	public void setTags(List<String> tags);
 	
 }
