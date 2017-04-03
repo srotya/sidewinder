@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.api.grafana;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +48,7 @@ public class GrafanaUtils {
 	}
 
 	public static void queryAndGetData(StorageEngine engine, String dbName, long startTs, long endTs,
-			List<Target> output, TargetSeries targetSeriesEntry) {
+			List<Target> output, TargetSeries targetSeriesEntry) throws IOException {
 		Map<String, List<DataPoint>> points;
 		try {
 			points = engine.queryDataPoints(dbName, targetSeriesEntry.getMeasurementName(),

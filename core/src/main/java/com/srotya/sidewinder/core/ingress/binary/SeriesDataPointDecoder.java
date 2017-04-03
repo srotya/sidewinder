@@ -15,21 +15,23 @@
  */
 package com.srotya.sidewinder.core.ingress.binary;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.ReplayingDecoder;
+import io.netty.handler.codec.ByteToMessageDecoder;
 
 /**
  * @author ambud
  */
-public class SeriesDataPointDecoder extends ReplayingDecoder<Void> {
+public class SeriesDataPointDecoder extends ByteToMessageDecoder {
 
 	@Override
 	protected void decode(ChannelHandlerContext arg0, ByteBuf buf, List<Object> output) throws Exception {
+		buf.retain();
 		int dpCount = buf.readInt();
 		for (int i = 0; i < dpCount; i++) {
 			DataPoint d = decodeBufToDPoint(buf);
@@ -40,6 +42,7 @@ public class SeriesDataPointDecoder extends ReplayingDecoder<Void> {
 				output.add(d);
 			}
 		}
+		buf.release();
 	}
 
 	public static DataPoint decodeBufToDPoint(ByteBuf buf) {
@@ -57,7 +60,7 @@ public class SeriesDataPointDecoder extends ReplayingDecoder<Void> {
 		byte[] measurementNameBytes = new byte[measurementNameLength];
 		buf.readBytes(measurementNameBytes);
 		String measurementName = new String(measurementNameBytes);
-		
+
 		int valueNameLength = buf.readInt();
 		if (valueNameLength < 0) {
 			return null;
@@ -65,16 +68,26 @@ public class SeriesDataPointDecoder extends ReplayingDecoder<Void> {
 		byte[] valueNameBytes = new byte[valueNameLength];
 		buf.readBytes(valueNameBytes);
 		String valueFieldName = new String(valueNameBytes);
+
+		List<String> tags = new ArrayList<>();
+
+		int tagCount = buf.readInt();
+		for (int i = 0; i < tagCount; i++) {
+			byte[] value = new byte[buf.readInt()];
+			buf.readBytes(value);
+			tags.add(new String(value));
+		}
+
 		long timestamp = buf.readLong();
 		byte flag = buf.readByte();
 		DataPoint dp;
 		if (flag == '0') {
 			double value = buf.readDouble();
-			dp = new DataPoint(dbName, measurementName, valueFieldName, null, timestamp, value);
+			dp = new DataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value);
 			dp.setFp(true);
 		} else {
 			long value = buf.readLong();
-			dp = new DataPoint(dbName, measurementName, valueFieldName, null, timestamp, value);
+			dp = new DataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value);
 		}
 		return dp;
 	}

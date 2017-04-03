@@ -13,10 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.mem;
+package com.srotya.sidewinder.core.storage.disk;
 
+import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -32,37 +35,31 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.mem.TimeSeries;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
 /**
- * A timeseries is defined as a subset of a measurement for a specific set of
- * tags. Measurement is defined as a category and is an abstract to group
- * metrics about a given topic under a the same label. E.g of a measurement is
- * CPU, Memory whereas a {@link TimeSeries} would be cpu measurement on a
- * specific host.<br>
- * <br>
- * Internally a {@link TimeSeries} contains a {@link SortedMap} of buckets that
- * bundle datapoints under temporally sorted partitions that makes storage,
- * retrieval and evictions efficient. This class provides the abstractions
- * around that, therefore partitioning / bucketing interval can be controlled on
- * a per {@link TimeSeries} basis rather than keep it a constant.<br>
- * <br>
+ * Persistent version of {@link TimeSeries}. Persistence is provided via keeping
+ * series buckets in a text file whenever a new series is added. Series buckets
+ * are added not that frequently therefore using a text format is fairly
+ * reasonable. This system is prone to instant million file appends at the mark
+ * of series bucket time boundary i.e. all series will have bucket changes at
+ * the same time however depending on the frequency of writes, this may not be
+ * an issue.
  * 
  * @author ambud
  */
-public class TimeSeries {
+public class PersistentTimeSeries extends TimeSeries {
 
 	private SortedMap<String, TimeSeriesBucket> bucketMap;
 	private boolean fp;
 	private AtomicInteger retentionBuckets;
-	private static final Logger logger = Logger.getLogger(TimeSeries.class.getName());
+	private static final Logger logger = Logger.getLogger(PersistentTimeSeries.class.getName());
 	private String seriesId;
 	private int timeBucketSize;
 	private String compressionFQCN;
 	private Map<String, String> conf;
-	
-	protected TimeSeries() {
-	}
+	private String bucketMapPath;
 
 	/**
 	 * @param seriesId
@@ -72,16 +69,46 @@ public class TimeSeries {
 	 * @param timeBucketSize
 	 *            size of each time bucket (partition)
 	 * @param fp
+	 * @throws IOException
 	 */
-	public TimeSeries(String compressionFQCN, String seriesId, int retentionHours, int timeBucketSize, boolean fp, Map<String, String> conf) {
+	public PersistentTimeSeries(String measurementPath, String compressionFQCN, String seriesId, int retentionHours,
+			int timeBucketSize, boolean fp, Map<String, String> conf) throws IOException {
 		this.compressionFQCN = compressionFQCN;
 		this.seriesId = seriesId;
 		this.timeBucketSize = timeBucketSize;
-		this.conf = conf;
+		this.conf = new HashMap<>(conf);
 		retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(retentionHours);
 		this.fp = fp;
 		bucketMap = new ConcurrentSkipListMap<>();
+		bucketMapPath = measurementPath + "/" + seriesId;
+		// System.out.println("Bucketmap path:" + bucketMapPath);
+		this.conf.put("data.dir", bucketMapPath);
+		// conf.getOrDefault("bucket.map.directory",
+		// "/tmp/sidewinder/bucketmap");
+		new File(bucketMapPath).mkdirs();
+		bucketMapPath += "/.bucket";
+		loadBucketMap(bucketMapPath);
+	}
+
+	/**
+	 * Function to check and recover existing bucket map, if one exists.
+	 * 
+	 * @param bucketMapPath
+	 * @throws IOException
+	 */
+	protected void loadBucketMap(String bucketMapPath) throws IOException {
+		File file = new File(bucketMapPath);
+		if (!file.exists()) {
+			return;
+		}
+		List<String> bucketEntries = Files.readAllLines(file.toPath());
+		for (String bucketEntry : bucketEntries) {
+			String[] split = bucketEntry.split("\t");
+			logger.fine("Loading bucketmap:" + seriesId + "\t" + split[1]);
+			bucketMap.put(split[0], new TimeSeriesBucket(combinedSeriesId(split[0]), compressionFQCN,
+					Long.parseLong(split[1]), true, conf));
+		}
 	}
 
 	/**
@@ -172,12 +199,6 @@ public class TimeSeries {
 		timeseriesBucket.addDataPoint(timestamp, value);
 	}
 
-	/**
-	 * @param unit
-	 * @param timestamp
-	 * @return
-	 * @throws IOException 
-	 */
 	public TimeSeriesBucket getOrCreateSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
 		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
 		String tsBucket = Integer.toHexString(bucket);
@@ -185,12 +206,29 @@ public class TimeSeries {
 		if (timeseriesBucket == null) {
 			synchronized (bucketMap) {
 				if ((timeseriesBucket = bucketMap.get(tsBucket)) == null) {
-					timeseriesBucket = new TimeSeriesBucket(seriesId+tsBucket, compressionFQCN, timestamp, false, conf);
+					timeseriesBucket = new TimeSeriesBucket(combinedSeriesId(tsBucket), compressionFQCN, timestamp,
+							true, conf);
+					appendBucketToSeriesFile(tsBucket, timestamp);
 					bucketMap.put(tsBucket, timeseriesBucket);
 				}
 			}
 		}
 		return timeseriesBucket;
+	}
+
+	private String combinedSeriesId(String tsBucket) {
+		return tsBucket;
+	}
+
+	/**
+	 * Method to update the series bucket mapping file.
+	 * 
+	 * @param tsBucket
+	 * @param timestamp
+	 * @throws IOException
+	 */
+	protected void appendBucketToSeriesFile(String tsBucket, long timestamp) throws IOException {
+		DiskStorageEngine.appendLineToFile(tsBucket + "\t" + timestamp, bucketMapPath);
 	}
 
 	/**
@@ -248,7 +286,8 @@ public class TimeSeries {
 			}
 		}
 		if (reader.getCounter() != reader.getPairCount() || points.size() < reader.getCounter()) {
-//			System.err.println("SDP:" + points.size() + "/" + reader.getCounter() + "/" + reader.getPairCount());
+			// System.err.println("SDP:" + points.size() + "/" +
+			// reader.getCounter() + "/" + reader.getPairCount());
 		}
 		return points;
 	}
@@ -263,7 +302,7 @@ public class TimeSeries {
 			String key = bucketMap.firstKey();
 			TimeSeriesBucket bucket = bucketMap.remove(key);
 			gcedBuckets.add(bucket);
-			logger.log(Level.INFO, "GC, removing bucket:" + key + ": as it passed retention period of:"
+			logger.log(Level.FINE, "GC, removing bucket:" + key + ": as it passed retention period of:"
 					+ retentionBuckets.get() + ":old size:" + oldSize + ":newsize:" + bucketMap.size() + ":");
 		}
 		return gcedBuckets;
@@ -332,7 +371,7 @@ public class TimeSeries {
 	 */
 	@Override
 	public String toString() {
-		return "TimeSeries [bucketMap=" + bucketMap + ", fp=" + fp + ", retentionBuckets=" + retentionBuckets
+		return "PersistentTimeSeries [bucketMap=" + bucketMap + ", fp=" + fp + ", retentionBuckets=" + retentionBuckets
 				+ ", logger=" + logger + ", seriesId=" + seriesId + ", timeBucketSize=" + timeBucketSize + "]";
 	}
 

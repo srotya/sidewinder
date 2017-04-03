@@ -41,15 +41,15 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
-import com.srotya.sidewinder.core.storage.mem.Reader;
+import com.srotya.sidewinder.core.storage.Reader;
+import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
  * @author ambud
  */
 public class MeasurementTable extends AbstractTable implements FilterableTable {
 
-	private MemStorageEngine engine;
+	private StorageEngine engine;
 	private String fieldName;
 	private boolean isFp;
 	private String measurementName;
@@ -57,7 +57,7 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 	private List<RelDataType> types;
 	private List<String> names;
 
-	public MeasurementTable(MemStorageEngine engine, String dbName, String measurementName, String fieldName,
+	public MeasurementTable(StorageEngine engine, String dbName, String measurementName, String fieldName,
 			boolean isFp) {
 		this.engine = engine;
 		this.dbName = dbName;

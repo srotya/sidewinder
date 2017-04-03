@@ -15,7 +15,7 @@
  */
 package com.srotya.sidewinder.core.storage.mem.archival;
 
-import com.srotya.sidewinder.core.storage.mem.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 
 /**
  * @author ambud
