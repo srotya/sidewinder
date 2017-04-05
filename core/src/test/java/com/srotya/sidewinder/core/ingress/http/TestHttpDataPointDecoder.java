@@ -98,7 +98,7 @@ public class TestHttpDataPointDecoder {
 		assertEquals(1, dp.getLongValue());
 		long ts = System.currentTimeMillis();
 		assertTrue(dp.getTimestamp() > 0);
-		assertEquals(1, (dp.getTimestamp() / ts), 0.1);
+		assertEquals(1, (dp.getTimestamp() / ts), 1);
 	}
 
 	@Test
