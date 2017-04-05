@@ -13,26 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.utils;
-
-import java.util.concurrent.ThreadFactory;
+package com.srotya.sidewinder.core.storage.mem;
 
 /**
  * @author ambud
  */
-public class BackgrounThreadFactory implements ThreadFactory{
+public class ArchiveException extends Exception {
 	
-	private String name;
+	private static final long serialVersionUID = 1L;
 
-	public BackgrounThreadFactory(String name) {
-		this.name = name;
+	public ArchiveException() {
+		super();
 	}
 
-	@Override
-	public Thread newThread(Runnable r) {
-		Thread th = new Thread(r, name);
-		th.setDaemon(true);
-		return th;
+	public ArchiveException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
+		super(message, cause, enableSuppression, writableStackTrace);
+	}
+
+	public ArchiveException(String message, Throwable cause) {
+		super(message, cause);
+	}
+
+	public ArchiveException(String message) {
+		super(message);
+	}
+
+	public ArchiveException(Throwable cause) {
+		super(cause);
 	}
 
 }

@@ -23,7 +23,7 @@ import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaFactory;
 import org.apache.calcite.schema.SchemaPlus;
 
-import com.srotya.sidewinder.core.storage.gorilla.MemStorageEngine;
+import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 
 /**
  * @author ambud

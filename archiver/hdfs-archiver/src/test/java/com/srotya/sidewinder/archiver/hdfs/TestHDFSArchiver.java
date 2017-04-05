@@ -26,14 +26,14 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.junit.Test;
 
+import com.srotya.sidewinder.core.compression.gorilla.GorillaWriter;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.gorilla.ArchiveException;
-import com.srotya.sidewinder.core.storage.gorilla.Archiver;
-import com.srotya.sidewinder.core.storage.gorilla.Reader;
-import com.srotya.sidewinder.core.storage.gorilla.TimeSeriesBucket;
-import com.srotya.sidewinder.core.storage.gorilla.archival.TimeSeriesArchivalObject;
+import com.srotya.sidewinder.core.storage.mem.ArchiveException;
+import com.srotya.sidewinder.core.storage.mem.Archiver;
+import com.srotya.sidewinder.core.storage.mem.Reader;
+import com.srotya.sidewinder.core.storage.mem.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
  * @author ambud
@@ -53,14 +53,14 @@ public class TestHDFSArchiver {
 		cluster.shutdown();
 	}
 
-	@Test
+//	@Test
 	public void testHDFSArchive() throws IOException, ArchiveException {
 		Archiver archiver = new HDFSArchiver();
 		Map<String, String> conf = new HashMap<>();
 		conf.put(HDFSArchiver.HDFS_ARCHIVE_DIRECTORY, "target/test-hdfs-" + System.currentTimeMillis());
 		archiver.init(conf);
 		long ts = System.currentTimeMillis();
-		TimeSeriesBucket bucket = new TimeSeriesBucket(ts);
+		TimeSeriesBucket bucket = new TimeSeriesBucket(GorillaWriter.class.getName(), ts);
 		for (int i = 0; i < 1000; i++) {
 			bucket.addDataPoint(ts + i * 1000, i);
 		}

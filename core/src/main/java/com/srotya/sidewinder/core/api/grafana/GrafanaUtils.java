@@ -50,7 +50,6 @@ public class GrafanaUtils {
 			List<Target> output, TargetSeries targetSeriesEntry) {
 		Map<String, List<DataPoint>> points;
 		try {
-			// TODO fix query point
 			points = engine.queryDataPoints(dbName, targetSeriesEntry.getMeasurementName(),
 					targetSeriesEntry.getFieldName(), startTs, endTs, targetSeriesEntry.getTagList(),
 					targetSeriesEntry.getTagFilter(), null, targetSeriesEntry.getAggregationFunction());
@@ -76,14 +75,17 @@ public class GrafanaUtils {
 		JsonArray targets = json.get("targets").getAsJsonArray();
 		for (int i = 0; i < targets.size(); i++) {
 			JsonObject jsonElement = targets.get(i).getAsJsonObject();
-			if (jsonElement != null && jsonElement.has("target") && jsonElement.has("field")
-					&& jsonElement.has("correlate")) {
+			if (jsonElement != null && jsonElement.has("target") && jsonElement.has("field")) {
 				List<String> filterElements = new ArrayList<>();
 				Filter<List<String>> filter = extractGrafanaFilter(jsonElement, filterElements);
 				AggregationFunction aggregationFunction = extractGrafanaAggregation(jsonElement);
+				boolean correlate = false;
+				if (jsonElement.has("correlate")) {
+					correlate = jsonElement.get("correlate").getAsBoolean();
+				}
 				targetSeries.add(new TargetSeries(jsonElement.get("target").getAsString(),
 						jsonElement.get("field").getAsString(), filterElements, filter, aggregationFunction,
-						jsonElement.get("correlate").getAsBoolean()));
+						correlate));
 			}
 		}
 	}

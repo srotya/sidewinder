@@ -21,7 +21,7 @@ import java.util.Map;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 
-import com.srotya.sidewinder.core.storage.gorilla.MemStorageEngine;
+import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 
 /**
  * @author ambud

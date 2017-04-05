@@ -13,13 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.predicates;
+package com.srotya.sidewinder.core.storage.mem;
 
 /**
  * @author ambud
  */
-public interface Predicate {
+public interface Writer {
 
-	boolean apply(long value);
+	public void addValue(long timestamp, long value);
+	
+	public void addValue(long timestamp, double value);
+	
+	public Reader getReader();
+	
+	public double getCompressionRatio();
+	
+	public void setHeaderTimestamp(long timestamp);
 	
 }

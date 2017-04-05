@@ -174,6 +174,8 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 					if (parts[2].length() > LENGTH_OF_MILLISECOND_TS) {
 						timestamp = timestamp / (1000 * 1000);
 					}
+				}else {
+					System.out.println("DB timestamp");
 				}
 				String[] key = parts[0].split(",");
 				String measurementName = key[0];

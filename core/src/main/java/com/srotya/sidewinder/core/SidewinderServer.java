@@ -23,7 +23,7 @@ import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.ingress.http.NettyHTTPIngestionServer;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.gorilla.MemStorageEngine;
+import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 
 import io.dropwizard.Application;
 import io.dropwizard.setup.Environment;
@@ -40,7 +40,11 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 	@Override
 	public void run(SidewinderConfig config, Environment env) throws Exception {
 		storageEngine = new MemStorageEngine();
-		storageEngine.configure(new HashMap<>());
+		HashMap<String, String> conf = new HashMap<>();
+		conf.put(MemStorageEngine.MEM_COMPRESSION_CLASS, "com.srotya.sidewinder.core.compression.byzantine.ByzantineWriter");
+//		conf.put(MemStorageEngine.MEM_COMPRESSION_CLASS, "com.srotya.sidewinder.core.compression.gorilla.GorillaWriter");
+		
+		storageEngine.configure(conf);
 		ResourceMonitor.getInstance().init(storageEngine);
 		env.jersey().register(new GrafanaQueryApi(storageEngine));
 		env.jersey().register(new MeasurementOpsApi(storageEngine));

@@ -73,7 +73,11 @@ public abstract class ReducingWindowedAggregator extends WindowedFunction {
 				reducedDataPoints.add(dp);
 			}
 		}
-		return aggregateAfterReduction(reducedDataPoints);
+		if (reducedDataPoints.size() > 0) {
+			return aggregateAfterReduction(reducedDataPoints);
+		} else {
+			return reducedDataPoints;
+		}
 	}
 
 	public abstract List<DataPoint> aggregateAfterReduction(List<DataPoint> datapoints);
