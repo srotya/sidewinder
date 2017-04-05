@@ -34,10 +34,11 @@ import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import com.srotya.sidewinder.core.storage.gorilla.ArchiveException;
-import com.srotya.sidewinder.core.storage.gorilla.Archiver;
-import com.srotya.sidewinder.core.storage.gorilla.archival.DiskArchiver;
-import com.srotya.sidewinder.core.storage.gorilla.archival.TimeSeriesArchivalObject;
+import com.srotya.sidewinder.core.storage.mem.ArchiveException;
+import com.srotya.sidewinder.core.storage.mem.Archiver;
+import com.srotya.sidewinder.core.storage.mem.archival.DiskArchiver;
+import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
+
 
 /**
  * @author ambud
