@@ -46,7 +46,9 @@ public class NettyBinaryIngestionServer {
 
 	public void start() throws InterruptedException {
 		EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-		EventLoopGroup workerGroup = new NioEventLoopGroup(4);
+		EventLoopGroup workerGroup = new NioEventLoopGroup(1);
+		EventLoopGroup decoderGroup = new NioEventLoopGroup(1);
+		EventLoopGroup writerGroup = new NioEventLoopGroup(2);
 
 		ServerBootstrap bs = new ServerBootstrap();
 		channel = bs.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
@@ -56,9 +58,9 @@ public class NettyBinaryIngestionServer {
 					@Override
 					protected void initChannel(SocketChannel ch) throws Exception {
 						ChannelPipeline p = ch.pipeline();
-						p.addLast(new LengthFieldBasedFrameDecoder(3000, 0, 4, 0, 4));
-						p.addLast(new SeriesDataPointDecoder());
-						p.addLast(new SeriesDataPointWriter(storageEngine));
+						p.addLast(new LengthFieldBasedFrameDecoder(1024 * 1024, 0, 4, 0, 4));
+						p.addLast(decoderGroup, new SeriesDataPointDecoder());
+						p.addLast(writerGroup, new SeriesDataPointWriter(storageEngine));
 					}
 
 				}).bind("localhost", 9927).sync().channel();

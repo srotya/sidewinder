@@ -49,6 +49,7 @@ import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
+import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
@@ -142,7 +143,7 @@ public class ClusteredMemStorageEngine implements StorageEngine {
 
 	@Override
 	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName,
-			long startTime, long endTime, List<String> tags, Predicate valuePredicate) throws ItemNotFoundException {
+			long startTime, long endTime, List<String> tags, Predicate valuePredicate) throws IOException {
 		int workerId = computeWorkerId(dbName, measurementName);
 		if (workerId == columbus.getSelfWorkerId()) {
 			return local.queryDataPoints(dbName, measurementName, valueFieldName, startTime, endTime, tags,
@@ -413,6 +414,23 @@ public class ClusteredMemStorageEngine implements StorageEngine {
 	public Map<String, List<DataPoint>> queryDataPoints(String dbName, String measurementName, String valueFieldName,
 			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
 			Predicate valuePredicate, AggregationFunction function) throws ItemNotFoundException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void start() throws Exception {
+		local.start();
+	}
+
+	@Override
+	public void stop() throws Exception {
+		local.stop();
+	}
+
+	@Override
+	public Map<Reader, Boolean> queryReaders(String dbName, String measurementName, String fieldName, long key,
+			long value) throws Exception {
 		// TODO Auto-generated method stub
 		return null;
 	}

@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.api;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,7 +61,11 @@ public class MeasurementOpsApi {
 	@PUT
 	public void createMeasurement(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
 			@PathParam(MEASUREMENT) String measurementName) {
-		engine.getOrCreateMeasurement(dbName, measurementName);
+		try {
+			engine.getOrCreateMeasurement(dbName, measurementName);
+		} catch (IOException e) {
+			throw new InternalServerErrorException(e);
+		}
 	}
 
 	@Path("/series/{seriesName}")
@@ -74,8 +79,12 @@ public class MeasurementOpsApi {
 		for (JsonElement jsonElement : series.get("tags").getAsJsonArray()) {
 			tags.add(jsonElement.getAsString());
 		}
-		engine.getOrCreateTimeSeries(dbName, measurementName, series.get("valueField").getAsString(), tags,
-				series.get("timeBucket").getAsInt(), series.get("floatingPoint").getAsBoolean());
+		try {
+			engine.getOrCreateTimeSeries(dbName, measurementName, series.get("valueField").getAsString(), tags,
+					series.get("timeBucket").getAsInt(), series.get("floatingPoint").getAsBoolean());
+		} catch (IOException e) {
+			throw new InternalServerErrorException(e);
+		}
 	}
 
 	@Path("/series/{seriesName}/retention/{retentionPolicy}")
@@ -83,7 +92,7 @@ public class MeasurementOpsApi {
 	public void updateRetentionPolicy(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
 			@PathParam(MEASUREMENT) String measurementName, @PathParam("retentionPolicy") int retentionPolicy) {
 		engine.updateDefaultTimeSeriesRetentionPolicy(dbName, retentionPolicy);
-		System.out.println("Updated retention policy for:"+dbName+"\t"+retentionPolicy+" hours");
+		System.out.println("Updated retention policy for:" + dbName + "\t" + retentionPolicy + " hours");
 	}
 
 	@DELETE
@@ -125,6 +134,8 @@ public class MeasurementOpsApi {
 			return engine.queryDataPoints(dbName, measurementName, "value", 0, Long.MAX_VALUE, Arrays.asList(""), null);
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
+		} catch (IOException e) {
+			throw new InternalServerErrorException(e);
 		}
 	}
 

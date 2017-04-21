@@ -23,7 +23,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,6 +35,7 @@ import com.srotya.sidewinder.core.storage.mem.Archiver;
  * 
  * @author ambud
  */
+@Deprecated
 public class DiskArchiver implements Archiver {
 
 	private static final String MAX_FILE_SIZE = "max.file.size";
@@ -105,13 +105,13 @@ public class DiskArchiver implements Archiver {
 		bucketWraper.setDb(bis.readUTF());
 		bucketWraper.setMeasurement(bis.readUTF());
 		bucketWraper.setKey(bis.readUTF());
-		long headerTs = bis.readLong();
-		int count = bis.readInt();
-		int bufSize = bis.readInt();
-		ByteBuffer buf = ByteBuffer.allocateDirect(bufSize);
-		byte[] tempAry = new byte[bufSize];
-		bis.read(tempAry);
-		buf.put(tempAry);
+//		long headerTs = bis.readLong();
+//		int count = bis.readInt();
+//		int bufSize = bis.readInt();
+//		ByteBuffer buf = ByteBuffer.allocateDirect(bufSize);
+//		byte[] tempAry = new byte[bufSize];
+//		bis.read(tempAry);
+//		buf.put(tempAry);
 //		TimeSeriesBucket bucket = new TimeSeriesBucket(headerTs, count, new ByteBufferBitOutput(buf));
 //		bucketWraper.setBucket(bucket);
 		return bucketWraper;

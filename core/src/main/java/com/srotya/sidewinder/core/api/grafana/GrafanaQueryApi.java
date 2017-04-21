@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.api.grafana;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -80,7 +81,7 @@ public class GrafanaQueryApi {
 	public List<Target> query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		Gson gson = new GsonBuilder().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
-//		System.err.println(gson.toJson(json));
+		// System.err.println(gson.toJson(json));
 
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		JsonObject range = json.get("range").getAsJsonObject();
@@ -95,7 +96,11 @@ public class GrafanaQueryApi {
 
 		List<Target> output = new ArrayList<>();
 		for (TargetSeries targetSeriesEntry : targetSeries) {
-			GrafanaUtils.queryAndGetData(engine, dbName, startTs, endTs, output, targetSeriesEntry);
+			try {
+				GrafanaUtils.queryAndGetData(engine, dbName, startTs, endTs, output, targetSeriesEntry);
+			} catch (IOException e) {
+				throw new InternalServerErrorException(e);
+			}
 		}
 		return output;
 	}
@@ -143,7 +148,7 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryFields(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
-//		System.out.println("Tag query:" + dbName + "\t" + queryString);
+		// System.out.println("Tag query:" + dbName + "\t" + queryString);
 		try {
 			Gson gson = new Gson();
 			JsonObject measurement = gson.fromJson(queryString, JsonObject.class);

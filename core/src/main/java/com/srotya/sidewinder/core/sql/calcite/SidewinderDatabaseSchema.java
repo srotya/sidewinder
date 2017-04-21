@@ -21,7 +21,7 @@ import java.util.Map;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 
-import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
+import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
  * @author ambud
@@ -29,9 +29,9 @@ import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 public class SidewinderDatabaseSchema extends AbstractSchema {
 
 	private String dbName;
-	private MemStorageEngine engine;
+	private StorageEngine engine;
 
-	public SidewinderDatabaseSchema(MemStorageEngine engine, String dbName) {
+	public SidewinderDatabaseSchema(StorageEngine engine, String dbName) {
 		this.engine = engine;
 		this.dbName = dbName;
 	}

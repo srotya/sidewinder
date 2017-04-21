@@ -45,7 +45,6 @@ import com.srotya.sidewinder.core.sql.calcite.functions.NowFunction;
 import com.srotya.sidewinder.core.sql.calcite.functions.ToMilliseconds;
 import com.srotya.sidewinder.core.sql.calcite.functions.ToTimestamp;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 
 /**
  * REST API to service SQL queries
@@ -55,11 +54,11 @@ import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 @Path("/sql")
 public class SqlApi {
 
-	private MemStorageEngine engine;
+	private StorageEngine engine;
 	private Connection connection;
 
 	public SqlApi(StorageEngine engine) throws SQLException, ClassNotFoundException {
-		this.engine = (MemStorageEngine) engine;
+		this.engine = engine;
 		initCalcite();
 	}
 

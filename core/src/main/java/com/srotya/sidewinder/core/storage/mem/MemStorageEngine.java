@@ -40,8 +40,10 @@ import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
+import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
@@ -89,9 +91,11 @@ public class MemStorageEngine implements StorageEngine {
 	private int defaultRetentionHours;
 	private Archiver archiver;
 	private String compressionFQCN;
+	private Map<String, String> conf;
 
 	@Override
 	public void configure(Map<String, String> conf) throws IOException {
+		this.conf = conf;
 		this.defaultRetentionHours = Integer
 				.parseInt(conf.getOrDefault(RETENTION_HOURS, String.valueOf(DEFAULT_RETENTION_HOURS)));
 		logger.info("Setting default timeseries retention hours policy to:" + defaultRetentionHours);
@@ -106,8 +110,10 @@ public class MemStorageEngine implements StorageEngine {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
+		conf.put(StorageEngine.PERSISTENCE_DISK, "false");
 		compressionFQCN = conf.getOrDefault(MEM_COMPRESSION_CLASS,
-				"com.srotya.sidewinder.core.compression.dod.DodWriter");
+				// "com.srotya.sidewinder.core.storage.compression.dod.DodWriter");
+				"com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter");
 		Executors.newSingleThreadScheduledExecutor(new BackgrounThreadFactory("sidewinder-gc"))
 				.scheduleAtFixedRate(() -> {
 					for (Entry<String, Map<String, SortedMap<String, TimeSeries>>> measurementMap : databaseMap
@@ -129,7 +135,7 @@ public class MemStorageEngine implements StorageEngine {
 							}
 						}
 					}
-				}, 0, 60, TimeUnit.SECONDS);
+				}, 500, 60, TimeUnit.SECONDS);
 	}
 
 	@Override
@@ -180,6 +186,7 @@ public class MemStorageEngine implements StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
+	@Override
 	public LinkedHashMap<Reader, Boolean> queryReaders(String dbName, String measurementName, String valueFieldName,
 			long startTime, long endTime) throws Exception {
 		LinkedHashMap<Reader, Boolean> readers = new LinkedHashMap<>();
@@ -216,6 +223,16 @@ public class MemStorageEngine implements StorageEngine {
 			throw new ItemNotFoundException("Database " + dbName + " not found");
 		}
 		return readers;
+	}
+
+	@Override
+	public void start() throws Exception {
+		connect();
+	}
+
+	@Override
+	public void stop() throws Exception {
+		disconnect();
 	}
 
 	@Override
@@ -412,7 +429,7 @@ public class MemStorageEngine implements StorageEngine {
 			synchronized (measurementMap) {
 				if ((timeSeries = measurementMap.get(rowKey)) == null) {
 					timeSeries = new TimeSeries(compressionFQCN, measurementName + "_" + rowKey,
-							databaseRetentionPolicyMap.get(dbName), timeBucketSize, fp);
+							databaseRetentionPolicyMap.get(dbName), timeBucketSize, fp, conf);
 					measurementMap.put(rowKey, timeSeries);
 					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
 							+ rowKey + "\t" + databaseRetentionPolicyMap.get(dbName));

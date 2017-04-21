@@ -16,18 +16,21 @@
 package com.srotya.sidewinder.core.ingress.binary;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.util.ReferenceCountUtil;
 
 /**
  * @author ambud
  */
 public class SeriesDataPointWriter extends ChannelInboundHandlerAdapter {
 
+	private static AtomicLong counter = new AtomicLong();
 	private StorageEngine engine;
 
 	public SeriesDataPointWriter(StorageEngine engine) {
@@ -40,15 +43,16 @@ public class SeriesDataPointWriter extends ChannelInboundHandlerAdapter {
 			return;
 		}
 		DataPoint dp = (DataPoint) msg;
-		if (dp.getMeasurementName().isEmpty()) {
-			return;
-		}
 		try {
 			engine.writeDataPoint(dp);
+			if (counter.incrementAndGet() % 1000000 == 0) {
+				System.out.println(counter.get());
+			}
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		ReferenceCountUtil.release(msg);
 	}
 
 	@Override
