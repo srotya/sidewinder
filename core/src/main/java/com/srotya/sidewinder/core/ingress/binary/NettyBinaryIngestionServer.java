@@ -18,6 +18,7 @@ package com.srotya.sidewinder.core.ingress.binary;
 import java.util.Map;
 
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -45,10 +46,10 @@ public class NettyBinaryIngestionServer {
 	}
 
 	public void start() throws InterruptedException {
-		EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-		EventLoopGroup workerGroup = new NioEventLoopGroup(1);
-		EventLoopGroup decoderGroup = new NioEventLoopGroup(1);
-		EventLoopGroup writerGroup = new NioEventLoopGroup(2);
+		EventLoopGroup bossGroup = new NioEventLoopGroup(1, new BackgrounThreadFactory("binBossGroup"));
+		EventLoopGroup workerGroup = new NioEventLoopGroup(1, new BackgrounThreadFactory("binWorkerGroup"));
+		EventLoopGroup decoderGroup = new NioEventLoopGroup(1, new BackgrounThreadFactory("binDecoderGroup"));
+		EventLoopGroup writerGroup = new NioEventLoopGroup(2, new BackgrounThreadFactory("binWriterGroup"));
 
 		ServerBootstrap bs = new ServerBootstrap();
 		channel = bs.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)

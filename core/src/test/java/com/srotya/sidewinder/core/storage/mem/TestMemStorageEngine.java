@@ -33,9 +33,12 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.filters.AndFilter;
@@ -51,9 +54,6 @@ import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.compression.gorilla.GorillaWriter;
-import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
-import com.srotya.sidewinder.core.storage.mem.MemTagIndex;
-import com.srotya.sidewinder.core.storage.mem.TimeSeries;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
 /**
@@ -63,11 +63,23 @@ import com.srotya.sidewinder.core.utils.TimeUtils;
  */
 public class TestMemStorageEngine {
 
+	public static ScheduledExecutorService bgTasks;
+
+	@BeforeClass
+	public static void before() {
+		bgTasks = Executors.newScheduledThreadPool(1);
+	}
+
+	@AfterClass
+	public static void after() {
+		bgTasks.shutdown();
+	}
+
 	private Map<String, String> conf = new HashMap<>();
 
 	public void testWritePerformance() throws Exception {
 		final MemStorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
+		engine.configure(new HashMap<>(), bgTasks);
 		long timeMillis = System.currentTimeMillis();
 		int tcount = 12;
 		ExecutorService es = Executors.newCachedThreadPool();
@@ -186,7 +198,7 @@ public class TestMemStorageEngine {
 		}
 
 		try {
-			engine.configure(new HashMap<>());
+			engine.configure(new HashMap<>(), bgTasks);
 		} catch (IOException e) {
 			fail("No IOException should be thrown");
 		}
@@ -202,7 +214,7 @@ public class TestMemStorageEngine {
 	@Test
 	public void testQueryDataPoints() throws IOException, ItemNotFoundException {
 		StorageEngine engine = new MemStorageEngine();
-		engine.configure(conf);
+		engine.configure(conf, bgTasks);
 		long ts = System.currentTimeMillis();
 		Map<String, SortedMap<String, TimeSeries>> db = engine.getOrCreateDatabase("test", 24);
 		assertEquals(0, db.size());
@@ -230,7 +242,7 @@ public class TestMemStorageEngine {
 	@Test
 	public void testGetMeasurementsLike() throws Exception {
 		StorageEngine engine = new MemStorageEngine();
-		engine.configure(conf);
+		engine.configure(conf, bgTasks);
 		engine.writeDataPoint(
 				new DataPoint("test", "cpu", "value", Arrays.asList("test"), System.currentTimeMillis(), 2L));
 		engine.writeDataPoint(
@@ -266,7 +278,7 @@ public class TestMemStorageEngine {
 	@Test
 	public void testSeriesBucketLookups() throws IOException, ItemNotFoundException {
 		MemStorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
+		engine.configure(new HashMap<>(), bgTasks);
 		engine.connect();
 		String dbName = "test1";
 		String measurementName = "cpu";
@@ -333,7 +345,7 @@ public class TestMemStorageEngine {
 	@Test
 	public void testBaseTimeSeriesWrites() throws Exception {
 		MemStorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
+		engine.configure(new HashMap<>(), bgTasks);
 		engine.connect();
 
 		final long ts1 = System.currentTimeMillis();
@@ -361,7 +373,7 @@ public class TestMemStorageEngine {
 	@Test
 	public void testAddAndReaderDataPoints() throws Exception {
 		MemStorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
+		engine.configure(new HashMap<>(), bgTasks);
 		long curr = System.currentTimeMillis();
 
 		String dbName = "test";
@@ -405,7 +417,7 @@ public class TestMemStorageEngine {
 	@Test
 	public void testTagFiltering() throws Exception {
 		MemStorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
+		engine.configure(new HashMap<>(), bgTasks);
 		long curr = System.currentTimeMillis();
 		String dbName = "test";
 		String measurementName = "cpu";
@@ -443,7 +455,7 @@ public class TestMemStorageEngine {
 	@Test
 	public void testAddAndReadDataPointsWithTagFilters() throws Exception {
 		MemStorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
+		engine.configure(new HashMap<>(), bgTasks);
 		long curr = System.currentTimeMillis();
 
 		String dbName = "test";
@@ -505,7 +517,7 @@ public class TestMemStorageEngine {
 	@Test
 	public void testAddAndReadDataPoints() throws Exception {
 		MemStorageEngine engine = new MemStorageEngine();
-		engine.configure(new HashMap<>());
+		engine.configure(new HashMap<>(), bgTasks);
 		long curr = System.currentTimeMillis();
 
 		String dbName = "test";

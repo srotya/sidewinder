@@ -18,6 +18,8 @@ package com.srotya.sidewinder.core;
 import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Properties;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Logger;
 
 import com.codahale.metrics.health.HealthCheck;
@@ -28,14 +30,15 @@ import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.ingress.binary.NettyBinaryIngestionServer;
 import com.srotya.sidewinder.core.ingress.http.NettyHTTPIngestionServer;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.dropwizard.Application;
 import io.dropwizard.setup.Environment;
 
 /**
  * Main driver class for single-node sidewinder. It will register the REST APIs,
- * initialize the storage engine as well as start the network receivers for HTTP and binary protocols
- * for Sidewinder.
+ * initialize the storage engine as well as start the network receivers for HTTP
+ * and binary protocols for Sidewinder.
  * 
  * @author ambud
  *
@@ -60,14 +63,16 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 
 		String storageEngineClass = conf.getOrDefault("storage.engine",
 				"com.srotya.sidewinder.core.storage.mem.MemStorageEngine");
-
 		logger.info("Using Storage Engine:" + storageEngineClass);
 
+		ScheduledExecutorService bgTasks = Executors.newScheduledThreadPool(1,
+				new BackgrounThreadFactory("sidewinderbg-tasks"));
+
 		storageEngine = (StorageEngine) Class.forName(storageEngineClass).newInstance();
-		storageEngine.configure(conf);
+		storageEngine.configure(conf, bgTasks);
 		storageEngine.connect();
 		env.lifecycle().manage(storageEngine);
-		ResourceMonitor.getInstance().init(storageEngine);
+		ResourceMonitor.getInstance().init(storageEngine, bgTasks);
 		env.jersey().register(new GrafanaQueryApi(storageEngine));
 		env.jersey().register(new MeasurementOpsApi(storageEngine));
 		env.jersey().register(new DatabaseOpsApi(storageEngine));

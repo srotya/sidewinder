@@ -1,7 +1,14 @@
 server:
+  gzip:
+    enabled: true
+    bufferSize: 8KiB
+  adminMinThreads: 1
+  adminMaxThreads: 2
   applicationConnectors:
-  - type: http 
+  - type: http
     port: 8080
+    acceptorThreads: 1
+    selectorThreads: 2
   adminConnectors:
   - type: http
     port: 9001

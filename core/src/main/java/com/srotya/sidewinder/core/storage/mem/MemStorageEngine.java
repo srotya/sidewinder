@@ -29,7 +29,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
@@ -46,7 +46,6 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
-import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 /**
  * In-memory Timeseries {@link StorageEngine} implementation that uses the
@@ -94,7 +93,7 @@ public class MemStorageEngine implements StorageEngine {
 	private Map<String, String> conf;
 
 	@Override
-	public void configure(Map<String, String> conf) throws IOException {
+	public void configure(Map<String, String> conf, ScheduledExecutorService bgTaskPool) throws IOException {
 		this.conf = conf;
 		this.defaultRetentionHours = Integer
 				.parseInt(conf.getOrDefault(RETENTION_HOURS, String.valueOf(DEFAULT_RETENTION_HOURS)));
@@ -114,28 +113,25 @@ public class MemStorageEngine implements StorageEngine {
 		compressionFQCN = conf.getOrDefault(MEM_COMPRESSION_CLASS,
 				// "com.srotya.sidewinder.core.storage.compression.dod.DodWriter");
 				"com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter");
-		Executors.newSingleThreadScheduledExecutor(new BackgrounThreadFactory("sidewinder-gc"))
-				.scheduleAtFixedRate(() -> {
-					for (Entry<String, Map<String, SortedMap<String, TimeSeries>>> measurementMap : databaseMap
-							.entrySet()) {
-						String db = measurementMap.getKey();
-						for (Entry<String, SortedMap<String, TimeSeries>> measurementEntry : measurementMap.getValue()
-								.entrySet()) {
-							String measurement = measurementEntry.getKey();
-							for (Entry<String, TimeSeries> entry : measurementEntry.getValue().entrySet()) {
-								List<TimeSeriesBucket> buckets = entry.getValue().collectGarbage();
-								for (TimeSeriesBucket bucket : buckets) {
-									try {
-										archiver.archive(
-												new TimeSeriesArchivalObject(db, measurement, entry.getKey(), bucket));
-									} catch (ArchiveException e) {
-										e.printStackTrace();
-									}
-								}
+		bgTaskPool.scheduleAtFixedRate(() -> {
+			for (Entry<String, Map<String, SortedMap<String, TimeSeries>>> measurementMap : databaseMap.entrySet()) {
+				String db = measurementMap.getKey();
+				for (Entry<String, SortedMap<String, TimeSeries>> measurementEntry : measurementMap.getValue()
+						.entrySet()) {
+					String measurement = measurementEntry.getKey();
+					for (Entry<String, TimeSeries> entry : measurementEntry.getValue().entrySet()) {
+						List<TimeSeriesBucket> buckets = entry.getValue().collectGarbage();
+						for (TimeSeriesBucket bucket : buckets) {
+							try {
+								archiver.archive(new TimeSeriesArchivalObject(db, measurement, entry.getKey(), bucket));
+							} catch (ArchiveException e) {
+								e.printStackTrace();
 							}
 						}
 					}
-				}, 500, 60, TimeUnit.SECONDS);
+				}
+			}
+		}, 500, 60, TimeUnit.SECONDS);
 	}
 
 	@Override

@@ -20,14 +20,14 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.Arrays;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 /**
  * @author ambud
@@ -47,26 +47,17 @@ public class ResourceMonitor {
 		return INSTANCE;
 	}
 
-	public void init(StorageEngine storageEngine) {
+	public void init(StorageEngine storageEngine, ScheduledExecutorService bgTasks) {
 		this.storageEngine = storageEngine;
 		storageEngine.getOrCreateDatabase(DB, 28);
-		Executors.newSingleThreadExecutor(new BackgrounThreadFactory("sidewinder-rm")).submit(() -> {
-			while (true) {
-				try {
-					memAndCPUMonitor();
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-				Thread.sleep(2000);
-			}
-		});
+		bgTasks.scheduleAtFixedRate(() -> memAndCPUMonitor(), 0, 2, TimeUnit.SECONDS);
 	}
 
 	public void memAndCPUMonitor() {
 		MemoryMXBean mem = ManagementFactory.getMemoryMXBean();
 		MemoryUsage heap = mem.getHeapMemoryUsage();
 		MemoryUsage nonheap = mem.getNonHeapMemoryUsage();
-		
+
 		validateCPUUsage();
 
 		validateMemoryUsage("heap", heap, 10_485_760);

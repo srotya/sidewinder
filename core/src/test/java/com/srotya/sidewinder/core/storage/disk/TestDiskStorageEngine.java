@@ -34,10 +34,13 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.io.FileUtils;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.filters.AndFilter;
@@ -63,6 +66,18 @@ import com.srotya.sidewinder.core.utils.TimeUtils;
  */
 public class TestDiskStorageEngine {
 
+	public static ScheduledExecutorService bgTasks;
+
+	@BeforeClass
+	public static void before() {
+		bgTasks = Executors.newScheduledThreadPool(1);
+	}
+
+	@AfterClass
+	public static void after() {
+		bgTasks.shutdown();
+	}
+
 	public void testWritePerformance() throws Exception {
 		final StorageEngine engine = new DiskStorageEngine();
 		FileUtils.deleteDirectory(new File("target/db3/"));
@@ -71,7 +86,7 @@ public class TestDiskStorageEngine {
 		map.put("index.dir", "target/db3/index");
 		map.put("data.dir", "target/db3/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 		long timeMillis = System.currentTimeMillis();
 		int tcount = 12;
 		ExecutorService es = Executors.newCachedThreadPool();
@@ -148,7 +163,7 @@ public class TestDiskStorageEngine {
 			map.put("index.dir", "target/db2/index");
 			map.put("data.dir", "target/db2/data");
 			map.put(StorageEngine.PERSISTENCE_DISK, "true");
-			engine.configure(map);
+			engine.configure(map, bgTasks);
 		} catch (IOException e) {
 			fail("No IOException should be thrown");
 		}
@@ -171,7 +186,7 @@ public class TestDiskStorageEngine {
 		map.put("data.dir", "target/db1/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
 		Map<String, SortedMap<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
 		assertEquals(0, db.size());
@@ -180,7 +195,7 @@ public class TestDiskStorageEngine {
 		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").size());
 
 		engine = new DiskStorageEngine();
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 
 		Map<String, List<DataPoint>> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts,
 				ts + (400 * 60000), null, null);
@@ -200,7 +215,7 @@ public class TestDiskStorageEngine {
 		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").size());
 
 		engine = new DiskStorageEngine();
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 
 		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").size());
 	}
@@ -215,7 +230,7 @@ public class TestDiskStorageEngine {
 		map.put("data.dir", "target/db1/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
 		Map<String, SortedMap<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
 		assertEquals(0, db.size());
@@ -249,7 +264,7 @@ public class TestDiskStorageEngine {
 		map.put("index.dir", "target/db1/index");
 		map.put("data.dir", "target/db1/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 		engine.writeDataPoint(
 				new DataPoint("test", "cpu", "value", Arrays.asList("test"), System.currentTimeMillis(), 2L));
 		engine.writeDataPoint(
@@ -295,7 +310,7 @@ public class TestDiskStorageEngine {
 		map.put("index.dir", "target/db1/index");
 		map.put("data.dir", "target/db1/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 		engine.connect();
 		String dbName = "test1";
 		String measurementName = "cpu";
@@ -365,7 +380,7 @@ public class TestDiskStorageEngine {
 		HashMap<String, String> map = new HashMap<>();
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 		engine.connect();
 
 		final long ts1 = System.currentTimeMillis();
@@ -402,7 +417,7 @@ public class TestDiskStorageEngine {
 		map.put("index.dir", "target/db8/index");
 		map.put("data.dir", "target/db8/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 		long curr = System.currentTimeMillis();
 
 		String dbName = "test";
@@ -452,7 +467,7 @@ public class TestDiskStorageEngine {
 		map.put("index.dir", "target/db1/index");
 		map.put("data.dir", "target/db1/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 		long curr = System.currentTimeMillis();
 		String dbName = "test";
 		String measurementName = "cpu";
@@ -496,7 +511,7 @@ public class TestDiskStorageEngine {
 		map.put("index.dir", "target/db5/index");
 		map.put("data.dir", "target/db5/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 		long curr = System.currentTimeMillis();
 		String dbName = "test";
 		String measurementName = "cpu";
@@ -563,7 +578,7 @@ public class TestDiskStorageEngine {
 		map.put("index.dir", "target/db1/index");
 		map.put("data.dir", "target/db1/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		engine.configure(map);
+		engine.configure(map, bgTasks);
 		long curr = System.currentTimeMillis();
 
 		String dbName = "test";

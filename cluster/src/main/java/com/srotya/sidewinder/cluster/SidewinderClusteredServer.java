@@ -48,7 +48,7 @@ public class SidewinderClusteredServer extends Application<SidewinderConfig> {
 		binServer.init(storageEngine, new HashMap<>());
 		binServer.start();
 		
-		storageEngine.configure(new HashMap<>());
+		storageEngine.configure(new HashMap<>(), null);
 		storageEngine.connect();
 		
 		Runtime.getRuntime().addShutdownHook(new Thread(){

@@ -18,6 +18,7 @@ package com.srotya.sidewinder.core.ingress.http;
 import java.util.Map;
 
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -48,9 +49,9 @@ public class NettyHTTPIngestionServer {
 	}
 
 	public void start() throws InterruptedException {
-		EventLoopGroup bossGroup = new NioEventLoopGroup(1);
-		EventLoopGroup workerGroup = new NioEventLoopGroup(2);
-		EventLoopGroup processorGroup = new NioEventLoopGroup(4);
+		EventLoopGroup bossGroup = new NioEventLoopGroup(1, new BackgrounThreadFactory("httpBossGroup"));
+		EventLoopGroup workerGroup = new NioEventLoopGroup(1, new BackgrounThreadFactory("httpWorkerGroup"));
+		EventLoopGroup processorGroup = new NioEventLoopGroup(2, new BackgrounThreadFactory("httpProcessorGroup"));
 
 		ServerBootstrap bs = new ServerBootstrap();
 		channel = bs.group(bossGroup, workerGroup).channel(NioServerSocketChannel.class)
@@ -60,8 +61,8 @@ public class NettyHTTPIngestionServer {
 					@Override
 					protected void initChannel(SocketChannel ch) throws Exception {
 						ChannelPipeline p = ch.pipeline();
-						p.addLast(new HttpRequestDecoder());
-						p.addLast(new HttpResponseEncoder());
+						p.addLast(processorGroup, new HttpRequestDecoder());
+						p.addLast(processorGroup, new HttpResponseEncoder());
 						p.addLast(processorGroup, new HTTPDataPointDecoder(storageEngine));
 					}
 

@@ -34,6 +34,7 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
@@ -85,7 +86,7 @@ public class DiskStorageEngine implements StorageEngine {
 	private String baseIndexDirectory;
 
 	@Override
-	public void configure(Map<String, String> conf) throws IOException {
+	public void configure(Map<String, String> conf, ScheduledExecutorService bgTaskPool) throws IOException {
 		this.conf = conf;
 		this.defaultRetentionHours = Integer
 				.parseInt(conf.getOrDefault(RETENTION_HOURS, String.valueOf(DEFAULT_RETENTION_HOURS)));
@@ -114,10 +115,10 @@ public class DiskStorageEngine implements StorageEngine {
 				.scheduleAtFixedRate(() -> {
 					for (Entry<String, Map<String, SortedMap<String, TimeSeries>>> measurementMap : databaseMap
 							.entrySet()) {
-//						String db = measurementMap.getKey();
+						// String db = measurementMap.getKey();
 						for (Entry<String, SortedMap<String, TimeSeries>> measurementEntry : measurementMap.getValue()
 								.entrySet()) {
-//							String measurement = measurementEntry.getKey();
+							// String measurement = measurementEntry.getKey();
 							for (Entry<String, TimeSeries> entry : measurementEntry.getValue().entrySet()) {
 								entry.getValue().collectGarbage();
 							}

@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.concurrent.ScheduledExecutorService;
 
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
@@ -41,7 +42,7 @@ public interface StorageEngine extends Managed {
 	 * @param conf
 	 * @throws IOException
 	 */
-	public void configure(Map<String, String> conf) throws IOException;
+	public void configure(Map<String, String> conf, ScheduledExecutorService bgTaskPool) throws IOException;
 
 	/**
 	 * Connect to the storage engine

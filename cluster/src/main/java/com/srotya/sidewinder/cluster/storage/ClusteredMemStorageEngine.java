@@ -26,6 +26,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Logger;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -77,9 +78,9 @@ public class ClusteredMemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public void configure(Map<String, String> conf) throws IOException {
+	public void configure(Map<String, String> conf, ScheduledExecutorService bgTasks) throws IOException {
 		this.local = new MemStorageEngine();
-		this.local.configure(conf);
+		this.local.configure(conf, bgTasks);
 		this.clusterSize = Integer.parseInt(conf.getOrDefault("cluster.size", "1"));
 		conf.put(Topology.WORKER_DATA_PORT, "9927");
 		conf.put("linea.zk.root", "/sidewinder");
