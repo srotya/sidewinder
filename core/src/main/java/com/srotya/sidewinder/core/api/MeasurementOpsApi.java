@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Ambud Sharma
+ * Copyright 2017 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
  */
 package com.srotya.sidewinder.core.api;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -35,11 +35,13 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
+import com.codahale.metrics.MetricRegistry;
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
+import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -51,16 +53,21 @@ public class MeasurementOpsApi {
 	private static final String END_TIME = "endTime";
 	private static final String START_TIME = "startTime";
 	public static final String MEASUREMENT = "measurementName";
+	public static final String VALUE = "value";
 	private StorageEngine engine;
 
-	public MeasurementOpsApi(StorageEngine storageEngine) {
+	public MeasurementOpsApi(StorageEngine storageEngine, MetricRegistry registry) {
 		this.engine = storageEngine;
 	}
 
 	@PUT
 	public void createMeasurement(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
 			@PathParam(MEASUREMENT) String measurementName) {
-		engine.getOrCreateMeasurement(dbName, measurementName);
+		try {
+			engine.getOrCreateMeasurement(dbName, measurementName);
+		} catch (IOException e) {
+			throw new InternalServerErrorException(e);
+		}
 	}
 
 	@Path("/series/{seriesName}")
@@ -74,8 +81,12 @@ public class MeasurementOpsApi {
 		for (JsonElement jsonElement : series.get("tags").getAsJsonArray()) {
 			tags.add(jsonElement.getAsString());
 		}
-		engine.getOrCreateTimeSeries(dbName, measurementName, series.get("valueField").getAsString(), tags,
-				series.get("timeBucket").getAsInt(), series.get("floatingPoint").getAsBoolean());
+		try {
+			engine.getOrCreateTimeSeries(dbName, measurementName, series.get("valueField").getAsString(), tags,
+					series.get("timeBucket").getAsInt(), series.get("floatingPoint").getAsBoolean());
+		} catch (IOException e) {
+			throw new InternalServerErrorException(e);
+		}
 	}
 
 	@Path("/series/{seriesName}/retention/{retentionPolicy}")
@@ -83,7 +94,7 @@ public class MeasurementOpsApi {
 	public void updateRetentionPolicy(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
 			@PathParam(MEASUREMENT) String measurementName, @PathParam("retentionPolicy") int retentionPolicy) {
 		engine.updateDefaultTimeSeriesRetentionPolicy(dbName, retentionPolicy);
-		System.out.println("Updated retention policy for:"+dbName+"\t"+retentionPolicy+" hours");
+		System.out.println("Updated retention policy for:" + dbName + "\t" + retentionPolicy + " hours");
 	}
 
 	@DELETE
@@ -116,15 +127,24 @@ public class MeasurementOpsApi {
 		}
 	}
 
-	@Path("/all")
+	@Path("/field/{" + VALUE + "}")
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
-	public Map<String, List<DataPoint>> getAllOfMeasurement(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
-			@PathParam(MEASUREMENT) String measurementName) {
+	public String getAllOfMeasurement(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
+			@PathParam(MEASUREMENT) String measurementName, @PathParam(VALUE) String valueField,
+			@QueryParam("startTime") long startTime, @QueryParam("endTime") long endTime) {
+		if (endTime == 0) {
+			endTime = Long.MAX_VALUE;
+		}
+		Gson gson = new Gson();
 		try {
-			return engine.queryDataPoints(dbName, measurementName, "value", 0, Long.MAX_VALUE, Arrays.asList(""), null);
+			Set<SeriesQueryOutput> output = engine.queryDataPoints(dbName, measurementName, valueField, startTime,
+					endTime, null, null);
+			return gson.toJson(output);
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
+		} catch (IOException e) {
+			throw new InternalServerErrorException(e);
 		}
 	}
 
@@ -135,10 +155,8 @@ public class MeasurementOpsApi {
 			@DefaultValue("now-1h") @QueryParam(START_TIME) String startTime, @QueryParam(END_TIME) String endTime) {
 		try {
 			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-
 			long endTs = System.currentTimeMillis();
 			long startTs = endTs;
-
 			if (startTime.contains("now")) {
 				String[] split = startTime.split("-");
 				int offset = Integer.parseInt(split[1].charAt(0) + "");
@@ -147,11 +165,11 @@ public class MeasurementOpsApi {
 				startTs = sdf.parse(startTime).getTime();
 				endTs = sdf.parse(endTime).getTime();
 			}
-			Map<String, List<DataPoint>> points = engine.queryDataPoints(dbName, measurementName, "value", startTs,
-					endTs, Arrays.asList(""), null);
+			Set<SeriesQueryOutput> points = engine.queryDataPoints(dbName, measurementName, "value",
+					startTs, endTs, Arrays.asList(""), null);
 			List<Number[]> response = new ArrayList<>();
-			for (Entry<String, List<DataPoint>> entry : points.entrySet()) {
-				for (DataPoint dataPoint : entry.getValue()) {
+			for (SeriesQueryOutput entry : points) {
+				for (DataPoint dataPoint : entry.getDataPoints()) {
 					if (!dataPoint.isFp()) {
 						response.add(new Number[] { dataPoint.getLongValue(), dataPoint.getTimestamp() });
 					} else {
@@ -160,8 +178,8 @@ public class MeasurementOpsApi {
 				}
 			}
 			return response;
-		} catch (NotFoundException e) {
-			throw e;
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e);
 		} catch (Exception e) {
 			throw new InternalServerErrorException(e);
 		}

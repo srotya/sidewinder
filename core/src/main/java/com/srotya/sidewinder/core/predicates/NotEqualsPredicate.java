@@ -16,6 +16,8 @@
 package com.srotya.sidewinder.core.predicates;
 
 /**
+ * {@link Predicate} implementing not equals operator.
+ * 
  * @author ambud
  */
 public class NotEqualsPredicate implements Predicate {

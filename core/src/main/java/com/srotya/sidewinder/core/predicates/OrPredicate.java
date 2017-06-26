@@ -18,6 +18,8 @@ package com.srotya.sidewinder.core.predicates;
 import java.util.List;
 
 /**
+ * {@link Predicate} implementing inclusive OR.
+ * 
  * @author ambud
  */
 public class OrPredicate extends ComplexPredicate {

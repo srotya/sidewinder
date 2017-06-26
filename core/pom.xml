@@ -12,6 +12,15 @@
     <dropwizard.version>1.0.2</dropwizard.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>com.google.protobuf</groupId>
+        <artifactId>protobuf-java</artifactId>
+        <version>3.1.0</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
   <dependencies>
     <dependency>
       <groupId>com.esotericsoftware</groupId>
@@ -64,14 +73,35 @@
       </exclusions>
     </dependency>
     <dependency>
-      <groupId>io.netty</groupId>
-      <artifactId>netty-all</artifactId>
-      <version>4.1.6.Final</version>
+      <groupId>io.dropwizard</groupId>
+      <artifactId>dropwizard-testing</artifactId>
+      <version>${dropwizard.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>javax.servlet</groupId>
-      <artifactId>javax.servlet-api</artifactId>
-      <version>3.1.0</version>
+      <groupId>io.dropwizard.metrics</groupId>
+      <artifactId>metrics-core</artifactId>
+      <version>3.2.2</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-all</artifactId>
+      <version>1.2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-protobuf</artifactId>
+      <version>1.2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-stub</artifactId>
+      <version>1.2.0</version>
+    </dependency>
+    <dependency>
+      <groupId>io.netty</groupId>
+      <artifactId>netty-all</artifactId>
+      <version>4.1.10.Final</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
@@ -157,116 +187,154 @@
         </executions>
       </plugin>
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>rpm-maven-plugin</artifactId>
-        <version>2.1.4</version>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <version>0.5.0</version>
         <configuration>
-          <name>${project.artifactId}</name>
-          <version>${project.version}</version>
-          <targetOS>linux</targetOS>
-          <license>Apache 2.0</license>
-          <distribution>${distributor.name}</distribution>
-          <group>Application/Collectors</group>
-          <packager>${distributor.name}</packager>
-          <defaultUsername>root</defaultUsername>
-          <defaultGroupname>root</defaultGroupname>
-          <defineStatements>
-            <defineStatement>_unpackaged_files_terminate_build 0</defineStatement>
-          </defineStatements>
-          <mappings>
-            <mapping>
-              <directory>/usr/sidewinder/lib/</directory>
-              <filemode>755</filemode>
-              <username>sidewinder</username>
-              <sources>
-                <source>
-                  <location>target/${project.artifactId}-${project.version}.jar</location>
-                </source>
-              </sources>
-            </mapping>
-            <mapping>
-              <directory>/etc/sidewinder</directory>
-              <filemode>755</filemode>
-              <sources>
-                <source>
-                  <location>src/main/resources/configs</location>
-                </source>
-              </sources>
-            </mapping>
-            <mapping>
-              <directory>/usr/sidewinder/bin/</directory>
-              <filemode>755</filemode>
-              <username>sidewinder</username>
-              <sources>
-                <source>
-                  <location>src/main/resources/install</location>
-                </source>
-              </sources>
-            </mapping>
-          </mappings>
-          <preinstallScriptlet>
-            <script>useradd sidewinder</script>
-            <script>mkdir -p /usr/sidewinder/lib</script>
-            <script>mkdir -p /usr/sidewinder/bin</script>
-            <script>mkdir -p /etc/sidewinder</script>
-          </preinstallScriptlet>
-          <postinstallScriptlet>
-            <script>chmod +x /usr/sidewinder/bin/sidewinder</script>
-            <script>chmod +x /etc/sidewinder/jq</script>
-            <script>cp /usr/sidewinder/bin/sidewinder /etc/init.d/</script>
-          </postinstallScriptlet>
+          <protocArtifact>com.google.protobuf:protoc:3.0.2:exe:${os.detected.classifier}</protocArtifact>
+          <pluginId>grpc-java</pluginId>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.2.0:exe:${os.detected.classifier}</pluginArtifact>
         </configuration>
         <executions>
           <execution>
-            <id>build-rpm</id>
             <goals>
-              <goal>attached-rpm</goal>
+              <goal>compile</goal>
+              <goal>compile-custom</goal>
             </goals>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.vafer</groupId>
-        <artifactId>jdeb</artifactId>
-        <version>1.5</version>
-        <executions>
-          <execution>
-            <goals>
-              <goal>jdeb</goal>
-            </goals>
-            <phase>package</phase>
-            <configuration>
-              <controlDir>${basedir}/src/main/resources/deb/control</controlDir>
-              <dataSet>
-                <data>
-                  <src>${project.build.directory}/${project.build.finalName}.jar</src>
-                  <type>file</type>
-                  <mapper>
-                    <type>perm</type>
-                    <prefix>/usr/sidewinder/lib/</prefix>
-                  </mapper>
-                </data>
-                <data>
-                  <src>src/main/resources/configs</src>
-                  <type>directory</type>
-                  <mapper>
-                    <type>perm</type>
-                    <prefix>/etc/sidewinder/</prefix>
-                  </mapper>
-                </data>
-                <data>
-                  <src>src/main/resources/install</src>
-                  <type>directory</type>
-                  <mapper>
-                    <type>perm</type>
-                    <prefix>/usr/sidewinder/bin/</prefix>
-                  </mapper>
-                </data>
-              </dataSet>
-            </configuration>
           </execution>
         </executions>
       </plugin>
     </plugins>
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.4.1.Final</version>
+      </extension>
+    </extensions>
   </build>
+  <profiles>
+    <profile>
+      <activation>
+        <os>
+          <family>!windows</family>
+        </os>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>rpm-maven-plugin</artifactId>
+            <version>2.1.4</version>
+            <configuration>
+              <name>${project.artifactId}</name>
+              <version>${project.version}</version>
+              <targetOS>linux</targetOS>
+              <license>Apache 2.0</license>
+              <distribution>${distributor.name}</distribution>
+              <group>Application/Collectors</group>
+              <packager>${distributor.name}</packager>
+              <defaultUsername>root</defaultUsername>
+              <defaultGroupname>root</defaultGroupname>
+              <defineStatements>
+                <defineStatement>_unpackaged_files_terminate_build 0</defineStatement>
+              </defineStatements>
+              <mappings>
+                <mapping>
+                  <directory>/usr/sidewinder/lib/</directory>
+                  <filemode>755</filemode>
+                  <username>sidewinder</username>
+                  <sources>
+                    <source>
+                      <location>target/${project.artifactId}-${project.version}.jar</location>
+                    </source>
+                  </sources>
+                </mapping>
+                <mapping>
+                  <directory>/etc/sidewinder</directory>
+                  <filemode>755</filemode>
+                  <sources>
+                    <source>
+                      <location>src/main/resources/configs</location>
+                    </source>
+                  </sources>
+                </mapping>
+                <mapping>
+                  <directory>/usr/sidewinder/bin/</directory>
+                  <filemode>755</filemode>
+                  <username>sidewinder</username>
+                  <sources>
+                    <source>
+                      <location>src/main/resources/install</location>
+                    </source>
+                  </sources>
+                </mapping>
+              </mappings>
+              <preinstallScriptlet>
+                <script>useradd sidewinder</script>
+                <script>mkdir -p /usr/sidewinder/lib</script>
+                <script>mkdir -p /usr/sidewinder/bin</script>
+                <script>mkdir -p /etc/sidewinder</script>
+              </preinstallScriptlet>
+              <postinstallScriptlet>
+                <script>chmod +x /usr/sidewinder/bin/sidewinder</script>
+                <script>chmod +x /etc/sidewinder/jq</script>
+                <script>cp /usr/sidewinder/bin/sidewinder /etc/init.d/</script>
+              </postinstallScriptlet>
+            </configuration>
+            <executions>
+              <execution>
+                <id>build-rpm</id>
+                <goals>
+                  <goal>attached-rpm</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.vafer</groupId>
+            <artifactId>jdeb</artifactId>
+            <version>1.5</version>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>jdeb</goal>
+                </goals>
+                <phase>package</phase>
+                <configuration>
+                  <controlDir>${basedir}/src/main/resources/deb/control</controlDir>
+                  <dataSet>
+                    <data>
+                      <src>${project.build.directory}/${project.build.finalName}.jar</src>
+                      <type>file</type>
+                      <mapper>
+                        <type>perm</type>
+                        <prefix>/usr/sidewinder/lib/</prefix>
+                      </mapper>
+                    </data>
+                    <data>
+                      <src>src/main/resources/configs</src>
+                      <type>directory</type>
+                      <mapper>
+                        <type>perm</type>
+                        <prefix>/etc/sidewinder/</prefix>
+                      </mapper>
+                    </data>
+                    <data>
+                      <src>src/main/resources/install</src>
+                      <type>directory</type>
+                      <mapper>
+                        <type>perm</type>
+                        <prefix>/usr/sidewinder/bin/</prefix>
+                      </mapper>
+                    </data>
+                  </dataSet>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

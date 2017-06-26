@@ -23,8 +23,10 @@ import java.util.List;
 import org.junit.Test;
 
 /**
+ * Unit tests for {@link AndFilter}, {@link OrFilter}, {@link ContainsFilter},
+ * {@link NotFilter} and {@link AnyFilter}
+ * 
  * @author ambud
- *
  */
 public class TestFilters {
 
@@ -42,6 +44,31 @@ public class TestFilters {
 		assertTrue(!filter.isRetain(Arrays.asList("test", "10", "hello")));
 		assertTrue(filter.isRetain(Arrays.asList("test", "10", "cap")));
 		assertTrue(!filter.isRetain(Arrays.asList("test", "12", "ca2p")));
+	}
+
+	@Test
+	public void testOrFilter() {
+		Filter<List<String>> filter = new OrFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("cap"),
+				new ContainsFilter<String, List<String>>("10")));
+		assertTrue(filter.isRetain(Arrays.asList("test", "10", "hello")));
+		assertTrue(filter.isRetain(Arrays.asList("test", "10", "cap")));
+		assertTrue(!filter.isRetain(Arrays.asList("test", "12", "ca2p")));
+	}
+
+	@Test
+	public void testAnyFilter() {
+		Filter<List<String>> filter = new AnyFilter<List<String>>();
+		assertTrue(filter.isRetain(Arrays.asList("test", "10", "hello")));
+		assertTrue(filter.isRetain(Arrays.asList("test", "10", "cap")));
+		assertTrue(filter.isRetain(Arrays.asList("test", "12", "ca2p")));
+	}
+
+	@Test
+	public void testNotFilter() {
+		Filter<List<String>> filter = new NotFilter<>(new ContainsFilter<String, List<String>>("10"));
+		assertTrue(!filter.isRetain(Arrays.asList("test", "10", "hello")));
+		assertTrue(!filter.isRetain(Arrays.asList("test", "10", "cap")));
+		assertTrue(filter.isRetain(Arrays.asList("test", "12", "ca2p")));
 	}
 
 	@Test

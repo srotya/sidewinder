@@ -20,14 +20,15 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.Arrays;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
+import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
@@ -47,26 +48,19 @@ public class ResourceMonitor {
 		return INSTANCE;
 	}
 
-	public void init(StorageEngine storageEngine) {
+	public void init(StorageEngine storageEngine, ScheduledExecutorService bgTasks) {
 		this.storageEngine = storageEngine;
-		storageEngine.getOrCreateDatabase(DB, 28);
-		Executors.newSingleThreadExecutor(new BackgrounThreadFactory("sidewinder-rm")).submit(() -> {
-			while (true) {
-				try {
-					memAndCPUMonitor();
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-				Thread.sleep(2000);
-			}
-		});
+		if (bgTasks != null) {
+			storageEngine.getOrCreateDatabase(DB, 28);
+			bgTasks.scheduleAtFixedRate(() -> memAndCPUMonitor(), 0, 2, TimeUnit.SECONDS);
+		}
 	}
 
 	public void memAndCPUMonitor() {
 		MemoryMXBean mem = ManagementFactory.getMemoryMXBean();
 		MemoryUsage heap = mem.getHeapMemoryUsage();
 		MemoryUsage nonheap = mem.getNonHeapMemoryUsage();
-		
+
 		validateCPUUsage();
 
 		validateMemoryUsage("heap", heap, 10_485_760);
@@ -75,7 +69,8 @@ public class ResourceMonitor {
 
 	private void validateCPUUsage() {
 		double systemLoadAverage = ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage();
-		DataPoint dp = new DataPoint(DB, "cpu", "load", Arrays.asList(), System.currentTimeMillis(), systemLoadAverage);
+		DataPoint dp = MiscUtils.buildDataPoint(DB, "cpu", "load", Arrays.asList(), System.currentTimeMillis(),
+				systemLoadAverage);
 		try {
 			storageEngine.writeDataPoint(dp);
 		} catch (IOException e) {
@@ -89,14 +84,15 @@ public class ResourceMonitor {
 			max = Integer.MAX_VALUE;
 		}
 		long used = mem.getUsed();
-		DataPoint dp = new DataPoint(DB, "memory", "used", Arrays.asList(type), System.currentTimeMillis(), used);
+		DataPoint dp = MiscUtils.buildDataPoint(DB, "memory", "used", Arrays.asList(type), System.currentTimeMillis(),
+				used);
 		try {
 			storageEngine.writeDataPoint(dp);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
 
-		dp = new DataPoint(DB, "memory", "max", Arrays.asList(type), System.currentTimeMillis(), used);
+		dp = MiscUtils.buildDataPoint(DB, "memory", "max", Arrays.asList(type), System.currentTimeMillis(), used);
 		try {
 			storageEngine.writeDataPoint(dp);
 		} catch (IOException e) {

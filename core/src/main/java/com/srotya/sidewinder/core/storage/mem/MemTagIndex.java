@@ -19,8 +19,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
-import org.eclipse.jetty.util.ConcurrentHashSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 import com.srotya.sidewinder.core.utils.MurmurHash;
 
@@ -71,7 +70,7 @@ public class MemTagIndex {
 		if (rowKeySet == null) {
 			synchronized (rowKeyIndex) {
 				if ((rowKeySet = rowKeyIndex.get(tag)) == null) {
-					rowKeySet = new ConcurrentHashSet<>();
+					rowKeySet = new ConcurrentSkipListSet<>();
 					rowKeyIndex.put(tag, rowKeySet);
 				}
 			}

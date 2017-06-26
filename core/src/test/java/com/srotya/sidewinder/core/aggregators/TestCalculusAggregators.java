@@ -25,6 +25,7 @@ import org.junit.Test;
 import com.srotya.sidewinder.core.aggregators.windowed.DerivativeFunction;
 import com.srotya.sidewinder.core.aggregators.windowed.ReducingWindowedAggregator;
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
@@ -39,7 +40,7 @@ public class TestCalculusAggregators {
 		for (int i = 0; i < values.length; i++) {
 			double d = values[i];
 			ts = ts + (30_000);
-			dps.add(new DataPoint(ts, d));
+			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
 		ReducingWindowedAggregator rwa = new DerivativeFunction();
 		rwa.init(new Object[] { 70, "smean" });
@@ -58,7 +59,7 @@ public class TestCalculusAggregators {
 		for (int i = 0; i < values.length; i++) {
 			long d = values[i];
 			ts = ts + (10_000);
-			dps.add(new DataPoint(ts, d));
+			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
 		ReducingWindowedAggregator rwa = new DerivativeFunction();
 		rwa.init(new Object[] { 20, "smean" });

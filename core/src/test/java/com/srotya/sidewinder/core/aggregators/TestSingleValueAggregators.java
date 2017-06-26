@@ -25,6 +25,7 @@ import org.junit.Test;
 import com.srotya.sidewinder.core.aggregators.single.MeanFunction;
 import com.srotya.sidewinder.core.aggregators.single.SumFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
@@ -37,7 +38,7 @@ public class TestSingleValueAggregators {
 		List<DataPoint> dps = new ArrayList<>();
 		long ts = System.currentTimeMillis();
 		for (double d : values) {
-			dps.add(new DataPoint(ts, d));
+			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
 		SingleResultFunction sva = new SumFunction();
 		List<DataPoint> result = sva.aggregate(dps);
@@ -47,7 +48,7 @@ public class TestSingleValueAggregators {
 		dps.clear();
 		long[] vals = { 1, 2, 3, 4, 5 };
 		for (long l : vals) {
-			dps.add(new DataPoint(ts, l));
+			dps.add(MiscUtils.buildDataPoint(ts, l));
 		}
 		result = sva.aggregate(dps);
 		assertEquals(1, result.size());
@@ -60,7 +61,7 @@ public class TestSingleValueAggregators {
 		List<DataPoint> dps = new ArrayList<>();
 		long ts = System.currentTimeMillis();
 		for (double d : values) {
-			dps.add(new DataPoint(ts, d));
+			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
 		SingleResultFunction sva = new MeanFunction();
 		List<DataPoint> result = sva.aggregate(dps);
@@ -70,7 +71,7 @@ public class TestSingleValueAggregators {
 		dps.clear();
 		long[] vals = { 1, 2, 3, 4, 5 };
 		for (long l : vals) {
-			dps.add(new DataPoint(ts, l));
+			dps.add(MiscUtils.buildDataPoint(ts, l));
 		}
 		result = sva.aggregate(dps);
 		assertEquals(1, result.size());

@@ -16,6 +16,10 @@
 package com.srotya.sidewinder.core.predicates;
 
 /**
+ * {@link Predicate} implementing less operator, where the
+ * supplied (tested) value is less the predicate's configured
+ * value.
+ * 
  * @author ambud
  */
 public class LessThanPredicate implements Predicate {

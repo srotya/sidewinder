@@ -18,6 +18,8 @@ package com.srotya.sidewinder.core.storage.mem;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
@@ -28,7 +30,9 @@ import java.util.logging.Logger;
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
 /**
@@ -56,6 +60,10 @@ public class TimeSeries {
 	private String seriesId;
 	private int timeBucketSize;
 	private String compressionFQCN;
+	private Map<String, String> conf;
+
+	protected TimeSeries() {
+	}
 
 	/**
 	 * @param seriesId
@@ -66,10 +74,12 @@ public class TimeSeries {
 	 *            size of each time bucket (partition)
 	 * @param fp
 	 */
-	public TimeSeries(String compressionFQCN, String seriesId, int retentionHours, int timeBucketSize, boolean fp) {
+	public TimeSeries(String compressionFQCN, String seriesId, int retentionHours, int timeBucketSize, boolean fp,
+			Map<String, String> conf) {
 		this.compressionFQCN = compressionFQCN;
 		this.seriesId = seriesId;
 		this.timeBucketSize = timeBucketSize;
+		this.conf = conf;
 		retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(retentionHours);
 		this.fp = fp;
@@ -93,9 +103,10 @@ public class TimeSeries {
 	 * @param valuePredicate
 	 *            pushed down filter for values
 	 * @return list of datapoints
+	 * @throws IOException 
 	 */
 	public List<DataPoint> queryDataPoints(String appendFieldValueName, List<String> appendTags, long startTime,
-			long endTime, Predicate valuePredicate) {
+			long endTime, Predicate valuePredicate) throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
 			startTime = startTime ^ endTime;
@@ -132,9 +143,10 @@ public class TimeSeries {
 	 * @param valuePredicate
 	 *            pushed down filter for values
 	 * @return list of readers
+	 * @throws IOException 
 	 */
 	public List<Reader> queryReader(String appendFieldValueName, List<String> appendTags, long startTime, long endTime,
-			Predicate valuePredicate) {
+			Predicate valuePredicate) throws IOException {
 		List<Reader> readers = new ArrayList<>();
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
 		int tsStartBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;
@@ -159,24 +171,49 @@ public class TimeSeries {
 	 *            of this data point
 	 * @throws RejectException
 	 */
-	public void addDataPoint(TimeUnit unit, long timestamp, long value) throws RejectException {
+	public void addDataPoint(TimeUnit unit, long timestamp, long value) throws IOException {
 		TimeSeriesBucket timeseriesBucket = getOrCreateSeriesBucket(unit, timestamp);
 		timeseriesBucket.addDataPoint(timestamp, value);
 	}
 
-	public TimeSeriesBucket getOrCreateSeriesBucket(TimeUnit unit, long timestamp) {
+	/**
+	 * @param unit
+	 * @param timestamp
+	 * @return
+	 * @throws IOException
+	 */
+	public TimeSeriesBucket getOrCreateSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
 		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
 		String tsBucket = Integer.toHexString(bucket);
 		TimeSeriesBucket timeseriesBucket = bucketMap.get(tsBucket);
 		if (timeseriesBucket == null) {
 			synchronized (bucketMap) {
 				if ((timeseriesBucket = bucketMap.get(tsBucket)) == null) {
-					timeseriesBucket = new TimeSeriesBucket(compressionFQCN, timestamp);
+					timeseriesBucket = new TimeSeriesBucket(seriesId + tsBucket, compressionFQCN, timestamp, false,
+							conf);
 					bucketMap.put(tsBucket, timeseriesBucket);
 				}
 			}
 		}
 		return timeseriesBucket;
+	}
+
+	/**
+	 * @param unit
+	 * @param timestamp
+	 * @return
+	 * @throws IOException
+	 */
+	public TimeSeriesBucket getSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
+		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
+		String tsBucket = Integer.toHexString(bucket);
+		return bucketMap.get(tsBucket);
+	}
+
+	public SortedMap<String, TimeSeriesBucket> getSeriesBuckets(TimeUnit unit, long timestamp) throws IOException {
+		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
+		String tsBucket = Integer.toHexString(bucket);
+		return bucketMap.tailMap(tsBucket);
 	}
 
 	/**
@@ -190,7 +227,7 @@ public class TimeSeries {
 	 *            of this data point
 	 * @throws RejectException
 	 */
-	public void addDataPoint(TimeUnit unit, long timestamp, double value) throws RejectException {
+	public void addDataPoint(TimeUnit unit, long timestamp, double value) throws IOException {
 		TimeSeriesBucket timeseriesBucket = getOrCreateSeriesBucket(unit, timestamp);
 		timeseriesBucket.addDataPoint(timestamp, value);
 	}
@@ -213,10 +250,11 @@ public class TimeSeries {
 	 * @param valuePredicate
 	 *            value filter
 	 * @return the points argument
+	 * @throws IOException 
 	 */
 	public static List<DataPoint> seriesToDataPoints(String appendFieldValueName, List<String> appendTags,
 			List<DataPoint> points, TimeSeriesBucket timeSeries, Predicate timePredicate, Predicate valuePredicate,
-			boolean isFp) {
+			boolean isFp) throws IOException {
 		Reader reader = timeSeries.getReader(timePredicate, valuePredicate, isFp, appendFieldValueName, appendTags);
 		DataPoint point = null;
 		while (true) {
@@ -234,7 +272,8 @@ public class TimeSeries {
 			}
 		}
 		if (reader.getCounter() != reader.getPairCount() || points.size() < reader.getCounter()) {
-//			System.err.println("SDP:" + points.size() + "/" + reader.getCounter() + "/" + reader.getPairCount());
+			// System.err.println("SDP:" + points.size() + "/" +
+			// reader.getCounter() + "/" + reader.getPairCount());
 		}
 		return points;
 	}
@@ -249,7 +288,7 @@ public class TimeSeries {
 			String key = bucketMap.firstKey();
 			TimeSeriesBucket bucket = bucketMap.remove(key);
 			gcedBuckets.add(bucket);
-			logger.log(Level.FINE, "GC, removing bucket:" + key + ": as it passed retention period of:"
+			logger.log(Level.INFO, "GC, removing bucket:" + key + ": as it passed retention period of:"
 					+ retentionBuckets.get() + ":old size:" + oldSize + ":newsize:" + bucketMap.size() + ":");
 		}
 		return gcedBuckets;
@@ -320,6 +359,15 @@ public class TimeSeries {
 	public String toString() {
 		return "TimeSeries [bucketMap=" + bucketMap + ", fp=" + fp + ", retentionBuckets=" + retentionBuckets
 				+ ", logger=" + logger + ", seriesId=" + seriesId + ", timeBucketSize=" + timeBucketSize + "]";
+	}
+
+	public void close() throws IOException {
+		if (bucketMap == null) {
+			return;
+		}
+		for (Entry<String, TimeSeriesBucket> entry : bucketMap.entrySet()) {
+			entry.getValue().close();
+		}
 	}
 
 }
