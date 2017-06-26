@@ -280,13 +280,15 @@ public class TimeSeries {
 
 	/**
 	 * Cleans stale series
+	 * @throws IOException 
 	 */
-	public List<TimeSeriesBucket> collectGarbage() {
+	public List<TimeSeriesBucket> collectGarbage() throws IOException {
 		List<TimeSeriesBucket> gcedBuckets = new ArrayList<>();
 		while (bucketMap.size() > retentionBuckets.get()) {
 			int oldSize = bucketMap.size();
 			String key = bucketMap.firstKey();
 			TimeSeriesBucket bucket = bucketMap.remove(key);
+			bucket.close();
 			gcedBuckets.add(bucket);
 			logger.log(Level.INFO, "GC, removing bucket:" + key + ": as it passed retention period of:"
 					+ retentionBuckets.get() + ":old size:" + oldSize + ":newsize:" + bucketMap.size() + ":");

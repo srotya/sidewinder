@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
@@ -120,7 +121,11 @@ public class DiskStorageEngine implements StorageEngine {
 								.entrySet()) {
 							// String measurement = measurementEntry.getKey();
 							for (Entry<String, TimeSeries> entry : measurementEntry.getValue().entrySet()) {
-								entry.getValue().collectGarbage();
+								try {
+									entry.getValue().collectGarbage();
+								} catch (IOException e) {
+									logger.log(Level.SEVERE, "Error collecing garbage", e);
+								}
 							}
 						}
 					}
