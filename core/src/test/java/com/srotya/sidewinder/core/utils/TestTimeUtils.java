@@ -47,6 +47,17 @@ public class TestTimeUtils {
 	}
 
 	@Test
+	public void testTimeToNanoSeconds() {
+		long time = System.currentTimeMillis();
+		long timeToNano = TimeUtils.timeToNanoSeconds(TimeUnit.MILLISECONDS, time);
+		assertEquals(time * 1000 * 1000, timeToNano);
+
+		time = System.currentTimeMillis() * 1000 * 1000;
+		timeToNano = TimeUtils.timeToNanoSeconds(TimeUnit.NANOSECONDS, time);
+		assertEquals(time, timeToNano);
+	}
+
+	@Test
 	public void testFlooredNaturalTime() {
 		int time = (int) (System.currentTimeMillis() / 1000);
 		int windowFlooredNaturalTime = TimeUtils.getWindowFlooredNaturalTime(time, 3600);

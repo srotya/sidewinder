@@ -18,8 +18,9 @@ package com.srotya.sidewinder.core.predicates;
 import java.util.List;
 
 /**
+ * {@link Predicate} implementing AND operator
+ * 
  * @author ambud
- *
  */
 public class AndPredicate extends ComplexPredicate {
 

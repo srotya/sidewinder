@@ -15,11 +15,21 @@
  */
 package com.srotya.sidewinder.core.predicates;
 
+import com.srotya.sidewinder.core.storage.DataPoint;
+
 /**
+ * Predicate is a condition or boolean operator that is used for numeric data
+ * comparison right at the storage layer.
+ * 
+ * Predicate concept in Sidewinder is designed such that Predicates can be
+ * pushed down from the query layer all the way to the storage layer to avoid
+ * the necessity to convert time series data to {@link DataPoint} objects which
+ * will have more overhead compared to droping primitives.
+ * 
  * @author ambud
  */
 public interface Predicate {
 
 	boolean apply(long value);
-	
+
 }

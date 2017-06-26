@@ -24,6 +24,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.MessageToByteEncoder;
 
 /**
+ * Netty encoder for Sidewinder binary protocol
+ * 
  * @author ambud
  */
 public class SeriesDataPointEncoder extends MessageToByteEncoder<List<DataPoint>> {
@@ -34,6 +36,7 @@ public class SeriesDataPointEncoder extends MessageToByteEncoder<List<DataPoint>
 		buf.writeInt(size);
 		for (DataPoint dataPoint : dataPoints) {
 			encodeDPointToBuf(buf, dataPoint);
+			arg0.flush();
 		}
 	}
 
@@ -47,12 +50,20 @@ public class SeriesDataPointEncoder extends MessageToByteEncoder<List<DataPoint>
 		byte[] valueNameBytes = dataPoint.getValueFieldName().getBytes();
 		buf.writeInt(valueNameBytes.length);
 		buf.writeBytes(valueNameBytes);
-		
+
+		List<String> tags = dataPoint.getTags();
+		buf.writeInt(tags.size());
+		for (String tag : tags) {
+			byte[] value = tag.getBytes();
+			buf.writeInt(value.length);
+			buf.writeBytes(value);
+		}
+
 		buf.writeLong(dataPoint.getTimestamp());
 		if (dataPoint.isFp()) {
 			buf.writeByte('0');
 			buf.writeDouble(dataPoint.getValue());
-		}else {
+		} else {
 			buf.writeByte('1');
 			buf.writeLong(dataPoint.getLongValue());
 		}

@@ -17,7 +17,6 @@ package com.srotya.sidewinder.core.api;
 
 import java.util.Set;
 
-import javax.ws.rs.BadRequestException;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
@@ -30,8 +29,9 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
+import com.codahale.metrics.MetricRegistry;
+import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.utils.SecurityUtils;
 
 @Path("/database")
 public class DatabaseOpsApi {
@@ -39,7 +39,7 @@ public class DatabaseOpsApi {
 	public static final String DB_NAME = "dbName";
 	private StorageEngine storageEngine;
 
-	public DatabaseOpsApi(StorageEngine storageEngine) {
+	public DatabaseOpsApi(StorageEngine storageEngine, MetricRegistry registry) {
 		this.storageEngine = storageEngine;
 	}
 
@@ -77,6 +77,8 @@ public class DatabaseOpsApi {
 			} else {
 				return measurements;
 			}
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e);
 		} catch (NotFoundException e) {
 			throw e;
 		} catch (Exception e) {
@@ -101,23 +103,12 @@ public class DatabaseOpsApi {
 		}
 	}
 
-	@Path("/scookie")
-	@GET
-	@Produces({ MediaType.APPLICATION_JSON })
-	public String getSCookie() {
-		return SecurityUtils.createSCookie();
-	}
-
 	@DELETE
-	public void dropDatabases(@QueryParam("scookie") String cookie) {
-		if (SecurityUtils.isValidSCookie(cookie)) {
-			try {
-				storageEngine.deleteAllData();
-			} catch (Exception e) {
-				throw new InternalServerErrorException(e);
-			}
-		} else {
-			throw new BadRequestException("Invalid SCookie");
+	public void dropDatabases() {
+		try {
+			storageEngine.deleteAllData();
+		} catch (Exception e) {
+			throw new InternalServerErrorException(e);
 		}
 	}
 
