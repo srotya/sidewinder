@@ -27,9 +27,6 @@ import java.util.concurrent.locks.ReentrantLock;
  * A sorted map that evicts least recently used items and has a fixed capacity
  * 
  * @author ambud
- *
- * @param <K>
- * @param <V>
  */
 public class ConcurrentLRUSortedMap implements SortedMap<String, BucketEntry> {
 
