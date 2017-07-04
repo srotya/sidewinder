@@ -122,7 +122,12 @@ public class MemStorageEngine implements StorageEngine {
 							.entrySet()) {
 						String measurement = measurementEntry.getKey();
 						for (Entry<String, TimeSeries> entry : measurementEntry.getValue().entrySet()) {
-							List<TimeSeriesBucket> buckets = entry.getValue().collectGarbage();
+							List<TimeSeriesBucket> buckets;
+							try {
+								buckets = entry.getValue().collectGarbage();
+							} catch (IOException e1) {
+								continue;
+							}
 							for (TimeSeriesBucket bucket : buckets) {
 								try {
 									archiver.archive(
