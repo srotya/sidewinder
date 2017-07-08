@@ -15,7 +15,8 @@
  */
 package com.srotya.sidewinder.core.qa;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -82,6 +83,30 @@ public class TestInMemoryByzantineDefaults {
 		assertEquals("true", EntityUtils.toString(response.getEntity()));
 		response = makeRequest(new HttpGet("http://localhost:8080/database/_internal/measurement/memory/field/value"));
 		assertEquals(200, response.getStatusLine().getStatusCode());
+	}
+
+	@Test
+	public void testTSQLApi() throws Exception, ClientProtocolException, NoSuchAlgorithmException, KeyStoreException,
+			MalformedURLException, IOException {
+		HttpPost post = new HttpPost("http://localhost:8080/http?db=qaTSQL");
+		post.setEntity(new StringEntity("cpu,host=server01,region=uswest value=1i 1497720452566000000\n"
+				+ "cpu,host=server02,region=uswest value=1i 1497720452566000000\n"
+				+ "cpu,host=server03,region=uswest value=1i 1497720452566000000\n"
+				+ "cpu,host=server01,region=uswest value=1i 1497720453566000000\n"
+				+ "cpu,host=server02,region=uswest value=1i 1497720453566000000\n"
+				+ "cpu,host=server03,region=uswest value=1i 1497720453566000000"));
+		CloseableHttpResponse response = makeRequest(post);
+		assertEquals(204, response.getStatusLine().getStatusCode());
+		HttpPost get = new HttpPost("http://localhost:8080/database/qaTSQL/query");
+		get.setEntity(new StringEntity("1497720442566<cpu.value<1497720652566"));
+		response = makeRequest(get);
+		String entity = EntityUtils.toString(response.getEntity());
+		System.out.println("RESULT:" + entity);
+		JsonArray ary = new Gson().fromJson(entity, JsonArray.class);
+		assertEquals(3, ary.size());
+		for (int i = 0; i < ary.size(); i++) {
+			assertEquals(2, ary.get(i).getAsJsonObject().get("dataPoints").getAsJsonArray().size());
+		}
 	}
 
 	@Test
@@ -158,7 +183,7 @@ public class TestInMemoryByzantineDefaults {
 			}
 		}
 		assertEquals(6, i);
-//		Thread.sleep(3600_000);
+		// Thread.sleep(3600_000);
 	}
 
 	public static CloseableHttpResponse makeRequest(HttpRequestBase request) throws KeyManagementException,

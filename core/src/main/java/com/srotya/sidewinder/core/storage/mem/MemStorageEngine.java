@@ -530,7 +530,7 @@ public class MemStorageEngine implements StorageEngine {
 			} else {
 				seriesTags = new ArrayList<>();
 			}
-			if (!tagFilterTree.isRetain(seriesTags)) {
+			if (tagFilterTree!=null && !tagFilterTree.isRetain(seriesTags)) {
 				iterator.remove();
 			}
 		}

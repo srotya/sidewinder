@@ -50,8 +50,8 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 @Path("/database/{dbName}/measurement/{" + MeasurementOpsApi.MEASUREMENT + "}")
 public class MeasurementOpsApi {
 
-	private static final String END_TIME = "endTime";
-	private static final String START_TIME = "startTime";
+	public static final String END_TIME = "endTime";
+	public static final String START_TIME = "startTime";
 	public static final String MEASUREMENT = "measurementName";
 	public static final String VALUE = "value";
 	private StorageEngine engine;
@@ -184,5 +184,5 @@ public class MeasurementOpsApi {
 			throw new InternalServerErrorException(e);
 		}
 	}
-
+	
 }

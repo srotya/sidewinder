@@ -45,7 +45,14 @@ public abstract class ReducingWindowedAggregator extends WindowedFunction {
 			aggregatorName = args[1].toString();
 		}
 		Class<? extends AggregationFunction> lookupFunction = FunctionTable.get().lookupFunction(aggregatorName);
-		this.aggregator = (SingleResultFunction) lookupFunction.newInstance();
+		if (lookupFunction == null) {
+			throw new IllegalArgumentException("Invalid aggregation function:" + aggregatorName);
+		}
+		AggregationFunction tmp = lookupFunction.newInstance();
+		if (!(tmp instanceof SingleResultFunction)) {
+			throw new IllegalArgumentException("Supplied reduction function doesn't produce single result");
+		}
+		this.aggregator = (SingleResultFunction) tmp;
 	}
 
 	@Override
@@ -81,4 +88,9 @@ public abstract class ReducingWindowedAggregator extends WindowedFunction {
 	}
 
 	public abstract List<DataPoint> aggregateAfterReduction(List<DataPoint> datapoints);
+
+	@Override
+	public int getNumberOfArgs() {
+		return super.getNumberOfArgs() + 1;
+	}
 }

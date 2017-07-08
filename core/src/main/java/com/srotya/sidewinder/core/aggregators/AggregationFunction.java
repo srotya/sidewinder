@@ -27,5 +27,7 @@ public interface AggregationFunction {
 	public List<DataPoint> aggregate(List<DataPoint> datapoints);
 	
 	public void init(Object[] args) throws Exception;
+	
+	public int getNumberOfArgs();
 
 }
