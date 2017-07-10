@@ -50,6 +50,10 @@ public abstract class ComplexFilter<E> implements Filter<E> {
 	public void addFilter(Filter<E> operator) {
 		operators.add(operator);
 	}
+	
+	public List<Filter<E>> getOperators() {
+		return operators;
+	}
 
 	/* (non-Javadoc)
 	 * @see java.lang.Object#toString()

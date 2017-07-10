@@ -72,6 +72,9 @@ System.register(['app/plugins/sdk', './css/query-editor.css!'], function (_expor
           _this.uiSegmentSrv = uiSegmentSrv;
           _this.target.target = _this.target.target;
           _this.target.type = 'timeserie';
+          if(!_this.target.raw) {
+        	  _this.target.raw = '';
+          }
           if(!_this.target.filters) {
         	  _this.target.filters = [];
           }

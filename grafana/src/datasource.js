@@ -50,13 +50,13 @@ System.register(['lodash'], function (_export, _context) {
           key: 'query',
           value: function query(options) {
             var query = this.buildQueryParameters(options);
-            query.targets = query.targets.filter(function (t) {
-              return !t.hide;
-            });
-
+	        query.targets = query.targets.filter(function (t) {
+	           return !t.hide;
+	        });
+	
             if (query.targets.length <= 0) {
-              return this.q.when({ data: [] });
-            }
+  	            return this.q.when({ data: [] });
+  	        }
 
             return this.backendSrv.datasourceRequest({
               url: this.url + '/query',
@@ -184,7 +184,7 @@ System.register(['lodash'], function (_export, _context) {
             options.targets = _.filter(options.targets, function (target) {
               return target.target !== 'select metric';
             });
-
+            
             var targets = _.map(options.targets, function (target) {
             	var ts = target.aggregator.args[0].value;
             	if(target.aggregator.unit=='mins') {
@@ -200,22 +200,32 @@ System.register(['lodash'], function (_export, _context) {
             	}else if(target.aggregator.unit=='months') {
             		ts = target.aggregator.args[0].value*3600*24*365; 
             	}
-              var req = {
-                target: _this.templateSrv.replace(target.target),
-                filters: target.filters,
-                aggregator: target.aggregator,
-                correlate: target.correlate,
-                field: target.field,
-                refId: target.refId,
-                hide: target.hide,
-                type: target.type || 'timeserie'
-              };
-              
-              return req;
+            	var req = {};
+            	if(target.rawQuery) {
+            	  req= {
+            			target: _this.templateSrv.replace(target.target),
+            			refId: target.refId,
+      	                hide: target.hide,
+    	                raw: _this.templateSrv.replace(target.raw),
+    	                rawQuery: target.rawQuery,
+      	                type: target.type || 'timeserie'
+            	  }
+            	}else {
+	               req = {
+	                target: _this.templateSrv.replace(target.target),
+	                filters: target.filters,
+	                aggregator: target.aggregator,
+	                correlate: target.correlate,
+	                field: _this.templateSrv.replace(target.field),
+	                refId: target.refId,
+	                hide: target.hide,
+	                type: target.type || 'timeserie'
+	              };
+            	}
+            	return req;
             });
 
             options.targets = targets;
-
             return options;
           }
         }]);
