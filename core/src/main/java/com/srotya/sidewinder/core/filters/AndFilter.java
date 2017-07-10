@@ -42,6 +42,10 @@ public class AndFilter<E> extends ComplexFilter<E>{
 	public boolean operator(boolean prev, Filter<E> next, E value) {
 		return prev && next.isRetain(value);
 	}
-
+	
+	@Override
+	public String toString() {
+		return "AndFilter["+getOperators()+"]";
+	}
 
 }

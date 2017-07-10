@@ -27,7 +27,7 @@ public abstract class WindowedFunction implements AggregationFunction {
 
 	public void init(Object[] args) throws Exception {
 		timeWindow = ((Integer) args[0]);
-		if(timeWindow==0) {
+		if (timeWindow <= 0) {
 			timeWindow = 1;
 		}
 		timeWindow = timeWindow * 1000;
@@ -38,5 +38,10 @@ public abstract class WindowedFunction implements AggregationFunction {
 	 */
 	public int getTimeWindow() {
 		return timeWindow;
+	}
+	
+	@Override
+	public int getNumberOfArgs() {
+		return 1;
 	}
 }
