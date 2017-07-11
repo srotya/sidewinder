@@ -34,7 +34,7 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 /**
  * @author ambud
  */
-@Path("/http")
+@Path("/influx")
 public class InfluxApi {
 
 	private StorageEngine storageEngine;

@@ -62,7 +62,7 @@ import com.google.gson.JsonObject;
  */
 public class StockLoader {
 
-	private static final String BASE_URL = "http://localhost:8080/database/stocks/measurement/ticker/series/ticker";
+	private static final String BASE_URL = "http://localhost:8080/databases/stocks/measurements/ticker/series/ticker";
 
 	public static void main(String[] args) throws IOException, KeyManagementException, NoSuchAlgorithmException,
 			KeyStoreException, ParseException, InterruptedException {
@@ -93,7 +93,7 @@ public class StockLoader {
 
 	private static void uploadDataPointsForTicker(CloseableHttpClient client, StringBuilder req)
 			throws UnsupportedEncodingException {
-		HttpPost post = new HttpPost("http://localhost:8080/http?db=stocks");
+		HttpPost post = new HttpPost("http://localhost:8080/influx?db=stocks");
 		post.setEntity(new StringEntity(req.toString()));
 		try {
 			CloseableHttpResponse execute = client.execute(post);
@@ -134,7 +134,7 @@ public class StockLoader {
 	private static void createDBWithRetectionPolicy() throws NoSuchAlgorithmException, KeyStoreException,
 			KeyManagementException, IOException, ClientProtocolException {
 		// build a stocks database with 20 year retention policy for series
-		HttpPut db = new HttpPut("http://localhost:8080/database/stocks?retentionPolicy=" + (24 * 365 * 20));
+		HttpPut db = new HttpPut("http://localhost:8080/databases/stocks?retentionPolicy=" + (24 * 365 * 20));
 		CloseableHttpClient dbC = buildClient(BASE_URL, 5000, 5000);
 		dbC.execute(db).close();
 	}

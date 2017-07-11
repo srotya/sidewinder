@@ -46,9 +46,11 @@ public class NettyHTTPIngestionServer {
 	private Channel channel;
 	private StorageEngine storageEngine;
 	private Meter meter;
+	private int port;
 
 	public void init(StorageEngine storageEngine, Map<String, String> conf, MetricRegistry registry) {
 		this.storageEngine = storageEngine;
+		this.port = Integer.parseInt(conf.getOrDefault("netty.http.port", "9928"));
 		meter = registry.meter("writes");
 	}
 
@@ -70,7 +72,7 @@ public class NettyHTTPIngestionServer {
 						p.addLast(processorGroup, new HTTPDataPointDecoder(storageEngine, meter));
 					}
 
-				}).bind("localhost", 9928).sync().channel();
+				}).bind("localhost", port).sync().channel();
 	}
 
 	public void stop() throws InterruptedException {

@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Ambud Sharma
+ * Copyright 2017 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,6 @@ public class ResourceMonitor {
 		MemoryUsage nonheap = mem.getNonHeapMemoryUsage();
 
 		validateCPUUsage();
-
 		validateMemoryUsage("heap", heap, 10_485_760);
 		validateMemoryUsage("nonheap", nonheap, 1_073_741_824);
 	}

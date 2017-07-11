@@ -37,6 +37,7 @@ import javax.ws.rs.core.MediaType;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -47,7 +48,7 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 /**
  * @author ambud
  */
-@Path("/database/{dbName}/measurement/{" + MeasurementOpsApi.MEASUREMENT + "}")
+@Path("/databases/{dbName}/measurements/{" + MeasurementOpsApi.MEASUREMENT + "}")
 public class MeasurementOpsApi {
 
 	public static final String END_TIME = "endTime";
@@ -127,7 +128,22 @@ public class MeasurementOpsApi {
 		}
 	}
 
-	@Path("/field/{" + VALUE + "}")
+	@Path("/fields")
+	@GET
+	@Produces({ MediaType.APPLICATION_JSON })
+	public Set<String> getAllFields(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
+			@PathParam(MEASUREMENT) String measurementName) {
+		try {
+			Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
+			return fieldsForMeasurement;
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e);
+		}  catch (Exception e) {
+			throw new InternalServerErrorException(e);
+		}
+	}
+	
+	@Path("/fields/{" + VALUE + "}")
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
 	public String getAllOfMeasurement(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
@@ -147,9 +163,34 @@ public class MeasurementOpsApi {
 			throw new InternalServerErrorException(e);
 		}
 	}
-
+	
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
+	public String listMeasurements(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
+			@PathParam(MEASUREMENT) String measurementName) {
+		try {
+			Set<String> fields = engine.getFieldsForMeasurement(dbName, measurementName);
+			Set<String> tagsForMeasurement = engine.getTagsForMeasurement(dbName, measurementName);
+			JsonObject obj = new JsonObject();
+			JsonArray fieldAry = new JsonArray();
+			for (String field : fields) {
+				fieldAry.add(field);
+			}
+			obj.add("fields", fieldAry);
+			
+			JsonArray tagAry = new JsonArray();
+			for (String tag : tagsForMeasurement) {
+				tagAry.add(tag);
+			}
+			obj.add("tags", tagAry);
+			return new Gson().toJson(obj);
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e);
+		}  catch (Exception e) {
+			throw new InternalServerErrorException(e);
+		}
+	}
+
 	public List<Number[]> getSeries(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
 			@PathParam(MEASUREMENT) String measurementName,
 			@DefaultValue("now-1h") @QueryParam(START_TIME) String startTime, @QueryParam(END_TIME) String endTime) {
