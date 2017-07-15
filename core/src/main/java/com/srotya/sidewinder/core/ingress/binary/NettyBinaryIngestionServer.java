@@ -42,9 +42,11 @@ public class NettyBinaryIngestionServer {
 
 	private Channel channel;
 	private StorageEngine storageEngine;
+	private int port;
 
 	public void init(StorageEngine storageEngine, Map<String, String> conf) {
 		this.storageEngine = storageEngine;
+		this.port = Integer.parseInt(conf.getOrDefault("netty.binary.port", "9927"));
 	}
 
 	public void start() throws InterruptedException {
@@ -66,7 +68,7 @@ public class NettyBinaryIngestionServer {
 						p.addLast(writerGroup, new SeriesDataPointWriter(storageEngine));
 					}
 
-				}).bind("localhost", 9927).sync().channel();
+				}).bind("localhost", port).sync().channel();
 	}
 
 	public void stop() throws InterruptedException {

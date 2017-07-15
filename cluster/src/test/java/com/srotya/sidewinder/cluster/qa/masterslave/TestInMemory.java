@@ -72,11 +72,11 @@ public class TestInMemory {
 		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		format.setTimeZone(TimeZone.getTimeZone("utc"));
 		String payload = "{\"panelId\":2,\"range\":{\"from\":\"%s\",\"to\":\"%s\",\"raw\":{\"from\":\"now-5m\",\"to\":\"now\"}},\"rangeRaw\":{\"from\":\"now-5m\",\"to\":\"now\"},\"interval\":\"200ms\",\"intervalMs\":200,\"targets\":[{\"target\":\"cpu\",\"filters\":[],\"aggregator\":{\"args\":[{\"index\":0,\"type\":\"int\",\"value\":\"20\"}],\"name\":\"none\",\"unit\":\"secs\"},\"field\":\"value\",\"refId\":\"A\",\"type\":\"timeserie\"}],\"format\":\"json\",\"maxDataPoints\":1280}";
-		HttpPost post = new HttpPost("http://localhost:8080/http?db=qaSingleSeries");
+		HttpPost post = new HttpPost("http://localhost:8080/influx?db=qaSingleSeries");
 		CloseableHttpResponse response = makeRequest(post);
 		assertEquals(400, response.getStatusLine().getStatusCode());
 
-		post = new HttpPost("http://localhost:8080/http?db=qaSingleSeries");
+		post = new HttpPost("http://localhost:8080/influx?db=qaSingleSeries");
 		post.setEntity(new StringEntity("cpu,host=server01,region=uswest value=1i 1497720452566000000\n"
 				+ "cpu,host=server02,region=uswest value=1i 1497720452566000000\n"
 				+ "cpu,host=server03,region=uswest value=1i 1497720452566000000\n"
@@ -113,7 +113,7 @@ public class TestInMemory {
 		}
 		assertEquals(6, i);
 		response = makeRequest(
-				new HttpGet("http://localhost:8080/database/qaSingleSeries/measurement/cpu/field/value?startTime="
+				new HttpGet("http://localhost:8080/databases/qaSingleSeries/measurements/cpu/fields/value?startTime="
 						+ (sts - 2000) + "&endTime=" + (sts + 2000)));
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
 		Set<String> tag = new HashSet<>(
@@ -141,7 +141,7 @@ public class TestInMemory {
 		
 		// check slave node for replicated data
 		response = makeRequest(
-				new HttpGet("http://localhost:8082/database/qaSingleSeries/measurement/cpu/field/value?startTime="
+				new HttpGet("http://localhost:8082/databases/qaSingleSeries/measurements/cpu/fields/value?startTime="
 						+ (sts - 2000) + "&endTime=" + (sts + 2000)));
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);

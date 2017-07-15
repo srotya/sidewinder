@@ -18,6 +18,7 @@ package com.srotya.sidewinder.cluster;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.security.Principal;
 import java.util.HashMap;
 import java.util.Properties;
 import java.util.concurrent.Executors;
@@ -31,6 +32,7 @@ import com.srotya.sidewinder.cluster.api.InfluxApi;
 import com.srotya.sidewinder.cluster.connectors.ClusterConnector;
 import com.srotya.sidewinder.cluster.routing.RoutingEngine;
 import com.srotya.sidewinder.cluster.rpc.ClusteredWriteServiceImpl;
+import com.srotya.sidewinder.core.ConfigConstants;
 import com.srotya.sidewinder.core.ResourceMonitor;
 import com.srotya.sidewinder.core.SidewinderDropwizardReporter;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
@@ -38,10 +40,15 @@ import com.srotya.sidewinder.core.api.MeasurementOpsApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.health.RestAPIHealthCheck;
 import com.srotya.sidewinder.core.rpc.WriterServiceImpl;
+import com.srotya.sidewinder.core.security.AllowAllAuthorizer;
+import com.srotya.sidewinder.core.security.BasicAuthenticator;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.dropwizard.Application;
+import io.dropwizard.auth.AuthFilter;
+import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
+import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.setup.Environment;
 import io.grpc.DecompressorRegistry;
 import io.grpc.Server;
@@ -104,6 +111,14 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 			env.jersey().register(new InfluxApi(router, registry, conf));
 		}
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
+		
+		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {
+			AuthFilter<BasicCredentials, Principal> basicCredentialAuthFilter = new BasicCredentialAuthFilter.Builder<>()
+					.setAuthenticator(new BasicAuthenticator(conf.get(ConfigConstants.AUTH_BASIC_USERS)))
+					.setAuthorizer(new AllowAllAuthorizer()).setPrefix("Basic").buildAuthFilter();
+			env.jersey().register(basicCredentialAuthFilter);
+		}
+		
 	}
 
 	private void loadConfiguration(ClusterConfiguration configuration, HashMap<String, String> conf)

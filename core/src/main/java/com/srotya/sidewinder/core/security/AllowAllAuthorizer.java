@@ -13,34 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core;
+package com.srotya.sidewinder.core.security;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import java.security.Principal;
 
-import io.dropwizard.Configuration;
+import io.dropwizard.auth.Authorizer;
 
 /**
- * Simple dropwizard configuration wrapper for java properties based configuration
- * 
- * @author ambudsharma
+ * @author ambud
  */
-public class SidewinderConfig extends Configuration {
+public class AllowAllAuthorizer implements Authorizer<Principal>{
 	
-	@JsonProperty
-	private String configPath;
-	
-	/**
-	 * @return the configPath
-	 */
-	public String getConfigPath() {
-		return configPath;
+	@Override
+	public boolean authorize(Principal principal, String role) {
+		return true;
 	}
-
-	/**
-	 * @param configPath the configPath to set
-	 */
-	public void setConfigPath(String configPath) {
-		this.configPath = configPath;
-	}	
 
 }
