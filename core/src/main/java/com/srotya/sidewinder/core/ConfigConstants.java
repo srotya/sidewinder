@@ -15,32 +15,17 @@
  */
 package com.srotya.sidewinder.core;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import io.dropwizard.Configuration;
-
 /**
- * Simple dropwizard configuration wrapper for java properties based configuration
- * 
- * @author ambudsharma
+ * @author ambud
  */
-public class SidewinderConfig extends Configuration {
+public interface ConfigConstants {
 	
-	@JsonProperty
-	private String configPath;
-	
-	/**
-	 * @return the configPath
-	 */
-	public String getConfigPath() {
-		return configPath;
-	}
-
-	/**
-	 * @param configPath the configPath to set
-	 */
-	public void setConfigPath(String configPath) {
-		this.configPath = configPath;
-	}	
+	public static final String AUTH_BASIC_USERS = "auth.basic.users";
+	public static final String FALSE = "false";
+	public static final String NETTY_BINARY_ENABLED = "netty.binary.enabled";
+	public static final String NETTY_HTTP_ENABLED = "netty.http.enabled";
+	public static final String DEFAULT_STORAGE_ENGINE = "com.srotya.sidewinder.core.storage.mem.MemStorageEngine";
+	public static final String STORAGE_ENGINE = "storage.engine";
+	public static final String AUTH_BASIC_ENABLED = "auth.basic.enabled";
 
 }
