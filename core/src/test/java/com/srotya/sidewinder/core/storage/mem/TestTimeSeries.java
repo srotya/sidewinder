@@ -26,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
@@ -42,7 +43,7 @@ public class TestTimeSeries {
 
 	@Test
 	public void testTimeSeriesConstruct() {
-		TimeSeries series = new TimeSeries(className, "2214abfa", 24, 4096, true, new HashMap<>());
+		TimeSeries series = new TimeSeries(className, "2214abfa", new DBMetadata(24), 4096, true, new HashMap<>());
 		assertEquals("2214abfa", series.getSeriesId());
 		assertEquals(4096, series.getTimeBucketSize());
 		assertEquals((24 * 3600) / 4096, series.getRetentionBuckets());
@@ -50,7 +51,7 @@ public class TestTimeSeries {
 
 	@Test
 	public void testAddAndReadDataPoints() throws IOException {
-		TimeSeries series = new TimeSeries(className, "43232", 24, 4096, true, new HashMap<>());
+		TimeSeries series = new TimeSeries(className, "43232", new DBMetadata(24), 4096, true, new HashMap<>());
 		long curr = System.currentTimeMillis();
 		for (int i = 1; i <= 3; i++) {
 			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
@@ -94,7 +95,7 @@ public class TestTimeSeries {
 
 	@Test
 	public void testGarbageCollector() throws IOException {
-		TimeSeries series = new TimeSeries(className, "43232", 24, 4096, true, new HashMap<>());
+		TimeSeries series = new TimeSeries(className, "43232", new DBMetadata(24), 4096, true, new HashMap<>());
 		long curr = 1484788896586L;
 		for (int i = 0; i <= 24; i++) {
 			series.addDataPoint(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
@@ -106,7 +107,7 @@ public class TestTimeSeries {
 		readers = series.queryReader("test", Arrays.asList("test"), curr, curr + (4096_000) * 26, null);
 		assertEquals(21, readers.size());
 
-		series = new TimeSeries(className, "43232", 28, 4096, true, new HashMap<>());
+		series = new TimeSeries(className, "43232", new DBMetadata(28), 4096, true, new HashMap<>());
 		curr = 1484788896586L;
 		for (int i = 0; i <= 24; i++) {
 			series.addDataPoint(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);

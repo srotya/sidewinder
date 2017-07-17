@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -37,6 +38,7 @@ import javax.ws.rs.core.MediaType;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.gson.Gson;
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -47,11 +49,12 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 /**
  * @author ambud
  */
-@Path("/database/{dbName}/measurement/{" + MeasurementOpsApi.MEASUREMENT + "}")
+@Path("/databases/{dbName}/measurements/{" + MeasurementOpsApi.MEASUREMENT + "}")
 public class MeasurementOpsApi {
 
-	private static final String END_TIME = "endTime";
-	private static final String START_TIME = "startTime";
+	private static Logger logger = Logger.getLogger(MeasurementOpsApi.class.getName());
+	public static final String END_TIME = "endTime";
+	public static final String START_TIME = "startTime";
 	public static final String MEASUREMENT = "measurementName";
 	public static final String VALUE = "value";
 	private StorageEngine engine;
@@ -93,8 +96,12 @@ public class MeasurementOpsApi {
 	@PUT
 	public void updateRetentionPolicy(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
 			@PathParam(MEASUREMENT) String measurementName, @PathParam("retentionPolicy") int retentionPolicy) {
-		engine.updateDefaultTimeSeriesRetentionPolicy(dbName, retentionPolicy);
-		System.out.println("Updated retention policy for:" + dbName + "\t" + retentionPolicy + " hours");
+		try {
+			engine.updateDefaultTimeSeriesRetentionPolicy(dbName, retentionPolicy);
+			logger.info("Updated retention policy for:" + dbName + "\t" + retentionPolicy + " hours");
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e);
+		}
 	}
 
 	@DELETE
@@ -127,7 +134,22 @@ public class MeasurementOpsApi {
 		}
 	}
 
-	@Path("/field/{" + VALUE + "}")
+	@Path("/fields")
+	@GET
+	@Produces({ MediaType.APPLICATION_JSON })
+	public Set<String> getAllFields(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
+			@PathParam(MEASUREMENT) String measurementName) {
+		try {
+			Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
+			return fieldsForMeasurement;
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e);
+		}  catch (Exception e) {
+			throw new InternalServerErrorException(e);
+		}
+	}
+	
+	@Path("/fields/{" + VALUE + "}")
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
 	public String getAllOfMeasurement(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
@@ -147,9 +169,34 @@ public class MeasurementOpsApi {
 			throw new InternalServerErrorException(e);
 		}
 	}
-
+	
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
+	public String listMeasurements(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
+			@PathParam(MEASUREMENT) String measurementName) {
+		try {
+			Set<String> fields = engine.getFieldsForMeasurement(dbName, measurementName);
+			Set<String> tagsForMeasurement = engine.getTagsForMeasurement(dbName, measurementName);
+			JsonObject obj = new JsonObject();
+			JsonArray fieldAry = new JsonArray();
+			for (String field : fields) {
+				fieldAry.add(field);
+			}
+			obj.add("fields", fieldAry);
+			
+			JsonArray tagAry = new JsonArray();
+			for (String tag : tagsForMeasurement) {
+				tagAry.add(tag);
+			}
+			obj.add("tags", tagAry);
+			return new Gson().toJson(obj);
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e);
+		}  catch (Exception e) {
+			throw new InternalServerErrorException(e);
+		}
+	}
+
 	public List<Number[]> getSeries(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
 			@PathParam(MEASUREMENT) String measurementName,
 			@DefaultValue("now-1h") @QueryParam(START_TIME) String startTime, @QueryParam(END_TIME) String endTime) {
@@ -184,5 +231,5 @@ public class MeasurementOpsApi {
 			throw new InternalServerErrorException(e);
 		}
 	}
-
+	
 }

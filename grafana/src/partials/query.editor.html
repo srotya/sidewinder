@@ -1,11 +1,11 @@
 <query-editor-row query-ctrl="ctrl" class="generic-datasource-query-row"
 	has-text-edit-mode="true">
-<div class="gf-form-inline">
-	<!--     <div class="gf-form max-width-8"> -->
-	<!--       <select class="gf-form-input" ng-model="ctrl.target.type" ng-options="f as f for f in ['timeserie']"></select> -->
-	<!--     </div> -->
 
+	<div class="gf-form" ng-if="ctrl.target.rawQuery">
+      <textarea class="gf-form-input" placeholder="Sidewinder TSQL" rows="1" ng-model="ctrl.target.raw" spellcheck="false" ng-model-onblur ng-change="ctrl.onChangeInternal()" />
+    </div>
 	<div ng-if="!ctrl.target.rawQuery">
+		<div class="gf-form-inline">
 		<div class="gf-form gf-form--grow">
 			<label class="gf-form-label query-keyword width-8">MEASUREMENT</label>
 			<metric-segment-model property="ctrl.target.target"

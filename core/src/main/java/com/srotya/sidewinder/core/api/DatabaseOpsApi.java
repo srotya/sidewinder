@@ -1,5 +1,5 @@
 /**
- * Copyright 2016 Ambud Sharma
+ * Copyright 2017 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,13 +15,18 @@
  */
 package com.srotya.sidewinder.core.api;
 
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.Set;
 
+import javax.ws.rs.BadRequestException;
+import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.InternalServerErrorException;
 import javax.ws.rs.NotFoundException;
+import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
@@ -30,10 +35,14 @@ import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.gson.Gson;
+import com.srotya.sidewinder.core.api.grafana.TargetSeries;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
+import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.MiscUtils;
 
-@Path("/database")
+@Path("/databases")
 public class DatabaseOpsApi {
 
 	public static final String DB_NAME = "dbName";
@@ -41,6 +50,9 @@ public class DatabaseOpsApi {
 
 	public DatabaseOpsApi(StorageEngine storageEngine, MetricRegistry registry) {
 		this.storageEngine = storageEngine;
+		if (registry != null) {
+			// register things
+		}
 	}
 
 	@GET
@@ -53,7 +65,11 @@ public class DatabaseOpsApi {
 	@PUT
 	public void createDatabase(@PathParam(DB_NAME) String dbName,
 			@DefaultValue("28") @QueryParam("retentionPolicy") String retentionPolicy) {
-		storageEngine.getOrCreateDatabase(dbName, Integer.parseInt(retentionPolicy));
+		try {
+			storageEngine.getOrCreateDatabase(dbName, Integer.parseInt(retentionPolicy));
+		} catch (NumberFormatException | IOException e) {
+			throw new InternalServerErrorException(e);
+		}
 	}
 
 	@Path("/{" + DB_NAME + "}")
@@ -108,6 +124,47 @@ public class DatabaseOpsApi {
 		try {
 			storageEngine.deleteAllData();
 		} catch (Exception e) {
+			throw new InternalServerErrorException(e);
+		}
+	}
+
+	@Path("/{" + DB_NAME + "}/query")
+	@POST
+	@Produces({ MediaType.APPLICATION_JSON })
+	@Consumes({ MediaType.TEXT_PLAIN })
+	public String querySeries(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) {
+		try {
+			String[] queryParts = query.split("<=?");
+			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+			long endTs = System.currentTimeMillis();
+			long startTs = endTs;
+			String startTime = queryParts[0];
+			String endTime = queryParts[2];
+			if (startTime.contains("now")) {
+				String[] split = startTime.split("-");
+				int offset = Integer.parseInt(split[1].charAt(0) + "");
+				startTs = startTs - (offset * 3600 * 1000);
+			} else if (startTime.matches("\\d+")) {
+				startTs = Long.parseLong(startTime);
+				endTs = Long.parseLong(endTime);
+			} else {
+				startTs = sdf.parse(startTime).getTime();
+				endTs = sdf.parse(endTime).getTime();
+			}
+			// cpu.load.host=v1.domain=test\.com=>derivative,10,mean
+
+			TargetSeries tagSeries = MiscUtils.extractTargetFromQuery(query);
+
+			Set<SeriesQueryOutput> points = storageEngine.queryDataPoints(dbName, tagSeries.getMeasurementName(),
+					tagSeries.getFieldName(), startTs, endTs, tagSeries.getTagList(), tagSeries.getTagFilter(), null,
+					tagSeries.getAggregationFunction());
+			return new Gson().toJson(points);
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e);
+		} catch (BadRequestException e) {
+			throw e;
+		} catch (Exception e) {
+			e.printStackTrace();
 			throw new InternalServerErrorException(e);
 		}
 	}

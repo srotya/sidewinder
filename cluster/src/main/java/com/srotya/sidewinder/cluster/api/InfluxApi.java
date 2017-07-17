@@ -39,7 +39,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  * @author ambud
  *
  */
-@Path("/http")
+@Path("/influx")
 public class InfluxApi {
 
 	private Meter meter;

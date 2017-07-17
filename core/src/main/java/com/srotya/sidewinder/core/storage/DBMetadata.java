@@ -13,35 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.aggregators;
+package com.srotya.sidewinder.core.storage;
 
-/**
- * @author ambud
- */
-public abstract class WindowedFunction implements AggregationFunction {
-
-	private int timeWindow;
-
-	public WindowedFunction() {
+public class DBMetadata {
+	
+	private int retentionHours;
+	
+	public DBMetadata() {
 	}
 
-	public void init(Object[] args) throws Exception {
-		timeWindow = ((Integer) args[0]);
-		if (timeWindow <= 0) {
-			timeWindow = 1;
-		}
-		timeWindow = timeWindow * 1000;
+	public DBMetadata(int retentionHours) {
+		this.retentionHours = retentionHours;
 	}
 
 	/**
-	 * @return
+	 * @return the retentionHours
 	 */
-	public int getTimeWindow() {
-		return timeWindow;
+	public int getRetentionHours() {
+		return retentionHours;
 	}
-	
-	@Override
-	public int getNumberOfArgs() {
-		return 1;
+
+	/**
+	 * @param retentionHours the retentionHours to set
+	 */
+	public void setRetentionHours(int retentionHours) {
+		this.retentionHours = retentionHours;
 	}
+
 }

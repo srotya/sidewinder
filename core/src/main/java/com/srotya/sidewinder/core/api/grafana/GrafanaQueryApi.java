@@ -87,6 +87,7 @@ public class GrafanaQueryApi {
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public String query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		grafanaQueryCounter.mark();
+		logger.log(Level.FINE, "GRafana query:" + dbName + "\t" + query);
 		Gson gson = new GsonBuilder().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
@@ -117,8 +118,15 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryMeasurementNames(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
-		logger.log(Level.FINE, "Query measurements for db:" + dbName);
+		logger.log(Level.FINE, "Query measurements for db:" + dbName + "\t" + queryString);
 		try {
+			if (queryString != null && !queryString.isEmpty()) {
+				JsonObject query = new Gson().fromJson(queryString, JsonObject.class);
+				String target = query.get("target").getAsString();
+				if (target.contains("*")) {
+					return engine.getTagsForMeasurement(dbName, target.replace(".*", ""));
+				}
+			}
 			return engine.getMeasurementsLike(dbName, "");
 		} catch (RejectException e) {
 			throw new BadRequestException(e);
@@ -196,6 +204,35 @@ public class GrafanaQueryApi {
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryTimeUnits() {
 		return new HashSet<>(Arrays.asList("secs", "mins", "hours", "days", "weeks", "years"));
+	}
+
+	@Path("/rawquery")
+	@POST
+	@Produces({ MediaType.APPLICATION_JSON })
+	@Consumes({ MediaType.APPLICATION_JSON })
+	public String rawQuery(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
+		grafanaQueryCounter.mark();
+		Gson gson = new GsonBuilder().create();
+		JsonObject json = gson.fromJson(query, JsonObject.class);
+		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+		JsonObject range = json.get("range").getAsJsonObject();
+		long startTs = sdf.parse(range.get("from").getAsString()).getTime();
+		long endTs = sdf.parse(range.get("to").getAsString()).getTime();
+
+		startTs = tz.getOffset(startTs) + startTs;
+		endTs = tz.getOffset(endTs) + endTs;
+
+		List<TargetSeries> targetSeries = new ArrayList<>();
+
+		List<Target> output = new ArrayList<>();
+		try {
+			for (TargetSeries targetSeriesEntry : targetSeries) {
+				GrafanaUtils.queryAndGetData(engine, dbName, startTs, endTs, output, targetSeriesEntry);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		return gson.toJson(output);
 	}
 
 }

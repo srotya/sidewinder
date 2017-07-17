@@ -48,5 +48,10 @@ public abstract class SingleResultFunction implements AggregationFunction {
 	}
 
 	protected abstract void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output);
+	
+	@Override
+	public int getNumberOfArgs() {
+		return 0;
+	}
 
 }

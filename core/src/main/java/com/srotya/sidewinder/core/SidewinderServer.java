@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core;
 
 import java.io.FileInputStream;
+import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -34,10 +35,15 @@ import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.health.RestAPIHealthCheck;
 import com.srotya.sidewinder.core.ingress.binary.NettyBinaryIngestionServer;
 import com.srotya.sidewinder.core.ingress.http.NettyHTTPIngestionServer;
+import com.srotya.sidewinder.core.security.AllowAllAuthorizer;
+import com.srotya.sidewinder.core.security.BasicAuthenticator;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.dropwizard.Application;
+import io.dropwizard.auth.AuthFilter;
+import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
+import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.setup.Environment;
 
 /**
@@ -68,8 +74,8 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 			}
 		}
 
-		String storageEngineClass = conf.getOrDefault("storage.engine",
-				"com.srotya.sidewinder.core.storage.mem.MemStorageEngine");
+		String storageEngineClass = conf.getOrDefault(ConfigConstants.STORAGE_ENGINE,
+				ConfigConstants.DEFAULT_STORAGE_ENGINE);
 		logger.info("Using Storage Engine:" + storageEngineClass);
 
 		ScheduledExecutorService bgTasks = Executors.newScheduledThreadPool(2,
@@ -85,23 +91,35 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		env.jersey().register(new InfluxApi(storageEngine, registry));
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
 
-		@SuppressWarnings("resource")
-		SidewinderDropwizardReporter reporter = new SidewinderDropwizardReporter(registry, "request", new MetricFilter() {
+		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {
+			AuthFilter<BasicCredentials, Principal> basicCredentialAuthFilter = new BasicCredentialAuthFilter.Builder<>()
+					.setAuthenticator(new BasicAuthenticator(conf.get(ConfigConstants.AUTH_BASIC_USERS)))
+					.setAuthorizer(new AllowAllAuthorizer()).setPrefix("Basic").buildAuthFilter();
+			env.jersey().register(basicCredentialAuthFilter);
+		}
 
-			@Override
-			public boolean matches(String name, Metric metric) {
-				return true;
-			}
-		}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine);
+		@SuppressWarnings("resource")
+		SidewinderDropwizardReporter reporter = new SidewinderDropwizardReporter(registry, "request",
+				new MetricFilter() {
+
+					@Override
+					public boolean matches(String name, Metric metric) {
+						return true;
+					}
+				}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine);
 		reporter.start(1, TimeUnit.SECONDS);
 
-		NettyHTTPIngestionServer server = new NettyHTTPIngestionServer();
-		server.init(storageEngine, conf, registry);
-		server.start();
+		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.NETTY_HTTP_ENABLED, ConfigConstants.FALSE))) {
+			NettyHTTPIngestionServer server = new NettyHTTPIngestionServer();
+			server.init(storageEngine, conf, registry);
+			server.start();
+		}
 
-		NettyBinaryIngestionServer binServer = new NettyBinaryIngestionServer();
-		binServer.init(storageEngine, conf);
-		binServer.start();
+		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.NETTY_BINARY_ENABLED, ConfigConstants.FALSE))) {
+			NettyBinaryIngestionServer binServer = new NettyBinaryIngestionServer();
+			binServer.init(storageEngine, conf);
+			binServer.start();
+		}
 	}
 
 	/**

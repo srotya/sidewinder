@@ -13,35 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.aggregators;
+package com.srotya.sidewinder.core.security;
+
+import java.security.Principal;
+
+import io.dropwizard.auth.Authorizer;
 
 /**
  * @author ambud
  */
-public abstract class WindowedFunction implements AggregationFunction {
-
-	private int timeWindow;
-
-	public WindowedFunction() {
-	}
-
-	public void init(Object[] args) throws Exception {
-		timeWindow = ((Integer) args[0]);
-		if (timeWindow <= 0) {
-			timeWindow = 1;
-		}
-		timeWindow = timeWindow * 1000;
-	}
-
-	/**
-	 * @return
-	 */
-	public int getTimeWindow() {
-		return timeWindow;
-	}
+public class AllowAllAuthorizer implements Authorizer<Principal>{
 	
 	@Override
-	public int getNumberOfArgs() {
-		return 1;
+	public boolean authorize(Principal principal, String role) {
+		return true;
 	}
+
 }
