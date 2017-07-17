@@ -29,6 +29,7 @@ import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
@@ -68,20 +69,20 @@ public class TimeSeries {
 	/**
 	 * @param seriesId
 	 *            used for logger name
-	 * @param retentionHours
+	 * @param metadata
 	 *            duration of data that will be stored in this time series
 	 * @param timeBucketSize
 	 *            size of each time bucket (partition)
 	 * @param fp
 	 */
-	public TimeSeries(String compressionFQCN, String seriesId, int retentionHours, int timeBucketSize, boolean fp,
+	public TimeSeries(String compressionFQCN, String seriesId, DBMetadata metadata, int timeBucketSize, boolean fp,
 			Map<String, String> conf) {
 		this.compressionFQCN = compressionFQCN;
 		this.seriesId = seriesId;
 		this.timeBucketSize = timeBucketSize;
 		this.conf = conf;
 		retentionBuckets = new AtomicInteger(0);
-		setRetentionHours(retentionHours);
+		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
 		bucketMap = new ConcurrentSkipListMap<>();
 	}
@@ -280,13 +281,15 @@ public class TimeSeries {
 
 	/**
 	 * Cleans stale series
+	 * @throws IOException 
 	 */
-	public List<TimeSeriesBucket> collectGarbage() {
+	public List<TimeSeriesBucket> collectGarbage() throws IOException {
 		List<TimeSeriesBucket> gcedBuckets = new ArrayList<>();
 		while (bucketMap.size() > retentionBuckets.get()) {
 			int oldSize = bucketMap.size();
 			String key = bucketMap.firstKey();
 			TimeSeriesBucket bucket = bucketMap.remove(key);
+			bucket.close();
 			gcedBuckets.add(bucket);
 			logger.log(Level.INFO, "GC, removing bucket:" + key + ": as it passed retention period of:"
 					+ retentionBuckets.get() + ":old size:" + oldSize + ":newsize:" + bucketMap.size() + ":");

@@ -11,7 +11,7 @@
   "annotations": false,                                                                                  
                                                                                                          
   "info": {                                                                                              
-    "description": "Sidewinder datasource",                                                              
+    "description": "Sidewinder datasource plugin",                                                              
     "author": {                                                                                          
       "name": "Ambud Sharma",                                                                            
       "url": "https://github.com/srotya"                                                                 
@@ -24,8 +24,8 @@
       {"name": "GitHub", "url": "https://github.com/srotya/sidewinder/tree/master/grafana"},             
       {"name": "Apache 2.0 License", "url": "https://github.com/srotya/sidewinder/blob/master/LICENSE"}  
     ],                                                                                                   
-    "version": "1.2.4",                                                                                  
-    "updated": "2017-01-05"                                                                              
+    "version": "0.0.22",                                                                                  
+    "updated": "2017-07-10"                                                                              
   },                                                                                                     
                                                                                                          
   "dependencies": {                                                                                      

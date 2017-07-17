@@ -80,7 +80,7 @@ public class FunctionTable {
 		FunctionTable.get().register(SFIRST, FirstFunction.class);
 		FunctionTable.get().register(FIRST, WindowedFirst.class);
 		FunctionTable.get().register(SLAST, LastFunction.class);
-		FunctionTable.get().register(FIRST, WindowedLast.class);
+		FunctionTable.get().register(LAST, WindowedLast.class);
 		FunctionTable.get().register(NONE, null);
 	}
 

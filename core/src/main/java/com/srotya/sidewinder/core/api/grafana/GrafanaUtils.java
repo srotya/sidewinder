@@ -38,6 +38,7 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
@@ -72,11 +73,20 @@ public class GrafanaUtils {
 		}
 	}
 
+	/**
+	 * Extract target series from Grafana Json query payload
+	 * 
+	 * @param json
+	 * @param targetSeries
+	 */
 	public static void extractTargetsFromJson(JsonObject json, List<TargetSeries> targetSeries) {
 		JsonArray targets = json.get("targets").getAsJsonArray();
 		for (int i = 0; i < targets.size(); i++) {
 			JsonObject jsonElement = targets.get(i).getAsJsonObject();
-			if (jsonElement != null && jsonElement.has("target") && jsonElement.has("field")) {
+			if (jsonElement == null) {
+				continue;
+			}
+			if (jsonElement.has("target") && jsonElement.has("field")) {
 				List<String> filterElements = new ArrayList<>();
 				Filter<List<String>> filter = extractGrafanaFilter(jsonElement, filterElements);
 				AggregationFunction aggregationFunction = extractGrafanaAggregation(jsonElement);
@@ -87,6 +97,12 @@ public class GrafanaUtils {
 				targetSeries.add(new TargetSeries(jsonElement.get("target").getAsString(),
 						jsonElement.get("field").getAsString(), filterElements, filter, aggregationFunction,
 						correlate));
+			} else if (jsonElement.has("raw") && jsonElement.get("rawQuery").getAsBoolean()) {
+				// raw query recieved
+				TargetSeries ts = MiscUtils.extractTargetFromQuery(jsonElement.get("raw").getAsString());
+				if (ts != null) {
+					targetSeries.add(ts);
+				}
 			}
 		}
 	}

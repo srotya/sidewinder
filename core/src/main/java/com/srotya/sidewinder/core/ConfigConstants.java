@@ -13,35 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.aggregators;
+package com.srotya.sidewinder.core;
 
 /**
  * @author ambud
  */
-public abstract class WindowedFunction implements AggregationFunction {
-
-	private int timeWindow;
-
-	public WindowedFunction() {
-	}
-
-	public void init(Object[] args) throws Exception {
-		timeWindow = ((Integer) args[0]);
-		if (timeWindow <= 0) {
-			timeWindow = 1;
-		}
-		timeWindow = timeWindow * 1000;
-	}
-
-	/**
-	 * @return
-	 */
-	public int getTimeWindow() {
-		return timeWindow;
-	}
+public interface ConfigConstants {
 	
-	@Override
-	public int getNumberOfArgs() {
-		return 1;
-	}
+	public static final String AUTH_BASIC_USERS = "auth.basic.users";
+	public static final String FALSE = "false";
+	public static final String NETTY_BINARY_ENABLED = "netty.binary.enabled";
+	public static final String NETTY_HTTP_ENABLED = "netty.http.enabled";
+	public static final String DEFAULT_STORAGE_ENGINE = "com.srotya.sidewinder.core.storage.mem.MemStorageEngine";
+	public static final String STORAGE_ENGINE = "storage.engine";
+	public static final String AUTH_BASIC_ENABLED = "auth.basic.enabled";
+
 }
