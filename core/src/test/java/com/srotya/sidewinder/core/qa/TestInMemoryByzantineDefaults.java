@@ -181,7 +181,6 @@ public class TestInMemoryByzantineDefaults {
 			}
 		}
 		assertEquals(6, i);
-		// Thread.sleep(3600_000);
 	}
 
 }

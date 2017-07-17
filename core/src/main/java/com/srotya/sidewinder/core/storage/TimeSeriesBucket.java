@@ -153,4 +153,8 @@ public class TimeSeriesBucket implements Serializable {
 	public void close() throws IOException {
 		writer.close();
 	}
+	
+	public void delete() throws IOException {
+		
+	}
 }

@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.cluster;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -45,7 +46,11 @@ public class ClusterResourceMonitor {
 		this.storageEngine = storageEngine;
 		this.connector = connector;
 		if (bgTasks != null) {
-			storageEngine.getOrCreateDatabase(DB, 28);
+			try {
+				storageEngine.getOrCreateDatabase(DB, 28);
+			} catch (IOException e) {
+				throw new RuntimeException("Unable to create internal database", e);
+			}
 			bgTasks.scheduleAtFixedRate(() -> clusterMonitor(), 0, 2, TimeUnit.SECONDS);
 		}
 	}
