@@ -68,7 +68,7 @@ public class PersistentTimeSeries extends TimeSeries {
 	/**
 	 * @param seriesId
 	 *            used for logger name
-	 * @param retentionHours
+	 * @param metadata
 	 *            duration of data that will be stored in this time series
 	 * @param timeBucketSize
 	 *            size of each time bucket (partition)
