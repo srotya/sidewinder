@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.api;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Set;
 
@@ -64,7 +65,11 @@ public class DatabaseOpsApi {
 	@PUT
 	public void createDatabase(@PathParam(DB_NAME) String dbName,
 			@DefaultValue("28") @QueryParam("retentionPolicy") String retentionPolicy) {
-		storageEngine.getOrCreateDatabase(dbName, Integer.parseInt(retentionPolicy));
+		try {
+			storageEngine.getOrCreateDatabase(dbName, Integer.parseInt(retentionPolicy));
+		} catch (NumberFormatException | IOException e) {
+			throw new InternalServerErrorException(e);
+		}
 	}
 
 	@Path("/{" + DB_NAME + "}")

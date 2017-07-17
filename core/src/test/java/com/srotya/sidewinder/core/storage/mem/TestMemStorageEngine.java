@@ -214,6 +214,31 @@ public class TestMemStorageEngine {
 	}
 
 	@Test
+	public void testConfigureTimeBuckets() throws ItemNotFoundException, IOException {
+		StorageEngine engine = new MemStorageEngine();
+		HashMap<String, String> conf = new HashMap<>();
+		long ts = System.currentTimeMillis();
+		conf.put(StorageEngine.DEFAULT_BUCKET_SIZE, String.valueOf(4096 * 10));
+		try {
+			engine.configure(conf, bgTasks);
+		} catch (IOException e) {
+			fail("No IOException should be thrown");
+		}
+		try {
+			for (int i = 0; i < 10; i++) {
+				engine.writeDataPoint(MiscUtils.buildDataPoint("test", "ss", "value", Arrays.asList("te"),
+						ts + (i * 4096 * 1000), 2.2));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
+		}
+		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test", "ss", "value", ts,
+				ts + (4096 * 100 * 1000) + 1, Arrays.asList("te"), null);
+		assertTrue(queryDataPoints.size() >= 1);
+	}
+
+	@Test
 	public void testQueryDataPoints() throws IOException, ItemNotFoundException {
 		StorageEngine engine = new MemStorageEngine();
 		engine.configure(conf, bgTasks);
@@ -291,30 +316,30 @@ public class TestMemStorageEngine {
 		System.out.println("Base timestamp=" + new Date(ts));
 
 		for (int i = 0; i < 100; i++) {
-			engine.writeDataPoint(MiscUtils.buildDataPoint(dbName, measurementName, "value", tags, ts + (i * 60000), 2.2));
+			engine.writeDataPoint(
+					MiscUtils.buildDataPoint(dbName, measurementName, "value", tags, ts + (i * 60000), 2.2));
 		}
 		System.out.println("Buckets:" + engine.getSeriesMap(dbName, measurementName).size());
 		long endTs = ts + 99 * 60000;
 
 		// validate all points are returned with a full range query
-		Set<SeriesQueryOutput> points = engine.queryDataPoints(dbName, measurementName, "value", ts, endTs, tags,
-				null);
+		Set<SeriesQueryOutput> points = engine.queryDataPoints(dbName, measurementName, "value", ts, endTs, tags, null);
 		assertEquals(ts, points.iterator().next().getDataPoints().get(0).getTimestamp());
-		assertEquals(endTs,
-				points.iterator().next().getDataPoints().get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
+		assertEquals(endTs, points.iterator().next().getDataPoints()
+				.get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
 
 		// validate ts-1 yields the same result
 		points = engine.queryDataPoints(dbName, measurementName, "value", ts - 1, endTs, tags, null);
 		assertEquals(ts, points.iterator().next().getDataPoints().get(0).getTimestamp());
 		System.out.println("Value count:" + points.iterator().next().getDataPoints().size());
-		assertEquals(endTs,
-				points.iterator().next().getDataPoints().get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
+		assertEquals(endTs, points.iterator().next().getDataPoints()
+				.get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
 
 		// validate ts+1 yields correct result
 		points = engine.queryDataPoints(dbName, measurementName, "value", ts + 1, endTs, tags, null);
 		assertEquals(ts + 60000, points.iterator().next().getDataPoints().get(0).getTimestamp());
-		assertEquals(endTs,
-				points.iterator().next().getDataPoints().get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
+		assertEquals(endTs, points.iterator().next().getDataPoints()
+				.get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
 
 		// validate that points have been written to 2 different buckets
 		assertTrue(TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, ts, 4096) != TimeUtils
@@ -325,24 +350,26 @@ public class TestMemStorageEngine {
 
 		// validate random seek with deliberate time offset
 		points = engine.queryDataPoints(dbName, measurementName, "value", ts, baseTs2, tags, null);
-		assertEquals("Invalid first entry:" + new Date(points.iterator().next().getDataPoints().get(0).getTimestamp()), ts,
-				points.iterator().next().getDataPoints().get(0).getTimestamp());
-		assertEquals("Invalid first entry:" + (baseTs2 - ts), (baseTs2 / 60000) * 60000,
-				points.iterator().next().getDataPoints().get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
+		assertEquals("Invalid first entry:" + new Date(points.iterator().next().getDataPoints().get(0).getTimestamp()),
+				ts, points.iterator().next().getDataPoints().get(0).getTimestamp());
+		assertEquals("Invalid first entry:" + (baseTs2 - ts), (baseTs2 / 60000) * 60000, points.iterator().next()
+				.getDataPoints().get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
 
 		points = engine.queryDataPoints(dbName, measurementName, "value", baseTs2, endTs, tags, null);
 		assertEquals("Invalid first entry:" + new Date(points.iterator().next().getDataPoints().get(0).getTimestamp()),
-				(baseTs2 - ts), (baseTs2 / 60000) * 60000, points.iterator().next().getDataPoints().get(0).getTimestamp());
-		assertEquals("Invalid first entry:" + endTs, endTs,
-				points.iterator().next().getDataPoints().get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
+				(baseTs2 - ts), (baseTs2 / 60000) * 60000,
+				points.iterator().next().getDataPoints().get(0).getTimestamp());
+		assertEquals("Invalid first entry:" + endTs, endTs, points.iterator().next().getDataPoints()
+				.get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
 
 		// validate correct results when time range is incorrectly swapped i.e.
 		// end time is smaller than start time
 		points = engine.queryDataPoints(dbName, measurementName, "value", endTs - 1, baseTs2, tags, null);
 		assertEquals("Invalid first entry:" + new Date(points.iterator().next().getDataPoints().get(0).getTimestamp()),
-				(baseTs2 - ts), (baseTs2 / 60000) * 60000, points.iterator().next().getDataPoints().get(0).getTimestamp());
-		assertEquals("Invalid first entry:" + endTs, endTs - 60000,
-				points.iterator().next().getDataPoints().get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
+				(baseTs2 - ts), (baseTs2 / 60000) * 60000,
+				points.iterator().next().getDataPoints().get(0).getTimestamp());
+		assertEquals("Invalid first entry:" + endTs, endTs - 60000, points.iterator().next().getDataPoints()
+				.get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
 	}
 
 	@Test
@@ -476,9 +503,8 @@ public class TestMemStorageEngine {
 		ContainsFilter<String, List<String>> filter1 = new ContainsFilter<String, List<String>>(tag + 1);
 		ContainsFilter<String, List<String>> filter2 = new ContainsFilter<String, List<String>>(tag + 2);
 
-		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName,
-				valueFieldName, curr, curr + 3, Arrays.asList(tag + 1, tag + 2),
-				new OrFilter<>(Arrays.asList(filter1, filter2)), null, null);
+		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr,
+				curr + 3, Arrays.asList(tag + 1, tag + 2), new OrFilter<>(Arrays.asList(filter1, filter2)), null, null);
 		assertEquals(2, queryDataPoints.size());
 		int i = 1;
 		assertEquals(1, queryDataPoints.iterator().next().getDataPoints().size());
@@ -538,8 +564,8 @@ public class TestMemStorageEngine {
 					curr + i, 2 * i));
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
-		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName,
-				valueFieldName, curr, curr + 3, Arrays.asList(tag), null);
+		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr,
+				curr + 3, Arrays.asList(tag), null);
 		assertEquals(1, queryDataPoints.size());
 		int i = 1;
 		assertEquals(3, queryDataPoints.iterator().next().getDataPoints().size());

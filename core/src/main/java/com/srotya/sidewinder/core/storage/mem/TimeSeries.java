@@ -29,6 +29,7 @@ import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
@@ -74,14 +75,14 @@ public class TimeSeries {
 	 *            size of each time bucket (partition)
 	 * @param fp
 	 */
-	public TimeSeries(String compressionFQCN, String seriesId, int retentionHours, int timeBucketSize, boolean fp,
+	public TimeSeries(String compressionFQCN, String seriesId, DBMetadata metadata, int timeBucketSize, boolean fp,
 			Map<String, String> conf) {
 		this.compressionFQCN = compressionFQCN;
 		this.seriesId = seriesId;
 		this.timeBucketSize = timeBucketSize;
 		this.conf = conf;
 		retentionBuckets = new AtomicInteger(0);
-		setRetentionHours(retentionHours);
+		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
 		bucketMap = new ConcurrentSkipListMap<>();
 	}

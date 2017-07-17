@@ -37,6 +37,7 @@ import java.util.logging.Logger;
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Reader;
@@ -71,13 +72,6 @@ import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
  */
 public class MemStorageEngine implements StorageEngine {
 
-	public static final String MEM_COMPRESSION_CLASS = "mem.compression.class";
-	public static final int DEFAULT_TIME_BUCKET_CONSTANT = 4096;
-	public static final String RETENTION_HOURS = "default.series.retention.hours";
-	public static final int DEFAULT_RETENTION_HOURS = (int) Math
-			.ceil((((double) DEFAULT_TIME_BUCKET_CONSTANT) * 24 / 60) / 60);
-	private static final String FIELD_TAG_SEPARATOR = "#";
-	private static final String TAG_SEPARATOR = "_";
 	private static final Logger logger = Logger.getLogger(MemStorageEngine.class.getName());
 	private static ItemNotFoundException NOT_FOUND_EXCEPTION = new ItemNotFoundException("Item not found");
 	private static RejectException FP_MISMATCH_EXCEPTION = new RejectException("Floating point mismatch");
@@ -86,8 +80,9 @@ public class MemStorageEngine implements StorageEngine {
 	private Map<String, Map<String, SortedMap<String, TimeSeries>>> databaseMap;
 	private AtomicInteger counter = new AtomicInteger(0);
 	private Map<String, Map<String, MemTagIndex>> tagLookupTable;
-	private Map<String, Integer> databaseRetentionPolicyMap;
+	private Map<String, DBMetadata> dbMetadataMap;
 	private int defaultRetentionHours;
+	private int defaultTimebucketSize;
 	private Archiver archiver;
 	private String compressionFQCN;
 	private Map<String, String> conf;
@@ -100,7 +95,7 @@ public class MemStorageEngine implements StorageEngine {
 		logger.info("Setting default timeseries retention hours policy to:" + defaultRetentionHours);
 		tagLookupTable = new ConcurrentHashMap<>();
 		databaseMap = new ConcurrentHashMap<>();
-		databaseRetentionPolicyMap = new ConcurrentHashMap<>();
+		dbMetadataMap = new ConcurrentHashMap<>();
 		try {
 			archiver = (Archiver) Class.forName(conf.getOrDefault("archiver.class", NoneArchiver.class.getName()))
 					.newInstance();
@@ -109,10 +104,10 @@ public class MemStorageEngine implements StorageEngine {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
 		}
-		conf.put(StorageEngine.PERSISTENCE_DISK, "false");
-		compressionFQCN = conf.getOrDefault(MEM_COMPRESSION_CLASS,
-				// "com.srotya.sidewinder.core.storage.compression.dod.DodWriter");
-				"com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter");
+		this.defaultTimebucketSize = Integer
+				.parseInt(conf.getOrDefault(DEFAULT_BUCKET_SIZE, String.valueOf(DEFAULT_TIME_BUCKET_CONSTANT)));
+		conf.put(PERSISTENCE_DISK, "false");
+		compressionFQCN = conf.getOrDefault(COMPRESSION_CLASS, DEFAULT_COMPRESSION_CLASS);
 		if (bgTaskPool != null) {
 			bgTaskPool.scheduleAtFixedRate(() -> {
 				for (Entry<String, Map<String, SortedMap<String, TimeSeries>>> measurementMap : databaseMap
@@ -128,26 +123,30 @@ public class MemStorageEngine implements StorageEngine {
 							} catch (IOException e1) {
 								continue;
 							}
-							for (TimeSeriesBucket bucket : buckets) {
-								try {
-									archiver.archive(
-											new TimeSeriesArchivalObject(db, measurement, entry.getKey(), bucket));
-								} catch (ArchiveException e) {
-									e.printStackTrace();
+							if (archiver != null) {
+								for (TimeSeriesBucket bucket : buckets) {
+									try {
+										archiver.archive(
+												new TimeSeriesArchivalObject(db, measurement, entry.getKey(), bucket));
+									} catch (ArchiveException e) {
+										logger.log(Level.WARNING,
+												"Failed to archive time series bucket:" + entry.getKey(), e);
+									}
 								}
 							}
 						}
 					}
 				}
-			}, 500, 60, TimeUnit.SECONDS);
+			}, Integer.parseInt(conf.getOrDefault(GC_FREQUENCY, DEFAULT_GC_FREQUENCY)),
+					Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.MILLISECONDS);
 		}
 	}
 
 	@Override
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
 			List<String> tags, int retentionHours) {
-		TimeSeries series = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				DEFAULT_TIME_BUCKET_CONSTANT, true);
+		TimeSeries series = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, defaultTimebucketSize,
+				true);
 		series.setRetentionHours(retentionHours);
 	}
 
@@ -165,18 +164,16 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public void updateDefaultTimeSeriesRetentionPolicy(String dbName, int retentionHours) {
-		databaseRetentionPolicyMap.put(dbName, retentionHours);
-	}
-
-	@Override
 	public void updateTimeSeriesRetentionPolicy(String dbName, int retentionHours) {
-		databaseRetentionPolicyMap.put(dbName, retentionHours);
-		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
-		if (measurementMap != null) {
-			for (SortedMap<String, TimeSeries> sortedMap : measurementMap.values()) {
-				for (TimeSeries timeSeries : sortedMap.values()) {
-					timeSeries.setRetentionHours(retentionHours);
+		DBMetadata metadata = dbMetadataMap.get(dbName);
+		synchronized (metadata) {
+			metadata.setRetentionHours(retentionHours);
+			Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
+			if (measurementMap != null) {
+				for (SortedMap<String, TimeSeries> sortedMap : measurementMap.values()) {
+					for (TimeSeries timeSeries : sortedMap.values()) {
+						timeSeries.setRetentionHours(retentionHours);
+					}
 				}
 			}
 		}
@@ -315,7 +312,7 @@ public class MemStorageEngine implements StorageEngine {
 		validateDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(), dp.getTags(),
 				TimeUnit.MILLISECONDS);
 		TimeSeries timeSeries = getOrCreateTimeSeries(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
-				dp.getTags(), DEFAULT_TIME_BUCKET_CONSTANT, dp.isFp());
+				dp.getTags(), defaultTimebucketSize, dp.isFp());
 		if (dp.isFp() != timeSeries.isFp()) {
 			// drop this datapoint, mixed series are not allowed
 			throw FP_MISMATCH_EXCEPTION;
@@ -356,7 +353,9 @@ public class MemStorageEngine implements StorageEngine {
 				if ((measurementMap = databaseMap.get(dbName)) == null) {
 					measurementMap = new ConcurrentHashMap<>();
 					databaseMap.put(dbName, measurementMap);
-					databaseRetentionPolicyMap.put(dbName, defaultRetentionHours);
+					DBMetadata metadata = new DBMetadata();
+					metadata.setRetentionHours(defaultRetentionHours);
+					dbMetadataMap.put(dbName, metadata);
 					logger.info("Created new database:" + dbName + "\t with retention period:" + defaultRetentionHours
 							+ " hours");
 				}
@@ -436,10 +435,10 @@ public class MemStorageEngine implements StorageEngine {
 			synchronized (measurementMap) {
 				if ((timeSeries = measurementMap.get(rowKey)) == null) {
 					timeSeries = new TimeSeries(compressionFQCN, measurementName + "_" + rowKey,
-							databaseRetentionPolicyMap.get(dbName), timeBucketSize, fp, conf);
+							dbMetadataMap.get(dbName), timeBucketSize, fp, conf);
 					measurementMap.put(rowKey, timeSeries);
 					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
-							+ rowKey + "\t" + databaseRetentionPolicyMap.get(dbName));
+							+ rowKey + "\t" + dbMetadataMap.get(dbName));
 				}
 			}
 		}
@@ -530,7 +529,7 @@ public class MemStorageEngine implements StorageEngine {
 			} else {
 				seriesTags = new ArrayList<>();
 			}
-			if (tagFilterTree!=null && !tagFilterTree.isRetain(seriesTags)) {
+			if (tagFilterTree != null && !tagFilterTree.isRetain(seriesTags)) {
 				iterator.remove();
 			}
 		}
@@ -691,24 +690,7 @@ public class MemStorageEngine implements StorageEngine {
 		return results;
 	}
 
-	/*
-	 * @Override public void writeDataPoint(String dbName, String
-	 * measurementName, String valueFieldName, List<String> tags, TimeUnit unit,
-	 * long timestamp, long value) throws IOException {
-	 * validateDataPoint(dbName, measurementName, valueFieldName, tags, unit);
-	 * TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName,
-	 * valueFieldName, tags, DEFAULT_TIME_BUCKET_CONSTANT, false);
-	 * timeSeries.addDataPoint(unit, timestamp, value);
-	 * counter.incrementAndGet(); }
-	 * 
-	 * @Override public void writeDataPoint(String dbName, String
-	 * measurementName, String valueFieldName, List<String> tags, TimeUnit unit,
-	 * long timestamp, double value) throws IOException {
-	 * validateDataPoint(dbName, measurementName, valueFieldName, tags, unit);
-	 * TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName,
-	 * valueFieldName, tags, DEFAULT_TIME_BUCKET_CONSTANT, true);
-	 * timeSeries.addDataPoint(unit, timestamp, value);
-	 * counter.incrementAndGet(); }
-	 */
-
+	public Map<String, DBMetadata> getDbMetadataMap() {
+		return dbMetadataMap;
+	}
 }
