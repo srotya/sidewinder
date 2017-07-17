@@ -51,7 +51,11 @@ public class ResourceMonitor {
 	public void init(StorageEngine storageEngine, ScheduledExecutorService bgTasks) {
 		this.storageEngine = storageEngine;
 		if (bgTasks != null) {
-			storageEngine.getOrCreateDatabase(DB, 28);
+			try {
+				storageEngine.getOrCreateDatabase(DB, 28);
+			} catch (IOException e) {
+				throw new RuntimeException("Unable create internal database", e);
+			}
 			bgTasks.scheduleAtFixedRate(() -> memAndCPUMonitor(), 0, 2, TimeUnit.SECONDS);
 		}
 	}

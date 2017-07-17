@@ -33,6 +33,7 @@ import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
@@ -75,7 +76,7 @@ public class PersistentTimeSeries extends TimeSeries {
 	 * @param bgTaskPool
 	 * @throws IOException
 	 */
-	public PersistentTimeSeries(String measurementPath, String compressionFQCN, String seriesId, int retentionHours,
+	public PersistentTimeSeries(String measurementPath, String compressionFQCN, String seriesId, DBMetadata metadata,
 			int timeBucketSize, boolean fp, Map<String, String> conf, ScheduledExecutorService bgTaskPool)
 			throws IOException {
 		this.compressionFQCN = compressionFQCN;
@@ -83,7 +84,7 @@ public class PersistentTimeSeries extends TimeSeries {
 		this.timeBucketSize = timeBucketSize;
 		this.conf = new HashMap<>(conf);
 		retentionBuckets = new AtomicInteger(0);
-		setRetentionHours(retentionHours);
+		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
 //		bucketMap = new ConcurrentLRUSortedMap(2);
 		bucketMap = new ConcurrentSkipListMap<>();

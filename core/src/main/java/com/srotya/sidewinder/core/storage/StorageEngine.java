@@ -35,7 +35,25 @@ import com.srotya.sidewinder.core.storage.mem.TimeSeries;
  */
 public interface StorageEngine {
 
-	public String PERSISTENCE_DISK = "persistence.disk";
+	public static final ItemNotFoundException NOT_FOUND_EXCEPTION = new ItemNotFoundException("Item not found");
+	public static RejectException FP_MISMATCH_EXCEPTION = new RejectException("Floating point mismatch");
+	public static RejectException INVALID_DATAPOINT_EXCEPTION = new RejectException(
+			"Datapoint is missing required values");
+	public static final String DEFAULT_COMPRESSION_CLASS = "com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter";
+	public static final String COMPRESSION_CLASS = "mem.compression.class";
+	public static final int DEFAULT_TIME_BUCKET_CONSTANT = 4096;
+	public static final String DEFAULT_BUCKET_SIZE = "default.bucket.size";
+	public static final String RETENTION_HOURS = "default.series.retention.hours";
+	public static final int DEFAULT_RETENTION_HOURS = (int) Math
+			.ceil((((double) DEFAULT_TIME_BUCKET_CONSTANT) * 24 / 60) / 60);
+	public static final String FIELD_TAG_SEPARATOR = "#";
+	public static final String TAG_SEPARATOR = "_";
+	public static final String PERSISTENCE_DISK = "persistence.disk";
+	public static final String ARCHIVER_CLASS = "archiver.class";
+	public static final String GC_DELAY = "gc.delay";
+	public static final String GC_FREQUENCY = "gc.frequency";
+	public static final String DEFAULT_GC_FREQUENCY = "500000";
+	public static final String DEFAULT_GC_DELAY = "60000";
 
 	/**
 	 * @param conf
@@ -145,7 +163,7 @@ public interface StorageEngine {
 	 * @throws Exception
 	 */
 	public Set<String> getTagsForMeasurement(String dbname, String measurementName) throws Exception;
-	
+
 	/**
 	 * @param dbname
 	 * @param measurementName
@@ -153,7 +171,8 @@ public interface StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public List<List<String>> getTagsForMeasurement(String dbname, String measurementName, String valueFieldName) throws Exception;
+	public List<List<String>> getTagsForMeasurement(String dbname, String measurementName, String valueFieldName)
+			throws Exception;
 
 	/**
 	 * Delete all data in this instance
@@ -236,24 +255,36 @@ public interface StorageEngine {
 	 * 
 	 * @param dbName
 	 * @param retentionHours
+	 * @throws ItemNotFoundException
 	 */
-	public void updateDefaultTimeSeriesRetentionPolicy(String dbName, int retentionHours);
+	public default void updateDefaultTimeSeriesRetentionPolicy(String dbName, int retentionHours)
+			throws ItemNotFoundException {
+		DBMetadata dbMetadata = getDbMetadataMap().get(dbName);
+		if (dbMetadata == null) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		synchronized (dbMetadata) {
+			dbMetadata.setRetentionHours(retentionHours);
+		}
+	}
 
 	/**
 	 * Update retention policy for a database
 	 * 
 	 * @param dbName
 	 * @param retentionHours
+	 * @throws IOException
 	 */
-	public void updateTimeSeriesRetentionPolicy(String dbName, int retentionHours);
+	public void updateTimeSeriesRetentionPolicy(String dbName, int retentionHours) throws IOException;
 
 	/**
 	 * Gets the database, creates it if it doesn't already exist
 	 * 
 	 * @param dbName
 	 * @return databaseMap
+	 * @throws IOException
 	 */
-	public Map<String, SortedMap<String, TimeSeries>> getOrCreateDatabase(String dbName);
+	public Map<String, SortedMap<String, TimeSeries>> getOrCreateDatabase(String dbName) throws IOException;
 
 	/**
 	 * Gets the database, creates it with supplied rention policy if it doesn't
@@ -262,8 +293,10 @@ public interface StorageEngine {
 	 * @param dbName
 	 * @param retentionPolicy
 	 * @return measurementMap
+	 * @throws IOException
 	 */
-	public Map<String, SortedMap<String, TimeSeries>> getOrCreateDatabase(String dbName, int retentionPolicy);
+	public Map<String, SortedMap<String, TimeSeries>> getOrCreateDatabase(String dbName, int retentionPolicy)
+			throws IOException;
 
 	/**
 	 * Gets the measurement, creates it if it doesn't already exist
@@ -343,4 +376,10 @@ public interface StorageEngine {
 	public TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags)
 			throws Exception;
 
+	/**
+	 * Get metadata map
+	 * 
+	 * @return metadata map
+	 */
+	public Map<String, DBMetadata> getDbMetadataMap();
 }

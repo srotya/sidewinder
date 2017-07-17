@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Logger;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -51,6 +52,7 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 @Path("/databases/{dbName}/measurements/{" + MeasurementOpsApi.MEASUREMENT + "}")
 public class MeasurementOpsApi {
 
+	private static Logger logger = Logger.getLogger(MeasurementOpsApi.class.getName());
 	public static final String END_TIME = "endTime";
 	public static final String START_TIME = "startTime";
 	public static final String MEASUREMENT = "measurementName";
@@ -94,8 +96,12 @@ public class MeasurementOpsApi {
 	@PUT
 	public void updateRetentionPolicy(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
 			@PathParam(MEASUREMENT) String measurementName, @PathParam("retentionPolicy") int retentionPolicy) {
-		engine.updateDefaultTimeSeriesRetentionPolicy(dbName, retentionPolicy);
-		System.out.println("Updated retention policy for:" + dbName + "\t" + retentionPolicy + " hours");
+		try {
+			engine.updateDefaultTimeSeriesRetentionPolicy(dbName, retentionPolicy);
+			logger.info("Updated retention policy for:" + dbName + "\t" + retentionPolicy + " hours");
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e);
+		}
 	}
 
 	@DELETE
