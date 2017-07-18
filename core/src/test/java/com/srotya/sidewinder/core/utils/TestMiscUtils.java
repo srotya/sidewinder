@@ -19,18 +19,88 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.ws.rs.BadRequestException;
+
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.api.grafana.TargetSeries;
 import com.srotya.sidewinder.core.filters.Filter;
+import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
 public class TestMiscUtils {
+
+	@Test
+	public void testTagToString() {
+		String tagString = MiscUtils.tagToString(Arrays.asList("test", "test2"));
+		assertEquals("/test/test2", tagString);
+	}
+
+	@Test
+	public void testBuildDataPoint() {
+		DataPoint dp = MiscUtils.buildDataPoint(10L, 10.1);
+		assertEquals(10L, dp.getTimestamp(), 0);
+		assertEquals(10.1, dp.getValue(), 0);
+		assertTrue(dp.getDbName() == null);
+
+		dp = MiscUtils.buildDataPoint(10L, 10L);
+		assertEquals(10L, dp.getTimestamp(), 0);
+		assertEquals(10, dp.getLongValue(), 0);
+
+		dp = MiscUtils.buildDataPoint("test", "test2", "test3", Arrays.asList("test6"), 10L, 10.1);
+		assertEquals(10L, dp.getTimestamp(), 0);
+		assertEquals(10.1, dp.getValue(), 0);
+		
+		dp = MiscUtils.buildDataPoint("test", "test2", "test3", Arrays.asList("test6"), 10L, 10L);
+		assertEquals(10L, dp.getTimestamp(), 0);
+		assertEquals(10, dp.getLongValue(), 0);
+	}
+
+	@Test
+	public void testExtractTargetFromQuery() {
+		TargetSeries series = MiscUtils.extractTargetFromQuery("cpu.value.tes=2|tes=3");
+		assertEquals("cpu", series.getMeasurementName());
+		assertEquals("value", series.getFieldName());
+		assertEquals(Arrays.asList("tes=2", "tes=3"), series.getTagList());
+		assertTrue(series.getTagFilter().isRetain(Arrays.asList("tes=2", "tes=3")));
+		assertTrue(series.getTagFilter().isRetain(Arrays.asList("tes=2")));
+		assertTrue(series.getTagFilter().isRetain(Arrays.asList("tes=3")));
+		assertTrue(!series.getTagFilter().isRetain(Arrays.asList("tes=4")));
+
+		try {
+			series = MiscUtils.extractTargetFromQuery("cpuvalue|tes=3");
+			fail("Invalid request must throw an exception");
+		} catch (BadRequestException e) {
+		}
+	}
+
+	@Test
+	public void testSplitNormalizeString() {
+		String[] splits = MiscUtils.splitAndNormalizeString("/data/drive1, /data/drive2,/data/drive3");
+		for (String split : splits) {
+			assertTrue(!split.contains(" "));
+		}
+	}
+
+	@Test
+	public void testReadAllLines() throws IOException {
+		PrintWriter pr = new PrintWriter(new File("target/filereadtest.txt"));
+		pr.append("this is a test\nthis is a test");
+		pr.close();
+		List<String> lines = MiscUtils.readAllLines(new File("target/filereadtest.txt"));
+		for (String line : lines) {
+			assertEquals("this is a test", line);
+		}
+	}
 
 	@Test
 	public void testBuildTagFilter() {
@@ -53,7 +123,7 @@ public class TestMiscUtils {
 		assertTrue(filter.isRetain(Arrays.asList("user1")));
 		assertTrue(filter.isRetain(Arrays.asList("user1", "test1")));
 	}
-	
+
 	@Test
 	public void testCreateAggregateFunctionValid() throws InstantiationException, IllegalAccessException, Exception {
 		String[] parts = new String[] { "", "derivative,10,smean" };
@@ -90,5 +160,5 @@ public class TestMiscUtils {
 			fail("must NOT throw an exception");
 		}
 	}
-	
+
 }

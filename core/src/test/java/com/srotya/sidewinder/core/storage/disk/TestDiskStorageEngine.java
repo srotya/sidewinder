@@ -144,7 +144,34 @@ public class TestDiskStorageEngine {
 		}
 		engine.disconnect();
 	}
-	
+
+	@Test
+	public void testMultipleDrives() throws ItemNotFoundException, IOException {
+		StorageEngine engine = new DiskStorageEngine();
+		HashMap<String, String> map = new HashMap<>();
+		MiscUtils.delete(new File("targer/db102/"));
+		map.put("index.dir", "target/db102/index");
+		map.put("data.dir", "target/db102/data1, target/db102/data2");
+		map.put(StorageEngine.PERSISTENCE_DISK, "true");
+		try {
+			engine.configure(map, bgTasks);
+		} catch (IOException e) {
+			fail("No IOException should be thrown");
+		}
+		long ts = System.currentTimeMillis();
+		try {
+			for (int i = 0; i < 10; i++) {
+				engine.writeDataPoint(
+						MiscUtils.buildDataPoint("test" + i, "ss", "value", Arrays.asList("te"), ts, 2.2));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
+		}
+		assertEquals(10, new File("target/db102/data1").listFiles().length);
+		assertEquals(10, new File("target/db102/data2").listFiles().length);
+	}
+
 	@Test
 	public void testConfigureTimeBuckets() throws ItemNotFoundException, IOException {
 		StorageEngine engine = new DiskStorageEngine();
@@ -313,10 +340,11 @@ public class TestDiskStorageEngine {
 		map.put(StorageEngine.GC_FREQUENCY, "100");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		engine.configure(map, bgTasks);
-		long ts = 0L;
+		long base = 1497720452566L;
+		long ts = base;
 		for (int i = 32; i >= 0; i--) {
-			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test"), ts, 2L));
-			ts = System.currentTimeMillis() - (3600_000 * i);
+			engine.writeDataPoint(
+					MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test"), base - (3600_000 * i), 2L));
 		}
 		Thread.sleep(1000);
 
