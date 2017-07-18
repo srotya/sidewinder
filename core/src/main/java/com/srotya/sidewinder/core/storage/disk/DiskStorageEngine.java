@@ -62,7 +62,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 public class DiskStorageEngine implements StorageEngine {
 
 	private static final String INDEX_DIR = "index.dir";
-	private static final String DATA_DIR = "data.dir";
+	private static final String DATA_DIRS = "data.dir";
 	private static final Logger logger = Logger.getLogger(DiskStorageEngine.class.getName());
 	private Map<String, Map<String, SortedMap<String, TimeSeries>>> databaseMap;
 	private AtomicInteger counter = new AtomicInteger(0);
@@ -73,7 +73,7 @@ public class DiskStorageEngine implements StorageEngine {
 	private Archiver archiver;
 	private String compressionFQCN;
 	private Map<String, String> conf;
-	private String dataDir;
+	private String[] dataDirs;
 	private String baseIndexDirectory;
 	private ScheduledExecutorService bgTaskPool;
 
@@ -86,9 +86,11 @@ public class DiskStorageEngine implements StorageEngine {
 		logger.info("Setting default timeseries retention hours policy to:" + defaultRetentionHours);
 
 		this.conf.put(StorageEngine.PERSISTENCE_DISK, "true");
-		dataDir = conf.getOrDefault(DATA_DIR, "/tmp/sidewinder/metadata");
+		dataDirs = MiscUtils.splitAndNormalizeString(conf.getOrDefault(DATA_DIRS, "/tmp/sidewinder/metadata"));
 		baseIndexDirectory = conf.getOrDefault(INDEX_DIR, "/tmp/sidewinder/index");
-		new File(dataDir).mkdirs();
+		for (String dataDir : dataDirs) {
+			new File(dataDir).mkdirs();
+		}
 		new File(baseIndexDirectory).mkdirs();
 		tagLookupTable = new ConcurrentHashMap<>();
 		databaseMap = new ConcurrentHashMap<>();
@@ -107,7 +109,7 @@ public class DiskStorageEngine implements StorageEngine {
 				.parseInt(conf.getOrDefault(DEFAULT_BUCKET_SIZE, String.valueOf(DEFAULT_TIME_BUCKET_CONSTANT)));
 		bgTaskPool.scheduleAtFixedRate(() -> {
 			for (Entry<String, Map<String, SortedMap<String, TimeSeries>>> measurementMap : databaseMap.entrySet()) {
-//				String db = measurementMap.getKey();
+				// String db = measurementMap.getKey();
 				for (Entry<String, SortedMap<String, TimeSeries>> measurementEntry : measurementMap.getValue()
 						.entrySet()) {
 					// String measurement = measurementEntry.getKey();
@@ -118,7 +120,8 @@ public class DiskStorageEngine implements StorageEngine {
 								timeSeriesBucket.delete();
 								logger.info("Collecting garbage for bucket:" + entry.getKey());
 							}
-//							logger.info("Collecting garbage for time series:" + entry.getKey());
+							// logger.info("Collecting garbage for time series:"
+							// + entry.getKey());
 						} catch (IOException e) {
 							logger.log(Level.SEVERE, "Error collecing garbage", e);
 						}
@@ -368,22 +371,24 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	protected void loadDatabases() throws IOException {
-		File mdDir = new File(dataDir);
-		if (!mdDir.exists()) {
-			return;
-		}
-		File[] dbs = mdDir.listFiles();
-		for (File db : dbs) {
-			if (!db.isDirectory()) {
-				continue;
+		for (String dataDir : dataDirs) {
+			File mdDir = new File(dataDir);
+			if (!mdDir.exists()) {
+				return;
 			}
-			Map<String, SortedMap<String, TimeSeries>> measurementMap = new ConcurrentHashMap<>();
-			String dbName = db.getName();
-			databaseMap.put(dbName, measurementMap);
-			DBMetadata metadata = readMetadata(dbName);
-			dbMetadataMap.put(dbName, metadata);
-			logger.info("Loading database:" + dbName);
-			loadMeasurements(dbName, measurementMap);
+			File[] dbs = mdDir.listFiles();
+			for (File db : dbs) {
+				if (!db.isDirectory()) {
+					continue;
+				}
+				Map<String, SortedMap<String, TimeSeries>> measurementMap = new ConcurrentHashMap<>();
+				String dbName = db.getName();
+				databaseMap.put(dbName, measurementMap);
+				DBMetadata metadata = readMetadata(dbName);
+				dbMetadataMap.put(dbName, metadata);
+				logger.info("Loading database:" + dbName);
+				loadMeasurements(dbName, measurementMap);
+			}
 		}
 	}
 
@@ -435,12 +440,16 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	protected void createMeasurementDirectory(String dbName, String measurementName) throws IOException {
-		String measurementDirectory = measurementMetadataDirectoryPath(dbName, measurementName);
+		String measurementDirectory = measurementDataDirectoryPath(dbName, measurementName);
 		new File(measurementDirectory).mkdirs();
+	}
+	
+	public String getDataDir(String dbName) {
+		return dataDirs[dbName.hashCode()%dataDirs.length];
 	}
 
 	public String dbMetadataDirectoryPath(String dbName) {
-		return dataDir + "/" + dbName;
+		return getDataDir(dbName) + "/" + dbName;
 	}
 
 	protected void loadMeasurements(String dbName, Map<String, SortedMap<String, TimeSeries>> measurementMap)
@@ -495,7 +504,7 @@ public class DiskStorageEngine implements StorageEngine {
 		if (timeSeries == null) {
 			synchronized (measurementMap) {
 				if ((timeSeries = measurementMap.get(rowKey)) == null) {
-					timeSeries = new PersistentTimeSeries(measurementMetadataDirectoryPath(dbName, measurementName),
+					timeSeries = new PersistentTimeSeries(measurementDataDirectoryPath(dbName, measurementName),
 							compressionFQCN, seriesId(measurementName, rowKey), dbMetadataMap.get(dbName),
 							timeBucketSize, fp, conf, bgTaskPool);
 					measurementMap.put(rowKey, timeSeries);
@@ -509,12 +518,12 @@ public class DiskStorageEngine implements StorageEngine {
 		return timeSeries;
 	}
 
-	private String measurementMetadataDirectoryPath(String dbName, String measurementName) {
-		return dataDir + "/" + dbName + "/" + measurementName;
+	private String measurementDataDirectoryPath(String dbName, String measurementName) {
+		return getDataDir(dbName) + "/" + dbName + "/" + measurementName;
 	}
 
 	private String measurementMetadataFilePath(String dbName, String measurementName) {
-		return dataDir + "/" + dbName + "/" + measurementName + "/.md";
+		return getDataDir(dbName) + "/" + dbName + "/" + measurementName + "/.md";
 	}
 
 	public static String seriesId(String measurementName, String rowKey) {
@@ -532,7 +541,7 @@ public class DiskStorageEngine implements StorageEngine {
 			String[] split = entry.split("\t");
 			logger.fine("Loading Timeseries:" + seriesId(measurementName, split[0]));
 			measurementMap.put(split[0],
-					new PersistentTimeSeries(measurementMetadataDirectoryPath(dbName, measurementName), compressionFQCN,
+					new PersistentTimeSeries(measurementDataDirectoryPath(dbName, measurementName), compressionFQCN,
 							seriesId(measurementName, split[0]), dbMetadataMap.get(dbName), Integer.parseInt(split[2]),
 							Boolean.parseBoolean(split[1]), conf, bgTaskPool));
 		}
@@ -723,7 +732,7 @@ public class DiskStorageEngine implements StorageEngine {
 		Map<String, SortedMap<String, TimeSeries>> map = databaseMap.get(dbName);
 		synchronized (map) {
 			map.remove(measurementName);
-			MiscUtils.delete(new File(measurementMetadataDirectoryPath(dbName, measurementName)));
+			MiscUtils.delete(new File(measurementDataDirectoryPath(dbName, measurementName)));
 		}
 	}
 
