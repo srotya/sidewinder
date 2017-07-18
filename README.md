@@ -1,4 +1,4 @@
-# Sidewinder <img src="https://github.com/srotya/sidewinder/raw/master/grafana/src/img/logo.png" width="50">
+# Sidewinder <img src="https://github.com/srotya/sidewinder/raw/gh-pages/styles/imgs/logo.png" width="50">
 
 [![Join the chat at https://gitter.im/srotya/sidewinder](https://badges.gitter.im/srotya/sidewinder.svg)](https://gitter.im/srotya/sidewinder?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 [![Build Status](https://travis-ci.org/srotya/sidewinder.svg?branch=master)](https://travis-ci.org/srotya/sidewinder)
