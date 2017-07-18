@@ -50,6 +50,10 @@ public class MiscUtils {
 
 	private MiscUtils() {
 	}
+	
+	public static String[] splitAndNormalizeString(String input) {
+		return input.split(",\\s+");
+	}
 
 	public static List<String> readAllLines(File file) throws IOException {
 		BufferedReader reader = new BufferedReader(new FileReader(file));
