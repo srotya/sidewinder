@@ -45,12 +45,12 @@ import com.srotya.sidewinder.core.storage.DataPoint;
  * @author ambud
  */
 public class MiscUtils {
-	
+
 	private static final Pattern NUMBER = Pattern.compile("\\d+(\\.\\d+)?");
 
 	private MiscUtils() {
 	}
-	
+
 	public static String[] splitAndNormalizeString(String input) {
 		return input.split(",\\s+");
 	}
@@ -113,7 +113,6 @@ public class MiscUtils {
 			// directory is empty, then delete it
 			if (file.list().length == 0) {
 				file.delete();
-				System.out.println("Directory is deleted : " + file.getAbsolutePath());
 			} else {
 				// list all the directory contents
 				String files[] = file.list();
@@ -126,13 +125,11 @@ public class MiscUtils {
 				// check the directory again, if empty then delete it
 				if (file.list().length == 0) {
 					file.delete();
-					System.out.println("Directory is deleted : " + file.getAbsolutePath());
 				}
 			}
 		} else {
 			// if file, then delete it
 			file.delete();
-			System.out.println("File is deleted : " + file.getAbsolutePath());
 		}
 	}
 
@@ -156,34 +153,39 @@ public class MiscUtils {
 		dp.setValueFieldName(point.getValueFieldName());
 		return dp;
 	}
-	
-	public static Filter<List<String>> buildTagFilter(String tagFilter, List<String> tags) {
+
+	public static Filter<List<String>> buildTagFilter(String tagFilter, List<String> tags)
+			throws InvalidFilterException {
 		String[] tagSet = tagFilter.split("(&|\\|)");
 		tags.addAll(Arrays.asList(tagSet));
+		try {
 
-		Stack<Filter<List<String>>> predicateStack = new Stack<>();
-		for (int i = 0; i < tagSet.length; i++) {
-			String item = tagSet[i];
-			if (predicateStack.isEmpty()) {
-				predicateStack.push(new ContainsFilter<String, List<String>>(item));
-			} else {
-				Filter<List<String>> pop = predicateStack.pop();
-				char operator = tagFilter.charAt(tagFilter.indexOf(tagSet[i]) - 1);
-				switch (operator) {
-				case '|':
-					predicateStack.push(new OrFilter<>(Arrays.asList(pop, new ContainsFilter<>(tagSet[i]))));
-					break;
-				case '&':
-					predicateStack.push(new AndFilter<>(Arrays.asList(pop, new ContainsFilter<>(tagSet[i]))));
-					break;
+			Stack<Filter<List<String>>> predicateStack = new Stack<>();
+			for (int i = 0; i < tagSet.length; i++) {
+				String item = tagSet[i];
+				if (predicateStack.isEmpty()) {
+					predicateStack.push(new ContainsFilter<String, List<String>>(item));
+				} else {
+					Filter<List<String>> pop = predicateStack.pop();
+					char operator = tagFilter.charAt(tagFilter.indexOf(tagSet[i]) - 1);
+					switch (operator) {
+					case '|':
+						predicateStack.push(new OrFilter<>(Arrays.asList(pop, new ContainsFilter<>(tagSet[i]))));
+						break;
+					case '&':
+						predicateStack.push(new AndFilter<>(Arrays.asList(pop, new ContainsFilter<>(tagSet[i]))));
+						break;
+					}
 				}
 			}
-		}
 
-		if (predicateStack.isEmpty()) {
-			return new AnyFilter<>();
-		} else {
-			return predicateStack.pop();
+			if (predicateStack.isEmpty()) {
+				return new AnyFilter<>();
+			} else {
+				return predicateStack.pop();
+			}
+		} catch (Exception e) {
+			throw new InvalidFilterException();
 		}
 	}
 
@@ -224,7 +226,7 @@ public class MiscUtils {
 		if (queryParts.length > 1) {
 			query = queryParts[1];
 		}
-	
+
 		String[] parts = query.split("=>");
 		// select part
 		query = parts[0];
@@ -235,11 +237,15 @@ public class MiscUtils {
 		}
 		String measurementName = splits[0];
 		String valueFieldName = splits[1];
-	
+
 		List<String> tags = new ArrayList<>();
 		Filter<List<String>> tagFilter = null;
 		if (splits.length >= 3) {
-			tagFilter = buildTagFilter(splits[2], tags);
+			try {
+				tagFilter = buildTagFilter(splits[2], tags);
+			} catch (InvalidFilterException e) {
+				throw new BadRequestException(e);
+			}
 		}
 		AggregationFunction aggregationFunction = null;
 		if (parts.length > 1) {
@@ -249,7 +255,7 @@ public class MiscUtils {
 				throw new BadRequestException(e);
 			}
 		}
-	
+
 		return new TargetSeries(measurementName, valueFieldName, tags, tagFilter, aggregationFunction, false);
 	}
 

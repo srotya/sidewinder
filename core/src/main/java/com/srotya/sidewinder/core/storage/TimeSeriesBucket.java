@@ -155,6 +155,6 @@ public class TimeSeriesBucket implements Serializable {
 	}
 	
 	public void delete() throws IOException {
-		
+		writer.delete();
 	}
 }

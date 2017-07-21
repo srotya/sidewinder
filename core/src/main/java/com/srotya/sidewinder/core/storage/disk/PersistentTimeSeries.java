@@ -334,7 +334,7 @@ public class PersistentTimeSeries extends TimeSeries {
 		}
 		return points;
 	}
-
+	
 	/**
 	 * Cleans stale series
 	 */
@@ -344,8 +344,9 @@ public class PersistentTimeSeries extends TimeSeries {
 			int oldSize = bucketMap.size();
 			String key = bucketMap.firstKey();
 			BucketEntry bucket = bucketMap.remove(key);
+			bucket.close();
 			gcedBuckets.add(bucket.getValue());
-			logger.log(Level.FINE, "GC, removing bucket:" + key + ": as it passed retention period of:"
+			logger.log(Level.INFO, "GC, removing bucket:" + key + ": as it passed retention period of:"
 					+ retentionBuckets.get() + ":old size:" + oldSize + ":newsize:" + bucketMap.size() + ":");
 		}
 		return gcedBuckets;

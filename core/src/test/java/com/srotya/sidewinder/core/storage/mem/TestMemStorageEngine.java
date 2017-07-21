@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,7 +53,7 @@ import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
-import com.srotya.sidewinder.core.storage.compression.gorilla.GorillaWriter;
+import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
@@ -184,8 +183,9 @@ public class TestMemStorageEngine {
 	@Test
 	public void testTagEncodeDecode() throws IOException {
 		MemTagIndex table = new MemTagIndex();
-		String encodedStr = MemStorageEngine.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
-		List<String> decodedStr = MemStorageEngine.decodeStringToTags(table, encodedStr);
+		MemStorageEngine engine = new MemStorageEngine();
+		String encodedStr = engine.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
+		List<String> decodedStr = engine.decodeStringToTags(table, encodedStr);
 		assertEquals(Arrays.asList("host", "value", "test"), decodedStr);
 	}
 
@@ -243,7 +243,7 @@ public class TestMemStorageEngine {
 		StorageEngine engine = new MemStorageEngine();
 		engine.configure(conf, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, SortedMap<String, TimeSeries>> db = engine.getOrCreateDatabase("test", 24);
+		Map<String, Map<String, TimeSeries>> db = engine.getOrCreateDatabase("test", 24);
 		assertEquals(0, db.size());
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
@@ -291,7 +291,7 @@ public class TestMemStorageEngine {
 	public void testSeriesToDataPointConversion() throws IOException {
 		List<DataPoint> points = new ArrayList<>();
 		long headerTimestamp = System.currentTimeMillis();
-		TimeSeriesBucket timeSeries = new TimeSeriesBucket("seriesId", GorillaWriter.class.getName(), headerTimestamp,
+		TimeSeriesBucket timeSeries = new TimeSeriesBucket("seriesId", ByzantineWriter.class.getName(), headerTimestamp,
 				false, new HashMap<>());
 		timeSeries.addDataPoint(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, null, null, false);

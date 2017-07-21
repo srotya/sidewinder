@@ -27,8 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.srotya.sidewinder.core.storage.mem.ArchiveException;
-import com.srotya.sidewinder.core.storage.mem.Archiver;
+import com.srotya.sidewinder.core.storage.ArchiveException;
+import com.srotya.sidewinder.core.storage.Archiver;
 
 /**
  * Archives the timeseries buckets to a disk backed location.

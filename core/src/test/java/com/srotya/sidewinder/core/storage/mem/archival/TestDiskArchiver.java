@@ -26,12 +26,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.srotya.sidewinder.core.storage.ArchiveException;
+import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
-import com.srotya.sidewinder.core.storage.compression.gorilla.GorillaWriter;
-import com.srotya.sidewinder.core.storage.mem.ArchiveException;
-import com.srotya.sidewinder.core.storage.mem.Archiver;
+import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 
 /**
  * @author ambud
@@ -39,7 +39,7 @@ import com.srotya.sidewinder.core.storage.mem.Archiver;
 @Deprecated
 public class TestDiskArchiver {
 
-	private String className = GorillaWriter.class.getName();
+	private String className = ByzantineWriter.class.getName();
 
 	// @Test
 	public void testStreamSerDe() throws IOException {

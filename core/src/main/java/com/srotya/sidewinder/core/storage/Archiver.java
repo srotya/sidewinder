@@ -13,33 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.mem;
+package com.srotya.sidewinder.core.storage;
+
+import java.io.IOException;
+import java.util.List;
+import java.util.Map;
+
+import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
  * @author ambud
  */
-public class ArchiveException extends Exception {
+public interface Archiver {
 	
-	private static final long serialVersionUID = 1L;
-
-	public ArchiveException() {
-		super();
-	}
-
-	public ArchiveException(String message, Throwable cause, boolean enableSuppression, boolean writableStackTrace) {
-		super(message, cause, enableSuppression, writableStackTrace);
-	}
-
-	public ArchiveException(String message, Throwable cause) {
-		super(message, cause);
-	}
-
-	public ArchiveException(String message) {
-		super(message);
-	}
-
-	public ArchiveException(Throwable cause) {
-		super(cause);
-	}
+	public void init(Map<String, String> conf) throws IOException;
+	
+	public void archive(TimeSeriesArchivalObject archivalObject) throws ArchiveException;
+	
+	public List<TimeSeriesArchivalObject> unarchive() throws ArchiveException;
 
 }

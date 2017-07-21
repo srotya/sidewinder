@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!--
+Copyright 2017 Ambud Sharma
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+  <property require-input="false">
+    <name>auth_basic_users</name>
+    <display-name>Auth File</display-name>
+    <value>/etc/sidewinder/auth</value>
+    <description>List of user credentials used for basic authentication</description>
+  </property>
+  <property require-input="false">
+    <name>default_bucket_size</name>
+    <display-name>Default bucket size</display-name>
+    <value>32768</value>
+    <description>Default time bucket size in seconds</description>
+  </property>
+  <property require-input="false">
+    <name>compression_class</name>
+    <display-name>Compression Engine</display-name>
+    <value>com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter</value>
+    <description>Compression engine used to store data</description>
+  </property>
+  <property require-input="false">
+    <name>netty_binary_enabled</name>
+    <display-name>Enable Binary Server</display-name>
+    <value>false</value>
+    <description>Enable binary protocol server</description>
+  </property>
+  <property require-input="false">
+    <name>netty_binary_port</name>
+    <display-name>Binary Server Port</display-name>
+    <value>9927</value>
+    <description>Port number of Netty based Binary protocol server</description>
+  </property>
+  <property require-input="false">
+    <name>netty_http_enabled</name>
+    <display-name>Enable Netty HTTP Server</display-name>
+    <value>false</value>
+    <description>Enable netty HTTP protocol server</description>
+  </property>
+  <property require-input="false">
+    <name>netty_http_port</name>
+    <display-name>HTTP Server Port</display-name>
+    <value>9928</value>
+    <description>Port number of Netty based Binary protocol server</description>
+  </property>
+</configuration>

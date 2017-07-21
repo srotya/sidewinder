@@ -47,5 +47,7 @@ public interface Writer {
 	public void close() throws IOException;
 
 	public void setConf(Map<String, String> conf);
+
+	public void delete() throws IOException;
 	
 }

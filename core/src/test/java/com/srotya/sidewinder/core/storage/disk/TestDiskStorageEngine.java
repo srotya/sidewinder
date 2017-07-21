@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -58,9 +57,11 @@ import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.storage.mem.TimeSeries;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
@@ -204,8 +205,9 @@ public class TestDiskStorageEngine {
 	@Test
 	public void testTagEncodeDecode() throws IOException {
 		DiskTagIndex table = new DiskTagIndex("target/test", "test", "test2");
-		String encodedStr = DiskStorageEngine.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
-		List<String> decodedStr = DiskStorageEngine.decodeStringToTags(table, encodedStr);
+		StorageEngine engine = new DiskStorageEngine();
+		String encodedStr = engine.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
+		List<String> decodedStr = engine.decodeStringToTags(table, encodedStr);
 		assertEquals(Arrays.asList("host", "value", "test"), decodedStr);
 	}
 
@@ -247,6 +249,24 @@ public class TestDiskStorageEngine {
 	}
 
 	@Test
+	public void testConstructRowKey() throws Exception {
+		StorageEngine engine = new DiskStorageEngine();
+		MiscUtils.delete(new File("target/db131/"));
+		HashMap<String, String> map = new HashMap<>();
+		map.put("metadata.dir", "target/db131/mdq");
+		map.put("index.dir", "target/db131/index");
+		map.put("data.dir", "target/db131/data");
+		map.put(StorageEngine.PERSISTENCE_DISK, "true");
+		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		engine.configure(map, Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("bg")));
+		List<String> tags = Arrays.asList("test1", "test2");
+		TagIndex index = engine.getOrCreateTagIndex("asd", "bsd");
+		String encodeTagsToString = engine.encodeTagsToString(index, tags);
+		String key = engine.constructRowKey("asd", "bsd", "csd", tags);
+		assertEquals("csd#" + encodeTagsToString, key);
+	}
+
+	@Test
 	public void testQueryDataPointsRecovery() throws IOException, ItemNotFoundException {
 		StorageEngine engine = new DiskStorageEngine();
 		MiscUtils.delete(new File("target/db1/"));
@@ -258,7 +278,7 @@ public class TestDiskStorageEngine {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, SortedMap<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
+		Map<String, Map<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
 		assertEquals(0, db.size());
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
@@ -304,7 +324,7 @@ public class TestDiskStorageEngine {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, SortedMap<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
+		Map<String, Map<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
 		assertEquals(0, db.size());
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
