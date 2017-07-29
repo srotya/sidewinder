@@ -25,9 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -37,6 +35,8 @@ import java.util.logging.Logger;
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.ArchiveException;
+import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
@@ -44,6 +44,7 @@ import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
@@ -77,7 +78,7 @@ public class MemStorageEngine implements StorageEngine {
 	private static RejectException FP_MISMATCH_EXCEPTION = new RejectException("Floating point mismatch");
 	private static RejectException INVALID_DATAPOINT_EXCEPTION = new RejectException(
 			"Datapoint is missing required values");
-	private Map<String, Map<String, SortedMap<String, TimeSeries>>> databaseMap;
+	private Map<String, Map<String, Map<String, TimeSeries>>> databaseMap;
 	private AtomicInteger counter = new AtomicInteger(0);
 	private Map<String, Map<String, MemTagIndex>> tagLookupTable;
 	private Map<String, DBMetadata> dbMetadataMap;
@@ -110,10 +111,9 @@ public class MemStorageEngine implements StorageEngine {
 		compressionFQCN = conf.getOrDefault(COMPRESSION_CLASS, DEFAULT_COMPRESSION_CLASS);
 		if (bgTaskPool != null) {
 			bgTaskPool.scheduleAtFixedRate(() -> {
-				for (Entry<String, Map<String, SortedMap<String, TimeSeries>>> measurementMap : databaseMap
-						.entrySet()) {
+				for (Entry<String, Map<String, Map<String, TimeSeries>>> measurementMap : databaseMap.entrySet()) {
 					String db = measurementMap.getKey();
-					for (Entry<String, SortedMap<String, TimeSeries>> measurementEntry : measurementMap.getValue()
+					for (Entry<String, Map<String, TimeSeries>> measurementEntry : measurementMap.getValue()
 							.entrySet()) {
 						String measurement = measurementEntry.getKey();
 						for (Entry<String, TimeSeries> entry : measurementEntry.getValue().entrySet()) {
@@ -144,7 +144,7 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, int retentionHours) {
+			List<String> tags, int retentionHours) throws IOException {
 		TimeSeries series = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, defaultTimebucketSize,
 				true);
 		series.setRetentionHours(retentionHours);
@@ -152,9 +152,9 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, int retentionHours) {
-		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
+		Map<String, Map<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap != null) {
-			SortedMap<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
+			Map<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
 			if (seriesMap != null) {
 				for (TimeSeries series : seriesMap.values()) {
 					series.setRetentionHours(retentionHours);
@@ -168,9 +168,9 @@ public class MemStorageEngine implements StorageEngine {
 		DBMetadata metadata = dbMetadataMap.get(dbName);
 		synchronized (metadata) {
 			metadata.setRetentionHours(retentionHours);
-			Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
+			Map<String, Map<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 			if (measurementMap != null) {
-				for (SortedMap<String, TimeSeries> sortedMap : measurementMap.values()) {
+				for (Map<String, TimeSeries> sortedMap : measurementMap.values()) {
 					for (TimeSeries timeSeries : sortedMap.values()) {
 						timeSeries.setRetentionHours(retentionHours);
 					}
@@ -192,11 +192,11 @@ public class MemStorageEngine implements StorageEngine {
 	public LinkedHashMap<Reader, Boolean> queryReaders(String dbName, String measurementName, String valueFieldName,
 			long startTime, long endTime) throws Exception {
 		LinkedHashMap<Reader, Boolean> readers = new LinkedHashMap<>();
-		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
+		Map<String, Map<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap != null) {
-			SortedMap<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
+			Map<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
 			if (seriesMap != null) {
-				MemTagIndex memTagIndex = getOrCreateMemTagIndex(dbName, measurementName);
+				TagIndex memTagIndex = getOrCreateTagIndex(dbName, measurementName);
 				for (String entry : seriesMap.keySet()) {
 					TimeSeries series = seriesMap.get(entry);
 					String[] keys = entry.split(FIELD_TAG_SEPARATOR);
@@ -232,11 +232,11 @@ public class MemStorageEngine implements StorageEngine {
 			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
 			Predicate valuePredicate, AggregationFunction aggregationFunction) throws ItemNotFoundException {
 		Set<SeriesQueryOutput> resultMap = new HashSet<>();
-		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
+		Map<String, Map<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap != null) {
-			SortedMap<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
+			Map<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
 			if (seriesMap != null) {
-				MemTagIndex memTagIndex = getOrCreateMemTagIndex(dbName, measurementName);
+				TagIndex memTagIndex = getOrCreateTagIndex(dbName, measurementName);
 				Set<String> rowKeys = null;
 				if (tagList == null || tagList.size() == 0) {
 					rowKeys = seriesMap.keySet();
@@ -285,7 +285,7 @@ public class MemStorageEngine implements StorageEngine {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
+		Map<String, Map<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		partialMeasurementName = partialMeasurementName.trim();
 		if (partialMeasurementName.isEmpty()) {
 			return measurementMap.keySet();
@@ -325,29 +325,9 @@ public class MemStorageEngine implements StorageEngine {
 		counter.incrementAndGet();
 	}
 
-	public static String encodeTagsToString(MemTagIndex tagLookupTable, List<String> tags) {
-		StringBuilder builder = new StringBuilder(tags.size() * 5);
-		for (String tag : tags) {
-			builder.append(tagLookupTable.createEntry(tag));
-			builder.append(TAG_SEPARATOR);
-		}
-		return builder.toString();
-	}
-
-	public static List<String> decodeStringToTags(MemTagIndex tagLookupTable, String tagString) {
-		List<String> tagList = new ArrayList<>();
-		if (tagString == null || tagString.isEmpty()) {
-			return tagList;
-		}
-		for (String tag : tagString.split(TAG_SEPARATOR)) {
-			tagList.add(tagLookupTable.getEntry(tag));
-		}
-		return tagList;
-	}
-
 	@Override
-	public Map<String, SortedMap<String, TimeSeries>> getOrCreateDatabase(String dbName) {
-		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
+	public Map<String, Map<String, TimeSeries>> getOrCreateDatabase(String dbName) {
+		Map<String, Map<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap == null) {
 			synchronized (databaseMap) {
 				if ((measurementMap = databaseMap.get(dbName)) == null) {
@@ -365,25 +345,25 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public Map<String, SortedMap<String, TimeSeries>> getOrCreateDatabase(String dbName, int retentionPolicy) {
-		Map<String, SortedMap<String, TimeSeries>> map = getOrCreateDatabase(dbName);
+	public Map<String, Map<String, TimeSeries>> getOrCreateDatabase(String dbName, int retentionPolicy) {
+		Map<String, Map<String, TimeSeries>> map = getOrCreateDatabase(dbName);
 		updateTimeSeriesRetentionPolicy(dbName, retentionPolicy);
 		return map;
 	}
 
 	@Override
-	public SortedMap<String, TimeSeries> getOrCreateMeasurement(String dbName, String measurementName) {
-		Map<String, SortedMap<String, TimeSeries>> measurementMap = getOrCreateDatabase(dbName);
+	public Map<String, TimeSeries> getOrCreateMeasurement(String dbName, String measurementName) {
+		Map<String, Map<String, TimeSeries>> measurementMap = getOrCreateDatabase(dbName);
 		return getOrCreateMeasurement(measurementMap, measurementName);
 	}
 
-	protected SortedMap<String, TimeSeries> getOrCreateMeasurement(
-			Map<String, SortedMap<String, TimeSeries>> measurementMap, String measurementName) {
-		SortedMap<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
+	protected Map<String, TimeSeries> getOrCreateMeasurement(Map<String, Map<String, TimeSeries>> measurementMap,
+			String measurementName) {
+		Map<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
 		if (seriesMap == null) {
 			synchronized (measurementMap) {
 				if ((seriesMap = measurementMap.get(measurementName)) == null) {
-					seriesMap = new ConcurrentSkipListMap<>();
+					seriesMap = new ConcurrentHashMap<>();
 					measurementMap.put(measurementName, seriesMap);
 					logger.info("Created new measurement:" + measurementName);
 				}
@@ -401,13 +381,13 @@ public class MemStorageEngine implements StorageEngine {
 			return false;
 		}
 		// check and create database map
-		Map<String, SortedMap<String, TimeSeries>> dbMap = getOrCreateDatabase(dbName);
+		Map<String, Map<String, TimeSeries>> dbMap = getOrCreateDatabase(dbName);
 
 		if (!checkIfExists(dbName, measurementName)) {
 			return false;
 		}
 		// check and create measurement map
-		SortedMap<String, TimeSeries> measurementMap = getOrCreateMeasurement(dbMap, measurementName);
+		Map<String, TimeSeries> measurementMap = getOrCreateMeasurement(dbMap, measurementName);
 
 		String rowKey = constructRowKey(dbName, measurementName, valueFieldName, tags);
 		// check and create timeseries
@@ -418,16 +398,16 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, int timeBucketSize, boolean fp) {
+			List<String> tags, int timeBucketSize, boolean fp) throws IOException {
 		Collections.sort(tags);
 
 		String rowKey = constructRowKey(dbName, measurementName, valueFieldName, tags);
 
 		// check and create database map
-		Map<String, SortedMap<String, TimeSeries>> dbMap = getOrCreateDatabase(dbName);
+		Map<String, Map<String, TimeSeries>> dbMap = getOrCreateDatabase(dbName);
 
 		// check and create measurement map
-		SortedMap<String, TimeSeries> measurementMap = getOrCreateMeasurement(dbMap, measurementName);
+		Map<String, TimeSeries> measurementMap = getOrCreateMeasurement(dbMap, measurementName);
 
 		// check and create timeseries
 		TimeSeries timeSeries = measurementMap.get(rowKey);
@@ -446,16 +426,17 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags) {
+	public TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags)
+			throws IOException {
 		Collections.sort(tags);
 
 		String rowKey = constructRowKey(dbName, measurementName, valueFieldName, tags);
 
 		// check and create database map
-		Map<String, SortedMap<String, TimeSeries>> dbMap = getOrCreateDatabase(dbName);
+		Map<String, Map<String, TimeSeries>> dbMap = getOrCreateDatabase(dbName);
 
 		// check and create measurement map
-		SortedMap<String, TimeSeries> measurementMap = getOrCreateMeasurement(dbMap, measurementName);
+		Map<String, TimeSeries> measurementMap = getOrCreateMeasurement(dbMap, measurementName);
 
 		// check and create timeseries
 		return measurementMap.get(rowKey);
@@ -464,36 +445,21 @@ public class MemStorageEngine implements StorageEngine {
 	@Override
 	public boolean isMeasurementFieldFP(String dbName, String measurementName, String valueFieldName)
 			throws RejectException {
-		Map<String, SortedMap<String, TimeSeries>> dbMap = getOrCreateDatabase(dbName);
+		Map<String, Map<String, TimeSeries>> dbMap = getOrCreateDatabase(dbName);
 
 		// check and create measurement map
-		SortedMap<String, TimeSeries> measurementMap = getOrCreateMeasurement(dbMap, measurementName);
-
-		SortedMap<String, TimeSeries> subMap = measurementMap.subMap(valueFieldName,
-				valueFieldName + Character.MAX_VALUE);
-
-		if (!subMap.isEmpty()) {
-			return subMap.values().iterator().next().isFp();
-		} else {
-			throw NOT_FOUND_EXCEPTION;
+		Map<String, TimeSeries> measurementMap = getOrCreateMeasurement(dbMap, measurementName);
+		for (Entry<String, TimeSeries> entry : measurementMap.entrySet()) {
+			if (entry.getKey().startsWith(valueFieldName)) {
+				return entry.getValue().isFp();
+			}
 		}
-	}
-
-	protected String constructRowKey(String dbName, String measurementName, String valueFieldName, List<String> tags) {
-		MemTagIndex memTagLookupTable = getOrCreateMemTagIndex(dbName, measurementName);
-		String encodeTagsToString = encodeTagsToString(memTagLookupTable, tags);
-		StringBuilder rowKeyBuilder = new StringBuilder(valueFieldName.length() + 1 + encodeTagsToString.length());
-		rowKeyBuilder.append(valueFieldName);
-		rowKeyBuilder.append(FIELD_TAG_SEPARATOR);
-		rowKeyBuilder.append(encodeTagsToString);
-		String rowKey = rowKeyBuilder.toString();
-		indexRowKey(memTagLookupTable, rowKey, tags);
-		return rowKey;
+		throw NOT_FOUND_EXCEPTION;
 	}
 
 	public Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags) {
 		Set<String> series = new HashSet<>();
-		MemTagIndex memTagLookupTable = getOrCreateMemTagIndex(dbName, measurementName);
+		TagIndex memTagLookupTable = getOrCreateTagIndex(dbName, measurementName);
 		for (String tag : tags) {
 			Set<String> keys = memTagLookupTable.searchRowKeysForTag(tag);
 			if (keys != null) {
@@ -525,7 +491,7 @@ public class MemStorageEngine implements StorageEngine {
 			}
 			List<String> seriesTags = null;
 			if (keys.length > 1) {
-				seriesTags = decodeStringToTags(getOrCreateMemTagIndex(dbName, measurementName), keys[1]);
+				seriesTags = decodeStringToTags(getOrCreateTagIndex(dbName, measurementName), keys[1]);
 			} else {
 				seriesTags = new ArrayList<>();
 			}
@@ -536,13 +502,7 @@ public class MemStorageEngine implements StorageEngine {
 		return filteredSeries;
 	}
 
-	protected void indexRowKey(MemTagIndex memTagLookupTable, String rowKey, List<String> tags) {
-		for (String tag : tags) {
-			memTagLookupTable.index(tag, rowKey);
-		}
-	}
-
-	protected MemTagIndex getOrCreateMemTagIndex(String dbName, String measurementName) {
+	public TagIndex getOrCreateTagIndex(String dbName, String measurementName) {
 		Map<String, MemTagIndex> lookupMap = tagLookupTable.get(dbName);
 		if (lookupMap == null) {
 			synchronized (tagLookupTable) {
@@ -607,7 +567,7 @@ public class MemStorageEngine implements StorageEngine {
 	 * @param measurementName
 	 * @return
 	 */
-	protected SortedMap<String, TimeSeries> getSeriesMap(String dbName, String measurementName) {
+	protected Map<String, TimeSeries> getSeriesMap(String dbName, String measurementName) {
 		return databaseMap.get(dbName).get(measurementName);
 	}
 
@@ -652,11 +612,16 @@ public class MemStorageEngine implements StorageEngine {
 		if (memTagLookupTable == null) {
 			throw new ItemNotFoundException("Measurement " + measurementName + " not found");
 		}
-		SortedMap<String, TimeSeries> subMap = databaseMap.get(dbName).get(measurementMap).subMap(valueFieldName,
-				valueFieldName + Character.MAX_VALUE);
+		Map<String, TimeSeries> map = databaseMap.get(dbName).get(measurementMap);
+		Set<String> keySet = new HashSet<>();
+		for (Entry<String, TimeSeries> entry : map.entrySet()) {
+			if (entry.getKey().startsWith(valueFieldName)) {
+				keySet.add(entry.getKey());
+			}
+		}
 		List<List<String>> tagList = new ArrayList<>();
-		for (Entry<String, TimeSeries> entry : subMap.entrySet()) {
-			String[] keys = entry.getKey().split(FIELD_TAG_SEPARATOR);
+		for (String entry : keySet) {
+			String[] keys = entry.split(FIELD_TAG_SEPARATOR);
 			if (!keys[0].equals(valueFieldName)) {
 				continue;
 			}
@@ -671,11 +636,11 @@ public class MemStorageEngine implements StorageEngine {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		Map<String, SortedMap<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
+		Map<String, Map<String, TimeSeries>> measurementMap = databaseMap.get(dbName);
 		if (measurementMap == null) {
 			throw new ItemNotFoundException("Database " + dbName + " not found");
 		}
-		SortedMap<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
+		Map<String, TimeSeries> seriesMap = measurementMap.get(measurementName);
 		if (seriesMap == null) {
 			throw new ItemNotFoundException("Measurement " + measurementName + " not found");
 		}

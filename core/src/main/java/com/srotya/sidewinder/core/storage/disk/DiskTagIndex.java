@@ -17,14 +17,14 @@ package com.srotya.sidewinder.core.storage.disk;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.eclipse.jetty.util.ConcurrentHashSet;
-
+import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.MurmurHash;
 
@@ -33,7 +33,7 @@ import com.srotya.sidewinder.core.utils.MurmurHash;
  * 
  * @author ambud
  */
-public class DiskTagIndex {
+public class DiskTagIndex implements TagIndex {
 
 	private Map<Integer, String> tagMap;
 	private Map<String, Set<String>> rowKeyIndex;
@@ -72,7 +72,7 @@ public class DiskTagIndex {
 			String tag = split[0];
 			Set<String> set = rowKeyIndex.get(tag);
 			if (set == null) {
-				set = new ConcurrentHashSet<>();
+				set = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 				rowKeyIndex.put(split[0], set);
 			}
 			String rowKey = split[1];
@@ -80,56 +80,51 @@ public class DiskTagIndex {
 		}
 	}
 
-	/**
-	 * Hashes the tag to UI
-	 * 
-	 * @param tag
-	 * @return uid
-	 * @throws IOException
-	 */
+	@Override
 	public String createEntry(String tag) throws IOException {
 		int hash32 = MurmurHash.hash32(tag);
 		String val = tagMap.get(hash32);
 		if (val == null) {
-			String out = tagMap.put(hash32, tag);
-			if (out == null) {
-				DiskStorageEngine.appendLineToFile(hash32 + "\t" + tag, indexPath + ".fwd");
+			synchronized (tagMap) {
+				String out = tagMap.put(hash32, tag);
+				if (out == null) {
+					DiskStorageEngine.appendLineToFile(hash32 + "\t" + tag, indexPath + ".fwd");
+				}
 			}
 		}
 		return Integer.toHexString(hash32);
 	}
 
+	@Override
 	public String getEntry(String hexString) {
 		return tagMap.get(Integer.parseUnsignedInt(hexString, 16));
 	}
 
+	@Override
 	public Set<String> getTags() {
 		return new HashSet<>(tagMap.values());
 	}
 
-	/**
-	 * Indexes tag in the row key, creating an adjacency list
-	 * 
-	 * @param tag
-	 * @param rowKey
-	 * @throws IOException
-	 */
+	@Override
 	public void index(String tag, String rowKey) throws IOException {
 		Set<String> rowKeySet = rowKeyIndex.get(tag);
 		if (rowKeySet == null) {
 			synchronized (rowKeyIndex) {
 				if ((rowKeySet = rowKeyIndex.get(tag)) == null) {
-					rowKeySet = new ConcurrentHashSet<>();
+					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());;
 					rowKeyIndex.put(tag, rowKeySet);
 				}
 			}
 		}
 		boolean add = rowKeySet.add(rowKey);
 		if (add) {
-			DiskStorageEngine.appendLineToFile(tag + "\t" + rowKey, indexPath + ".rev");
+			synchronized (tagMap) {
+				DiskStorageEngine.appendLineToFile(tag + "\t" + rowKey, indexPath + ".rev");
+			}
 		}
 	}
 
+	@Override
 	public Set<String> searchRowKeysForTag(String tag) {
 		return rowKeyIndex.get(tag);
 	}

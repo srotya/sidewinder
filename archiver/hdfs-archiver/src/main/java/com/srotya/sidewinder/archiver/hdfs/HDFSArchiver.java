@@ -34,8 +34,8 @@ import org.apache.hadoop.fs.permission.FsAction;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.security.UserGroupInformation;
 
-import com.srotya.sidewinder.core.storage.mem.ArchiveException;
-import com.srotya.sidewinder.core.storage.mem.Archiver;
+import com.srotya.sidewinder.core.storage.ArchiveException;
+import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.mem.archival.DiskArchiver;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 

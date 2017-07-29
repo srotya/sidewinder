@@ -17,6 +17,7 @@
     <module>cluster</module>
     <module>examples</module>
     <module>archiver</module>
+    <module>ambari</module>
   </modules>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

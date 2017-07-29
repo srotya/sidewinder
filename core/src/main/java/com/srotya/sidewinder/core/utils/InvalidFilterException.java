@@ -13,23 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.mem;
+package com.srotya.sidewinder.core.utils;
 
-import java.io.IOException;
-import java.util.List;
-import java.util.Map;
+public class InvalidFilterException extends Exception {
 
-import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
-
-/**
- * @author ambud
- */
-public interface Archiver {
-	
-	public void init(Map<String, String> conf) throws IOException;
-	
-	public void archive(TimeSeriesArchivalObject archivalObject) throws ArchiveException;
-	
-	public List<TimeSeriesArchivalObject> unarchive() throws ArchiveException;
+	private static final long serialVersionUID = 1L;
 
 }

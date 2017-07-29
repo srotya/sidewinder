@@ -15,12 +15,13 @@
  */
 package com.srotya.sidewinder.core.storage.mem;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListSet;
 
+import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.utils.MurmurHash;
 
 /**
@@ -28,7 +29,7 @@ import com.srotya.sidewinder.core.utils.MurmurHash;
  * 
  * @author ambud
  */
-public class MemTagIndex {
+public class MemTagIndex implements TagIndex {
 
 	private Map<Integer, String> tagMap;
 	private Map<String, Set<String>> rowKeyIndex;
@@ -70,7 +71,7 @@ public class MemTagIndex {
 		if (rowKeySet == null) {
 			synchronized (rowKeyIndex) {
 				if ((rowKeySet = rowKeyIndex.get(tag)) == null) {
-					rowKeySet = new ConcurrentSkipListSet<>();
+					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
 					rowKeyIndex.put(tag, rowKeySet);
 				}
 			}
