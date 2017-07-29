@@ -87,7 +87,7 @@ public class GrafanaQueryApi {
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public String query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		grafanaQueryCounter.mark();
-		logger.log(Level.FINE, "GRafana query:" + dbName + "\t" + query);
+		logger.log(Level.FINE, "Grafana query:" + dbName + "\t" + query);
 		Gson gson = new GsonBuilder().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
@@ -122,15 +122,20 @@ public class GrafanaQueryApi {
 		try {
 			if (queryString != null && !queryString.isEmpty()) {
 				JsonObject query = new Gson().fromJson(queryString, JsonObject.class);
-				String target = query.get("target").getAsString();
-				if (target.contains("*")) {
-					return engine.getTagsForMeasurement(dbName, target.replace(".*", ""));
+				if (query.has("target")) {
+					String target = query.get("target").getAsString();
+					if (target.contains("*")) {
+						return engine.getTagsForMeasurement(dbName, target.replace(".*", ""));
+					}else {
+						return engine.getFieldsForMeasurement(dbName, target);
+					}
 				}
 			}
 			return engine.getMeasurementsLike(dbName, "");
 		} catch (RejectException e) {
 			throw new BadRequestException(e);
 		} catch (Exception e) {
+			e.printStackTrace();
 			throw new InternalServerErrorException(e.getMessage());
 		}
 	}

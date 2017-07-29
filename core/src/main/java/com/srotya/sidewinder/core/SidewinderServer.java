@@ -92,6 +92,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
 
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {
+			logger.info("Enabling basic authentication");
 			AuthFilter<BasicCredentials, Principal> basicCredentialAuthFilter = new BasicCredentialAuthFilter.Builder<>()
 					.setAuthenticator(new BasicAuthenticator(conf.get(ConfigConstants.AUTH_BASIC_USERS)))
 					.setAuthorizer(new AllowAllAuthorizer()).setPrefix("Basic").buildAuthFilter();

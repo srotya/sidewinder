@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<!--
+Copyright 2017 Ambud Sharma
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+		http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+  <property require-input="false">
+    <name>storage.engine</name>
+    <display-name>Storage Engine</display-name>
+    <value>com.srotya.sidewinder.core.storage.disk.DiskStorageEngine</value>
+    <description>Storage engine to be used. </description>
+  </property>
+  <property require-input="true">
+    <name>data.dir</name>
+    <display-name>Data Directories</display-name>
+    <value>/tmp/sidewinder/data</value>
+    <description>Data directories used by Sidewinder.</description>
+  </property>
+  <property require-input="true">
+    <name>index.dir</name>
+    <display-name>Index Directory</display-name>
+    <value>/tmp/sidewinder/index</value>
+    <description>Directory used by Sidewinder to index metadata.</description>
+  </property>
+  <property require-input="false">
+    <name>default.retention.hours</name>
+    <display-name>Default retention hours</display-name>
+    <value>28</value>
+    <description>Default number of hours data will be retained before being archieved/deleted</description>
+  </property>
+  <property require-input="false">
+    <name>auth.enabled</name>
+    <display-name>Enabled Authentication</display-name>
+    <value>false</value>
+    <description>Enable basic authentication</description>
+  </property>
+  <property require-input="false">
+    <name>max.open.files</name>
+    <display-name>Max Open Files</display-name>
+    <value>100000</value>
+    <description>Maximum number of open files</description>
+  </property>
+</configuration>

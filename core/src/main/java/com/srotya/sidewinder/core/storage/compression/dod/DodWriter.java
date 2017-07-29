@@ -161,4 +161,8 @@ public class DodWriter implements Writer {
 	@Override
 	public void setConf(Map<String, String> conf) {
 	}
+
+	@Override
+	public void delete() throws IOException {
+	}
 }

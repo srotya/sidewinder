@@ -1,0 +1,9 @@
+server:
+  gzip:
+    enabled: true
+  applicationConnectors:
+  - type: http
+    port: {{http_port}}
+  requestLog:
+    appenders: []
+configPath: /etc/sidewinder/sidewinder.properties

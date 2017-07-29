@@ -17,7 +17,12 @@ package com.srotya.sidewinder.core.storage.disk;
 
 import static org.junit.Assert.assertEquals;
 
+import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -25,6 +30,8 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.mem.MemTagIndex;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
+import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
@@ -43,6 +50,48 @@ public class TestDiskTagIndex {
 			assertEquals("tag" + (i + 1), index.getEntry(entry));
 			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
+	}
+
+//	@Test
+	public void testTagIndexPerformance() throws IOException, InterruptedException {
+		MiscUtils.delete(new File("target/perf/index-dir"));
+		MiscUtils.delete(new File("target/perf/data-dir"));
+		DiskStorageEngine engine = new DiskStorageEngine();
+		HashMap<String, String> conf = new HashMap<>();
+		conf.put("index.dir", "target/perf/index-dir");
+		conf.put("data.dir", "target/perf/data-dir");
+		engine.configure(conf, Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("bgt")));
+		final long ms = System.currentTimeMillis();
+		ExecutorService es = Executors.newCachedThreadPool();
+		for (int k = 0; k < 6; k++) {
+			es.submit(() -> {
+				for (int i = 0; i < 200_000_000; i++) {
+					try {
+						engine.getOrCreateTimeSeries("db1", "m1", "v10",
+								Arrays.asList(String.valueOf(i % 10_000), "test=" + String.valueOf(i % 5),
+										"test2=" + String.valueOf(i % 5), "goliath=" + String.valueOf(i % 10_000),
+										"goliath2=" + String.valueOf(i % 1_500)),
+								4096, true);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					if (i % 1_000_000 == 0) {
+						System.out.println(i + "\t" + (System.currentTimeMillis() - ms) / 1000);
+					}
+				}
+			});
+		}
+		es.shutdown();
+		es.awaitTermination(1000, TimeUnit.SECONDS);
+		System.err.println("Index time:" + (System.currentTimeMillis() - ms));
+		Map<String, Map<String, DiskTagIndex>> index = engine.getTagLookupTable();
+		assertEquals(1, index.size());
+		Entry<String, Map<String, DiskTagIndex>> next = index.entrySet().iterator().next();
+		assertEquals("db1", next.getKey());
+		Entry<String, DiskTagIndex> itr = next.getValue().entrySet().iterator().next();
+		assertEquals("m1", itr.getKey());
+		DiskTagIndex value = itr.getValue();
+		assertEquals(20000 + 10 + 1500, value.getTags().size());
 	}
 
 	@Test

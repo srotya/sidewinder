@@ -17,6 +17,9 @@ package com.srotya.sidewinder.core.storage.mem;
 
 import static org.junit.Assert.*;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -42,6 +45,33 @@ public class TestMemTagIndex {
 			assertEquals("tag" + (i + 1), index.getEntry(entry));
 			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
+	}
+
+//	@Test
+	public void testTagIndexPerformance() throws IOException, InterruptedException {
+		MemStorageEngine engine = new MemStorageEngine();
+		engine.configure(new HashMap<>(), null);
+		long ms = System.currentTimeMillis();
+		ExecutorService es = Executors.newFixedThreadPool(4);
+		for (int k = 0; k < 4; k++) {
+			es.submit(() -> {
+				for (int i = 0; i < 30_000_000; i++) {
+					try {
+						engine.getOrCreateTimeSeries("db1", "m1", "v10",
+								Arrays.asList(String.valueOf(i % 10_000), "test=" + String.valueOf(i % 5),
+										"goliath=" + String.valueOf(i % 1000), "goliath2=" + String.valueOf(i % 150)),
+								4096, true);
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					if (i % 1000000 == 0)
+						System.out.println(i);
+				}
+			});
+		}
+		es.awaitTermination(1000, TimeUnit.SECONDS);
+		ms = System.currentTimeMillis() - ms;
+		System.err.println("Index time:" + ms);
 	}
 
 	@Test

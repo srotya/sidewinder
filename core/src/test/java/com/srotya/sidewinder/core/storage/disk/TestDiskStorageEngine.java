@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -58,9 +57,11 @@ import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.storage.mem.TimeSeries;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
@@ -144,7 +145,34 @@ public class TestDiskStorageEngine {
 		}
 		engine.disconnect();
 	}
-	
+
+	@Test
+	public void testMultipleDrives() throws ItemNotFoundException, IOException {
+		StorageEngine engine = new DiskStorageEngine();
+		HashMap<String, String> map = new HashMap<>();
+		MiscUtils.delete(new File("targer/db102/"));
+		map.put("index.dir", "target/db102/index");
+		map.put("data.dir", "target/db102/data1, target/db102/data2");
+		map.put(StorageEngine.PERSISTENCE_DISK, "true");
+		try {
+			engine.configure(map, bgTasks);
+		} catch (IOException e) {
+			fail("No IOException should be thrown");
+		}
+		long ts = System.currentTimeMillis();
+		try {
+			for (int i = 0; i < 10; i++) {
+				engine.writeDataPoint(
+						MiscUtils.buildDataPoint("test" + i, "ss", "value", Arrays.asList("te"), ts, 2.2));
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
+		}
+		assertEquals(10, new File("target/db102/data1").listFiles().length);
+		assertEquals(10, new File("target/db102/data2").listFiles().length);
+	}
+
 	@Test
 	public void testConfigureTimeBuckets() throws ItemNotFoundException, IOException {
 		StorageEngine engine = new DiskStorageEngine();
@@ -177,8 +205,9 @@ public class TestDiskStorageEngine {
 	@Test
 	public void testTagEncodeDecode() throws IOException {
 		DiskTagIndex table = new DiskTagIndex("target/test", "test", "test2");
-		String encodedStr = DiskStorageEngine.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
-		List<String> decodedStr = DiskStorageEngine.decodeStringToTags(table, encodedStr);
+		StorageEngine engine = new DiskStorageEngine();
+		String encodedStr = engine.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
+		List<String> decodedStr = engine.decodeStringToTags(table, encodedStr);
 		assertEquals(Arrays.asList("host", "value", "test"), decodedStr);
 	}
 
@@ -220,6 +249,24 @@ public class TestDiskStorageEngine {
 	}
 
 	@Test
+	public void testConstructRowKey() throws Exception {
+		StorageEngine engine = new DiskStorageEngine();
+		MiscUtils.delete(new File("target/db131/"));
+		HashMap<String, String> map = new HashMap<>();
+		map.put("metadata.dir", "target/db131/mdq");
+		map.put("index.dir", "target/db131/index");
+		map.put("data.dir", "target/db131/data");
+		map.put(StorageEngine.PERSISTENCE_DISK, "true");
+		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		engine.configure(map, Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("bg")));
+		List<String> tags = Arrays.asList("test1", "test2");
+		TagIndex index = engine.getOrCreateTagIndex("asd", "bsd");
+		String encodeTagsToString = engine.encodeTagsToString(index, tags);
+		String key = engine.constructRowKey("asd", "bsd", "csd", tags);
+		assertEquals("csd#" + encodeTagsToString, key);
+	}
+
+	@Test
 	public void testQueryDataPointsRecovery() throws IOException, ItemNotFoundException {
 		StorageEngine engine = new DiskStorageEngine();
 		MiscUtils.delete(new File("target/db1/"));
@@ -231,7 +278,7 @@ public class TestDiskStorageEngine {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, SortedMap<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
+		Map<String, Map<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
 		assertEquals(0, db.size());
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
@@ -277,7 +324,7 @@ public class TestDiskStorageEngine {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, SortedMap<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
+		Map<String, Map<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
 		assertEquals(0, db.size());
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
@@ -313,10 +360,11 @@ public class TestDiskStorageEngine {
 		map.put(StorageEngine.GC_FREQUENCY, "100");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		engine.configure(map, bgTasks);
-		long ts = 0L;
+		long base = 1497720452566L;
+		long ts = base;
 		for (int i = 32; i >= 0; i--) {
-			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test"), ts, 2L));
-			ts = System.currentTimeMillis() - (3600_000 * i);
+			engine.writeDataPoint(
+					MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test"), base - (3600_000 * i), 2L));
 		}
 		Thread.sleep(1000);
 

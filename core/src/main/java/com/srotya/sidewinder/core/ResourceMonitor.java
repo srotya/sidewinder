@@ -72,7 +72,7 @@ public class ResourceMonitor {
 
 	private void validateCPUUsage() {
 		double systemLoadAverage = ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage();
-		DataPoint dp = MiscUtils.buildDataPoint(DB, "cpu", "load", Arrays.asList(), System.currentTimeMillis(),
+		DataPoint dp = MiscUtils.buildDataPoint(DB, "cpu", "load", Arrays.asList("local"), System.currentTimeMillis(),
 				systemLoadAverage);
 		try {
 			storageEngine.writeDataPoint(dp);

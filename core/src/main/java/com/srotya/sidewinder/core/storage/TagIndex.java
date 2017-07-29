@@ -13,33 +13,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.mem.archival;
+package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Map;
-
-import com.srotya.sidewinder.core.storage.ArchiveException;
-import com.srotya.sidewinder.core.storage.Archiver;
+import java.util.Set;
 
 /**
  * @author ambud
  */
-public class NoneArchiver implements Archiver {
+public interface TagIndex {
+	
+	/**
+	 * Hashes the tag to UI
+	 * 
+	 * @param tag
+	 * @return uid
+	 * @throws IOException
+	 */
+	public String createEntry(String tag) throws IOException;
+	
+	public String getEntry(String hexString);
+	
+	public Set<String> getTags();
+	
+	/**
+	 * Indexes tag in the row key, creating an adjacency list
+	 * 
+	 * @param tag
+	 * @param rowKey
+	 * @throws IOException
+	 */
+	public void index(String tag, String rowKey) throws IOException;
 
-	@Override
-	public void init(Map<String, String> conf) throws IOException {
-	}
-
-	@Override
-	public void archive(TimeSeriesArchivalObject object) throws ArchiveException {
-		// do nothing
-	}
-
-	@Override
-	public List<TimeSeriesArchivalObject> unarchive() throws ArchiveException {
-		// TODO Auto-generated method stub
-		return null;
-	}
+	/**
+	 * @param tag
+	 * @return
+	 */
+	public Set<String> searchRowKeysForTag(String tag);
 
 }

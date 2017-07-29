@@ -365,4 +365,15 @@ public class ByzantineWriter implements Writer {
 		this.conf = conf;
 	}
 
+	@Override
+	public void delete() throws IOException {
+		if(!closed) {
+			close();
+		}
+		if(onDisk) {
+			logger.info("Data file being deleted:" + seriesId + "\t" + outputFile);
+			new File(outputFile).delete();
+		}
+	}
+
 }

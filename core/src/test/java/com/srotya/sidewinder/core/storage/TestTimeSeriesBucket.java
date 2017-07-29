@@ -28,9 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Reader;
-import com.srotya.sidewinder.core.storage.compression.gorilla.GorillaWriter;
+import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 
 /**
  * Unit tests for {@link TimeSeriesBucket}
@@ -39,7 +37,7 @@ import com.srotya.sidewinder.core.storage.compression.gorilla.GorillaWriter;
  */
 public class TestTimeSeriesBucket {
 
-	private String className = GorillaWriter.class.getName();
+	private String className = ByzantineWriter.class.getName();
 
 	@Test
 	public void testDataPointWrite() throws IOException {
