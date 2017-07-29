@@ -7,17 +7,12 @@
     <version>0.0.23-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
-  <artifactId>sidewinder-grafana</artifactId>
+  <artifactId>ambari-stack</artifactId>
+  <packaging>pom</packaging>
+  <name>ambari-stack</name>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
-  <dependencies>
-    <dependency>
-      <groupId>junit</groupId>
-      <artifactId>junit</artifactId>
-      <scope>test</scope>
-    </dependency>
-  </dependencies>
   <build>
     <plugins>
       <plugin>

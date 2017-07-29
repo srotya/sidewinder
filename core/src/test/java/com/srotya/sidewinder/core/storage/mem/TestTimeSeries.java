@@ -30,7 +30,7 @@ import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
-import com.srotya.sidewinder.core.storage.compression.gorilla.GorillaWriter;
+import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 
 /**
  * Unit tests for {@link TimeSeries}
@@ -39,7 +39,7 @@ import com.srotya.sidewinder.core.storage.compression.gorilla.GorillaWriter;
  */
 public class TestTimeSeries {
 	
-	private String className = GorillaWriter.class.getName();
+	private String className = ByzantineWriter.class.getName();
 
 	@Test
 	public void testTimeSeriesConstruct() {

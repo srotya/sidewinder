@@ -39,5 +39,18 @@ public class TestLRUSortedMap {
 		BucketEntry bucketEntry = map.get(String.valueOf(94));
 		assertTrue(bucketEntry.getPrev() != null);
 	}
+	
+	@Test
+	public void testLRUBehaviroMap() {
+		SortedMap<String, BucketEntry> map = new ConcurrentLRUSortedMap(10);
+		for (int i = 0; i < 100; i++) {
+			map.put(String.valueOf(i), new BucketEntry(String.valueOf(i), null));
+		}
+		assertEquals(100, map.size());
+		map.remove(String.valueOf(95));
+		assertEquals(99, map.size());
+		BucketEntry bucketEntry = map.get(String.valueOf(94));
+		assertTrue(bucketEntry.getPrev() != null);
+	}
 
 }
