@@ -20,6 +20,9 @@ import java.io.IOException;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.disk.BucketEntry;
 
+/**
+ * @author ambud
+ */
 public class BucketEntry {
 
 	private BucketEntry next, prev;
@@ -110,6 +113,16 @@ public class BucketEntry {
 		if (value != null) {
 			try {
 				value.close();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		}
+	}
+	
+	public void delete() {
+		if (value != null) {
+			try {
+				value.delete();
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}

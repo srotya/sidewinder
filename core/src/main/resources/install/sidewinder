@@ -12,7 +12,8 @@ source /etc/sidewinder/sidewinder-env.sh
 SCRIPT="$JAVA_HOME/bin/java -cp $SIDEWINDER_HOME/lib/*.jar com.srotya.sidewinder.core.SidewinderServer server $SIDEWINDER_CONF/config.yaml"
 RUNAS=sidewinder
 
-PIDFILE=/var/run/sidewinder.pid
+PIDNAME=sidewinder.pid
+PIDFILE=/var/run/$PIDNAME
 LOGFILE=/var/log/sidewinder.log
 
 touch $LOGFILE
@@ -20,7 +21,7 @@ chown $RUNAS $LOGFILE
 
 start() {
   if [ -f /var/run/$PIDNAME ] && kill -0 $(cat /var/run/$PIDNAME); then
-    echo 'Service already running' >&2
+    echo 'Service already running'
     return 1
   fi
   echo 'Starting service…' >&2
@@ -52,6 +53,17 @@ uninstall() {
   fi
 }
 
+status() {
+  echo "Checking Sidewinder"
+  if [ -f /var/run/$PIDNAME ] && kill -0 $(cat /var/run/$PIDNAME); then
+    echo 'Service already running'
+    return 0
+  else 
+    echo 'Service not running'
+    return 1
+  fi
+}
+
 case "$1" in
   start)
     start
@@ -66,6 +78,9 @@ case "$1" in
     stop
     start
     ;;
+  status)
+    status
+    ;;
   *)
-    echo "Usage: $0 {start|stop|restart|uninstall}"
+    echo "Usage: $0 {start|stop|restart|uninstall|status}"
 esac

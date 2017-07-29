@@ -103,7 +103,7 @@ public class TestMiscUtils {
 	}
 
 	@Test
-	public void testBuildTagFilter() {
+	public void testBuildTagFilter() throws InvalidFilterException {
 		List<String> tags = new ArrayList<>();
 		Filter<List<String>> filter = MiscUtils.buildTagFilter("host1&test|tree", tags);
 		assertEquals(3, tags.size());

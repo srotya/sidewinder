@@ -208,13 +208,13 @@ public class TimeSeries {
 	public TimeSeriesBucket getSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
 		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
 		String tsBucket = Integer.toHexString(bucket);
-		return bucketMap.get(tsBucket);
+		return getBucketMap().get(tsBucket);
 	}
 
 	public SortedMap<String, TimeSeriesBucket> getSeriesBuckets(TimeUnit unit, long timestamp) throws IOException {
-		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
+		int bucket = TimeUtils.getTimeBucket(unit, timestamp, getTimeBucketSize());
 		String tsBucket = Integer.toHexString(bucket);
-		return bucketMap.tailMap(tsBucket);
+		return getBucketMap().tailMap(tsBucket);
 	}
 
 	/**

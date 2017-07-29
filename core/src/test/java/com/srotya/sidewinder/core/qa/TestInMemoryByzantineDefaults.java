@@ -107,6 +107,24 @@ public class TestInMemoryByzantineDefaults {
 		}
 	}
 
+	public void testPerfWrites() throws KeyManagementException, ClientProtocolException, NoSuchAlgorithmException,
+			KeyStoreException, MalformedURLException, IOException, ParseException, InterruptedException {
+		long sts = 1497720452566L;
+		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+		format.setTimeZone(TimeZone.getTimeZone("utc"));
+		for (int i = 0; i < 1_0000; i++) {
+			HttpPost post = new HttpPost("http://localhost:8080/influx?db=qaSingleSeries");
+			post.setEntity(new StringEntity("cpu,host=server01,region=uswest value=1i "+(sts+i*1000)*1000000+"\n"
+					+ "cpu,host=server02,region=uswest value=1i "+(sts+i*1000)*1000000+"\n"
+					+ "cpu,host=server03,region=uswest value=1i "+(sts+i*1000)*1000000+"\n"
+					+ "cpu,host=server04,region=uswest value=1i "+(sts+i*1000)*1000000+"\n"
+					+ "cpu,host=server05,region=uswest value=1i "+(sts+i*1000)*1000000+"\n"
+					+ "cpu,host=server06,region=uswest value=1i "+(sts+i*1000)*1000000));
+			CloseableHttpResponse response = TestUtils.makeRequest(post);
+			assertEquals(204, response.getStatusLine().getStatusCode());
+		}
+	}
+
 	@Test
 	public void testSingleSeriesWrites()
 			throws KeyManagementException, ClientProtocolException, NoSuchAlgorithmException, KeyStoreException,
