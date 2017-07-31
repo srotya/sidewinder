@@ -55,7 +55,6 @@ public class ByzantineWriter implements Writer {
 	private String seriesId;
 	private boolean onDisk;
 	private String outputFile;
-	private RandomAccessFile file;
 	private boolean closed;
 	private Map<String, String> conf;
 
@@ -72,6 +71,7 @@ public class ByzantineWriter implements Writer {
 		this.conf = conf;
 		onDisk = Boolean.parseBoolean(conf.getOrDefault(StorageEngine.PERSISTENCE_DISK, "false"));
 		if (onDisk) {
+			RandomAccessFile file;
 			String outputDirectory = conf.getOrDefault("data.dir", "/tmp/sidewinder/data");
 			outputFile = outputDirectory + "/" + seriesId;
 			logger.fine("\n\n" + outputFile + "\t" + outputFile + "\n\n");
@@ -89,6 +89,7 @@ public class ByzantineWriter implements Writer {
 				buf = file.getChannel().map(MapMode.READ_WRITE, 0, DEFAULT_BUFFER_INIT_SIZE);
 				buf.putInt(0);
 			}
+			file.close();
 		} else {
 			buf = ByteBuffer.allocateDirect(DEFAULT_BUFFER_INIT_SIZE);
 			buf.putInt(0);
@@ -163,18 +164,23 @@ public class ByzantineWriter implements Writer {
 
 	private void checkAndExpandBuffer() throws IOException {
 		if (buf.remaining() < 20) {
-			if (onDisk) {
-				expandBufferTo((int) (file.length() * 1.2));
-			} else {
-				expandBufferTo((int) (buf.capacity() * 1.2));
+			int cap = 0;
+			if (!onDisk) {
+				cap = (int) (buf.capacity() * 1.2);
+				if (cap < 0) {
+					throw new IOException("Buffer too large >2GB");
+				}
 			}
+			expandBufferTo(cap);
 		}
 	}
 
 	private void expandBufferTo(int newBufferSize) throws IOException {
 		ByteBuffer temp = null;
 		if (onDisk) {
-			temp = file.getChannel().map(MapMode.READ_WRITE, 0, newBufferSize);
+			RandomAccessFile file = new RandomAccessFile(outputFile, "rwd");
+			temp = file.getChannel().map(MapMode.READ_WRITE, 0, (int) (file.length() * 1.2));
+			file.close();
 		} else {
 			temp = ByteBuffer.allocateDirect(newBufferSize);
 		}
@@ -352,9 +358,7 @@ public class ByzantineWriter implements Writer {
 		if (onDisk && !closed) {
 			logger.info("Data file being freed to contain file IO for:" + seriesId + "\t" + outputFile);
 			((MappedByteBuffer) buf).force();
-			file.close();
 			buf = null;
-			file = null;
 			closed = true;
 		}
 		write.unlock();
@@ -367,10 +371,10 @@ public class ByzantineWriter implements Writer {
 
 	@Override
 	public void delete() throws IOException {
-		if(!closed) {
+		if (!closed) {
 			close();
 		}
-		if(onDisk) {
+		if (onDisk) {
 			logger.info("Data file being deleted:" + seriesId + "\t" + outputFile);
 			new File(outputFile).delete();
 		}
