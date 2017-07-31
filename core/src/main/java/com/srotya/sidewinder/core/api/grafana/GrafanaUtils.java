@@ -20,6 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.Stack;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.ws.rs.NotFoundException;
 
@@ -44,6 +46,8 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  * @author ambud
  */
 public class GrafanaUtils {
+
+	private static final Logger logger = Logger.getLogger(GrafanaUtils.class.getName());
 
 	private GrafanaUtils() {
 	}
@@ -127,6 +131,10 @@ public class GrafanaUtils {
 				Object[] args = new Object[ary.size()];
 				for (JsonElement element : ary) {
 					JsonObject arg = element.getAsJsonObject();
+					// ignore invalid aggregation function
+					if (!arg.has("index") || !arg.has("value")) {
+						return null;
+					}
 					int index = arg.get("index").getAsInt();
 					switch (arg.get("type").getAsString().toLowerCase()) {
 					case "string":
@@ -146,8 +154,7 @@ public class GrafanaUtils {
 				instance.init(args);
 				return instance;
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				logger.log(Level.FINE, "Failed to extract aggregate function:" + jsonElement, e);
 			}
 		}
 		return null;
