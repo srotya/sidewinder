@@ -43,9 +43,8 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testByzantineReaderInit() throws IOException {
 		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(new HashMap<>());
+		writer.configure(new HashMap<>(), null, false);
 		assertEquals(0, writer.getCount());
-		assertEquals(ByzantineWriter.DEFAULT_BUFFER_INIT_SIZE, writer.getBuf().capacity());
 		assertEquals(0, writer.getDelta());
 		assertEquals(0, writer.getPrevTs());
 		assertNotNull(writer.getRead());
@@ -65,7 +64,7 @@ public class TestByzantineReadWrite {
 	public void testWriteDataPoint() throws IOException {
 		ByzantineWriter bwriter = new ByzantineWriter();
 		Writer writer = bwriter;
-		writer.configure(new HashMap<>());
+		writer.configure(new HashMap<>(), null, false);
 
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
@@ -84,7 +83,7 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testReadWriteDataPoints() throws IOException {
 		Writer writer = new ByzantineWriter();
-		writer.configure(new HashMap<>());
+		writer.configure(new HashMap<>(), null, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
@@ -114,7 +113,7 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testWriteRead() throws IOException {
 		Writer writer = new ByzantineWriter();
-		writer.configure(new HashMap<>());
+		writer.configure(new HashMap<>(), null, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 10000; i++) {
@@ -131,8 +130,8 @@ public class TestByzantineReadWrite {
 		new File("target/diskTest").mkdirs();
 		conf.put("data.dir", "target/diskTest");
 		conf.put(StorageEngine.PERSISTENCE_DISK, "true");
-		writer.setSeriesId("test_byzantine_disk_writes" + 2);
-		writer.configure(conf);
+//		writer.setSeriesId("test_byzantine_disk_writes" + 2);
+		writer.configure(new HashMap<>(), null, false);
 		long ots = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
@@ -149,8 +148,8 @@ public class TestByzantineReadWrite {
 		try {
 			writer = new ByzantineWriter();
 			conf.put(StorageEngine.PERSISTENCE_DISK, "false");
-			writer.setSeriesId("test_byzantine_disk_writes" + 4);
-			writer.configure(conf);
+//			writer.setSeriesId("test_byzantine_disk_writes" + 4);
+			writer.configure(new HashMap<>(), null, false);
 			writer.bootstrap(rawBytes);
 			reader = writer.getReader();
 			for (int i = 0; i < limit; i++) {
@@ -158,7 +157,6 @@ public class TestByzantineReadWrite {
 				assertEquals(ots + i * 1000, pair.getTimestamp());
 				assertEquals(i, pair.getLongValue());
 			}
-			writer.close();
 			reader = writer.getReader();
 			for (int i = 0; i < limit; i++) {
 				DataPoint pair = reader.readPair();
@@ -178,8 +176,8 @@ public class TestByzantineReadWrite {
 		new File("target/diskTest").mkdirs();
 		conf.put("data.dir", "target/diskTest");
 		conf.put(StorageEngine.PERSISTENCE_DISK, "true");
-		writer.setSeriesId("test_byzantine_disk_writes" + 0);
-		writer.configure(conf);
+//		writer.setSeriesId("test_byzantine_disk_writes" + 0);
+		writer.configure(new HashMap<>(), null, false);
 		long ots = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
@@ -188,7 +186,6 @@ public class TestByzantineReadWrite {
 		}
 		long ts = (System.currentTimeMillis() - ots);
 		System.out.println("==>Byzantine Write time:" + ts + " data size:" + writer.getBuf().position());
-		writer.close();
 		Reader reader = writer.getReader();
 		assertEquals(limit, reader.getPairCount());
 		try {
@@ -202,10 +199,9 @@ public class TestByzantineReadWrite {
 			throw e;
 		}
 		System.out.println("Completed phase 1 reads");
-		writer.close();
 		writer = new ByzantineWriter();
-		writer.setSeriesId("test_byzantine_disk_writes" + 0);
-		writer.configure(conf);
+//		writer.setSeriesId("test_byzantine_disk_writes" + 0);
+		writer.configure(new HashMap<>(), null, false);
 		writer.addValue(ts + 10000, 1);
 		try {
 			reader = writer.getReader();
@@ -239,8 +235,8 @@ public class TestByzantineReadWrite {
 		new File("target/diskTest").mkdirs();
 		conf.put("data.dir", "target/diskTest");
 		conf.put(StorageEngine.PERSISTENCE_DISK, "true");
-		writer.setSeriesId("test_1M_writes" + 0);
-		writer.configure(conf);
+//		writer.setSeriesId("test_1M_writes" + 0);
+		writer.configure(new HashMap<>(), null, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		int limit = 1_000_000;

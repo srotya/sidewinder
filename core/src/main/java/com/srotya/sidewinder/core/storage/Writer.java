@@ -34,20 +34,12 @@ public interface Writer {
 
 	public void setHeaderTimestamp(long timestamp);
 	
-	public void configure(Map<String, String> conf) throws IOException;
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException;
 
 	public void bootstrap(ByteBuffer buf) throws IOException;
-
-	public void setSeriesId(String seriesId);
 
 	public ByteBuffer getRawBytes();
 	
 	public void setCounter(int counter);
 
-	public void close() throws IOException;
-
-	public void setConf(Map<String, String> conf);
-
-	public void delete() throws IOException;
-	
 }

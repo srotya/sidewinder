@@ -41,14 +41,14 @@ public class TimeSeriesBucket implements Serializable {
 	public TimeSeriesBucket(String seriesId, String compressionFQCN, long headerTimestamp, boolean disk,
 			Map<String, String> conf) {
 		this.headerTimestamp = headerTimestamp;
-		try {
-			writer = (Writer) Class.forName(compressionFQCN).newInstance();
-			writer.setSeriesId(seriesId);
-			writer.configure(conf);
-		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException | IOException e) {
-			e.printStackTrace();
-			throw new RuntimeException(e);
-		}
+//		try {
+//			writer = (Writer) Class.forName(compressionFQCN).newInstance();
+//			writer.setSeriesId(seriesId);
+//			writer.configure(conf);
+//		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException | IOException e) {
+//			e.printStackTrace();
+//			throw new RuntimeException(e);
+//		}
 		writer.setHeaderTimestamp(headerTimestamp);
 	}
 
@@ -151,10 +151,8 @@ public class TimeSeriesBucket implements Serializable {
 	}
 
 	public void close() throws IOException {
-		writer.close();
 	}
 	
 	public void delete() throws IOException {
-		writer.delete();
 	}
 }

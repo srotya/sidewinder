@@ -44,7 +44,6 @@ public class DodWriter implements Writer {
 	private long lastTs;
 
 	public DodWriter() {
-		writer = new BitWriter(4096);
 	}
 
 	public DodWriter(long headTs, byte[] buf) {
@@ -53,9 +52,10 @@ public class DodWriter implements Writer {
 	}
 	
 	@Override
-	public void configure(Map<String, String> conf) {
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException {
+		writer = new BitWriter(buf);
 	}
-
+	
 	public void write(DataPoint dp) {
 		write.lock();
 		writeDataPoint(dp.getTimestamp(), dp.getLongValue());
@@ -127,10 +127,6 @@ public class DodWriter implements Writer {
 		writer.writeBits(timestamp, 64);
 	}
 
-	@Override
-	public void setSeriesId(String seriesId) {
-	}
-	
 	public BitWriter getWriter() {
 		return writer;
 	}
@@ -154,15 +150,4 @@ public class DodWriter implements Writer {
 		this.count = counter;
 	}
 
-	@Override
-	public void close() throws IOException {
-	}
-
-	@Override
-	public void setConf(Map<String, String> conf) {
-	}
-
-	@Override
-	public void delete() throws IOException {
-	}
 }

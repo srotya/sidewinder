@@ -83,7 +83,8 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 				TimeSeriesBucket tsb = series.getOrCreateSeriesBucket(TimeUnit.MILLISECONDS,
 						bucket.getHeaderTimestamp());
 				Writer writer = tsb.getWriter();
-				writer.configure(conf);
+				//TODO configure
+				writer.configure(conf, null, false);
 				writer.setCounter(bucket.getCount());
 				writer.bootstrap(bucket.getData().asReadOnlyByteBuffer());
 			}
