@@ -25,7 +25,6 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 
 import javax.ws.rs.BadRequestException;
-import javax.ws.rs.Consumes;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
@@ -84,7 +83,7 @@ public class SqlApi {
 			CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
 			String tdbName = dbName.toUpperCase();
 			if (calciteConnection.getRootSchema().getSubSchema(tdbName) == null) {
-				System.err.println("Adding DB to connection:" + dbName);
+				System.err.println("Adding DB to connection:" + dbName + "\t" + tdbName);
 				calciteConnection.getRootSchema().add(tdbName, new SidewinderDatabaseSchema(engine, dbName));
 			}
 			return true;
@@ -93,7 +92,6 @@ public class SqlApi {
 
 	@Path("/database/{" + DatabaseOpsApi.DB_NAME + "}")
 	@Produces({ MediaType.APPLICATION_JSON })
-	@Consumes({ MediaType.TEXT_PLAIN })
 	@POST
 	public String queryResults(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String sql) {
 		try {

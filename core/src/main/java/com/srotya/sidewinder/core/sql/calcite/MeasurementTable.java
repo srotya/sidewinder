@@ -71,20 +71,19 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 		types = new ArrayList<>();
 		names = new ArrayList<>();
 
+//		names.add("TAGS");
+//		types.add(typeFactory.createSqlType(SqlTypeName.ANY));
+
+		names.add(fieldName.toUpperCase());
 		// value field
 		if (isFp) {
-			names.add(measurementName + "_" + fieldName);
 			types.add(typeFactory.createSqlType(SqlTypeName.DOUBLE, 10));
 		} else {
-			names.add(measurementName + "_" + fieldName);
 			types.add(typeFactory.createSqlType(SqlTypeName.BIGINT, 10));
 		}
 
-		names.add("time_stamp");
+		names.add("TIME_STAMP".toUpperCase());
 		types.add(typeFactory.createSqlType(SqlTypeName.TIMESTAMP));
-
-		names.add("tags");
-		types.add(typeFactory.createSqlType(SqlTypeName.CHAR));
 
 		return typeFactory.createStructType(types, names);
 	}
@@ -113,7 +112,7 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 		if (findTimeRange == null) {
 			// by default get last 1hr's data if no time range filter is
 			// specified
-			findTimeRange = new AbstractMap.SimpleEntry<Long, Long>(System.currentTimeMillis() - (3600 * 1000),
+			findTimeRange = new AbstractMap.SimpleEntry<Long, Long>(System.currentTimeMillis() - (3600_000),
 					System.currentTimeMillis());
 		} else if (findTimeRange.getKey().equals(findTimeRange.getValue())) {
 			findTimeRange = new AbstractMap.SimpleEntry<Long, Long>(findTimeRange.getKey(), System.currentTimeMillis());
@@ -156,7 +155,7 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 							} catch (IOException e) {
 								if (iterator.hasNext()) {
 									next = iterator.next();
-								}else {
+								} else {
 									next = null;
 								}
 								if (next != null) {
@@ -174,11 +173,11 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 					@Override
 					public Object[] current() {
 						if (next.getValue()) {
-							return new Object[] { (Double) dataPoint.getValue(), dataPoint.getTimestamp(),
-									dataPoint.getTags().toString() };
+							// (dataPoint.getTags() != null) ? dataPoint.getTags().toString() : null,
+							return new Object[] {
+									(Double) dataPoint.getValue(), dataPoint.getTimestamp() };
 						} else {
-							return new Object[] { (Long) dataPoint.getLongValue(), dataPoint.getTimestamp(),
-									dataPoint.getTags().toString() };
+							return new Object[] { (Long) dataPoint.getLongValue(), dataPoint.getTimestamp() };
 						}
 					}
 
@@ -258,24 +257,24 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 		}
 	}
 
-	@SuppressWarnings("unused")
-	private static boolean addFilter(RexNode filter, Object[] filterValues) {
-		if (filter.isA(SqlKind.EQUALS)) {
-			final RexCall call = (RexCall) filter;
-			RexNode left = call.getOperands().get(0);
-			if (left.isA(SqlKind.CAST)) {
-				left = ((RexCall) left).operands.get(0);
-			}
-			final RexNode right = call.getOperands().get(1);
-			if (left instanceof RexInputRef && right instanceof RexLiteral) {
-				final int index = ((RexInputRef) left).getIndex();
-				if (filterValues[index] == null) {
-					filterValues[index] = ((RexLiteral) right).getValue2().toString();
-					return true;
-				}
-			}
-		}
-		return false;
-	}
+	// @SuppressWarnings("unused")
+	// private static boolean addFilter(RexNode filter, Object[] filterValues) {
+	// if (filter.isA(SqlKind.EQUALS)) {
+	// final RexCall call = (RexCall) filter;
+	// RexNode left = call.getOperands().get(0);
+	// if (left.isA(SqlKind.CAST)) {
+	// left = ((RexCall) left).operands.get(0);
+	// }
+	// final RexNode right = call.getOperands().get(1);
+	// if (left instanceof RexInputRef && right instanceof RexLiteral) {
+	// final int index = ((RexInputRef) left).getIndex();
+	// if (filterValues[index] == null) {
+	// filterValues[index] = ((RexLiteral) right).getValue2().toString();
+	// return true;
+	// }
+	// }
+	// }
+	// return false;
+	// }
 
 }

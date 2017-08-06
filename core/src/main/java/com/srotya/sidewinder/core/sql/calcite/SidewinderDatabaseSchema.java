@@ -35,7 +35,7 @@ public class SidewinderDatabaseSchema extends AbstractSchema {
 		this.engine = engine;
 		this.dbName = dbName;
 	}
-
+	
 	@Override
 	protected Map<String, Table> getTableMap() {
 		Map<String, Table> tableMap = new HashMap<>();
@@ -51,8 +51,7 @@ public class SidewinderDatabaseSchema extends AbstractSchema {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		System.err.println(tableMap);
 		return tableMap;
 	}
-
+	
 }

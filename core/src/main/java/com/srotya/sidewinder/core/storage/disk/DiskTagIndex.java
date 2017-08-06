@@ -26,7 +26,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.utils.MiscUtils;
-import com.srotya.sidewinder.core.utils.MurmurHash;
+
+import net.jpountz.xxhash.XXHash32;
+import net.jpountz.xxhash.XXHashFactory;
 
 /**
  * Tag hash lookup table + Tag inverted index
@@ -37,7 +39,9 @@ public class DiskTagIndex implements TagIndex {
 
 	private Map<Integer, String> tagMap;
 	private Map<String, Set<String>> rowKeyIndex;
+	private XXHashFactory factory = XXHashFactory.fastestInstance();
 	private String indexPath;
+	private XXHash32 hash;
 
 	public DiskTagIndex(String baseIndexDirectory, String dbName, String measurementName) throws IOException {
 		this.indexPath = baseIndexDirectory + "/" + dbName;
@@ -45,6 +49,7 @@ public class DiskTagIndex implements TagIndex {
 		this.indexPath += "/" + measurementName;
 		tagMap = new ConcurrentHashMap<>();
 		rowKeyIndex = new ConcurrentHashMap<>();
+		hash = factory.hash32();
 		loadTagIndex();
 	}
 
@@ -82,7 +87,7 @@ public class DiskTagIndex implements TagIndex {
 
 	@Override
 	public String createEntry(String tag) throws IOException {
-		int hash32 = MurmurHash.hash32(tag);
+		int hash32 = hash.hash(tag.getBytes(), 0, tag.length(), 57);
 		String val = tagMap.get(hash32);
 		if (val == null) {
 			synchronized (tagMap) {
@@ -111,15 +116,18 @@ public class DiskTagIndex implements TagIndex {
 		if (rowKeySet == null) {
 			synchronized (rowKeyIndex) {
 				if ((rowKeySet = rowKeyIndex.get(tag)) == null) {
-					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());;
+					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
+					;
 					rowKeyIndex.put(tag, rowKeySet);
 				}
 			}
 		}
-		boolean add = rowKeySet.add(rowKey);
-		if (add) {
-			synchronized (tagMap) {
-				DiskStorageEngine.appendLineToFile(tag + "\t" + rowKey, indexPath + ".rev");
+		if (!rowKeySet.contains(rowKey)) {
+			boolean add = rowKeySet.add(rowKey);
+			if (add) {
+				synchronized (tagMap) {
+					DiskStorageEngine.appendLineToFile(tag + "\t" + rowKey, indexPath + ".rev");
+				}
 			}
 		}
 	}
