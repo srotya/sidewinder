@@ -22,7 +22,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.srotya.sidewinder.core.storage.TagIndex;
-import com.srotya.sidewinder.core.utils.MurmurHash;
+
+import net.jpountz.xxhash.XXHash32;
+import net.jpountz.xxhash.XXHashFactory;
 
 /**
  * Tag hash lookup table + Tag inverted index
@@ -33,19 +35,23 @@ public class MemTagIndex implements TagIndex {
 
 	private Map<Integer, String> tagMap;
 	private Map<String, Set<String>> rowKeyIndex;
+	private XXHashFactory factory = XXHashFactory.fastestInstance();
+	private XXHash32 hash;
 
 	public MemTagIndex() {
 		tagMap = new ConcurrentHashMap<>();
 		rowKeyIndex = new ConcurrentHashMap<>();
+		hash = factory.hash32();
 	}
 
 	/**
 	 * Hashes the tag to UI
+	 * 
 	 * @param tag
 	 * @return uid
 	 */
 	public String createEntry(String tag) {
-		int hash32 = MurmurHash.hash32(tag);
+		int hash32 = hash.hash(tag.getBytes(), 0, tag.length(), 57);
 		String val = tagMap.get(hash32);
 		if (val == null) {
 			tagMap.put(hash32, tag);
@@ -63,6 +69,7 @@ public class MemTagIndex implements TagIndex {
 
 	/**
 	 * Indexes tag in the row key, creating an adjacency list
+	 * 
 	 * @param tag
 	 * @param rowKey
 	 */
@@ -76,7 +83,9 @@ public class MemTagIndex implements TagIndex {
 				}
 			}
 		}
-		rowKeySet.add(rowKey);
+		if (!rowKeySet.contains(rowKey)) {
+			rowKeySet.add(rowKey);
+		}
 	}
 
 	public Set<String> searchRowKeysForTag(String tag) {

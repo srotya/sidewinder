@@ -31,6 +31,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
 import com.srotya.sidewinder.core.api.InfluxApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
+import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.health.RestAPIHealthCheck;
 import com.srotya.sidewinder.core.ingress.binary.NettyBinaryIngestionServer;
@@ -78,7 +79,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 				ConfigConstants.DEFAULT_STORAGE_ENGINE);
 		logger.info("Using Storage Engine:" + storageEngineClass);
 
-		ScheduledExecutorService bgTasks = Executors.newScheduledThreadPool(2,
+		ScheduledExecutorService bgTasks = Executors.newScheduledThreadPool(Integer.parseInt(conf.getOrDefault("bgthread.count", "2")),
 				new BackgrounThreadFactory("sidewinderbg-tasks"));
 
 		storageEngine = (StorageEngine) Class.forName(storageEngineClass).newInstance();
@@ -89,6 +90,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		env.jersey().register(new MeasurementOpsApi(storageEngine, registry));
 		env.jersey().register(new DatabaseOpsApi(storageEngine, registry));
 		env.jersey().register(new InfluxApi(storageEngine, registry));
+		env.jersey().register(new SqlApi(storageEngine));
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
 
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {

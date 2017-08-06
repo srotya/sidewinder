@@ -118,7 +118,7 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryMeasurementNames(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
-		logger.log(Level.FINE, "Query measurements for db:" + dbName + "\t" + queryString);
+		logger.log(Level.INFO, "Query measurements for db:" + dbName + "\t" + queryString);
 		try {
 			if (queryString != null && !queryString.isEmpty()) {
 				JsonObject query = new Gson().fromJson(queryString, JsonObject.class);
@@ -135,7 +135,6 @@ public class GrafanaQueryApi {
 		} catch (RejectException e) {
 			throw new BadRequestException(e);
 		} catch (Exception e) {
-			e.printStackTrace();
 			throw new InternalServerErrorException(e.getMessage());
 		}
 	}
@@ -175,7 +174,7 @@ public class GrafanaQueryApi {
 			JsonObject measurement = gson.fromJson(queryString, JsonObject.class);
 			if (measurement.has("target")) {
 				Set<String> response = engine.getFieldsForMeasurement(dbName, measurement.get("target").getAsString());
-				logger.log(Level.INFO, "Query fields for db:" + dbName + "\t" + response + "\t" + queryString);
+				logger.log(Level.FINE, "Query fields for db:" + dbName + "\t" + response + "\t" + queryString);
 				return response;
 			} else {
 				throw new ItemNotFoundException("Bad request");
