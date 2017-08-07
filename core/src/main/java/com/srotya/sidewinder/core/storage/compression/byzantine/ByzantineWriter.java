@@ -49,7 +49,12 @@ public class ByzantineWriter implements Writer {
 	public ByzantineWriter() {
 	}
 
-	public ByzantineWriter(long headerTimestamp, byte[] buf) {
+	/**
+	 * For unit testing only
+	 * @param headerTimestamp
+	 * @param buf
+	 */
+	protected ByzantineWriter(long headerTimestamp, byte[] buf) {
 		this();
 		this.buf = ByteBuffer.allocateDirect(buf.length);
 		setHeaderTimestamp(headerTimestamp);

@@ -86,7 +86,6 @@ public class PersistentTimeSeries extends TimeSeries {
 		retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
-//		bucketMap = new ConcurrentLRUSortedMap(2);
 		bucketMap = new ConcurrentSkipListMap<>();
 		bucketMapPath = measurementPath + "/" + seriesId;
 		this.conf.put("data.dir", bucketMapPath);
@@ -111,7 +110,7 @@ public class PersistentTimeSeries extends TimeSeries {
 			String[] split = bucketEntry.split("\t");
 			logger.fine("Loading bucketmap:" + seriesId + "\t" + split[1]);
 			bucketMap.put(split[0], new BucketEntry(split[0], new TimeSeriesBucket(combinedSeriesId(split[0]),
-					compressionFQCN, Long.parseLong(split[1]), true, conf)));
+					compressionFQCN, Long.parseLong(split[1]), true, conf, buf, false)));
 		}
 	}
 
@@ -226,7 +225,7 @@ public class PersistentTimeSeries extends TimeSeries {
 			synchronized (bucketMap) {
 				if ((timeseriesBucket = bucketMap.get(tsBucket)) == null) {
 					timeseriesBucket = new BucketEntry(tsBucket,
-							new TimeSeriesBucket(combinedSeriesId(tsBucket), compressionFQCN, timestamp, true, conf));
+							new TimeSeriesBucket(combinedSeriesId(tsBucket), compressionFQCN, timestamp, true, conf, buf, true));
 					appendBucketToSeriesFile(tsBucket, timestamp);
 					bucketMap.put(tsBucket, timeseriesBucket);
 				}
@@ -334,7 +333,7 @@ public class PersistentTimeSeries extends TimeSeries {
 		}
 		return points;
 	}
-	
+
 	/**
 	 * Cleans stale series
 	 */

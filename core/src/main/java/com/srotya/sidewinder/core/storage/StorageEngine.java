@@ -284,7 +284,7 @@ public interface StorageEngine {
 	 * @return databaseMap
 	 * @throws IOException
 	 */
-	public Map<String, Map<String, TimeSeries>> getOrCreateDatabase(String dbName) throws IOException;
+	public Map<String, Measurement> getOrCreateDatabase(String dbName) throws IOException;
 
 	/**
 	 * Gets the database, creates it with supplied rention policy if it doesn't
@@ -295,7 +295,7 @@ public interface StorageEngine {
 	 * @return measurementMap
 	 * @throws IOException
 	 */
-	public Map<String, Map<String, TimeSeries>> getOrCreateDatabase(String dbName, int retentionPolicy)
+	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy)
 			throws IOException;
 
 	/**
@@ -306,7 +306,7 @@ public interface StorageEngine {
 	 * @return timeseriesMap
 	 * @throws IOException
 	 */
-	public Map<String, TimeSeries> getOrCreateMeasurement(String dbName, String measurementName) throws IOException;
+	public Measurement getOrCreateMeasurement(String dbName, String measurementName) throws IOException;
 
 	/**
 	 * Gets the Timeseries, creates it if it doesn't already exist

@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
@@ -39,16 +40,15 @@ public class TimeSeriesBucket implements Serializable {
 	private long headerTimestamp;
 
 	public TimeSeriesBucket(String seriesId, String compressionFQCN, long headerTimestamp, boolean disk,
-			Map<String, String> conf) {
+			Map<String, String> conf, ByteBuffer buf, boolean isNew) {
 		this.headerTimestamp = headerTimestamp;
-//		try {
-//			writer = (Writer) Class.forName(compressionFQCN).newInstance();
-//			writer.setSeriesId(seriesId);
-//			writer.configure(conf);
-//		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException | IOException e) {
-//			e.printStackTrace();
-//			throw new RuntimeException(e);
-//		}
+		try {
+			writer = (Writer) Class.forName(compressionFQCN).newInstance();
+			writer.configure(conf, buf, isNew);
+		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException | IOException e) {
+			e.printStackTrace();
+			throw new RuntimeException(e);
+		}
 		writer.setHeaderTimestamp(headerTimestamp);
 	}
 
