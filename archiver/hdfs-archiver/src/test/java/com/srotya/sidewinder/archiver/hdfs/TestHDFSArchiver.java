@@ -30,8 +30,8 @@ import org.junit.BeforeClass;
 import com.srotya.sidewinder.core.storage.ArchiveException;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 

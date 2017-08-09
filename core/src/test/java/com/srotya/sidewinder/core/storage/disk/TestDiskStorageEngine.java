@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -53,14 +54,15 @@ import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
-import com.srotya.sidewinder.core.storage.Reader;
+import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
+import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
-import com.srotya.sidewinder.core.storage.mem.TimeSeries;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
@@ -278,12 +280,13 @@ public class TestDiskStorageEngine {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, Map<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
+		Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
 		assertEquals(0, db.size());
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
 				MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
-		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").size());
+		Measurement measurement = engine.getOrCreateMeasurement("test3", "cpu");
+		assertEquals(1, measurement.getTimeSeriesMap().size());
 
 		engine = new DiskStorageEngine();
 		engine.configure(map, bgTasks);
@@ -303,12 +306,12 @@ public class TestDiskStorageEngine {
 			engine.dropDatabase("test3");
 		} catch (Exception e) {
 		}
-		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").size());
+		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
 
 		engine = new DiskStorageEngine();
 		engine.configure(map, bgTasks);
 
-		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").size());
+		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
 		engine.disconnect();
 	}
 
@@ -324,12 +327,12 @@ public class TestDiskStorageEngine {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, Map<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
+		Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
 		assertEquals(0, db.size());
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
 				MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
-		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").size());
+		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
 		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000),
 				null, null);
 		assertTrue(!engine.isMeasurementFieldFP("test3", "cpu", "value"));
@@ -345,7 +348,7 @@ public class TestDiskStorageEngine {
 			engine.dropDatabase("test3");
 		} catch (Exception e) {
 		}
-		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").size());
+		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
 		engine.disconnect();
 	}
 
@@ -410,8 +413,8 @@ public class TestDiskStorageEngine {
 		map.put("index.dir", "target/db1/index");
 		map.put("data.dir", "target/db1/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		TimeSeriesBucket timeSeries = new TimeSeriesBucket("seriesId", ByzantineWriter.class.getName(), headerTimestamp,
-				true, map);
+		ByteBuffer buf = ByteBuffer.allocate(100);
+		TimeSeriesBucket timeSeries = new TimeSeriesBucket(ByzantineWriter.class.getName(), headerTimestamp, map, buf, true);
 		timeSeries.addDataPoint(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, null, null, false);
 		assertEquals(1, points.size());

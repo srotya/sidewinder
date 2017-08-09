@@ -26,7 +26,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Writer;
+import com.srotya.sidewinder.core.storage.compression.RollOverException;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * A simple delta-of-delta timeseries compression with XOR value compression
@@ -51,6 +52,7 @@ public class ByzantineWriter implements Writer {
 
 	/**
 	 * For unit testing only
+	 * 
 	 * @param headerTimestamp
 	 * @param buf
 	 */
@@ -69,7 +71,7 @@ public class ByzantineWriter implements Writer {
 			ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 			read = lock.readLock();
 			write = lock.writeLock();
-		}else {
+		} else {
 			read = new NoLock();
 			write = new NoLock();
 		}

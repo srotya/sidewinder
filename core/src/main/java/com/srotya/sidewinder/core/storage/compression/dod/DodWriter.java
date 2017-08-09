@@ -25,7 +25,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Writer;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * A simple delta-of-delta timeseries compression with no value compression

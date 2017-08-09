@@ -16,11 +16,11 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
-
-import com.srotya.sidewinder.core.storage.mem.TimeSeries;
 
 /**
  * @author ambud
@@ -40,12 +40,16 @@ public interface Measurement {
 
 	public TimeSeries get(String entry);
 
-	public void loadTimeseriesFromMeasurementMetadata() throws IOException;
+	public void loadTimeseriesFromMeasurements() throws IOException;
 
 	public TimeSeries getOrCreateTimeSeries(String rowKey, int timeBucketSize, boolean fp, Map<String, String> conf) throws IOException;
 
 	public void delete() throws IOException;
 
 	public void garbageCollector() throws IOException;
+
+	public ByteBuffer createNewBuffer() throws IOException;
+
+	public List<ByteBuffer> getBufTracker();
 
 }

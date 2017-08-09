@@ -28,8 +28,8 @@ import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 
 /**

@@ -13,12 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage;
+package com.srotya.sidewinder.core.storage.compression;
 
 import java.io.IOException;
 import java.util.List;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud

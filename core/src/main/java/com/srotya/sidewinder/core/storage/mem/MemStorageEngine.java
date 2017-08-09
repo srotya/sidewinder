@@ -40,12 +40,12 @@ import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
-import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 

@@ -26,9 +26,9 @@ import java.util.HashMap;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.Writer;
+import com.srotya.sidewinder.core.storage.compression.Reader;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.compression.dod.DodWriter;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 

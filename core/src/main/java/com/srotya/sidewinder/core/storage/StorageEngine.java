@@ -26,7 +26,7 @@ import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
-import com.srotya.sidewinder.core.storage.mem.TimeSeries;
+import com.srotya.sidewinder.core.storage.compression.Reader;
 
 /**
  * Interface for Timeseries Storage Engine
@@ -425,5 +425,7 @@ public interface StorageEngine {
 		indexRowKey(memTagLookupTable, rowKey, tags);
 		return rowKey;
 	}
+
+	public Map<String, Map<String, Measurement>> getMeasurementMap();
 
 }

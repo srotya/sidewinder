@@ -44,12 +44,12 @@ import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
-import com.srotya.sidewinder.core.storage.mem.TimeSeries;
+import com.srotya.sidewinder.core.storage.TimeSeries;
+import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -425,7 +425,7 @@ public class DiskStorageEngine implements StorageEngine {
 					measurementName, metadata, bgTaskPool);
 			measurementMap.put(measurementName, measurement);
 			logger.info("Loading measurements:" + measurementName);
-			measurement.loadTimeseriesFromMeasurementMetadata();
+			measurement.loadTimeseriesFromMeasurements();
 		}
 	}
 
@@ -725,6 +725,11 @@ public class DiskStorageEngine implements StorageEngine {
 	@Override
 	public Map<String, DBMetadata> getDbMetadataMap() {
 		return dbMetadataMap;
+	}
+
+	@Override
+	public Map<String, Map<String, Measurement>> getMeasurementMap() {
+		return databaseMap;
 	}
 
 }
