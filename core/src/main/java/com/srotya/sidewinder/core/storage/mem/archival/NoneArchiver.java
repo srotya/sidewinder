@@ -38,7 +38,6 @@ public class NoneArchiver implements Archiver {
 
 	@Override
 	public List<TimeSeriesArchivalObject> unarchive() throws ArchiveException {
-		// TODO Auto-generated method stub
 		return null;
 	}
 

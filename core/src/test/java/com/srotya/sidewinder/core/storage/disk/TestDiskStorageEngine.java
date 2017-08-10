@@ -58,12 +58,10 @@ import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
-import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
@@ -171,8 +169,8 @@ public class TestDiskStorageEngine {
 			e.printStackTrace();
 			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
 		}
-		assertEquals(10, new File("target/db102/data1").listFiles().length);
-		assertEquals(10, new File("target/db102/data2").listFiles().length);
+		assertEquals(5, new File("target/db102/data1").listFiles().length);
+		assertEquals(5, new File("target/db102/data2").listFiles().length);
 	}
 
 	@Test
@@ -202,15 +200,6 @@ public class TestDiskStorageEngine {
 		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test", "ss", "value", ts,
 				ts + (4096 * 100 * 1000) + 1, Arrays.asList("te"), null);
 		assertTrue(queryDataPoints.size() >= 1);
-	}
-
-	@Test
-	public void testTagEncodeDecode() throws IOException {
-		DiskTagIndex table = new DiskTagIndex("target/test", "test", "test2");
-		StorageEngine engine = new DiskStorageEngine();
-		String encodedStr = engine.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
-		List<String> decodedStr = engine.decodeStringToTags(table, encodedStr);
-		assertEquals(Arrays.asList("host", "value", "test"), decodedStr);
 	}
 
 	@Test
@@ -248,24 +237,6 @@ public class TestDiskStorageEngine {
 			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
 		}
 		engine.disconnect();
-	}
-
-	@Test
-	public void testConstructRowKey() throws Exception {
-		StorageEngine engine = new DiskStorageEngine();
-		MiscUtils.delete(new File("target/db131/"));
-		HashMap<String, String> map = new HashMap<>();
-		map.put("metadata.dir", "target/db131/mdq");
-		map.put("index.dir", "target/db131/index");
-		map.put("data.dir", "target/db131/data");
-		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		engine.configure(map, Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("bg")));
-		List<String> tags = Arrays.asList("test1", "test2");
-		TagIndex index = engine.getOrCreateTagIndex("asd", "bsd");
-		String encodeTagsToString = engine.encodeTagsToString(index, tags);
-		String key = engine.constructRowKey("asd", "bsd", "csd", tags);
-		assertEquals("csd#" + encodeTagsToString, key);
 	}
 
 	@Test
@@ -504,16 +475,19 @@ public class TestDiskStorageEngine {
 
 	@Test
 	public void testBaseTimeSeriesWrites() throws Exception {
+		String pathname = "target/bas-t-writer/";
+		MiscUtils.delete(new File(pathname));
 		DiskStorageEngine engine = new DiskStorageEngine();
 		HashMap<String, String> map = new HashMap<>();
-		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		map.put("compression.class", ByzantineWriter.class.getName());
+		map.put("data.dir", pathname+"/data");
+		map.put("index.dir", pathname+"/index");
 		engine.configure(map, bgTasks);
 		engine.connect();
 
 		final long ts1 = System.currentTimeMillis();
 		ExecutorService es = Executors.newCachedThreadPool();
-		for (int k = 0; k < 500; k++) {
+		for (int k = 0; k < 10; k++) {
 			final int p = k;
 			es.submit(() -> {
 				long ts = System.currentTimeMillis();

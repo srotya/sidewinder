@@ -19,10 +19,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +44,6 @@ import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
@@ -69,7 +65,6 @@ public class DiskStorageEngine implements StorageEngine {
 	private int defaultRetentionHours;
 	private int defaultTimebucketSize;
 	private Archiver archiver;
-	private String compressionFQCN;
 	private Map<String, String> conf;
 	private String[] dataDirs;
 	private String baseIndexDirectory;
@@ -100,8 +95,6 @@ public class DiskStorageEngine implements StorageEngine {
 		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
 			logger.log(Level.SEVERE, "Failed to instantiate archiver", e);
 		}
-		compressionFQCN = conf.getOrDefault(COMPRESSION_CLASS, DEFAULT_COMPRESSION_CLASS);
-
 		this.defaultTimebucketSize = Integer
 				.parseInt(conf.getOrDefault(DEFAULT_BUCKET_SIZE, String.valueOf(DEFAULT_TIME_BUCKET_CONSTANT)));
 		bgTaskPool.scheduleAtFixedRate(() -> {
@@ -111,8 +104,7 @@ public class DiskStorageEngine implements StorageEngine {
 					try {
 						value.garbageCollector();
 					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
+						logger.log(Level.SEVERE, "Failed collect garbage for measurement:"+value.getMeasurementName(), e);
 					}
 				}
 			}
@@ -177,29 +169,7 @@ public class DiskStorageEngine implements StorageEngine {
 		if (measurementMap != null) {
 			Measurement measurement = measurementMap.get(measurementName);
 			if (measurement != null) {
-				TagIndex memTagIndex = measurement.getTagIndex();// getOrCreateTagIndex(dbName,
-																	// measurementName);
-				for (String entry : measurement.getTimeSeriesMap().keySet()) {
-					TimeSeries series = measurement.get(entry);
-					String[] keys = entry.split(FIELD_TAG_SEPARATOR);
-					if (keys.length != 2) {
-						// TODO report major error, series ingested without tag
-						// field encoding
-						continue;
-					}
-					if (!keys[0].equals(valueFieldName)) {
-						continue;
-					}
-					List<String> seriesTags = null;
-					if (keys.length > 1) {
-						seriesTags = decodeStringToTags(memTagIndex, keys[1]);
-					} else {
-						seriesTags = new ArrayList<>();
-					}
-					for (Reader reader : series.queryReader(valueFieldName, seriesTags, startTime, endTime, null)) {
-						readers.put(reader, series.isFp());
-					}
-				}
+				measurement.queryReaders(valueFieldName, startTime, endTime, readers);
 			} else {
 				throw new ItemNotFoundException("Measurement " + measurementName + " not found");
 			}
@@ -216,42 +186,10 @@ public class DiskStorageEngine implements StorageEngine {
 		Set<SeriesQueryOutput> resultMap = new HashSet<>();
 		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
 		if (measurementMap != null) {
-			Measurement seriesMap = measurementMap.get(measurementName);
-			if (seriesMap != null) {
-				TagIndex memTagIndex = getOrCreateTagIndex(dbName, measurementName);
-				Set<String> rowKeys = null;
-				if (tagList == null || tagList.size() == 0) {
-					rowKeys = seriesMap.getTimeSeriesMap().keySet();
-				} else {
-					rowKeys = getTagFilteredRowKeys(dbName, measurementName, valueFieldName, tagFilter, tagList);
-				}
-				for (String entry : rowKeys) {
-					TimeSeries value = seriesMap.get(entry);
-					String[] keys = entry.split(FIELD_TAG_SEPARATOR);
-					if (!keys[0].equals(valueFieldName)) {
-						continue;
-					}
-					List<DataPoint> points = null;
-					List<String> seriesTags = null;
-					if (keys.length > 1) {
-						seriesTags = decodeStringToTags(memTagIndex, keys[1]);
-					} else {
-						seriesTags = new ArrayList<>();
-					}
-					points = value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate);
-					if (aggregationFunction != null) {
-						points = aggregationFunction.aggregate(points);
-					}
-					if (points == null) {
-						points = new ArrayList<>();
-					}
-					if (points.size() > 0) {
-						SeriesQueryOutput seriesQueryOutput = new SeriesQueryOutput(measurementName, keys[0],
-								seriesTags);
-						seriesQueryOutput.setDataPoints(points);
-						resultMap.add(seriesQueryOutput);
-					}
-				}
+			Measurement measurement = measurementMap.get(measurementName);
+			if (measurement != null) {
+				measurement.queryDataPoints(valueFieldName, startTime, endTime, tagList, tagFilter, valuePredicate,
+						aggregationFunction, resultMap);
 			} else {
 				throw new ItemNotFoundException("Measurement " + measurementName + " not found");
 			}
@@ -396,6 +334,8 @@ public class DiskStorageEngine implements StorageEngine {
 			synchronized (measurementMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					measurement = new PersistentMeasurement();
+					measurement.configure(conf, measurementName, baseIndexDirectory + "/" + dbName, getDataDir(dbName),
+							dbMetadataMap.get(dbName), bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
 				}
@@ -405,7 +345,7 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	public String getDataDir(String dbName) {
-		return dataDirs[dbName.hashCode() % dataDirs.length];
+		return dataDirs[dbName.hashCode() % dataDirs.length] + "/" + dbName;
 	}
 
 	public String dbMetadataDirectoryPath(String dbName) {
@@ -421,8 +361,7 @@ public class DiskStorageEngine implements StorageEngine {
 		for (File measurementMdFile : file.listFiles()) {
 			String measurementName = measurementMdFile.getName();
 			Measurement measurement = new PersistentMeasurement();
-			measurement.configure(conf, compressionFQCN, baseIndexDirectory, getDataDir(dbName), dbName,
-					measurementName, metadata, bgTaskPool);
+			measurement.configure(conf, measurementName, baseIndexDirectory, getDataDir(dbName), metadata, bgTaskPool);
 			measurementMap.put(measurementName, measurement);
 			logger.info("Loading measurements:" + measurementName);
 			measurement.loadTimeseriesFromMeasurements();
@@ -432,10 +371,6 @@ public class DiskStorageEngine implements StorageEngine {
 	@Override
 	public TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags)
 			throws IOException {
-		Collections.sort(tags);
-
-		String rowKey = constructRowKey(dbName, measurementName, valueFieldName, tags);
-
 		// check and create database map
 		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
 
@@ -443,16 +378,12 @@ public class DiskStorageEngine implements StorageEngine {
 		Measurement measurementMap = getOrCreateMeasurement(dbMap, measurementName, dbName);
 
 		// check and create timeseries
-		TimeSeries timeSeries = measurementMap.get(rowKey);
-		return timeSeries;
+		return measurementMap.getTimeSeries(valueFieldName, tags);
 	}
 
 	@Override
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
 			List<String> tags, int timeBucketSize, boolean fp) throws IOException {
-		Collections.sort(tags);
-
-		String rowKey = constructRowKey(dbName, measurementName, valueFieldName, tags);
 
 		// check and create database map
 		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
@@ -461,17 +392,7 @@ public class DiskStorageEngine implements StorageEngine {
 		Measurement measurement = getOrCreateMeasurement(dbMap, measurementName, dbName);
 
 		// check and create timeseries
-		TimeSeries timeSeries = measurement.get(rowKey);
-		if (timeSeries == null) {
-			synchronized (measurement) {
-				if ((timeSeries = measurement.get(rowKey)) == null) {
-					timeSeries = measurement.getOrCreateTimeSeries(rowKey, timeBucketSize, fp, conf);
-					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
-							+ rowKey + "\t" + dbMetadataMap.get(dbName));
-				}
-			}
-		}
-		return timeSeries;
+		return measurement.getOrCreateTimeSeries(valueFieldName, tags, timeBucketSize, fp, conf);
 	}
 
 	public static void writeLineToFile(String line, String filePath) throws IOException {
@@ -502,79 +423,20 @@ public class DiskStorageEngine implements StorageEngine {
 		throw NOT_FOUND_EXCEPTION;
 	}
 
-	public Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags)
-			throws IOException {
-		Set<String> series = new HashSet<>();
-		DiskTagIndex memTagLookupTable = (DiskTagIndex) getOrCreateTagIndex(dbName, measurementName);
-		for (String tag : tags) {
-			Set<String> keys = memTagLookupTable.searchRowKeysForTag(tag);
-			if (keys != null) {
-				series.addAll(keys);
-			}
-		}
-		return series;
-	}
-
-	public Set<String> getTagFilteredRowKeys(String dbName, String measurementName, String valueFieldName,
-			Filter<List<String>> tagFilterTree, List<String> rawTags) throws IOException {
-		Set<String> filteredSeries = getSeriesIdsWhereTags(dbName, measurementName, rawTags);
-		for (Iterator<String> iterator = filteredSeries.iterator(); iterator.hasNext();) {
-			String rowKey = iterator.next();
-			if (!rowKey.startsWith(valueFieldName)) {
-				continue;
-			}
-			String[] keys = rowKey.split(FIELD_TAG_SEPARATOR);
-			if (keys.length != 2) {
-				// TODO report major error, series ingested without tag
-				// field encoding
-				logger.severe("Invalid series tag encode, series ingested without tag field encoding");
-				iterator.remove();
-				continue;
-			}
-			if (!keys[0].equals(valueFieldName)) {
-				iterator.remove();
-				continue;
-			}
-			List<String> seriesTags = null;
-			if (keys.length > 1) {
-				seriesTags = decodeStringToTags(getOrCreateTagIndex(dbName, measurementName), keys[1]);
-			} else {
-				seriesTags = new ArrayList<>();
-			}
-			if (!tagFilterTree.isRetain(seriesTags)) {
-				iterator.remove();
-			}
-		}
-		return filteredSeries;
-	}
-
-	@Override
-	public TagIndex getOrCreateTagIndex(String dbName, String measurementName) throws IOException {
-		Map<String, Measurement> lookupMap = databaseMap.get(dbName);
-		return lookupMap.get(measurementName).getTagIndex();
-	}
-
 	@Override
 	public boolean checkTimeSeriesExists(String dbName, String measurementName, String valueFieldName,
 			List<String> tags) throws Exception {
-		Collections.sort(tags);
-
-		if (!checkIfExists(dbName)) {
+		if (!checkIfExists(dbName, measurementName)) {
 			return false;
 		}
 		// check and create database map
 		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
 
-		if (!checkIfExists(dbName, measurementName)) {
-			return false;
-		}
 		// check and create measurement map
 		Measurement measurementMap = getOrCreateMeasurement(dbMap, dbName, measurementName);
 
-		String rowKey = constructRowKey(dbName, measurementName, valueFieldName, tags);
 		// check and create timeseries
-		TimeSeries timeSeries = measurementMap.get(rowKey);
-
+		TimeSeries timeSeries = measurementMap.getTimeSeries(valueFieldName, tags);
 		return timeSeries == null;
 	}
 
@@ -622,31 +484,12 @@ public class DiskStorageEngine implements StorageEngine {
 	@Override
 	public List<List<String>> getTagsForMeasurement(String dbName, String measurementName, String valueFieldName)
 			throws Exception {
-		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
-		if (measurementMap == null) {
+		if (!checkIfExists(dbName, measurementName)) {
 			throw new ItemNotFoundException("Database " + dbName + " not found");
 		}
-		TagIndex tagLookupTable = measurementMap.get(measurementName).getTagIndex();
-		if (tagLookupTable == null) {
-			throw new ItemNotFoundException("Measurement " + measurementName + " not found");
-		}
-		Measurement map = databaseMap.get(dbName).get(measurementMap);
-		Set<String> keySet = new HashSet<>();
-		for (Entry<String, TimeSeries> entry : map.getTimeSeriesMap().entrySet()) {
-			if (entry.getKey().startsWith(valueFieldName)) {
-				keySet.add(entry.getKey());
-			}
-		}
-		List<List<String>> tagList = new ArrayList<>();
-		for (String entry : keySet) {
-			String[] keys = entry.split(FIELD_TAG_SEPARATOR);
-			if (!keys[0].equals(valueFieldName)) {
-				continue;
-			}
-			List<String> tags = decodeStringToTags(tagLookupTable, keys[1]);
-			tagList.add(tags);
-		}
-		return tagList;
+		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
+		Measurement measurement = databaseMap.get(dbName).get(measurementMap);
+		return measurement.getTagsForMeasurement(valueFieldName);
 	}
 
 	/**
@@ -687,15 +530,10 @@ public class DiskStorageEngine implements StorageEngine {
 
 	@Override
 	public Set<String> getTagsForMeasurement(String dbName, String measurementName) throws Exception {
-		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
-		if (measurementMap == null) {
-			throw new ItemNotFoundException("Database " + dbName + " not found");
+		if (!checkIfExists(dbName, measurementName)) {
+			throw new ItemNotFoundException("Database " + dbName + " & " + measurementName + " not found");
 		}
-		TagIndex memTagLookupTable = measurementMap.get(measurementName).getTagIndex();
-		if (memTagLookupTable == null) {
-			throw new ItemNotFoundException("Measurement " + measurementName + " not found");
-		}
-		return memTagLookupTable.getTags();
+		return databaseMap.get(dbName).get(measurementName).getTags();
 	}
 
 	@Override
@@ -704,22 +542,8 @@ public class DiskStorageEngine implements StorageEngine {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
-		if (measurementMap == null) {
-			throw new ItemNotFoundException("Database " + dbName + " not found");
-		}
-		Measurement seriesMap = measurementMap.get(measurementName);
-		if (seriesMap == null) {
-			throw new ItemNotFoundException("Measurement " + measurementName + " not found");
-		}
-		Set<String> results = new HashSet<>();
-		Set<String> keySet = seriesMap.getTimeSeriesMap().keySet();
-		for (String key : keySet) {
-			String[] splits = key.split(FIELD_TAG_SEPARATOR);
-			if (splits.length == 2) {
-				results.add(splits[0]);
-			}
-		}
-		return results;
+		Measurement measurement = measurementMap.get(measurementName);
+		return measurement.getFieldsForMeasurement();
 	}
 
 	@Override
@@ -730,6 +554,25 @@ public class DiskStorageEngine implements StorageEngine {
 	@Override
 	public Map<String, Map<String, Measurement>> getMeasurementMap() {
 		return databaseMap;
+	}
+
+	@Override
+	public Set<String> getTagFilteredRowKeys(String dbName, String measurementName, String valueFieldName,
+			Filter<List<String>> tagFilterTree, List<String> rawTags) throws ItemNotFoundException, Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		return databaseMap.get(dbName).get(measurementName).getTagFilteredRowKeys(valueFieldName, tagFilterTree,
+				rawTags);
+	}
+
+	@Override
+	public Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags)
+			throws ItemNotFoundException, Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		return databaseMap.get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
 	}
 
 }

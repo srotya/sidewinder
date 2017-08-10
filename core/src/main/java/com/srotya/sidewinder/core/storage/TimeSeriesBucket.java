@@ -41,9 +41,11 @@ public class TimeSeriesBucket implements Serializable {
 	// RejectException("Rejected older datapoint");
 	private Writer writer;
 	private TimeSeriesBucket prev, next;
+	private long headerTimestamp;
 
 	public TimeSeriesBucket(String compressionFQCN, long headerTimestamp, Map<String, String> conf, ByteBuffer buf,
 			boolean isNew) {
+		this.headerTimestamp = headerTimestamp;
 		try {
 			writer = (Writer) Class.forName(compressionFQCN).newInstance();
 			writer.configure(conf, buf, isNew);
@@ -165,5 +167,12 @@ public class TimeSeriesBucket implements Serializable {
 	 */
 	public TimeSeriesBucket getNext() {
 		return next;
+	}
+
+	/**
+	 * @return the headerTimestamp
+	 */
+	public long getHeaderTimestamp() {
+		return headerTimestamp;
 	}
 }

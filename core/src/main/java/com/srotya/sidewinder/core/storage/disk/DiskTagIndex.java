@@ -43,10 +43,9 @@ public class DiskTagIndex implements TagIndex {
 	private String indexPath;
 	private XXHash32 hash;
 
-	public DiskTagIndex(String baseIndexDirectory, String dbName, String measurementName) throws IOException {
-		this.indexPath = baseIndexDirectory + "/" + dbName;
+	public DiskTagIndex(String baseIndexDirectory, String measurementName) throws IOException {
+		this.indexPath = baseIndexDirectory + "/" + measurementName;
 		new File(indexPath).mkdirs();
-		this.indexPath += "/" + measurementName;
 		tagMap = new ConcurrentHashMap<>();
 		rowKeyIndex = new ConcurrentHashMap<>();
 		hash = factory.hash32();

@@ -443,8 +443,11 @@ public class TimeSeries {
 	}
 
 	public void close() throws IOException {
-		// TODO Auto-generated method stub
+		// TODO close series
+	}
 
+	public int getTimeBucketSize() {
+		return timeBucketSize;
 	}
 
 }

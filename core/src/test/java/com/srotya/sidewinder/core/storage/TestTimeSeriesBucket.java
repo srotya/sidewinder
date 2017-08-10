@@ -54,6 +54,8 @@ public class TestTimeSeriesBucket {
 		bucket.addDataPoint(System.currentTimeMillis(), 2);
 		bucket.addDataPoint(System.currentTimeMillis() + 1, 3);
 		assertEquals(2, bucket.getCount());
+		bucket.close();
+		// does nothing
 	}
 
 	@Test

@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +45,8 @@ public class TestDiskArchiver {
 	// @Test
 	public void testStreamSerDe() throws IOException {
 		long ts = System.currentTimeMillis();
-		TimeSeriesBucket bucket = new TimeSeriesBucket("seriesId", className, ts, false, new HashMap<>());
+		ByteBuffer buf = ByteBuffer.allocate(1024);
+		TimeSeriesBucket bucket = new TimeSeriesBucket(className, ts, new HashMap<>(), buf, true);
 		for (int i = 0; i < 1000; i++) {
 			bucket.addDataPoint(ts + i * 1000, i);
 		}
@@ -97,7 +99,8 @@ public class TestDiskArchiver {
 		conf.put(DiskArchiver.ARCHIVAL_DISK_DIRECTORY, "target/test-diskbackup-" + System.currentTimeMillis());
 		archiver.init(conf);
 		long ts = System.currentTimeMillis();
-		TimeSeriesBucket bucket = new TimeSeriesBucket("seriesId", className, ts, false, new HashMap<>());
+		ByteBuffer buf = ByteBuffer.allocate(1024);
+		TimeSeriesBucket bucket = new TimeSeriesBucket(className, ts, conf, buf, true);
 		for (int i = 0; i < 1000; i++) {
 			bucket.addDataPoint(ts + i * 1000, i);
 		}

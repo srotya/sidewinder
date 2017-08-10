@@ -17,6 +17,8 @@ package com.srotya.sidewinder.core.sql.calcite;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
@@ -28,6 +30,7 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
  */
 public class SidewinderDatabaseSchema extends AbstractSchema {
 
+	private static final Logger logger = Logger.getLogger(SidewinderDatabaseSchema.class.getName());
 	private String dbName;
 	private StorageEngine engine;
 
@@ -48,8 +51,7 @@ public class SidewinderDatabaseSchema extends AbstractSchema {
 				}
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.log(Level.SEVERE, "Failed to get table map for query", e);
 		}
 		return tableMap;
 	}

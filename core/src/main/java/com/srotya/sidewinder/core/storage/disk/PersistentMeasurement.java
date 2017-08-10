@@ -23,9 +23,10 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -35,9 +36,9 @@ import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
+import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
-import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -49,72 +50,76 @@ public class PersistentMeasurement implements Measurement {
 	private Map<String, TimeSeries> seriesMap;
 	private DiskTagIndex tagIndex;
 	private String compressionClass;
-	private String measurementName;
 	private String dbDataDirectory;
 	private DBMetadata metadata;
 	private Map<String, String> conf;
-	private String dbName;
 	private ScheduledExecutorService bgTaskPool;
 	private RandomAccessFile activeFile;
 	private List<ByteBuffer> bufTracker;
 	private int itr;
-	private int maxFileMap = Integer.MAX_VALUE;
+	private int maxFileMap;
 	private int increment = 4096;
 	private int curr;
 	private int base;
 	private MappedByteBuffer memoryMappedBuffer;
+	private String measurementName;
 
 	@Override
-	public void configure(Map<String, String> conf, String indexDirectory, String dataDirectory,
-			String compressionClass, String dbName, String measurementName, DBMetadata metadata,
-			ScheduledExecutorService bgTaskPool) throws IOException {
+	public void configure(Map<String, String> conf, String measurementName, String indexDirectory, String dataDirectory,
+			DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
 		this.conf = conf;
 		this.dbDataDirectory = dataDirectory;
-		this.dbName = dbName;
 		this.metadata = metadata;
 		this.bgTaskPool = bgTaskPool;
 		this.seriesMap = new ConcurrentHashMap<>();
-		this.tagIndex = new DiskTagIndex(indexDirectory, dbName, measurementName);
-		this.compressionClass = compressionClass;
+		this.tagIndex = new DiskTagIndex(indexDirectory, measurementName);
+		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
+				StorageEngine.DEFAULT_COMPRESSION_CLASS);
 		this.measurementName = measurementName;
-		createMeasurementDirectory(dbName, measurementName);
+		this.bufTracker = new ArrayList<>();
+		this.maxFileMap = Integer.parseInt(conf.getOrDefault("measurement.file.size", String.valueOf(1024 * 1024 * 1)));
+		createMeasurementDirectory();
 	}
 
 	@Override
-	public void garbageCollector() throws IOException {
-		for (Entry<String, TimeSeries> entry : seriesMap.entrySet()) {
-			try {
-				List<TimeSeriesBucket> garbage = entry.getValue().collectGarbage();
-				for (TimeSeriesBucket timeSeriesBucket : garbage) {
-					timeSeriesBucket.delete();
-					logger.info("Collecting garbage for bucket:" + entry.getKey());
+	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
+			Map<String, String> conf) throws IOException {
+		Collections.sort(tags);
+		String rowKey = constructRowKey(valueFieldName, tags, tagIndex);
+		TimeSeries timeSeries = getTimeSeries(rowKey);
+		if (timeSeries == null) {
+			synchronized (this) {
+				if ((timeSeries = getTimeSeries(rowKey)) == null) {
+					timeSeries = new TimeSeries(this, compressionClass, seriesId(measurementName, rowKey),
+							timeBucketSize, metadata, fp, conf, bgTaskPool);
+					seriesMap.put(rowKey, timeSeries);
+					appendTimeseriesToMeasurementMetadata(measurementMetadataFilePath(), rowKey, fp, timeBucketSize);
+					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
+							+ rowKey + "\t" + metadata);
 				}
-				logger.info("Collecting garbage for time series:" + entry.getKey());
-			} catch (IOException e) {
-				logger.log(Level.SEVERE, "Error collecing garbage", e);
 			}
 		}
-	}
-
-	@Override
-	public TimeSeries getOrCreateTimeSeries(String rowKey, int timeBucketSize, boolean fp, Map<String, String> conf)
-			throws IOException {
-		TimeSeries timeSeries = new TimeSeries(this, compressionClass, seriesId(measurementName, rowKey),
-				timeBucketSize, metadata, fp, conf, bgTaskPool);
-		seriesMap.put(rowKey, timeSeries);
-		appendTimeseriesToMeasurementMetadata(measurementMetadataFilePath(dbName, measurementName), rowKey, fp,
-				timeBucketSize);
 		return timeSeries;
 	}
 
 	@Override
+	public Set<String> getTags() {
+		return tagIndex.getTags();
+	}
+
+	@Override
+	public Logger getLogger() {
+		return logger;
+	}
+
+	@Override
 	public void delete() throws IOException {
-		MiscUtils.delete(new File(measurementDataDirectoryPath(dbName, measurementName)));
+		MiscUtils.delete(new File(measurementDataDirectoryPath()));
 	}
 
 	@Override
 	public void loadTimeseriesFromMeasurements() throws IOException {
-		String measurementFilePath = measurementMetadataFilePath(dbName, measurementName);
+		String measurementFilePath = measurementMetadataFilePath();
 		File file = new File(measurementFilePath);
 		if (!file.exists()) {
 			return;
@@ -158,17 +163,16 @@ public class PersistentMeasurement implements Measurement {
 		return tagIndex;
 	}
 
-	@Override
-	public TimeSeries get(String entry) {
+	protected TimeSeries getTimeSeries(String entry) {
 		return seriesMap.get(entry);
 	}
 
-	private String measurementDataDirectoryPath(String dbName, String measurementName) {
-		return dbDataDirectory + "/" + dbName + "/" + measurementName;
+	private String measurementDataDirectoryPath() {
+		return dbDataDirectory + "/" + measurementName;
 	}
 
-	private String measurementMetadataFilePath(String dbName, String measurementName) {
-		return dbDataDirectory + "/" + dbName + "/" + measurementName + "/.md";
+	private String measurementMetadataFilePath() {
+		return dbDataDirectory + "/" + measurementName + "/.md";
 	}
 
 	public static String seriesId(String measurementName, String rowKey) {
@@ -176,11 +180,11 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	public String getMeasurementDataDirectory() {
-		return measurementDataDirectoryPath(dbName, measurementName);
+		return measurementDataDirectoryPath();
 	}
 
-	protected void createMeasurementDirectory(String dbName, String measurementName) throws IOException {
-		String measurementDirectory = measurementDataDirectoryPath(dbName, measurementName);
+	protected void createMeasurementDirectory() throws IOException {
+		String measurementDirectory = measurementDataDirectoryPath();
 		new File(measurementDirectory).mkdirs();
 	}
 
@@ -193,7 +197,6 @@ public class PersistentMeasurement implements Measurement {
 	public ByteBuffer createNewBuffer() throws IOException {
 		if (activeFile == null) {
 			activeFile = new RandomAccessFile(getMeasurementDataDirectory() + "/data.dat", "rwd");
-			bufTracker = new ArrayList<>();
 			memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, maxFileMap);
 			bufTracker.add(memoryMappedBuffer);
 		}
@@ -215,6 +218,11 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public List<ByteBuffer> getBufTracker() {
 		return bufTracker;
+	}
+
+	@Override
+	public String getMeasurementName() {
+		return measurementName;
 	}
 
 }

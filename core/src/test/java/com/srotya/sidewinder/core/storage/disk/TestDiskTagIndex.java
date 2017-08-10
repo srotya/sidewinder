@@ -97,7 +97,7 @@ public class TestDiskTagIndex {
 
 	@Test
 	public void testTagIndexThreaded() throws InterruptedException, IOException {
-		final DiskTagIndex index = new DiskTagIndex("target/index", "db2", "m2");
+		final DiskTagIndex index = new DiskTagIndex("target/index", "m2");
 		ExecutorService es = Executors.newCachedThreadPool();
 		for (int k = 0; k < 10; k++) {
 			es.submit(() -> {
@@ -119,7 +119,7 @@ public class TestDiskTagIndex {
 			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
 
-		DiskTagIndex index2 = new DiskTagIndex("target/index", "db2", "m2");
+		DiskTagIndex index2 = new DiskTagIndex("target/index", "m2");
 		for (int i = 0; i < 1000; i++) {
 			String entry = index2.createEntry("tag" + (i + 1));
 			assertEquals("tag" + (i + 1), index2.getEntry(entry));

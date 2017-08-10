@@ -16,7 +16,6 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,8 +45,6 @@ public interface StorageEngine {
 	public static final String RETENTION_HOURS = "default.series.retention.hours";
 	public static final int DEFAULT_RETENTION_HOURS = (int) Math
 			.ceil((((double) DEFAULT_TIME_BUCKET_CONSTANT) * 24 / 60) / 60);
-	public static final String FIELD_TAG_SEPARATOR = "#";
-	public static final String TAG_SEPARATOR = "_";
 	public static final String PERSISTENCE_DISK = "persistence.disk";
 	public static final String ARCHIVER_CLASS = "archiver.class";
 	public static final String GC_DELAY = "gc.delay";
@@ -247,8 +244,9 @@ public interface StorageEngine {
 	 * @param dbName
 	 * @param measurementName
 	 * @param retentionHours
+	 * @throws ItemNotFoundException
 	 */
-	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, int retentionHours);
+	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, int retentionHours) throws ItemNotFoundException;
 
 	/**
 	 * Update default retention policy for a database
@@ -383,49 +381,11 @@ public interface StorageEngine {
 	 */
 	public Map<String, DBMetadata> getDbMetadataMap();
 	
-	public TagIndex getOrCreateTagIndex(String dbName, String measurementName) throws IOException;
-	
-	public default void indexRowKey(TagIndex memTagLookupTable, String rowKey, List<String> tags) throws IOException {
-		for (String tag : tags) {
-			memTagLookupTable.index(tag, rowKey);
-		}
-	}
-	
-	public default String encodeTagsToString(TagIndex tagLookupTable, List<String> tags) throws IOException {
-		StringBuilder builder = new StringBuilder(tags.size() * 5);
-		builder.append(tagLookupTable.createEntry(tags.get(0)));
-		for (int i = 1; i < tags.size(); i++) {
-			String tag = tags.get(i);
-			builder.append(TAG_SEPARATOR);
-			builder.append(tagLookupTable.createEntry(tag));
-		}
-		return builder.toString();
-	}
-	
-	public default List<String> decodeStringToTags(TagIndex tagLookupTable, String tagString) {
-		List<String> tagList = new ArrayList<>();
-		if (tagString == null || tagString.isEmpty()) {
-			return tagList;
-		}
-		for (String tag : tagString.split(TAG_SEPARATOR)) {
-			tagList.add(tagLookupTable.getEntry(tag));
-		}
-		return tagList;
-	}
-	
-	public default String constructRowKey(String dbName, String measurementName, String valueFieldName, List<String> tags)
-			throws IOException {
-		TagIndex memTagLookupTable = getOrCreateTagIndex(dbName, measurementName);
-		String encodeTagsToString = encodeTagsToString(memTagLookupTable, tags);
-		StringBuilder rowKeyBuilder = new StringBuilder(valueFieldName.length() + 1 + encodeTagsToString.length());
-		rowKeyBuilder.append(valueFieldName);
-		rowKeyBuilder.append(FIELD_TAG_SEPARATOR);
-		rowKeyBuilder.append(encodeTagsToString);
-		String rowKey = rowKeyBuilder.toString();
-		indexRowKey(memTagLookupTable, rowKey, tags);
-		return rowKey;
-	}
-
 	public Map<String, Map<String, Measurement>> getMeasurementMap();
+
+	Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> rawTags) throws ItemNotFoundException, Exception;
+
+	Set<String> getTagFilteredRowKeys(String dbName, String measurementName, String valueFieldName,
+			Filter<List<String>> tagFilterTree, List<String> tags) throws ItemNotFoundException, Exception;
 
 }
