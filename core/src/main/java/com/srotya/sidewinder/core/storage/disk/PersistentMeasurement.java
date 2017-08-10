@@ -93,7 +93,8 @@ public class PersistentMeasurement implements Measurement {
 					timeSeries = new TimeSeries(this, compressionClass, seriesId(measurementName, rowKey),
 							timeBucketSize, metadata, fp, conf, bgTaskPool);
 					seriesMap.put(rowKey, timeSeries);
-					appendTimeseriesToMeasurementMetadata(measurementMetadataFilePath(), rowKey, fp, timeBucketSize);
+					appendTimeseriesToMeasurementMetadata(measurementMetadataFilePath(),
+							seriesId(measurementName, rowKey), fp, timeBucketSize);
 					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
 							+ rowKey + "\t" + metadata);
 				}
@@ -119,6 +120,7 @@ public class PersistentMeasurement implements Measurement {
 
 	@Override
 	public void loadTimeseriesFromMeasurements() throws IOException {
+		logger.info("Loading measurement:" + measurementName);
 		String measurementFilePath = measurementMetadataFilePath();
 		File file = new File(measurementFilePath);
 		if (!file.exists()) {
@@ -128,16 +130,16 @@ public class PersistentMeasurement implements Measurement {
 		List<Future<?>> futures = new ArrayList<>();
 		for (String entry : seriesEntries) {
 			String[] split = entry.split("\t");
-			futures.add(bgTaskPool.submit(() -> {
-				logger.fine("Loading Timeseries:" + seriesId(measurementName, split[0]));
-				try {
-					seriesMap.put(split[0], new TimeSeries(this, compressionClass, seriesId(measurementName, split[0]),
-							Integer.parseInt(split[2]), metadata, Boolean.parseBoolean(split[1]), conf, bgTaskPool));
-					logger.fine("Loaded Timeseries:" + seriesId(measurementName, split[0]));
-				} catch (NumberFormatException | IOException e) {
-					logger.log(Level.SEVERE, "Failed to load series:" + entry, e);
-				}
-			}));
+			// futures.add(bgTaskPool.submit(() -> {
+			logger.fine("Loading Timeseries:" + seriesId(measurementName, split[0]));
+			try {
+				seriesMap.put(split[0], new TimeSeries(this, compressionClass, seriesId(measurementName, split[0]),
+						Integer.parseInt(split[2]), metadata, Boolean.parseBoolean(split[1]), conf, bgTaskPool));
+				logger.fine("Loaded Timeseries:" + seriesId(measurementName, split[0]));
+			} catch (NumberFormatException | IOException e) {
+				logger.log(Level.SEVERE, "Failed to load series:" + entry, e);
+			}
+			// }));
 		}
 		for (Future<?> future : futures) {
 			try {
@@ -223,6 +225,16 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public String getMeasurementName() {
 		return measurementName;
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "PersistentMeasurement [seriesMap=" + seriesMap + ", measurementName=" + measurementName + "]";
 	}
 
 }

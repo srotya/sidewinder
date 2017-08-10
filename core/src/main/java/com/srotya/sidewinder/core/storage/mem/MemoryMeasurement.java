@@ -85,7 +85,9 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public ByteBuffer createNewBuffer() throws IOException {
 		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(1024);
-		bufTracker.add(allocateDirect);
+		synchronized (bufTracker) {
+			bufTracker.add(allocateDirect);
+		}
 		return allocateDirect;
 	}
 

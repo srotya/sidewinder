@@ -157,6 +157,7 @@ public class TestDiskStorageEngine {
 		try {
 			engine.configure(map, bgTasks);
 		} catch (IOException e) {
+			e.printStackTrace();
 			fail("No IOException should be thrown");
 		}
 		long ts = System.currentTimeMillis();
@@ -228,7 +229,7 @@ public class TestDiskStorageEngine {
 		try {
 			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "ss", "value", Arrays.asList("te"),
 					System.currentTimeMillis(), 2.2));
-			String md = new String(Files.readAllBytes(new File("target/db2/data/test.md").toPath()),
+			String md = new String(Files.readAllBytes(new File("target/db2/data/test/.md").toPath()),
 					Charset.forName("utf8"));
 			DBMetadata metadata = new Gson().fromJson(md, DBMetadata.class);
 			assertEquals(32, metadata.getRetentionHours());
@@ -241,13 +242,12 @@ public class TestDiskStorageEngine {
 
 	@Test
 	public void testQueryDataPointsRecovery() throws IOException, ItemNotFoundException {
-		StorageEngine engine = new DiskStorageEngine();
+		DiskStorageEngine engine = new DiskStorageEngine();
 		MiscUtils.delete(new File("target/db1/"));
 		HashMap<String, String> map = new HashMap<>();
 		map.put("metadata.dir", "target/db1/mdq");
 		map.put("index.dir", "target/db1/index");
 		map.put("data.dir", "target/db1/data");
-		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
@@ -258,7 +258,7 @@ public class TestDiskStorageEngine {
 				MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
 		Measurement measurement = engine.getOrCreateMeasurement("test3", "cpu");
 		assertEquals(1, measurement.getTimeSeriesMap().size());
-
+		
 		engine = new DiskStorageEngine();
 		engine.configure(map, bgTasks);
 

@@ -78,7 +78,6 @@ public class DiskStorageEngine implements StorageEngine {
 				.parseInt(conf.getOrDefault(RETENTION_HOURS, String.valueOf(DEFAULT_RETENTION_HOURS)));
 		logger.info("Setting default timeseries retention hours policy to:" + defaultRetentionHours);
 
-		this.conf.put(StorageEngine.PERSISTENCE_DISK, "true");
 		dataDirs = MiscUtils.splitAndNormalizeString(conf.getOrDefault(DATA_DIRS, "/tmp/sidewinder/metadata"));
 		baseIndexDirectory = conf.getOrDefault(INDEX_DIR, "/tmp/sidewinder/index");
 		for (String dataDir : dataDirs) {
@@ -266,13 +265,13 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	private void saveDBMetadata(String dbName, DBMetadata metadata) throws IOException {
-		String dbDirectory = dbMetadataDirectoryPath(dbName);
+		String dbDirectory = dbDirectoryPath(dbName);
 		String line = new Gson().toJson(metadata);
-		writeLineToFile(line, dbDirectory + ".md");
+		writeLineToFile(line, dbDirectory + "/.md");
 	}
 
 	protected void createDatabaseDirectory(String dbName) {
-		String dbDirectory = dbMetadataDirectoryPath(dbName);
+		String dbDirectory = dbDirectoryPath(dbName);
 		File file = new File(dbDirectory);
 		file.mkdirs();
 	}
@@ -300,7 +299,7 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	protected DBMetadata readMetadata(String dbName) throws IOException {
-		String path = dbMetadataDirectoryPath(dbName) + ".md";
+		String path = dbDirectoryPath(dbName) + "/.md";
 		File file = new File(path);
 		if (!file.exists()) {
 			return new DBMetadata(defaultRetentionHours);
@@ -334,7 +333,7 @@ public class DiskStorageEngine implements StorageEngine {
 			synchronized (measurementMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					measurement = new PersistentMeasurement();
-					measurement.configure(conf, measurementName, baseIndexDirectory + "/" + dbName, getDataDir(dbName),
+					measurement.configure(conf, measurementName, baseIndexDirectory + "/" + dbName, dbDirectoryPath(dbName),
 							dbMetadataMap.get(dbName), bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
@@ -345,20 +344,23 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	public String getDataDir(String dbName) {
-		return dataDirs[dbName.hashCode() % dataDirs.length] + "/" + dbName;
+		return dataDirs[dbName.hashCode() % dataDirs.length];
 	}
 
-	public String dbMetadataDirectoryPath(String dbName) {
+	public String dbDirectoryPath(String dbName) {
 		return getDataDir(dbName) + "/" + dbName;
 	}
 
 	protected void loadMeasurements(String dbName, Map<String, Measurement> measurementMap, DBMetadata metadata)
 			throws IOException {
-		File file = new File(dbMetadataDirectoryPath(dbName));
+		File file = new File(dbDirectoryPath(dbName));
 		if (!file.exists() || file.listFiles() == null) {
 			return;
 		}
 		for (File measurementMdFile : file.listFiles()) {
+			if(!measurementMdFile.isDirectory()) {
+				continue;
+			}
 			String measurementName = measurementMdFile.getName();
 			Measurement measurement = new PersistentMeasurement();
 			measurement.configure(conf, measurementName, baseIndexDirectory, getDataDir(dbName), metadata, bgTaskPool);
@@ -469,7 +471,7 @@ public class DiskStorageEngine implements StorageEngine {
 	public void dropDatabase(String dbName) throws Exception {
 		synchronized (databaseMap) {
 			databaseMap.remove(dbName);
-			MiscUtils.delete(new File(dbMetadataDirectoryPath(dbName)));
+			MiscUtils.delete(new File(dbDirectoryPath(dbName)));
 		}
 	}
 
