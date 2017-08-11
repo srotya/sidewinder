@@ -16,12 +16,14 @@
 package com.srotya.sidewinder.core.storage.disk;
 
 import java.io.File;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -61,6 +63,7 @@ public class PersistentMeasurement implements Measurement {
 	private int increment = 4096;
 	private int curr;
 	private int base;
+	private int fcnt;
 	private MappedByteBuffer memoryMappedBuffer;
 	private String measurementName;
 
@@ -90,11 +93,11 @@ public class PersistentMeasurement implements Measurement {
 		if (timeSeries == null) {
 			synchronized (this) {
 				if ((timeSeries = getTimeSeries(rowKey)) == null) {
-					timeSeries = new TimeSeries(this, compressionClass, seriesId(measurementName, rowKey),
-							timeBucketSize, metadata, fp, conf, bgTaskPool);
+					timeSeries = new TimeSeries(this, compressionClass, seriesId(rowKey), timeBucketSize, metadata, fp,
+							conf, bgTaskPool);
 					seriesMap.put(rowKey, timeSeries);
-					appendTimeseriesToMeasurementMetadata(measurementMetadataFilePath(),
-							seriesId(measurementName, rowKey), fp, timeBucketSize);
+					appendTimeseriesToMeasurementMetadata(measurementMetadataFilePath(), seriesId(rowKey), fp,
+							timeBucketSize);
 					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
 							+ rowKey + "\t" + metadata);
 				}
@@ -104,42 +107,46 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public Set<String> getTags() {
-		return tagIndex.getTags();
-	}
-
-	@Override
-	public Logger getLogger() {
-		return logger;
-	}
-
-	@Override
-	public void delete() throws IOException {
-		MiscUtils.delete(new File(measurementDataDirectoryPath()));
-	}
-
-	@Override
 	public void loadTimeseriesFromMeasurements() throws IOException {
 		logger.info("Loading measurement:" + measurementName);
-		String measurementFilePath = measurementMetadataFilePath();
-		File file = new File(measurementFilePath);
+		String mdFilePath = measurementMetadataFilePath();
+		File file = new File(mdFilePath);
 		if (!file.exists()) {
+			logger.warning("Metadata file missing for measurement:" + measurementName);
 			return;
 		}
+
+		String[] dataFiles = new File(getMeasurementDataDirectory()).list(new FilenameFilter() {
+
+			@Override
+			public boolean accept(File dir, String name) {
+				return name.endsWith(".dat");
+			}
+		});
+		Arrays.sort(dataFiles);
+		for (int i = 0; i < dataFiles.length - 1; i++) {
+			String dataFile = dataFiles[i];
+			activeFile = new RandomAccessFile(getMeasurementDataDirectory() + "/" + dataFile, "");
+			System.err.println("DF:" + dataFile);
+		}
+
 		List<String> seriesEntries = MiscUtils.readAllLines(file);
 		List<Future<?>> futures = new ArrayList<>();
 		for (String entry : seriesEntries) {
 			String[] split = entry.split("\t");
-			// futures.add(bgTaskPool.submit(() -> {
-			logger.fine("Loading Timeseries:" + seriesId(measurementName, split[0]));
-			try {
-				seriesMap.put(split[0], new TimeSeries(this, compressionClass, seriesId(measurementName, split[0]),
-						Integer.parseInt(split[2]), metadata, Boolean.parseBoolean(split[1]), conf, bgTaskPool));
-				logger.fine("Loaded Timeseries:" + seriesId(measurementName, split[0]));
-			} catch (NumberFormatException | IOException e) {
-				logger.log(Level.SEVERE, "Failed to load series:" + entry, e);
-			}
-			// }));
+			futures.add(bgTaskPool.submit(() -> {
+				String rowKey = split[0];
+				logger.fine("Loading Timeseries:" + seriesId(rowKey));
+				try {
+					String timeBucketSize = split[2];
+					seriesMap.put(rowKey,
+							new TimeSeries(this, compressionClass, seriesId(rowKey), Integer.parseInt(timeBucketSize),
+									metadata, Boolean.parseBoolean(split[1]), conf, bgTaskPool));
+					logger.fine("Loaded Timeseries:" + seriesId(rowKey) + "\tkey:" + rowKey);
+				} catch (NumberFormatException | IOException e) {
+					logger.log(Level.SEVERE, "Failed to load series:" + entry, e);
+				}
+			}));
 		}
 		for (Future<?> future : futures) {
 			try {
@@ -174,11 +181,11 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	private String measurementMetadataFilePath() {
-		return dbDataDirectory + "/" + measurementName + "/.md";
+		return measurementDataDirectoryPath() + "/.md";
 	}
 
-	public static String seriesId(String measurementName, String rowKey) {
-		return measurementName + "_" + rowKey;
+	public static String seriesId(String rowKey) {
+		return rowKey;
 	}
 
 	public String getMeasurementDataDirectory() {
@@ -198,17 +205,30 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public ByteBuffer createNewBuffer() throws IOException {
 		if (activeFile == null) {
-			activeFile = new RandomAccessFile(getMeasurementDataDirectory() + "/data.dat", "rwd");
-			memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, maxFileMap);
-			bufTracker.add(memoryMappedBuffer);
+			synchronized (this) {
+				if (activeFile == null) {
+					activeFile = new RandomAccessFile(getMeasurementDataDirectory() + "/data-" + fcnt + ".dat", "rwd");
+					memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, maxFileMap);
+					bufTracker.add(memoryMappedBuffer);
+					fcnt++;
+				}
+			}
 		}
 		synchronized (activeFile) {
 			if (curr + increment < 0) {
 				base = 0;
-				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, (((long) (maxFileMap)) * itr) + 1,
-						maxFileMap);
-				bufTracker.add(memoryMappedBuffer);
+				long position = (((long) (maxFileMap)) * itr) + 1;
+				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, position, maxFileMap);
+//				bufTracker.add(memoryMappedBuffer);
 				itr++;
+				// close the current data file, increment the filename by 1 so that
+				// a new data file will be created next time a buffer is
+				// requested
+				if (position >= Integer.MAX_VALUE) {
+					itr = 0;
+					activeFile.close();
+					activeFile = null;
+				}
 			}
 			curr = base * increment;
 			memoryMappedBuffer.position(curr);
@@ -217,14 +237,29 @@ public class PersistentMeasurement implements Measurement {
 		}
 	}
 
-	@Override
-	public List<ByteBuffer> getBufTracker() {
-		return bufTracker;
-	}
+//	@Override
+//	public List<ByteBuffer> getBufTracker() {
+//		return bufTracker;
+//	}
 
 	@Override
 	public String getMeasurementName() {
 		return measurementName;
+	}
+
+	@Override
+	public Set<String> getTags() {
+		return tagIndex.getTags();
+	}
+
+	@Override
+	public Logger getLogger() {
+		return logger;
+	}
+
+	@Override
+	public void delete() throws IOException {
+		MiscUtils.delete(new File(measurementDataDirectoryPath()));
 	}
 
 	/*

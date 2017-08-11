@@ -150,9 +150,9 @@ public class TestDiskStorageEngine {
 	public void testMultipleDrives() throws ItemNotFoundException, IOException {
 		StorageEngine engine = new DiskStorageEngine();
 		HashMap<String, String> map = new HashMap<>();
-		MiscUtils.delete(new File("targer/db102/"));
-		map.put("index.dir", "target/db102/index");
-		map.put("data.dir", "target/db102/data1, target/db102/data2");
+		MiscUtils.delete(new File("targer/db10221/"));
+		map.put("index.dir", "target/db10221/index");
+		map.put("data.dir", "target/db10221/data1, target/db10221/data2");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		try {
 			engine.configure(map, bgTasks);
@@ -170,8 +170,8 @@ public class TestDiskStorageEngine {
 			e.printStackTrace();
 			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
 		}
-		assertEquals(5, new File("target/db102/data1").listFiles().length);
-		assertEquals(5, new File("target/db102/data2").listFiles().length);
+		assertEquals(5, new File("target/db10221/data1").listFiles().length);
+		assertEquals(5, new File("target/db10221/data2").listFiles().length);
 	}
 
 	@Test
@@ -242,48 +242,54 @@ public class TestDiskStorageEngine {
 
 	@Test
 	public void testQueryDataPointsRecovery() throws IOException, ItemNotFoundException {
-		DiskStorageEngine engine = new DiskStorageEngine();
-		MiscUtils.delete(new File("target/db1/"));
-		HashMap<String, String> map = new HashMap<>();
-		map.put("metadata.dir", "target/db1/mdq");
-		map.put("index.dir", "target/db1/index");
-		map.put("data.dir", "target/db1/data");
-		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		engine.configure(map, bgTasks);
-		long ts = System.currentTimeMillis();
-		Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
-		assertEquals(0, db.size());
-		engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
-		engine.writeDataPoint(
-				MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
-		Measurement measurement = engine.getOrCreateMeasurement("test3", "cpu");
-		assertEquals(1, measurement.getTimeSeriesMap().size());
-		
-		engine = new DiskStorageEngine();
-		engine.configure(map, bgTasks);
-
-		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000),
-				null, null);
-		assertTrue(!engine.isMeasurementFieldFP("test3", "cpu", "value"));
 		try {
-			engine.isMeasurementFieldFP("test3", "test", "test");
-			fail("Measurement should not exist");
-		} catch (Exception e) {
-		}
-		assertEquals(2, queryDataPoints.iterator().next().getDataPoints().size());
-		assertEquals(ts, queryDataPoints.iterator().next().getDataPoints().get(0).getTimestamp());
-		assertEquals(ts + (400 * 60000), queryDataPoints.iterator().next().getDataPoints().get(1).getTimestamp());
-		try {
-			engine.dropDatabase("test3");
-		} catch (Exception e) {
-		}
-		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
+			DiskStorageEngine engine = new DiskStorageEngine();
+			MiscUtils.delete(new File("target/db1/"));
+			HashMap<String, String> map = new HashMap<>();
+			map.put("metadata.dir", "target/db1/mdq");
+			map.put("index.dir", "target/db1/index");
+			map.put("data.dir", "target/db1/data");
+			map.put("disk.compression.class", ByzantineWriter.class.getName());
+			engine.configure(map, bgTasks);
+			long ts = System.currentTimeMillis();
+			Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
+			assertEquals(0, db.size());
+			engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
+			engine.writeDataPoint(
+					MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
+			Measurement measurement = engine.getOrCreateMeasurement("test3", "cpu");
+			assertEquals(1, measurement.getTimeSeriesMap().size());
 
-		engine = new DiskStorageEngine();
-		engine.configure(map, bgTasks);
+			engine = new DiskStorageEngine();
+			engine.configure(map, bgTasks);
 
-		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
-		engine.disconnect();
+			assertTrue(!engine.isMeasurementFieldFP("test3", "cpu", "value"));
+			Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts,
+					ts + (400 * 60000), null, null);
+			try {
+				engine.isMeasurementFieldFP("test3", "test", "test");
+				fail("Measurement should not exist");
+			} catch (Exception e) {
+			}
+			assertEquals(1, queryDataPoints.size());
+			assertEquals(2, queryDataPoints.iterator().next().getDataPoints().size());
+			assertEquals(ts, queryDataPoints.iterator().next().getDataPoints().get(0).getTimestamp());
+			assertEquals(ts + (400 * 60000), queryDataPoints.iterator().next().getDataPoints().get(1).getTimestamp());
+			try {
+				engine.dropDatabase("test3");
+			} catch (Exception e) {
+			}
+			assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
+
+			engine = new DiskStorageEngine();
+			engine.configure(map, bgTasks);
+
+			assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
+			engine.disconnect();
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
 	}
 
 	@Test
@@ -385,7 +391,8 @@ public class TestDiskStorageEngine {
 		map.put("data.dir", "target/db1/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		ByteBuffer buf = ByteBuffer.allocate(100);
-		TimeSeriesBucket timeSeries = new TimeSeriesBucket(ByzantineWriter.class.getName(), headerTimestamp, map, buf, true);
+		TimeSeriesBucket timeSeries = new TimeSeriesBucket(ByzantineWriter.class.getName(), headerTimestamp, map, buf,
+				true);
 		timeSeries.addDataPoint(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, null, null, false);
 		assertEquals(1, points.size());
@@ -480,8 +487,8 @@ public class TestDiskStorageEngine {
 		DiskStorageEngine engine = new DiskStorageEngine();
 		HashMap<String, String> map = new HashMap<>();
 		map.put("compression.class", ByzantineWriter.class.getName());
-		map.put("data.dir", pathname+"/data");
-		map.put("index.dir", pathname+"/index");
+		map.put("data.dir", pathname + "/data");
+		map.put("index.dir", pathname + "/index");
 		engine.configure(map, bgTasks);
 		engine.connect();
 

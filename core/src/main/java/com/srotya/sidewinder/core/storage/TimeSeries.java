@@ -81,7 +81,6 @@ public class TimeSeries {
 		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
 		bucketMap = new ConcurrentSkipListMap<>();
-		loadBucketMap(measurement.getBufTracker());
 	}
 
 	/**
@@ -90,7 +89,8 @@ public class TimeSeries {
 	 * @param list2
 	 * @throws IOException
 	 */
-	protected void loadBucketMap(List<ByteBuffer> bufList) throws IOException {
+	public void loadBucketMap(List<ByteBuffer> bufList) throws IOException {
+		logger.info("Scanning buffer for:" + seriesId);
 		for (ByteBuffer entry : bufList) {
 			ByteBuffer duplicate = entry.duplicate();
 			duplicate.rewind();

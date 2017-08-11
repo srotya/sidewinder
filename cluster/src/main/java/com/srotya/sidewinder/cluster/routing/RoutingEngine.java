@@ -27,8 +27,8 @@ import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.RawTimeSeriesBucket;
 import com.srotya.sidewinder.core.rpc.RawTimeSeriesBucket.Builder;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
-import com.srotya.sidewinder.core.storage.mem.TimeSeries;
 
 /**
  * Routing Engine provides the abstraction to stitch together the

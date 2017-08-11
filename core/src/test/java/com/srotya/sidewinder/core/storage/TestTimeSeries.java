@@ -147,6 +147,7 @@ public class TestTimeSeries {
 
 		ts = new TimeSeries(measurement, ByzantineWriter.class.getName(), "test12312", 4096 * 10, metadata, false, conf,
 				bgTaskPool);
+		ts.loadBucketMap(measurement.getBufTracker());
 		assertEquals(size, measurement.getBufferRenewCounter());
 		List<DataPoint> dps = ts.queryDataPoints("test", Arrays.asList("test32"), t, t + 1001, null);
 		assertEquals(1000, dps.size());
@@ -177,6 +178,7 @@ public class TestTimeSeries {
 
 		ts = new TimeSeries(measurement, ByzantineWriter.class.getName(), "test12312", 4096 * 10, metadata, false, conf,
 				bgTaskPool);
+		ts.loadBucketMap(measurement.getBufTracker());
 		assertEquals(4, measurement.getBufferRenewCounter());
 		List<DataPoint> dps = ts.queryDataPoints("test", Arrays.asList("test32"), t, t + 1001, null);
 		assertEquals(1000, dps.size());

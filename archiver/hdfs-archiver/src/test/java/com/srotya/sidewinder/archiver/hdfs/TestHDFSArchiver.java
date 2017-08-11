@@ -60,7 +60,8 @@ public class TestHDFSArchiver {
 		conf.put(HDFSArchiver.HDFS_ARCHIVE_DIRECTORY, "target/test-hdfs-" + System.currentTimeMillis());
 		archiver.init(conf);
 		long ts = System.currentTimeMillis();
-		TimeSeriesBucket bucket = new TimeSeriesBucket("seriesId", ByzantineWriter.class.getName(), ts, false, new HashMap<>());
+		//TODO fix unit tests for HDFS Archiver
+		TimeSeriesBucket bucket = null;
 		for (int i = 0; i < 1000; i++) {
 			bucket.addDataPoint(ts + i * 1000, i);
 		}

@@ -103,7 +103,8 @@ public class DiskStorageEngine implements StorageEngine {
 					try {
 						value.garbageCollector();
 					} catch (IOException e) {
-						logger.log(Level.SEVERE, "Failed collect garbage for measurement:"+value.getMeasurementName(), e);
+						logger.log(Level.SEVERE, "Failed collect garbage for measurement:" + value.getMeasurementName(),
+								e);
 					}
 				}
 			}
@@ -309,6 +310,7 @@ public class DiskStorageEngine implements StorageEngine {
 		for (String line : lines) {
 			builder.append(line);
 		}
+		System.out.println(builder.toString());
 		DBMetadata metadata = new Gson().fromJson(builder.toString(), DBMetadata.class);
 		return metadata;
 	}
@@ -333,8 +335,8 @@ public class DiskStorageEngine implements StorageEngine {
 			synchronized (measurementMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					measurement = new PersistentMeasurement();
-					measurement.configure(conf, measurementName, baseIndexDirectory + "/" + dbName, dbDirectoryPath(dbName),
-							dbMetadataMap.get(dbName), bgTaskPool);
+					measurement.configure(conf, measurementName, baseIndexDirectory + "/" + dbName,
+							dbDirectoryPath(dbName), dbMetadataMap.get(dbName), bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
 				}
@@ -358,12 +360,13 @@ public class DiskStorageEngine implements StorageEngine {
 			return;
 		}
 		for (File measurementMdFile : file.listFiles()) {
-			if(!measurementMdFile.isDirectory()) {
+			if (!measurementMdFile.isDirectory()) {
 				continue;
 			}
 			String measurementName = measurementMdFile.getName();
 			Measurement measurement = new PersistentMeasurement();
-			measurement.configure(conf, measurementName, baseIndexDirectory, getDataDir(dbName), metadata, bgTaskPool);
+			measurement.configure(conf, measurementName, baseIndexDirectory, dbDirectoryPath(dbName), metadata,
+					bgTaskPool);
 			measurementMap.put(measurementName, measurement);
 			logger.info("Loading measurements:" + measurementName);
 			measurement.loadTimeseriesFromMeasurements();

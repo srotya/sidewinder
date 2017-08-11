@@ -60,7 +60,7 @@ public interface Measurement {
 
 	public ByteBuffer createNewBuffer() throws IOException;
 
-	public List<ByteBuffer> getBufTracker();
+//	public List<ByteBuffer> getBufTracker();
 
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp, Map<String, String> conf) throws IOException;
 
