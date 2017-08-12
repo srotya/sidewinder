@@ -58,9 +58,7 @@ public interface Measurement {
 
 	public void delete() throws IOException;
 
-	public ByteBuffer createNewBuffer() throws IOException;
-
-//	public List<ByteBuffer> getBufTracker();
+	public ByteBuffer createNewBuffer(String seriesId) throws IOException;
 
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp, Map<String, String> conf) throws IOException;
 
@@ -81,7 +79,7 @@ public interface Measurement {
 		return builder.toString();
 	}
 	
-	public default String constructRowKey(String valueFieldName, List<String> tags, TagIndex index)
+	public default String constructSeriesId(String valueFieldName, List<String> tags, TagIndex index)
 			throws IOException {
 		String encodeTagsToString = encodeTagsToString(index, tags);
 		StringBuilder rowKeyBuilder = new StringBuilder(valueFieldName.length() + 1 + encodeTagsToString.length());
@@ -174,7 +172,7 @@ public interface Measurement {
 	
 	public default TimeSeries getTimeSeries(String valueFieldName, List<String> tags) throws IOException {
 		Collections.sort(tags);
-		String rowKey = constructRowKey(valueFieldName, tags, getTagIndex());
+		String rowKey = constructSeriesId(valueFieldName, tags, getTagIndex());
 		// check and create timeseries
 		TimeSeries timeSeries = getTimeSeriesMap().get(rowKey);
 		return timeSeries;

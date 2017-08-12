@@ -62,7 +62,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer() throws IOException {
+	public ByteBuffer createNewBuffer(String seriesId) throws IOException {
 		bufferRenewCounter++;
 		ByteBuffer allocate = ByteBuffer.allocate(bufSize);
 		list.add(allocate);

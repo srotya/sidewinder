@@ -83,7 +83,7 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer() throws IOException {
+	public ByteBuffer createNewBuffer(String seriesId) throws IOException {
 		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(1024);
 		synchronized (bufTracker) {
 			bufTracker.add(allocateDirect);
@@ -99,7 +99,7 @@ public class MemoryMeasurement implements Measurement {
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException {
 		Collections.sort(tags);
-		String rowKey = constructRowKey(valueFieldName, tags, tagIndex);
+		String rowKey = constructSeriesId(valueFieldName, tags, tagIndex);
 		TimeSeries timeSeries = getTimeSeries(rowKey);
 		if (timeSeries == null) {
 			synchronized (this) {

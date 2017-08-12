@@ -16,7 +16,9 @@
 package com.srotya.sidewinder.core.storage.disk;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -40,14 +42,17 @@ public class DiskTagIndex implements TagIndex {
 	private Map<Integer, String> tagMap;
 	private Map<String, Set<String>> rowKeyIndex;
 	private XXHashFactory factory = XXHashFactory.fastestInstance();
+	private PrintWriter prFwd;
+	private PrintWriter prRv;
 	private String indexPath;
 	private XXHash32 hash;
 
-	public DiskTagIndex(String baseIndexDirectory, String measurementName) throws IOException {
-		this.indexPath = baseIndexDirectory + "/" + measurementName;
-		new File(indexPath).mkdirs();
-		tagMap = new ConcurrentHashMap<>();
-		rowKeyIndex = new ConcurrentHashMap<>();
+	public DiskTagIndex(String indexDir, String measurementName) throws IOException {
+		this.indexPath = indexDir + "/" + measurementName;
+		tagMap = new ConcurrentHashMap<>(1000);
+		rowKeyIndex = new ConcurrentHashMap<>(1000);
+		prFwd = new PrintWriter(new FileOutputStream(new File(indexPath + ".fwd"), true));
+		prRv = new PrintWriter(new FileOutputStream(new File(indexPath + ".rev"), true));
 		hash = factory.hash32();
 		loadTagIndex();
 	}
@@ -92,7 +97,7 @@ public class DiskTagIndex implements TagIndex {
 			synchronized (tagMap) {
 				String out = tagMap.put(hash32, tag);
 				if (out == null) {
-					DiskStorageEngine.appendLineToFile(hash32 + "\t" + tag, indexPath + ".fwd");
+					DiskStorageEngine.appendLineToFile(hash32 + "\t" + tag, prFwd);
 				}
 			}
 		}
@@ -125,7 +130,7 @@ public class DiskTagIndex implements TagIndex {
 			boolean add = rowKeySet.add(rowKey);
 			if (add) {
 				synchronized (tagMap) {
-					DiskStorageEngine.appendLineToFile(tag + "\t" + rowKey, indexPath + ".rev");
+					DiskStorageEngine.appendLineToFile(tag + "\t" + rowKey, prRv);
 				}
 			}
 		}

@@ -64,7 +64,7 @@ public class TestPersistentMeasurement {
 		m.configure(conf, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
 		TagIndex index = m.getTagIndex();
 		String encodeTagsToString = m.encodeTagsToString(index, tags);
-		String key = m.constructRowKey("csd", tags, index);
+		String key = m.constructSeriesId("csd", tags, index);
 		assertEquals("csd#" + encodeTagsToString, key);
 	}
 

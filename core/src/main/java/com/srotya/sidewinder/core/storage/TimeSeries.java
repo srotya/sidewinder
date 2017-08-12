@@ -83,6 +83,34 @@ public class TimeSeries {
 		bucketMap = new ConcurrentSkipListMap<>();
 	}
 
+	public TimeSeriesBucket getOrCreateSeriesBucket(TimeUnit unit, long timestamp, boolean createNew)
+			throws IOException {
+		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
+		String tsBucket = Integer.toHexString(bucket);
+		List<TimeSeriesBucket> list = bucketMap.get(tsBucket);
+		if (list == null) {
+			synchronized (bucketMap) {
+				if (list == null) {
+					list = new ArrayList<>();
+					createNew = true;
+					bucketMap.put(tsBucket, list);
+				}
+			}
+		}
+		if (createNew) {
+			synchronized (bucketMap) {
+				ByteBuffer buf = measurement.createNewBuffer(seriesId);
+//				writeStringToBuffer(seriesId, buf);
+				writeStringToBuffer(tsBucket, buf);
+				buf.putLong(timestamp);
+				buf = buf.slice();
+				TimeSeriesBucket bucketEntry = new TimeSeriesBucket(compressionFQCN, timestamp, conf, buf, true);
+				list.add(bucketEntry);
+			}
+		}
+		return list.get(list.size() - 1);
+	}
+	
 	/**
 	 * Function to check and recover existing bucket map, if one exists.
 	 * 
@@ -94,10 +122,10 @@ public class TimeSeries {
 		for (ByteBuffer entry : bufList) {
 			ByteBuffer duplicate = entry.duplicate();
 			duplicate.rewind();
-			String series = getStringFromBuffer(duplicate);
-			if (!series.equalsIgnoreCase(seriesId)) {
-				continue;
-			}
+//			String series = getStringFromBuffer(duplicate);
+//			if (!series.equalsIgnoreCase(seriesId)) {
+//				continue;
+//			}
 			String tsBucket = getStringFromBuffer(duplicate);
 			List<TimeSeriesBucket> list = bucketMap.get(tsBucket);
 			if (list == null) {
@@ -212,34 +240,6 @@ public class TimeSeries {
 			}
 		}
 		return readers;
-	}
-
-	public TimeSeriesBucket getOrCreateSeriesBucket(TimeUnit unit, long timestamp, boolean createNew)
-			throws IOException {
-		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
-		String tsBucket = Integer.toHexString(bucket);
-		List<TimeSeriesBucket> list = bucketMap.get(tsBucket);
-		if (list == null) {
-			synchronized (bucketMap) {
-				if (list == null) {
-					list = new ArrayList<>();
-					createNew = true;
-					bucketMap.put(tsBucket, list);
-				}
-			}
-		}
-		if (createNew) {
-			synchronized (bucketMap) {
-				ByteBuffer buf = measurement.createNewBuffer();
-				writeStringToBuffer(seriesId, buf);
-				writeStringToBuffer(tsBucket, buf);
-				buf.putLong(timestamp);
-				buf = buf.slice();
-				TimeSeriesBucket bucketEntry = new TimeSeriesBucket(compressionFQCN, timestamp, conf, buf, true);
-				list.add(bucketEntry);
-			}
-		}
-		return list.get(list.size() - 1);
 	}
 
 	/**

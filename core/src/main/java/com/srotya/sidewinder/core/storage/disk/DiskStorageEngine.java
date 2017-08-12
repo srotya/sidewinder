@@ -408,11 +408,9 @@ public class DiskStorageEngine implements StorageEngine {
 		pr.close();
 	}
 
-	public static void appendLineToFile(String line, String filePath) throws IOException {
-		File pth = new File(filePath);
-		PrintWriter pr = new PrintWriter(new FileOutputStream(pth, true));
+	public static void appendLineToFile(String line, PrintWriter pr) throws IOException {
 		pr.println(line);
-		pr.close();
+		pr.flush();
 	}
 
 	@Override

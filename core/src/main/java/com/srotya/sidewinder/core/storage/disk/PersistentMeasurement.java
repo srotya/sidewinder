@@ -16,8 +16,10 @@
 package com.srotya.sidewinder.core.storage.disk;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
@@ -48,11 +50,15 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class PersistentMeasurement implements Measurement {
 
+	private static final int DEFAULT_BUF_INCREMENT = 1048576;
+	private static final int DEFAULT_MAX_FILE_SIZE = Integer.MAX_VALUE;
+	private static final String CONF_MEASUREMENT_FILE_MAX = "measurement.file.max";
+	private static final String CONF_MEASUREMENT_FILE_INCREMENT = "measurement.file.increment";
 	private static final Logger logger = Logger.getLogger(PersistentMeasurement.class.getName());
 	private Map<String, TimeSeries> seriesMap;
 	private DiskTagIndex tagIndex;
 	private String compressionClass;
-	private String dbDataDirectory;
+	private String dataDirectory;
 	private DBMetadata metadata;
 	private Map<String, String> conf;
 	private ScheduledExecutorService bgTaskPool;
@@ -67,46 +73,60 @@ public class PersistentMeasurement implements Measurement {
 	private MappedByteBuffer memoryMappedBuffer;
 	private String measurementName;
 	private long maxFileSize;
+	private String filename;
+	private PrintWriter prBufPointers;
+	private PrintWriter prMetadata;
+	private String indexDirectory;
 
 	@Override
 	public void configure(Map<String, String> conf, String measurementName, String indexDirectory, String dataDirectory,
 			DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
 		this.conf = conf;
-		this.dbDataDirectory = dataDirectory;
+		this.dataDirectory = dataDirectory + "/" + measurementName;
+		this.indexDirectory = indexDirectory + "/" + measurementName;
+		createMeasurementDirectory();
 		this.metadata = metadata;
 		this.bgTaskPool = bgTaskPool;
 		this.seriesMap = new ConcurrentHashMap<>(10000);
-		this.tagIndex = new DiskTagIndex(indexDirectory, measurementName);
+		this.tagIndex = new DiskTagIndex(this.indexDirectory, measurementName);
 		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
 				StorageEngine.DEFAULT_COMPRESSION_CLASS);
 		this.measurementName = measurementName;
 		this.bufTracker = new ArrayList<>();
+		this.prBufPointers = new PrintWriter(new FileOutputStream(new File(getPtrPath()), true));
+		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
 		this.fileMapIncrement = Integer
-				.parseInt(conf.getOrDefault("measurement.file.increment", String.valueOf(1024 * 1024 * 1)));
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_INCREMENT, String.valueOf(DEFAULT_BUF_INCREMENT)));
 		this.maxFileSize = Integer
-				.parseInt(conf.getOrDefault("measurement.file.max", String.valueOf(Integer.MAX_VALUE)));
-		if(fileMapIncrement>=maxFileSize) {
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_MAX, String.valueOf(DEFAULT_MAX_FILE_SIZE)));
+		if (fileMapIncrement >= maxFileSize) {
 			throw new IllegalArgumentException("File increment can't be greater than or equal to file size");
 		}
-		createMeasurementDirectory();
+	}
+
+	private String getPtrPath() {
+		return dataDirectory + "/.ptr";
+	}
+
+	private String getMetadataPath() {
+		return dataDirectory + "/.md";
 	}
 
 	@Override
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException {
 		Collections.sort(tags);
-		String rowKey = constructRowKey(valueFieldName, tags, tagIndex);
-		TimeSeries timeSeries = getTimeSeries(rowKey);
+		String seriesId = constructSeriesId(valueFieldName, tags, tagIndex);
+		TimeSeries timeSeries = getTimeSeries(seriesId);
 		if (timeSeries == null) {
 			synchronized (this) {
-				if ((timeSeries = getTimeSeries(rowKey)) == null) {
-					timeSeries = new TimeSeries(this, compressionClass, seriesId(rowKey), timeBucketSize, metadata, fp,
-							conf, bgTaskPool);
-					seriesMap.put(rowKey, timeSeries);
-					appendTimeseriesToMeasurementMetadata(measurementMetadataFilePath(), seriesId(rowKey), fp,
-							timeBucketSize);
+				if ((timeSeries = getTimeSeries(seriesId)) == null) {
+					timeSeries = new TimeSeries(this, compressionClass, seriesId, timeBucketSize, metadata, fp, conf,
+							bgTaskPool);
+					seriesMap.put(seriesId, timeSeries);
+					appendTimeseriesToMeasurementMetadata(seriesId, fp, timeBucketSize);
 					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
-							+ rowKey + "\t" + metadata);
+							+ seriesId + "\t" + metadata);
 				}
 			}
 		}
@@ -116,14 +136,14 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public void loadTimeseriesFromMeasurements() throws IOException {
 		logger.info("Loading measurement:" + measurementName);
-		String mdFilePath = measurementMetadataFilePath();
+		String mdFilePath = getMetadataPath();
 		File file = new File(mdFilePath);
 		if (!file.exists()) {
 			logger.warning("Metadata file missing for measurement:" + measurementName);
 			return;
 		}
 
-		String[] dataFiles = new File(getMeasurementDataDirectory()).list(new FilenameFilter() {
+		String[] dataFiles = new File(dataDirectory).list(new FilenameFilter() {
 
 			@Override
 			public boolean accept(File dir, String name) {
@@ -133,7 +153,7 @@ public class PersistentMeasurement implements Measurement {
 		Arrays.sort(dataFiles);
 		for (int i = 0; i < dataFiles.length - 1; i++) {
 			String dataFile = dataFiles[i];
-			activeFile = new RandomAccessFile(getMeasurementDataDirectory() + "/" + dataFile, "");
+			activeFile = new RandomAccessFile(dataDirectory + "/" + dataFile, "");
 			System.err.println("DF:" + dataFile);
 		}
 
@@ -142,14 +162,14 @@ public class PersistentMeasurement implements Measurement {
 		for (String entry : seriesEntries) {
 			String[] split = entry.split("\t");
 			futures.add(bgTaskPool.submit(() -> {
-				String rowKey = split[0];
-				logger.fine("Loading Timeseries:" + seriesId(rowKey));
+				String seriesId = split[0];
+				logger.fine("Loading Timeseries:" + seriesId);
 				try {
 					String timeBucketSize = split[2];
-					seriesMap.put(rowKey,
-							new TimeSeries(this, compressionClass, seriesId(rowKey), Integer.parseInt(timeBucketSize),
-									metadata, Boolean.parseBoolean(split[1]), conf, bgTaskPool));
-					logger.fine("Loaded Timeseries:" + seriesId(rowKey) + "\tkey:" + rowKey);
+					String isFp = split[1];
+					seriesMap.put(seriesId, new TimeSeries(this, compressionClass, seriesId,
+							Integer.parseInt(timeBucketSize), metadata, Boolean.parseBoolean(isFp), conf, bgTaskPool));
+					logger.fine("Loaded Timeseries:" + seriesId);
 				} catch (NumberFormatException | IOException e) {
 					logger.log(Level.SEVERE, "Failed to load series:" + entry, e);
 				}
@@ -183,38 +203,22 @@ public class PersistentMeasurement implements Measurement {
 		return seriesMap.get(entry);
 	}
 
-	private String measurementDataDirectoryPath() {
-		return dbDataDirectory + "/" + measurementName;
-	}
-
-	private String measurementMetadataFilePath() {
-		return measurementDataDirectoryPath() + "/.md";
-	}
-
-	public static String seriesId(String rowKey) {
-		return rowKey;
-	}
-
-	public String getMeasurementDataDirectory() {
-		return measurementDataDirectoryPath();
-	}
-
 	protected void createMeasurementDirectory() throws IOException {
-		String measurementDirectory = measurementDataDirectoryPath();
-		new File(measurementDirectory).mkdirs();
+		new File(dataDirectory).mkdirs();
+		new File(indexDirectory).mkdirs();
 	}
 
-	protected void appendTimeseriesToMeasurementMetadata(String measurementFilePath, String rowKey, boolean fp,
-			int timeBucketSize) throws IOException {
-		DiskStorageEngine.appendLineToFile(rowKey + "\t" + fp + "\t" + timeBucketSize, measurementFilePath);
+	protected void appendTimeseriesToMeasurementMetadata(String seriesId, boolean fp, int timeBucketSize)
+			throws IOException {
+		DiskStorageEngine.appendLineToFile(seriesId + "\t" + fp + "\t" + timeBucketSize, prMetadata);
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer() throws IOException {
+	public ByteBuffer createNewBuffer(String seriesId) throws IOException {
 		if (activeFile == null) {
 			synchronized (this) {
 				if (activeFile == null) {
-					String filename = getMeasurementDataDirectory() + "/data-" + fcnt + ".dat";
+					filename = dataDirectory + "/data-" + fcnt + ".dat";
 					activeFile = new RandomAccessFile(filename, "rwd");
 					logger.info("Creating new datafile for measurement:" + filename);
 					memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, fileMapIncrement);
@@ -237,7 +241,7 @@ public class PersistentMeasurement implements Measurement {
 							+ activeFile);
 					activeFile.close();
 					activeFile = null;
-					return createNewBuffer();
+					return createNewBuffer(seriesId);
 				}
 				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, position, fileMapIncrement);
 				logger.fine("Buffer expansion:" + position + "\t" + curr);
@@ -246,9 +250,14 @@ public class PersistentMeasurement implements Measurement {
 			}
 			curr = base * increment;
 			memoryMappedBuffer.position(curr);
+			appendBufferPointersToDisk(seriesId, filename, curr);
 			base++;
 			return memoryMappedBuffer.slice();
 		}
+	}
+
+	protected void appendBufferPointersToDisk(String seriesId, String filename, int curr) throws IOException {
+		DiskStorageEngine.appendLineToFile(seriesId + "\t" + filename + "\t" + curr, prBufPointers);
 	}
 
 	@Override
@@ -268,7 +277,7 @@ public class PersistentMeasurement implements Measurement {
 
 	@Override
 	public void delete() throws IOException {
-		MiscUtils.delete(new File(measurementDataDirectoryPath()));
+		MiscUtils.delete(new File(dataDirectory));
 	}
 
 	/*
