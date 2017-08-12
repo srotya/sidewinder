@@ -56,6 +56,8 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class DiskStorageEngine implements StorageEngine {
 
+	private static final String TMP_SIDEWINDER_INDEX = "/tmp/sidewinder/index";
+	private static final String TMP_SIDEWINDER_METADATA = "/tmp/sidewinder/data";
 	private static final String INDEX_DIR = "index.dir";
 	private static final String DATA_DIRS = "data.dir";
 	private static final Logger logger = Logger.getLogger(DiskStorageEngine.class.getName());
@@ -78,8 +80,8 @@ public class DiskStorageEngine implements StorageEngine {
 				.parseInt(conf.getOrDefault(RETENTION_HOURS, String.valueOf(DEFAULT_RETENTION_HOURS)));
 		logger.info("Setting default timeseries retention hours policy to:" + defaultRetentionHours);
 
-		dataDirs = MiscUtils.splitAndNormalizeString(conf.getOrDefault(DATA_DIRS, "/tmp/sidewinder/metadata"));
-		baseIndexDirectory = conf.getOrDefault(INDEX_DIR, "/tmp/sidewinder/index");
+		dataDirs = MiscUtils.splitAndNormalizeString(conf.getOrDefault(DATA_DIRS, TMP_SIDEWINDER_METADATA));
+		baseIndexDirectory = conf.getOrDefault(INDEX_DIR, TMP_SIDEWINDER_INDEX);
 		for (String dataDir : dataDirs) {
 			new File(dataDir).mkdirs();
 		}
@@ -110,7 +112,6 @@ public class DiskStorageEngine implements StorageEngine {
 			}
 		}, Integer.parseInt(conf.getOrDefault(GC_FREQUENCY, DEFAULT_GC_FREQUENCY)),
 				Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.MILLISECONDS);
-
 		loadDatabases();
 	}
 
@@ -310,7 +311,7 @@ public class DiskStorageEngine implements StorageEngine {
 		for (String line : lines) {
 			builder.append(line);
 		}
-		System.out.println(builder.toString());
+		System.out.println("JSON for metadata:" + builder.toString());
 		DBMetadata metadata = new Gson().fromJson(builder.toString(), DBMetadata.class);
 		return metadata;
 	}

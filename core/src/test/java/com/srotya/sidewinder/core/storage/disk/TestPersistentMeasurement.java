@@ -56,6 +56,8 @@ public class TestPersistentMeasurement {
 		StorageEngine engine = new DiskStorageEngine();
 		MiscUtils.delete(new File("target/db131/"));
 		HashMap<String, String> map = new HashMap<>();
+		map.put("data.dir", "target/db131/data");
+		map.put("index.dir", "target/db131/index");
 		engine.configure(map, Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("bg")));
 		List<String> tags = Arrays.asList("test1", "test2");
 		Measurement m = new PersistentMeasurement();

@@ -59,13 +59,14 @@ public class PersistentMeasurement implements Measurement {
 	private RandomAccessFile activeFile;
 	private List<ByteBuffer> bufTracker;
 	private int itr;
-	private int maxFileMap;
+	private int fileMapIncrement;
 	private int increment = 4096;
 	private int curr;
 	private int base;
 	private int fcnt;
 	private MappedByteBuffer memoryMappedBuffer;
 	private String measurementName;
+	private long maxFileSize;
 
 	@Override
 	public void configure(Map<String, String> conf, String measurementName, String indexDirectory, String dataDirectory,
@@ -74,13 +75,16 @@ public class PersistentMeasurement implements Measurement {
 		this.dbDataDirectory = dataDirectory;
 		this.metadata = metadata;
 		this.bgTaskPool = bgTaskPool;
-		this.seriesMap = new ConcurrentHashMap<>();
+		this.seriesMap = new ConcurrentHashMap<>(10000);
 		this.tagIndex = new DiskTagIndex(indexDirectory, measurementName);
 		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
 				StorageEngine.DEFAULT_COMPRESSION_CLASS);
 		this.measurementName = measurementName;
 		this.bufTracker = new ArrayList<>();
-		this.maxFileMap = Integer.parseInt(conf.getOrDefault("measurement.file.size", String.valueOf(1024 * 1024 * 1)));
+		this.fileMapIncrement = Integer
+				.parseInt(conf.getOrDefault("measurement.file.increment", String.valueOf(1024 * 1024 * 1)));
+		this.maxFileSize = Integer
+				.parseInt(conf.getOrDefault("measurement.file.max", String.valueOf(Integer.MAX_VALUE)));
 		createMeasurementDirectory();
 	}
 
@@ -207,25 +211,31 @@ public class PersistentMeasurement implements Measurement {
 		if (activeFile == null) {
 			synchronized (this) {
 				if (activeFile == null) {
-					activeFile = new RandomAccessFile(getMeasurementDataDirectory() + "/data-" + fcnt + ".dat", "rwd");
-					memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, maxFileMap);
+					String filename = getMeasurementDataDirectory() + "/data-" + fcnt + ".dat";
+					activeFile = new RandomAccessFile(filename, "rwd");
+					logger.info("Creating new datafile for measurement:" + filename);
+					memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, fileMapIncrement);
 					bufTracker.add(memoryMappedBuffer);
 					fcnt++;
 				}
 			}
 		}
 		synchronized (activeFile) {
-			if (curr + increment < 0) {
+			if (curr + increment < 0 || curr + increment > memoryMappedBuffer.remaining()) {
 				base = 0;
-				long position = (((long) (maxFileMap)) * itr) + 1;
-				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, position, maxFileMap);
-//				bufTracker.add(memoryMappedBuffer);
+				long position = (((long) (fileMapIncrement)) * itr) + 1;
+				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, position, fileMapIncrement);
+				logger.fine("Buffer expansion:" + position + "\t" + curr);
+				// bufTracker.add(memoryMappedBuffer);
 				itr++;
-				// close the current data file, increment the filename by 1 so that
+				// close the current data file, increment the filename by 1 so
+				// that
 				// a new data file will be created next time a buffer is
 				// requested
-				if (position >= Integer.MAX_VALUE) {
+				if (position >= maxFileSize) {
 					itr = 0;
+					logger.info("Rotating datafile for measurement:" + measurementName + " closing active file"
+							+ activeFile);
 					activeFile.close();
 					activeFile = null;
 				}
@@ -236,11 +246,6 @@ public class PersistentMeasurement implements Measurement {
 			return memoryMappedBuffer.slice();
 		}
 	}
-
-//	@Override
-//	public List<ByteBuffer> getBufTracker() {
-//		return bufTracker;
-//	}
 
 	@Override
 	public String getMeasurementName() {

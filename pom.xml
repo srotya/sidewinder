@@ -74,32 +74,32 @@
         <artifactId>apache-rat-plugin</artifactId>
         <version>0.12</version>
         <configuration>
-        	<excludes>
-        		<exclude>**/*.txt</exclude>
-        		<exclude>**/*.json</exclude>
-        		<exclude>**/.gitignore</exclude>
-        		<exclude>**/*.yaml</exclude>
-        		<exclude>**/*.yml</exclude>
-        		<exclude>**/*.md</exclude>
-        		<exclude>**/*.enc</exclude>
-        		<exclude>**/*.xml</exclude>
-        		<exclude>**/*.sh</exclude>
-        		<exclude>**/*.properties</exclude>
-        		<exclude>**/*.props</exclude>
-        		<exclude>**/Dockerfile</exclude>
-        		<exclude>**/control</exclude>
-        		<exclude>**/postinst</exclude>
-        		<exclude>**/preinst</exclude>
-        		<exclude>**/*.jar</exclude>
-        		<exclude>**/*.rpm</exclude>
-        		<exclude>**/*.spec</exclude>
-        		<exclude>**/*.html</exclude>
-        		<exclude>**/*.config</exclude>
-        		<exclude>**/*.conf</exclude>
-        		<exclude>**/*.j2</exclude>
-        		<exclude>**/*Murmur*</exclude>
-        		<exclude>**/sidewinder</exclude>
-        	</excludes>
+          <excludes>
+            <exclude>**/*.txt</exclude>
+            <exclude>**/*.json</exclude>
+            <exclude>**/.gitignore</exclude>
+            <exclude>**/*.yaml</exclude>
+            <exclude>**/*.yml</exclude>
+            <exclude>**/*.md</exclude>
+            <exclude>**/*.enc</exclude>
+            <exclude>**/*.xml</exclude>
+            <exclude>**/*.sh</exclude>
+            <exclude>**/*.properties</exclude>
+            <exclude>**/*.props</exclude>
+            <exclude>**/Dockerfile</exclude>
+            <exclude>**/control</exclude>
+            <exclude>**/postinst</exclude>
+            <exclude>**/preinst</exclude>
+            <exclude>**/*.jar</exclude>
+            <exclude>**/*.rpm</exclude>
+            <exclude>**/*.spec</exclude>
+            <exclude>**/*.html</exclude>
+            <exclude>**/*.config</exclude>
+            <exclude>**/*.conf</exclude>
+            <exclude>**/*.j2</exclude>
+            <exclude>**/*Murmur*</exclude>
+            <exclude>**/sidewinder</exclude>
+          </excludes>
         </configuration>
       </plugin>
       <plugin>

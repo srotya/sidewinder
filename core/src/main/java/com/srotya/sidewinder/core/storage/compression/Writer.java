@@ -19,10 +19,15 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Map;
 
+import com.srotya.sidewinder.core.storage.RejectException;
+
 /**
  * @author ambud
  */
 public interface Writer {
+	
+	public static final RollOverException BUF_ROLLOVER_EXCEPTION = new RollOverException();
+	public static final RejectException WRITE_REJECT_EXCEPTION = new RejectException();
 
 	public void addValue(long timestamp, long value) throws IOException;
 
@@ -41,5 +46,7 @@ public interface Writer {
 	public ByteBuffer getRawBytes();
 	
 	public void setCounter(int counter);
+	
+	public void makeReadOnly();
 
 }

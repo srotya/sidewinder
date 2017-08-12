@@ -26,7 +26,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.compression.RollOverException;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
@@ -36,7 +35,6 @@ import com.srotya.sidewinder.core.storage.compression.Writer;
  */
 public class ByzantineWriter implements Writer {
 
-	private static final RollOverException BUF_ROLLOVER_EXCEPTION = new RollOverException();
 	private static final int BYTES_PER_DATAPOINT = 16;
 	private Lock read;
 	private Lock write;
@@ -46,6 +44,7 @@ public class ByzantineWriter implements Writer {
 	private long lastTs;
 	private ByteBuffer buf;
 	private long prevValue;
+	private boolean readOnly;
 
 	public ByzantineWriter() {
 	}
@@ -95,6 +94,9 @@ public class ByzantineWriter implements Writer {
 	}
 
 	public void write(DataPoint dp) throws IOException {
+		if(readOnly) {
+			throw WRITE_REJECT_EXCEPTION;
+		}
 		write.lock();
 		writeDataPoint(dp.getTimestamp(), dp.getLongValue());
 		write.unlock();
@@ -183,8 +185,8 @@ public class ByzantineWriter implements Writer {
 		read.lock();
 		ByteBuffer rbuf = buf.duplicate();
 		rbuf.rewind();
-		read.unlock();
 		reader = new ByzantineReader(rbuf);
+		read.unlock();
 		return reader;
 	}
 
@@ -331,5 +333,12 @@ public class ByzantineWriter implements Writer {
 			return null;
 		}
 
+	}
+
+	@Override
+	public void makeReadOnly() {
+		write.lock();
+		readOnly = true;
+		write.unlock();
 	}
 }

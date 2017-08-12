@@ -25,6 +25,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
@@ -42,6 +43,7 @@ public class DodWriter implements Writer {
 	private long delta;
 	private int count;
 	private long lastTs;
+	private boolean readOnly;
 
 	public DodWriter() {
 	}
@@ -56,7 +58,10 @@ public class DodWriter implements Writer {
 		writer = new BitWriter(buf);
 	}
 	
-	public void write(DataPoint dp) {
+	public void write(DataPoint dp) throws RejectException {
+		if(readOnly) {
+			throw WRITE_REJECT_EXCEPTION;
+		}
 		write.lock();
 		writeDataPoint(dp.getTimestamp(), dp.getLongValue());
 		write.unlock();
@@ -148,6 +153,13 @@ public class DodWriter implements Writer {
 	@Override
 	public void setCounter(int counter) {
 		this.count = counter;
+	}
+
+	@Override
+	public void makeReadOnly() {
+		write.lock();
+		readOnly = true;
+		write.unlock();
 	}
 
 }
