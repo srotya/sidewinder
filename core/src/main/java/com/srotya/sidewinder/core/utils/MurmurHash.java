@@ -1,5 +1,3 @@
-package com.srotya.sidewinder.core.utils;
-
 /** 
  * Murmur hash 2.0.
  * 
@@ -16,6 +14,8 @@ package com.srotya.sidewinder.core.utils;
  * @version 1.0.2
  *
  */
+package com.srotya.sidewinder.core.utils;
+
 public final class MurmurHash {
 
 	/** Generates 32 bit hash from byte array of the given length and

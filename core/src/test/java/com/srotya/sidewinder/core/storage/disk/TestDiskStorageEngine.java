@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -53,15 +54,14 @@ import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
-import com.srotya.sidewinder.core.storage.Reader;
+import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.TagIndex;
+import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
-import com.srotya.sidewinder.core.storage.mem.TimeSeries;
-import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
@@ -150,13 +150,14 @@ public class TestDiskStorageEngine {
 	public void testMultipleDrives() throws ItemNotFoundException, IOException {
 		StorageEngine engine = new DiskStorageEngine();
 		HashMap<String, String> map = new HashMap<>();
-		MiscUtils.delete(new File("targer/db102/"));
-		map.put("index.dir", "target/db102/index");
-		map.put("data.dir", "target/db102/data1, target/db102/data2");
+		MiscUtils.delete(new File("targer/db10221/"));
+		map.put("index.dir", "target/db10221/index");
+		map.put("data.dir", "target/db10221/data1, target/db10221/data2");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		try {
 			engine.configure(map, bgTasks);
 		} catch (IOException e) {
+			e.printStackTrace();
 			fail("No IOException should be thrown");
 		}
 		long ts = System.currentTimeMillis();
@@ -169,8 +170,8 @@ public class TestDiskStorageEngine {
 			e.printStackTrace();
 			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
 		}
-		assertEquals(10, new File("target/db102/data1").listFiles().length);
-		assertEquals(10, new File("target/db102/data2").listFiles().length);
+		assertEquals(5, new File("target/db10221/data1").listFiles().length);
+		assertEquals(5, new File("target/db10221/data2").listFiles().length);
 	}
 
 	@Test
@@ -203,15 +204,6 @@ public class TestDiskStorageEngine {
 	}
 
 	@Test
-	public void testTagEncodeDecode() throws IOException {
-		DiskTagIndex table = new DiskTagIndex("target/test", "test", "test2");
-		StorageEngine engine = new DiskStorageEngine();
-		String encodedStr = engine.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
-		List<String> decodedStr = engine.decodeStringToTags(table, encodedStr);
-		assertEquals(Arrays.asList("host", "value", "test"), decodedStr);
-	}
-
-	@Test
 	public void testConfigure() throws IOException {
 		StorageEngine engine = new DiskStorageEngine();
 		try {
@@ -237,7 +229,7 @@ public class TestDiskStorageEngine {
 		try {
 			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "ss", "value", Arrays.asList("te"),
 					System.currentTimeMillis(), 2.2));
-			String md = new String(Files.readAllBytes(new File("target/db2/data/test.md").toPath()),
+			String md = new String(Files.readAllBytes(new File("target/db2/data/test/.md").toPath()),
 					Charset.forName("utf8"));
 			DBMetadata metadata = new Gson().fromJson(md, DBMetadata.class);
 			assertEquals(32, metadata.getRetentionHours());
@@ -249,67 +241,55 @@ public class TestDiskStorageEngine {
 	}
 
 	@Test
-	public void testConstructRowKey() throws Exception {
-		StorageEngine engine = new DiskStorageEngine();
-		MiscUtils.delete(new File("target/db131/"));
-		HashMap<String, String> map = new HashMap<>();
-		map.put("metadata.dir", "target/db131/mdq");
-		map.put("index.dir", "target/db131/index");
-		map.put("data.dir", "target/db131/data");
-		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		engine.configure(map, Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("bg")));
-		List<String> tags = Arrays.asList("test1", "test2");
-		TagIndex index = engine.getOrCreateTagIndex("asd", "bsd");
-		String encodeTagsToString = engine.encodeTagsToString(index, tags);
-		String key = engine.constructRowKey("asd", "bsd", "csd", tags);
-		assertEquals("csd#" + encodeTagsToString, key);
-	}
-
-	@Test
 	public void testQueryDataPointsRecovery() throws IOException, ItemNotFoundException {
-		StorageEngine engine = new DiskStorageEngine();
-		MiscUtils.delete(new File("target/db1/"));
-		HashMap<String, String> map = new HashMap<>();
-		map.put("metadata.dir", "target/db1/mdq");
-		map.put("index.dir", "target/db1/index");
-		map.put("data.dir", "target/db1/data");
-		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		engine.configure(map, bgTasks);
-		long ts = System.currentTimeMillis();
-		Map<String, Map<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
-		assertEquals(0, db.size());
-		engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
-		engine.writeDataPoint(
-				MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
-		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").size());
-
-		engine = new DiskStorageEngine();
-		engine.configure(map, bgTasks);
-
-		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000),
-				null, null);
-		assertTrue(!engine.isMeasurementFieldFP("test3", "cpu", "value"));
 		try {
-			engine.isMeasurementFieldFP("test3", "test", "test");
-			fail("Measurement should not exist");
-		} catch (Exception e) {
-		}
-		assertEquals(2, queryDataPoints.iterator().next().getDataPoints().size());
-		assertEquals(ts, queryDataPoints.iterator().next().getDataPoints().get(0).getTimestamp());
-		assertEquals(ts + (400 * 60000), queryDataPoints.iterator().next().getDataPoints().get(1).getTimestamp());
-		try {
-			engine.dropDatabase("test3");
-		} catch (Exception e) {
-		}
-		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").size());
+			DiskStorageEngine engine = new DiskStorageEngine();
+			MiscUtils.delete(new File("target/db1/"));
+			HashMap<String, String> map = new HashMap<>();
+			map.put("metadata.dir", "target/db1/mdq");
+			map.put("index.dir", "target/db1/index");
+			map.put("data.dir", "target/db1/data");
+			map.put("disk.compression.class", ByzantineWriter.class.getName());
+			engine.configure(map, bgTasks);
+			long ts = System.currentTimeMillis();
+			Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
+			assertEquals(0, db.size());
+			engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
+			engine.writeDataPoint(
+					MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
+			Measurement measurement = engine.getOrCreateMeasurement("test3", "cpu");
+			assertEquals(1, measurement.getTimeSeriesMap().size());
 
-		engine = new DiskStorageEngine();
-		engine.configure(map, bgTasks);
+			engine = new DiskStorageEngine();
+			engine.configure(map, bgTasks);
 
-		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").size());
-		engine.disconnect();
+			assertTrue(!engine.isMeasurementFieldFP("test3", "cpu", "value"));
+			Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts,
+					ts + (400 * 60000), null, null);
+			try {
+				engine.isMeasurementFieldFP("test3", "test", "test");
+				fail("Measurement should not exist");
+			} catch (Exception e) {
+			}
+			assertEquals(1, queryDataPoints.size());
+			assertEquals(2, queryDataPoints.iterator().next().getDataPoints().size());
+			assertEquals(ts, queryDataPoints.iterator().next().getDataPoints().get(0).getTimestamp());
+			assertEquals(ts + (400 * 60000), queryDataPoints.iterator().next().getDataPoints().get(1).getTimestamp());
+			try {
+				engine.dropDatabase("test3");
+			} catch (Exception e) {
+			}
+			assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
+
+			engine = new DiskStorageEngine();
+			engine.configure(map, bgTasks);
+
+			assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
+			engine.disconnect();
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw e;
+		}
 	}
 
 	@Test
@@ -324,12 +304,12 @@ public class TestDiskStorageEngine {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, Map<String, TimeSeries>> db = engine.getOrCreateDatabase("test3", 24);
+		Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
 		assertEquals(0, db.size());
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
 				MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
-		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").size());
+		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
 		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000),
 				null, null);
 		assertTrue(!engine.isMeasurementFieldFP("test3", "cpu", "value"));
@@ -345,7 +325,7 @@ public class TestDiskStorageEngine {
 			engine.dropDatabase("test3");
 		} catch (Exception e) {
 		}
-		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").size());
+		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
 		engine.disconnect();
 	}
 
@@ -410,8 +390,9 @@ public class TestDiskStorageEngine {
 		map.put("index.dir", "target/db1/index");
 		map.put("data.dir", "target/db1/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		TimeSeriesBucket timeSeries = new TimeSeriesBucket("seriesId", ByzantineWriter.class.getName(), headerTimestamp,
-				true, map);
+		ByteBuffer buf = ByteBuffer.allocate(100);
+		TimeSeriesBucket timeSeries = new TimeSeriesBucket(ByzantineWriter.class.getName(), headerTimestamp, map, buf,
+				true);
 		timeSeries.addDataPoint(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, null, null, false);
 		assertEquals(1, points.size());
@@ -501,16 +482,19 @@ public class TestDiskStorageEngine {
 
 	@Test
 	public void testBaseTimeSeriesWrites() throws Exception {
+		String pathname = "target/bas-t-writer/";
+		MiscUtils.delete(new File(pathname));
 		DiskStorageEngine engine = new DiskStorageEngine();
 		HashMap<String, String> map = new HashMap<>();
-		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		map.put("compression.class", ByzantineWriter.class.getName());
+		map.put("data.dir", pathname + "/data");
+		map.put("index.dir", pathname + "/index");
 		engine.configure(map, bgTasks);
 		engine.connect();
 
 		final long ts1 = System.currentTimeMillis();
 		ExecutorService es = Executors.newCachedThreadPool();
-		for (int k = 0; k < 500; k++) {
+		for (int k = 0; k < 10; k++) {
 			final int p = k;
 			es.submit(() -> {
 				long ts = System.currentTimeMillis();

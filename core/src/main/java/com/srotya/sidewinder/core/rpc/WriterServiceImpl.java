@@ -23,9 +23,9 @@ import java.util.concurrent.TimeUnit;
 import com.srotya.sidewinder.core.rpc.WriterServiceGrpc.WriterServiceImplBase;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
-import com.srotya.sidewinder.core.storage.Writer;
-import com.srotya.sidewinder.core.storage.mem.TimeSeries;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 import io.grpc.stub.StreamObserver;
@@ -81,9 +81,9 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 					request.getFp());
 			for (Bucket bucket : request.getBucketsList()) {
 				TimeSeriesBucket tsb = series.getOrCreateSeriesBucket(TimeUnit.MILLISECONDS,
-						bucket.getHeaderTimestamp());
+						bucket.getHeaderTimestamp(), true);
 				Writer writer = tsb.getWriter();
-				writer.configure(conf);
+				writer.configure(conf, null, false);
 				writer.setCounter(bucket.getCount());
 				writer.bootstrap(bucket.getData().asReadOnlyByteBuffer());
 			}

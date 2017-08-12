@@ -19,6 +19,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.srotya.sidewinder.cluster.connectors.ClusterConnector;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -30,7 +32,7 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 public class ClusterResourceMonitor {
 	
 	private static final String DB = "_internal";
-//	private static Logger logger = Logger.getLogger(ClusterResourceMonitor.class.getName());
+	private static Logger logger = Logger.getLogger(ClusterResourceMonitor.class.getName());
 	private static final ClusterResourceMonitor INSTANCE = new ClusterResourceMonitor();
 	private StorageEngine storageEngine;
 	private ClusterConnector connector;
@@ -67,8 +69,7 @@ public class ClusterResourceMonitor {
 			dp.setTags(Arrays.asList("controller"));
 			storageEngine.writeDataPoint(dp);
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.log(Level.SEVERE, "Failed to monitor cluster", e);
 		}
 	}
 

@@ -16,7 +16,9 @@
 package com.srotya.sidewinder.core.storage.disk;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -26,7 +28,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.utils.MiscUtils;
-import com.srotya.sidewinder.core.utils.MurmurHash;
+
+import net.jpountz.xxhash.XXHash32;
+import net.jpountz.xxhash.XXHashFactory;
 
 /**
  * Tag hash lookup table + Tag inverted index
@@ -37,14 +41,19 @@ public class DiskTagIndex implements TagIndex {
 
 	private Map<Integer, String> tagMap;
 	private Map<String, Set<String>> rowKeyIndex;
+	private XXHashFactory factory = XXHashFactory.fastestInstance();
+	private PrintWriter prFwd;
+	private PrintWriter prRv;
 	private String indexPath;
+	private XXHash32 hash;
 
-	public DiskTagIndex(String baseIndexDirectory, String dbName, String measurementName) throws IOException {
-		this.indexPath = baseIndexDirectory + "/" + dbName;
-		new File(indexPath).mkdirs();
-		this.indexPath += "/" + measurementName;
-		tagMap = new ConcurrentHashMap<>();
-		rowKeyIndex = new ConcurrentHashMap<>();
+	public DiskTagIndex(String indexDir, String measurementName) throws IOException {
+		this.indexPath = indexDir + "/" + measurementName;
+		tagMap = new ConcurrentHashMap<>(1000);
+		rowKeyIndex = new ConcurrentHashMap<>(1000);
+		prFwd = new PrintWriter(new FileOutputStream(new File(indexPath + ".fwd"), true));
+		prRv = new PrintWriter(new FileOutputStream(new File(indexPath + ".rev"), true));
+		hash = factory.hash32();
 		loadTagIndex();
 	}
 
@@ -82,13 +91,13 @@ public class DiskTagIndex implements TagIndex {
 
 	@Override
 	public String createEntry(String tag) throws IOException {
-		int hash32 = MurmurHash.hash32(tag);
+		int hash32 = hash.hash(tag.getBytes(), 0, tag.length(), 57);
 		String val = tagMap.get(hash32);
 		if (val == null) {
 			synchronized (tagMap) {
 				String out = tagMap.put(hash32, tag);
 				if (out == null) {
-					DiskStorageEngine.appendLineToFile(hash32 + "\t" + tag, indexPath + ".fwd");
+					DiskStorageEngine.appendLineToFile(hash32 + "\t" + tag, prFwd);
 				}
 			}
 		}
@@ -111,15 +120,18 @@ public class DiskTagIndex implements TagIndex {
 		if (rowKeySet == null) {
 			synchronized (rowKeyIndex) {
 				if ((rowKeySet = rowKeyIndex.get(tag)) == null) {
-					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());;
+					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
+					;
 					rowKeyIndex.put(tag, rowKeySet);
 				}
 			}
 		}
-		boolean add = rowKeySet.add(rowKey);
-		if (add) {
-			synchronized (tagMap) {
-				DiskStorageEngine.appendLineToFile(tag + "\t" + rowKey, indexPath + ".rev");
+		if (!rowKeySet.contains(rowKey)) {
+			boolean add = rowKeySet.add(rowKey);
+			if (add) {
+				synchronized (tagMap) {
+					DiskStorageEngine.appendLineToFile(tag + "\t" + rowKey, prRv);
+				}
 			}
 		}
 	}

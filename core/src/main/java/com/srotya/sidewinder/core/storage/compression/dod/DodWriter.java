@@ -25,7 +25,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Writer;
+import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * A simple delta-of-delta timeseries compression with no value compression
@@ -42,9 +43,9 @@ public class DodWriter implements Writer {
 	private long delta;
 	private int count;
 	private long lastTs;
+	private boolean readOnly;
 
 	public DodWriter() {
-		writer = new BitWriter(4096);
 	}
 
 	public DodWriter(long headTs, byte[] buf) {
@@ -53,10 +54,14 @@ public class DodWriter implements Writer {
 	}
 	
 	@Override
-	public void configure(Map<String, String> conf) {
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException {
+		writer = new BitWriter(buf);
 	}
-
-	public void write(DataPoint dp) {
+	
+	public void write(DataPoint dp) throws RejectException {
+		if(readOnly) {
+			throw WRITE_REJECT_EXCEPTION;
+		}
 		write.lock();
 		writeDataPoint(dp.getTimestamp(), dp.getLongValue());
 		write.unlock();
@@ -127,10 +132,6 @@ public class DodWriter implements Writer {
 		writer.writeBits(timestamp, 64);
 	}
 
-	@Override
-	public void setSeriesId(String seriesId) {
-	}
-	
 	public BitWriter getWriter() {
 		return writer;
 	}
@@ -155,14 +156,10 @@ public class DodWriter implements Writer {
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void makeReadOnly() {
+		write.lock();
+		readOnly = true;
+		write.unlock();
 	}
 
-	@Override
-	public void setConf(Map<String, String> conf) {
-	}
-
-	@Override
-	public void delete() throws IOException {
-	}
 }

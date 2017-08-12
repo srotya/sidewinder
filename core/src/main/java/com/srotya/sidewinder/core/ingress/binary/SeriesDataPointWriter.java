@@ -17,6 +17,8 @@ package com.srotya.sidewinder.core.ingress.binary;
 
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -32,6 +34,7 @@ import io.netty.util.ReferenceCountUtil;
  */
 public class SeriesDataPointWriter extends ChannelInboundHandlerAdapter {
 
+	private static final Logger logger = Logger.getLogger(SeriesDataPointWriter.class.getName());
 	private static AtomicLong counter = new AtomicLong();
 	private StorageEngine engine;
 
@@ -51,8 +54,7 @@ public class SeriesDataPointWriter extends ChannelInboundHandlerAdapter {
 				System.out.println(counter.get());
 			}
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+			logger.log(Level.SEVERE, "Error writing data point", e);
 		}
 		ReferenceCountUtil.release(msg);
 	}

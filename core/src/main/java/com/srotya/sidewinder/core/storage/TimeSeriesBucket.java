@@ -17,10 +17,14 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.compression.Reader;
+import com.srotya.sidewinder.core.storage.compression.RollOverException;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * In-memory representation of a time series based on Facebook's Gorilla
@@ -36,15 +40,15 @@ public class TimeSeriesBucket implements Serializable {
 	// private static final RejectException OLD_DATA_POINT = new
 	// RejectException("Rejected older datapoint");
 	private Writer writer;
+	private TimeSeriesBucket prev, next;
 	private long headerTimestamp;
 
-	public TimeSeriesBucket(String seriesId, String compressionFQCN, long headerTimestamp, boolean disk,
-			Map<String, String> conf) {
+	public TimeSeriesBucket(String compressionFQCN, long headerTimestamp, Map<String, String> conf, ByteBuffer buf,
+			boolean isNew) {
 		this.headerTimestamp = headerTimestamp;
 		try {
 			writer = (Writer) Class.forName(compressionFQCN).newInstance();
-			writer.setSeriesId(seriesId);
-			writer.configure(conf);
+			writer.configure(conf, buf, isNew);
 		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException | IOException e) {
 			e.printStackTrace();
 			throw new RuntimeException(e);
@@ -60,9 +64,10 @@ public class TimeSeriesBucket implements Serializable {
 	 * 
 	 * @param timestamp
 	 * @param value
-	 * @throws RejectException
+	 * @throws RollOverException
+	 * @throws IOException
 	 */
-	public void addDataPoint(long timestamp, double value) throws IOException {
+	public void addDataPoint(long timestamp, double value) throws IOException, RollOverException {
 		writer.addValue(timestamp, value);
 	}
 
@@ -74,9 +79,10 @@ public class TimeSeriesBucket implements Serializable {
 	 *
 	 * @param timestamp
 	 * @param value
-	 * @throws RejectException
+	 * @throws RollOverException
+	 * @throws IOException
 	 */
-	public void addDataPoint(long timestamp, long value) throws IOException {
+	public void addDataPoint(long timestamp, long value) throws IOException, RollOverException {
 		writer.addValue(timestamp, value);
 	}
 
@@ -90,7 +96,7 @@ public class TimeSeriesBucket implements Serializable {
 	 * @param appendFieldValueName
 	 * @param appendTags
 	 * @return point in time instance of reader
-	 * @throws IOException 
+	 * @throws IOException
 	 */
 	public Reader getReader(Predicate timePredicate, Predicate valuePredicate, boolean isFp,
 			String appendFieldValueName, List<String> appendTags) throws IOException {
@@ -110,7 +116,7 @@ public class TimeSeriesBucket implements Serializable {
 	 * @param timePredicate
 	 * @param valuePredicate
 	 * @return point in time instance of reader
-	 * @throws IOException 
+	 * @throws IOException
 	 */
 	public Reader getReader(Predicate timePredicate, Predicate valuePredicate) throws IOException {
 		Reader reader = writer.getReader();
@@ -120,17 +126,10 @@ public class TimeSeriesBucket implements Serializable {
 	}
 
 	/**
-	 * @return the headerTimestamp
-	 */
-	public long getHeaderTimestamp() {
-		return headerTimestamp;
-	}
-
-	/**
 	 * Get count of data points currently hosted in this bucket
 	 * 
 	 * @return
-	 * @throws IOException 
+	 * @throws IOException
 	 */
 	public int getCount() throws IOException {
 		return getReader(null, null).getPairCount();
@@ -145,16 +144,35 @@ public class TimeSeriesBucket implements Serializable {
 	public double getCompressionRatio() {
 		return writer.getCompressionRatio();
 	}
-	
+
 	public Writer getWriter() {
 		return writer;
 	}
 
 	public void close() throws IOException {
-		writer.close();
 	}
-	
+
 	public void delete() throws IOException {
-		writer.delete();
+	}
+
+	/**
+	 * @return the prev
+	 */
+	public TimeSeriesBucket getPrev() {
+		return prev;
+	}
+
+	/**
+	 * @return the next
+	 */
+	public TimeSeriesBucket getNext() {
+		return next;
+	}
+
+	/**
+	 * @return the headerTimestamp
+	 */
+	public long getHeaderTimestamp() {
+		return headerTimestamp;
 	}
 }

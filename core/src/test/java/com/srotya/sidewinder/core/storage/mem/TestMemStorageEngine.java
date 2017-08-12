@@ -20,6 +20,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -48,11 +49,13 @@ import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
-import com.srotya.sidewinder.core.storage.Reader;
+import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
@@ -180,14 +183,6 @@ public class TestMemStorageEngine {
 	// + "\nWriting " + tcount + " each with " + (count/modulator) + " series");
 	// }
 
-	@Test
-	public void testTagEncodeDecode() throws IOException {
-		MemTagIndex table = new MemTagIndex();
-		MemStorageEngine engine = new MemStorageEngine();
-		String encodedStr = engine.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
-		List<String> decodedStr = engine.decodeStringToTags(table, encodedStr);
-		assertEquals(Arrays.asList("host", "value", "test"), decodedStr);
-	}
 
 	@Test
 	public void testConfigure() {
@@ -243,12 +238,12 @@ public class TestMemStorageEngine {
 		StorageEngine engine = new MemStorageEngine();
 		engine.configure(conf, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, Map<String, TimeSeries>> db = engine.getOrCreateDatabase("test", 24);
+		Map<String, Measurement> db = engine.getOrCreateDatabase("test", 24);
 		assertEquals(0, db.size());
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
 				MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
-		assertEquals(1, engine.getOrCreateMeasurement("test", "cpu").size());
+		assertEquals(1, engine.getOrCreateMeasurement("test", "cpu").getTimeSeriesMap().size());
 		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test", "cpu", "value", ts, ts + (400 * 60000),
 				null, null);
 		assertTrue(!engine.isMeasurementFieldFP("test", "cpu", "value"));
@@ -264,7 +259,7 @@ public class TestMemStorageEngine {
 			engine.dropDatabase("test");
 		} catch (Exception e) {
 		}
-		assertEquals(0, engine.getOrCreateMeasurement("test", "cpu").size());
+		assertEquals(0, engine.getOrCreateMeasurement("test", "cpu").getTimeSeries().size());
 	}
 
 	@Test
@@ -291,8 +286,8 @@ public class TestMemStorageEngine {
 	public void testSeriesToDataPointConversion() throws IOException {
 		List<DataPoint> points = new ArrayList<>();
 		long headerTimestamp = System.currentTimeMillis();
-		TimeSeriesBucket timeSeries = new TimeSeriesBucket("seriesId", ByzantineWriter.class.getName(), headerTimestamp,
-				false, new HashMap<>());
+		ByteBuffer buf = ByteBuffer.allocate(1024);
+		TimeSeriesBucket timeSeries = new TimeSeriesBucket(ByzantineWriter.class.getName(), headerTimestamp, conf, buf, true);
 		timeSeries.addDataPoint(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, null, null, false);
 		assertEquals(1, points.size());
@@ -319,7 +314,7 @@ public class TestMemStorageEngine {
 			engine.writeDataPoint(
 					MiscUtils.buildDataPoint(dbName, measurementName, "value", tags, ts + (i * 60000), 2.2));
 		}
-		System.out.println("Buckets:" + engine.getSeriesMap(dbName, measurementName).size());
+		System.out.println("Buckets:" + engine.getMeasurement(dbName, measurementName).getTimeSeries().size());
 		long endTs = ts + 99 * 60000;
 
 		// validate all points are returned with a full range query

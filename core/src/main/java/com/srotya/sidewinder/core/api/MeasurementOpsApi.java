@@ -73,7 +73,7 @@ public class MeasurementOpsApi {
 		}
 	}
 
-	@Path("/series/{seriesName}")
+	@Path("/series")
 	@PUT
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public void createSeries(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
@@ -92,7 +92,7 @@ public class MeasurementOpsApi {
 		}
 	}
 
-	@Path("/series/{seriesName}/retention/{retentionPolicy}")
+	@Path("/series/retention/{retentionPolicy}")
 	@PUT
 	public void updateRetentionPolicy(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
 			@PathParam(MEASUREMENT) String measurementName, @PathParam("retentionPolicy") int retentionPolicy) {
