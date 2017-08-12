@@ -85,6 +85,9 @@ public class PersistentMeasurement implements Measurement {
 				.parseInt(conf.getOrDefault("measurement.file.increment", String.valueOf(1024 * 1024 * 1)));
 		this.maxFileSize = Integer
 				.parseInt(conf.getOrDefault("measurement.file.max", String.valueOf(Integer.MAX_VALUE)));
+		if(fileMapIncrement>=maxFileSize) {
+			throw new IllegalArgumentException("File increment can't be greater than or equal to file size");
+		}
 		createMeasurementDirectory();
 	}
 
@@ -224,10 +227,6 @@ public class PersistentMeasurement implements Measurement {
 			if (curr + increment < 0 || curr + increment > memoryMappedBuffer.remaining()) {
 				base = 0;
 				long position = (((long) (fileMapIncrement)) * itr) + 1;
-				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, position, fileMapIncrement);
-				logger.fine("Buffer expansion:" + position + "\t" + curr);
-				// bufTracker.add(memoryMappedBuffer);
-				itr++;
 				// close the current data file, increment the filename by 1 so
 				// that
 				// a new data file will be created next time a buffer is
@@ -238,7 +237,12 @@ public class PersistentMeasurement implements Measurement {
 							+ activeFile);
 					activeFile.close();
 					activeFile = null;
+					return createNewBuffer();
 				}
+				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, position, fileMapIncrement);
+				logger.fine("Buffer expansion:" + position + "\t" + curr);
+				// bufTracker.add(memoryMappedBuffer);
+				itr++;
 			}
 			curr = base * increment;
 			memoryMappedBuffer.position(curr);
