@@ -29,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.mem.MemTagIndex;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -84,19 +85,21 @@ public class TestDiskTagIndex {
 		es.shutdown();
 		es.awaitTermination(1000, TimeUnit.SECONDS);
 		System.err.println("Index time:" + (System.currentTimeMillis() - ms));
-		Map<String, Map<String, DiskTagIndex>> index = engine.getTagLookupTable();
+		Map<String, Map<String, Measurement>> index = engine.getMeasurementMap();
 		assertEquals(1, index.size());
-		Entry<String, Map<String, DiskTagIndex>> next = index.entrySet().iterator().next();
+		Entry<String, Map<String, Measurement>> next = index.entrySet().iterator().next();
 		assertEquals("db1", next.getKey());
-		Entry<String, DiskTagIndex> itr = next.getValue().entrySet().iterator().next();
+		Entry<String, Measurement> itr = next.getValue().entrySet().iterator().next();
 		assertEquals("m1", itr.getKey());
-		DiskTagIndex value = itr.getValue();
+		DiskTagIndex value = (DiskTagIndex) itr.getValue().getTagIndex();
 		assertEquals(20000 + 10 + 1500, value.getTags().size());
 	}
 
 	@Test
 	public void testTagIndexThreaded() throws InterruptedException, IOException {
-		final DiskTagIndex index = new DiskTagIndex("target/index", "db2", "m2");
+		String indexDir = "target/index";
+		new File(indexDir).mkdirs();
+		final DiskTagIndex index = new DiskTagIndex(indexDir, "m2");
 		ExecutorService es = Executors.newCachedThreadPool();
 		for (int k = 0; k < 10; k++) {
 			es.submit(() -> {
@@ -118,7 +121,7 @@ public class TestDiskTagIndex {
 			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
 
-		DiskTagIndex index2 = new DiskTagIndex("target/index", "db2", "m2");
+		DiskTagIndex index2 = new DiskTagIndex(indexDir, "m2");
 		for (int i = 0; i < 1000; i++) {
 			String entry = index2.createEntry("tag" + (i + 1));
 			assertEquals("tag" + (i + 1), index2.getEntry(entry));

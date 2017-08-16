@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,8 +30,8 @@ import java.util.Map;
 import com.srotya.sidewinder.core.storage.ArchiveException;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Reader;
 import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 
 /**
@@ -44,7 +45,8 @@ public class TestDiskArchiver {
 	// @Test
 	public void testStreamSerDe() throws IOException {
 		long ts = System.currentTimeMillis();
-		TimeSeriesBucket bucket = new TimeSeriesBucket("seriesId", className, ts, false, new HashMap<>());
+		ByteBuffer buf = ByteBuffer.allocate(1024);
+		TimeSeriesBucket bucket = new TimeSeriesBucket(className, ts, new HashMap<>(), buf, true);
 		for (int i = 0; i < 1000; i++) {
 			bucket.addDataPoint(ts + i * 1000, i);
 		}
@@ -97,7 +99,8 @@ public class TestDiskArchiver {
 		conf.put(DiskArchiver.ARCHIVAL_DISK_DIRECTORY, "target/test-diskbackup-" + System.currentTimeMillis());
 		archiver.init(conf);
 		long ts = System.currentTimeMillis();
-		TimeSeriesBucket bucket = new TimeSeriesBucket("seriesId", className, ts, false, new HashMap<>());
+		ByteBuffer buf = ByteBuffer.allocate(1024);
+		TimeSeriesBucket bucket = new TimeSeriesBucket(className, ts, conf, buf, true);
 		for (int i = 0; i < 1000; i++) {
 			bucket.addDataPoint(ts + i * 1000, i);
 		}

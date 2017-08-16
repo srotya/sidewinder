@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.RejectException;
 
 /**
  */
@@ -38,7 +39,12 @@ public class DoD {
 				DataPoint dp = new DataPoint();
 				dp.setTimestamp(ts + k);
 				dp.setLongValue(i);
-				gorilla.write(dp);
+				try {
+					gorilla.write(dp);
+				} catch (RejectException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 				if (i % 1000 == 0) {
 					try {
 						Thread.sleep(1);
