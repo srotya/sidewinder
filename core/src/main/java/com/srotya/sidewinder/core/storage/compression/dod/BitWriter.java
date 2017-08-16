@@ -33,6 +33,10 @@ public class BitWriter {
 		this(DEFAULT_BUFFER_SIZE);
 	}
 	
+	public BitWriter(ByteBuffer buf) {
+		buffer = buf;
+	}
+	
 	public BitWriter(byte[] buf) {
 		this(buf.length);
 		buffer.put(buf);

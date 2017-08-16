@@ -2,11 +2,9 @@
 	"version": "1.0",
 	"defaultSchema": "test",
 	"schemas": [{
-		"name": "test",
 		"type": "custom",
 		"factory": "com.srotya.sidewinder.core.sql.calcite.SidewinderSchemaFactory",
 		"operand": {
-			"db": "test"
 		},
 		"functions": [
 			{

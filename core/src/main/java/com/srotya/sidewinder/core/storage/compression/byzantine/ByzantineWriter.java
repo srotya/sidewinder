@@ -15,23 +15,16 @@
  */
 package com.srotya.sidewinder.core.storage.compression.byzantine;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
-import java.nio.MappedByteBuffer;
-import java.nio.channels.FileChannel.MapMode;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
-import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.Writer;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * A simple delta-of-delta timeseries compression with XOR value compression
@@ -40,61 +33,52 @@ import com.srotya.sidewinder.core.storage.Writer;
  */
 public class ByzantineWriter implements Writer {
 
-	private static final Logger logger = Logger.getLogger(ByzantineWriter.class.getName());
-	public static final int DEFAULT_BUFFER_INIT_SIZE = 4096;
 	private static final int BYTES_PER_DATAPOINT = 16;
-	private ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-	private ReadLock read = lock.readLock();
-	private WriteLock write = lock.writeLock();
+	private Lock read;
+	private Lock write;
 	private long prevTs;
 	private long delta;
 	private int count;
 	private long lastTs;
 	private ByteBuffer buf;
 	private long prevValue;
-	private String seriesId;
-	private boolean onDisk;
-	private String outputFile;
-	private boolean closed;
-	private Map<String, String> conf;
+	private boolean readOnly;
 
 	public ByzantineWriter() {
 	}
 
-	public ByzantineWriter(long headerTimestamp, byte[] buf) {
+	/**
+	 * For unit testing only
+	 * 
+	 * @param headerTimestamp
+	 * @param buf
+	 */
+	protected ByzantineWriter(long headerTimestamp, byte[] buf) {
+		this();
 		this.buf = ByteBuffer.allocateDirect(buf.length);
 		setHeaderTimestamp(headerTimestamp);
+		ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+		read = lock.readLock();
+		write = lock.writeLock();
 	}
 
 	@Override
-	public void configure(Map<String, String> conf) throws IOException {
-		this.conf = conf;
-		onDisk = Boolean.parseBoolean(conf.getOrDefault(StorageEngine.PERSISTENCE_DISK, "false"));
-		if (onDisk) {
-			RandomAccessFile file;
-			String outputDirectory = conf.getOrDefault("data.dir", "/tmp/sidewinder/data");
-			outputFile = outputDirectory + "/" + seriesId;
-			logger.fine("\n\n" + outputFile + "\t" + outputFile + "\n\n");
-			File fileTmp = new File(outputFile);
-			if (fileTmp.exists()) {
-				file = new RandomAccessFile(outputFile, "rwd");
-				logger.fine("Re-loading data file:" + outputFile);
-				MappedByteBuffer map = file.getChannel().map(MapMode.READ_WRITE, 0, file.length());
-				map.load();
-				buf = map;
-				forwardCursorToEnd();
-			} else {
-				fileTmp.createNewFile();
-				file = new RandomAccessFile(outputFile, "rwd");
-				buf = file.getChannel().map(MapMode.READ_WRITE, 0, DEFAULT_BUFFER_INIT_SIZE);
-				buf.putInt(0);
-			}
-			file.close();
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException {
+		if (Boolean.parseBoolean(conf.getOrDefault("lock.enabled", "true"))) {
+			ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+			read = lock.readLock();
+			write = lock.writeLock();
 		} else {
-			buf = ByteBuffer.allocateDirect(DEFAULT_BUFFER_INIT_SIZE);
-			buf.putInt(0);
+			read = new NoLock();
+			write = new NoLock();
 		}
-		closed = false;
+		this.buf = buf;
+		if (isNew) {
+			this.buf.putInt(0);
+		} else {
+			forwardCursorToEnd();
+			readOnly = true;
+		}
 	}
 
 	private void forwardCursorToEnd() throws IOException {
@@ -108,19 +92,30 @@ public class ByzantineWriter implements Writer {
 		prevValue = reader.getPrevValue();
 	}
 
+	@Override
 	public void write(DataPoint dp) throws IOException {
-		write.lock();
-		writeDataPoint(dp.getTimestamp(), dp.getLongValue());
-		write.unlock();
+		if (readOnly) {
+			throw WRITE_REJECT_EXCEPTION;
+		}
+		try {
+			write.lock();
+			writeDataPoint(dp.getTimestamp(), dp.getLongValue());
+		} finally {
+			write.unlock();
+		}
 	}
 
+	@Override
 	public void write(List<DataPoint> dps) throws IOException {
 		write.lock();
-		for (Iterator<DataPoint> itr = dps.iterator(); itr.hasNext();) {
-			DataPoint dp = itr.next();
-			writeDataPoint(dp.getTimestamp(), dp.getLongValue());
+		try {
+			for (Iterator<DataPoint> itr = dps.iterator(); itr.hasNext();) {
+				DataPoint dp = itr.next();
+				writeDataPoint(dp.getTimestamp(), dp.getLongValue());
+			}
+		} finally {
+			write.unlock();
 		}
-		write.unlock();
 	}
 
 	/**
@@ -129,17 +124,12 @@ public class ByzantineWriter implements Writer {
 	 * @throws IOException
 	 */
 	private void writeDataPoint(long timestamp, long value) throws IOException {
-		if (closed && onDisk) {
-			configure(conf);
-		}
 		lastTs = timestamp;
 		checkAndExpandBuffer();
 		compressAndWriteTimestamp(buf, timestamp);
 		compressAndWriteValue(buf, value);
 		count++;
-		// if (onDisk) {
 		updateCount();
-		// }
 	}
 
 	private void compressAndWriteValue(ByteBuffer tBuf, long value) {
@@ -163,30 +153,9 @@ public class ByzantineWriter implements Writer {
 	}
 
 	private void checkAndExpandBuffer() throws IOException {
-		if (buf.remaining() < 20) {
-			int cap = 0;
-			if (!onDisk) {
-				cap = (int) (buf.capacity() * 1.2);
-				if (cap < 0) {
-					throw new IOException("Buffer too large >2GB");
-				}
-			}
-			expandBufferTo(cap);
+		if (buf.remaining() < 20 || buf.isReadOnly()) {
+			throw BUF_ROLLOVER_EXCEPTION;
 		}
-	}
-
-	private void expandBufferTo(int newBufferSize) throws IOException {
-		ByteBuffer temp = null;
-		if (onDisk) {
-			RandomAccessFile file = new RandomAccessFile(outputFile, "rwd");
-			temp = file.getChannel().map(MapMode.READ_WRITE, 0, (int) (file.length() * 1.2));
-			file.close();
-		} else {
-			temp = ByteBuffer.allocateDirect(newBufferSize);
-		}
-		buf.flip();
-		temp.put(buf);
-		buf = temp;
 	}
 
 	private void compressAndWriteTimestamp(ByteBuffer tBuf, long timestamp) {
@@ -198,7 +167,7 @@ public class ByzantineWriter implements Writer {
 		} else if (deltaOfDelta >= Byte.MIN_VALUE && deltaOfDelta <= Byte.MAX_VALUE) {
 			tBuf.put((byte) 1);
 			tBuf.put((byte) deltaOfDelta);
-		} else if (deltaOfDelta >= -32767 && deltaOfDelta <= 32768) {
+		} else if (deltaOfDelta >= Short.MIN_VALUE && deltaOfDelta <= Short.MAX_VALUE) {
 			tBuf.put((byte) 10);
 			tBuf.putShort((short) deltaOfDelta);
 		} else {
@@ -221,21 +190,21 @@ public class ByzantineWriter implements Writer {
 	public ByzantineReader getReader() throws IOException {
 		ByzantineReader reader = null;
 		read.lock();
-		if (closed && onDisk) {
-			configure(conf);
-		}
 		ByteBuffer rbuf = buf.duplicate();
 		rbuf.rewind();
-		read.unlock();
 		reader = new ByzantineReader(rbuf);
+		read.unlock();
 		return reader;
 	}
 
 	@Override
 	public void addValue(long timestamp, long value) throws IOException {
-		write.lock();
-		writeDataPoint(timestamp, value);
-		write.unlock();
+		try {
+			write.lock();
+			writeDataPoint(timestamp, value);
+		} finally {
+			write.unlock();
+		}
 	}
 
 	@Override
@@ -256,23 +225,16 @@ public class ByzantineWriter implements Writer {
 	}
 
 	/**
-	 * @return the lock
-	 */
-	protected ReentrantReadWriteLock getLock() {
-		return lock;
-	}
-
-	/**
 	 * @return the read
 	 */
-	protected ReadLock getRead() {
+	protected Lock getReadLock() {
 		return read;
 	}
 
 	/**
 	 * @return the write
 	 */
-	protected WriteLock getWrite() {
+	protected Lock getWriteLock() {
 		return write;
 	}
 
@@ -319,11 +281,6 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void setSeriesId(String seriesId) {
-		this.seriesId = seriesId;
-	}
-
-	@Override
 	public ByteBuffer getRawBytes() {
 		read.lock();
 		ByteBuffer b = buf.duplicate();
@@ -337,9 +294,8 @@ public class ByzantineWriter implements Writer {
 		write.lock();
 		this.buf.rewind();
 		buf.rewind();
-		if (this.buf.capacity() < buf.limit()) {
-			// expand buffer
-			expandBufferTo(buf.limit());
+		if (this.buf.limit() < buf.limit()) {
+			throw BUF_ROLLOVER_EXCEPTION;
 		}
 		this.buf.put(buf);
 		this.buf.rewind();
@@ -353,31 +309,9 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void makeReadOnly() {
 		write.lock();
-		if (onDisk && !closed) {
-			logger.info("Data file being freed to contain file IO for:" + seriesId + "\t" + outputFile);
-			((MappedByteBuffer) buf).force();
-			buf = null;
-			closed = true;
-		}
+		readOnly = true;
 		write.unlock();
 	}
-
-	@Override
-	public void setConf(Map<String, String> conf) {
-		this.conf = conf;
-	}
-
-	@Override
-	public void delete() throws IOException {
-		if (!closed) {
-			close();
-		}
-		if (onDisk) {
-			logger.info("Data file being deleted:" + seriesId + "\t" + outputFile);
-			new File(outputFile).delete();
-		}
-	}
-
 }
