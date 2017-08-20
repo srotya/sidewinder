@@ -170,4 +170,13 @@ public class DodWriter implements Writer {
 		write.unlock();
 	}
 
+	@Override
+	public int currentOffset() {
+		return 0;
+	}
+
+	@Override
+	public int getCount() {
+		return count;
+	}
 }

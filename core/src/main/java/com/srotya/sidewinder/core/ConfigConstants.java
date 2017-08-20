@@ -22,10 +22,15 @@ public interface ConfigConstants {
 	
 	public static final String AUTH_BASIC_USERS = "auth.basic.users";
 	public static final String FALSE = "false";
-	public static final String NETTY_BINARY_ENABLED = "netty.binary.enabled";
-	public static final String NETTY_HTTP_ENABLED = "netty.http.enabled";
+	public static final String TRUE = "true";
 	public static final String DEFAULT_STORAGE_ENGINE = "com.srotya.sidewinder.core.storage.mem.MemStorageEngine";
 	public static final String STORAGE_ENGINE = "storage.engine";
 	public static final String AUTH_BASIC_ENABLED = "auth.basic.enabled";
+	public static final String GRPC_PORT = "grpc.port";
+	public static final String DEFAULT_GRPC_PORT = "9928";
+	public static final String DEFAULT_GRPC_EXECUTOR_COUNT = "1";
+	public static final String GRPC_EXECUTOR_COUNT = "grpc.executor.count";
+	public static final String ENABLE_GRPC = "grpc.enabled";
+	public static final String BG_THREAD_COUNT = "bgthread.count";
 
 }

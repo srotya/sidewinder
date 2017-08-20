@@ -134,7 +134,7 @@ public class TimeSeriesBucket implements Serializable {
 	 * @throws IOException
 	 */
 	public int getCount() throws IOException {
-		return getReader(null, null).getPairCount();
+		return writer.getCount();
 	}
 
 	/**

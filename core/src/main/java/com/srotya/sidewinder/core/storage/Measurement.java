@@ -89,7 +89,7 @@ public interface Measurement {
 		return rowKeyBuilder.toString();
 	}
 
-	public default List<String> decodeStringToTags(TagIndex tagLookupTable, String tagString) {
+	public static List<String> decodeStringToTags(TagIndex tagLookupTable, String tagString) {
 		List<String> tagList = new ArrayList<>();
 		if (tagString == null || tagString.isEmpty()) {
 			return tagList;

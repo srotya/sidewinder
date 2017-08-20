@@ -40,9 +40,40 @@ service ReplicationService {
 	rpc FetchTimeseriesDataAtOffset (RawTimeSeriesOffsetRequest) returns (RawTimeSeriesOffsetResponse) {}
 	
 	rpc BatchFetchTimeseriesDataAtOffset (BatchRawTimeSeriesOffsetRequest) returns (BatchRawTimeSeriesOffsetResponse) {}
+	
+	rpc ListBatchTimeseriesOffsetList (ListTimeseriesOffsetRequest) returns (ListTimeseriesOffsetResponse) {}
 
 }
 
+message ListTimeseriesOffsetResponse {
+
+	message OffsetEntry {
+		message Bucket {
+			int32 index = 1;
+			int32 offset = 2;
+			string bucketTs = 3;
+		}
+	
+		string valueFieldName = 1;
+		repeated string tags = 2;
+		repeated Bucket buckets = 3;
+		
+	}
+
+	int64 messageId = 1;
+	string dbName = 2;
+	string measurementName = 3;
+	repeated OffsetEntry entries = 4;
+	
+}
+
+message ListTimeseriesOffsetRequest {
+
+	int64 messageId = 1;
+	string dbName = 2;
+	string measurementName = 3;
+
+}
 
 message RawTimeSeriesBucketResponse {
 	
@@ -52,8 +83,9 @@ message RawTimeSeriesBucketResponse {
 	string valueFieldName = 4;
 	int64 blockTimestamp = 5;
 	bool fp = 6;
-	repeated string tags = 7;
-	repeated Bucket buckets = 8;
+	int32 bucketSize = 7;
+	repeated string tags = 8;
+	repeated Bucket buckets = 9;
 	
 }
 
@@ -67,7 +99,7 @@ message BatchRawTimeSeriesOffsetRequest {
 message BatchRawTimeSeriesOffsetResponse {
 
 	int64 messageId = 1;
-	repeated RawTimeSeriesOffsetRequest responses = 2;
+	repeated RawTimeSeriesOffsetResponse responses = 2;
 
 }
 
@@ -78,9 +110,10 @@ message RawTimeSeriesOffsetRequest {
 	string measurementName = 3;
 	string valueFieldName = 4;
 	int64 blockTimestamp = 5;
-	int32 timeBucketSize = 6;
-	repeated string tags = 7;
+	repeated string tags = 6;
+	int32 index = 7;
 	int32 offset = 8;
+	int32 bucketSize = 9;
 
 }
 
@@ -91,11 +124,13 @@ message RawTimeSeriesOffsetResponse {
 	string measurementName = 3;
 	string valueFieldName = 4;
 	int64 blockTimestamp = 5;
-	int32 timeBucketSize = 6;
-	repeated string tags = 7;
-	bytes data = 8;
+	repeated string tags = 6;
+	bool fp = 7;
+	int32 index = 8;
 	int32 offset = 9;
-	int64 nextTimestamp = 10;
+	int32 bucketSize = 10;
+	int32 count = 11;
+	bytes data = 12;
 
 }
 

@@ -27,9 +27,9 @@ import javax.ws.rs.core.MediaType;
 
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
-import com.srotya.sidewinder.core.ingress.http.HTTPDataPointDecoder;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.HTTPDataPointDecoder;
 
 /**
  * @author ambud

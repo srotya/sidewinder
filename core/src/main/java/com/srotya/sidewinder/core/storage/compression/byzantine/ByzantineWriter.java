@@ -255,7 +255,7 @@ public class ByzantineWriter implements Writer {
 	/**
 	 * @return the count
 	 */
-	protected int getCount() {
+	public int getCount() {
 		return count;
 	}
 
@@ -314,4 +314,14 @@ public class ByzantineWriter implements Writer {
 		readOnly = true;
 		write.unlock();
 	}
+
+	@Override
+	public int currentOffset() {
+		int offset = 0;
+		read.lock();
+		offset = buf.position();
+		read.unlock();
+		return offset;
+	}
+	
 }
