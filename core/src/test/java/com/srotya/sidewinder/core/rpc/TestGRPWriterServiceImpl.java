@@ -57,7 +57,7 @@ public class TestGRPWriterServiceImpl {
 		engine.configure(new HashMap<>(), bgTaskPool);
 		int port = 50051;
 		server = ServerBuilder.forPort(port).decompressorRegistry(DecompressorRegistry.getDefaultInstance())
-				.addService(new WriterServiceImpl(engine, null)).build().start();
+				.addService(new WriterServiceImpl(engine, new HashMap<>())).build().start();
 		System.out.println("Server started, listening on " + port);
 		channel = ManagedChannelBuilder.forAddress("localhost", port)
 				.compressorRegistry(CompressorRegistry.getDefaultInstance()).usePlaintext(true).build();

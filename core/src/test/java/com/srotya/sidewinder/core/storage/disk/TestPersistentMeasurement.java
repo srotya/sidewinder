@@ -233,7 +233,7 @@ public class TestPersistentMeasurement {
 		DiskTagIndex table = new DiskTagIndex(indexDir, "test2");
 		Measurement measurement = new PersistentMeasurement();
 		String encodedStr = measurement.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
-		List<String> decodedStr = measurement.decodeStringToTags(table, encodedStr);
+		List<String> decodedStr = Measurement.decodeStringToTags(table, encodedStr);
 		assertEquals(Arrays.asList("host", "value", "test"), decodedStr);
 	}
 
