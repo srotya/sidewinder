@@ -1,2 +1,2 @@
-Release Build number:303
-Release Commit number:13be34c64ea077ac3e8a182fa444455029f6b3f5
+Release Build number:306
+Release Commit number:12dcb08ab36e0410c6fb9510e6e6edf640e6c8fc
