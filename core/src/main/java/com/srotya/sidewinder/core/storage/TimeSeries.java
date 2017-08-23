@@ -61,12 +61,13 @@ public class TimeSeries {
 	private int bucketCount;
 
 	/**
+	 * @param measurement
+	 * @param compressionFQCN
 	 * @param seriesId
-	 *            used for logger name
+	 * @param timeBucketSize
 	 * @param metadata
-	 *            duration of data that will be stored in this time series
 	 * @param fp
-	 * @param bgTaskPool
+	 * @param conf
 	 * @throws IOException
 	 */
 	public TimeSeries(Measurement measurement, String compressionFQCN, String seriesId, int timeBucketSize,
@@ -140,8 +141,7 @@ public class TimeSeries {
 
 	/**
 	 * Function to check and recover existing bucket map, if one exists.
-	 * 
-	 * @param list2
+	 * @param bufList
 	 * @throws IOException
 	 */
 	public void loadBucketMap(List<ByteBuffer> bufList) throws IOException {

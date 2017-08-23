@@ -10,7 +10,7 @@ addons:
     - unzip
 before_script:
 - DIR=$(pwd);mkdir /tmp/proto;cd /tmp/proto;wget https://github.com/google/protobuf/releases/download/v3.2.0/protoc-3.2.0-linux-x86_64.zip;unzip protoc-3.2.0-linux-x86_64.zip; ls -lh;cd $DIR
-script: mvn -q -T2 clean test
+script: mvn -q -T2 clean test javadoc:javadoc
 after_success:
 - bash <(curl -s https://codecov.io/bash)
 - cp build/conditionalbuild.sh /tmp/
