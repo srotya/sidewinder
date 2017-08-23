@@ -154,6 +154,11 @@ public class MiscUtils {
 
 	public static DataPoint pointToDataPoint(Point point) {
 		DataPoint dp = new DataPoint();
+		pointToDataPoint(dp, point);
+		return dp;
+	}
+	
+	public static void pointToDataPoint(DataPoint dp, Point point) {
 		dp.setDbName(point.getDbName());
 		dp.setFp(point.getFp());
 		dp.setLongValue(point.getValue());
@@ -161,7 +166,6 @@ public class MiscUtils {
 		dp.setTags(new ArrayList<>(point.getTagsList()));
 		dp.setTimestamp(point.getTimestamp());
 		dp.setValueFieldName(point.getValueFieldName());
-		return dp;
 	}
 
 	public static Filter<List<String>> buildTagFilter(String tagFilter, List<String> tags)

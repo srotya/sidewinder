@@ -18,7 +18,6 @@ package com.srotya.sidewinder.core.storage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -84,36 +83,46 @@ public class TimeSeries {
 	}
 
 	public TimeSeriesBucket getOrCreateSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
-		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
-		String tsBucket = Integer.toHexString(bucket);
+		String tsBucket = getTimeBucket(unit, timestamp, timeBucketSize);
 		List<TimeSeriesBucket> list = bucketMap.get(tsBucket);
 		if (list == null) {
 			synchronized (bucketMap) {
 				if ((list = bucketMap.get(tsBucket)) == null) {
-					list = Collections.synchronizedList(new ArrayList<>());
+					list = new ArrayList<>();
 					createNewTimeSeriesBucket(timestamp, tsBucket, list);
 					bucketMap.put(tsBucket, list);
 				}
 			}
 		}
 
-		TimeSeriesBucket ans = list.get(list.size() - 1);
-		if (ans.isFull()) {
-			synchronized (bucketMap) {
+		synchronized (list) {
+			TimeSeriesBucket ans = list.get(list.size() - 1);
+			if (ans.isFull()) {
 				if ((ans = list.get(list.size() - 1)).isFull()) {
 					logger.fine("Requesting new time series:" + seriesId + ",measurement:"
 							+ measurement.getMeasurementName() + "\t" + bucketCount);
 					ans = createNewTimeSeriesBucket(timestamp, tsBucket, list);
 				}
 			}
+			try {
+				// int idx = list.indexOf(ans);
+				// if (idx != (list.size() - 1)) {
+				// System.out.println("\n\nThread safety error\t" + idx + "\t" + list.size() +
+				// "\n\n");
+				// }
+				return ans;
+			} catch (Exception e) {
+				logger.log(Level.SEVERE, "Create new:" + "\tList:" + list + "\tbucket:" + tsBucket + "\t" + bucketMap,
+						e);
+				throw e;
+			}
 		}
-		try {
-			return ans;
-		} catch (Exception e) {
-			logger.log(Level.SEVERE, "Create new:" + "\tList:" + list + "\tbucket:" + tsBucket + "\t" + bucketMap, e);
-			e.printStackTrace();
-			throw e;
-		}
+	}
+
+	public static String getTimeBucket(TimeUnit unit, long timestamp, int timeBucketSize) {
+		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
+		String tsBucket = Integer.toHexString(bucket);
+		return tsBucket;
 	}
 
 	private TimeSeriesBucket createNewTimeSeriesBucket(long timestamp, String tsBucket, List<TimeSeriesBucket> list)
@@ -200,8 +209,14 @@ public class TimeSeries {
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
 		int tsStartBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;
 		String startTsBucket = Integer.toHexString(tsStartBucket);
+		if (startTime == 0) {
+			startTsBucket = bucketMap.firstKey();
+		}
 		int tsEndBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
 		String endTsBucket = Integer.toHexString(tsEndBucket);
+		if (endTime == Long.MAX_VALUE) {
+			endTsBucket = bucketMap.lastKey();
+		}
 		SortedMap<String, List<TimeSeriesBucket>> series = bucketMap.subMap(startTsBucket,
 				endTsBucket + Character.MAX_VALUE);
 		for (List<TimeSeriesBucket> timeSeries : series.values()) {
@@ -431,6 +446,10 @@ public class TimeSeries {
 			}
 		}
 		return map;
+	}
+	
+	public SortedMap<String, List<TimeSeriesBucket>> getBucketRawMap() {
+		return bucketMap;
 	}
 
 	/**

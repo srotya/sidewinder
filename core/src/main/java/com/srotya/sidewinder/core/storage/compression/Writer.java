@@ -54,5 +54,9 @@ public interface Writer {
 	public void setCounter(int counter);
 	
 	public void makeReadOnly();
+	
+	public int currentOffset();
+	
+	public int getCount();
 
 }

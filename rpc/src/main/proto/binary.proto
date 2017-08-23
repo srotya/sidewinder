@@ -28,6 +28,55 @@ service WriterService {
 	rpc WriteBatchDataPoint (BatchData) returns (Ack) {}
 	
 	rpc WriteSeriesPoint (RawTimeSeriesBucket) returns (Ack) {}
+	
+	rpc WriteDataPointStream (stream SingleData) returns (stream Ack) {}
+
+}
+
+service MetaService {
+
+	rpc CreateDatabase (DBRequest) returns (Ack) {}
+	
+	rpc CreateMeasurement (MeasurementRequest) returns (Ack) {}
+	
+	rpc ListMeasurements (DatabaseName) returns (Database) {}
+	
+	rpc ListDatabases (Null) returns (DatabaseList) {}
+	
+}
+
+message Null {
+
+	int64 messageId = 1;
+	
+}
+
+message DatabaseName {
+
+	int64 messageId = 1;
+	string databaseName = 2;
+
+}
+
+message DatabaseList {
+
+	int64 messageId = 1;
+	repeated string databases = 2;
+
+}
+
+message Database {
+
+	int64 messageId = 1;
+	string database = 2;
+	DatabaseMetadata metadata = 3;
+	repeated string measurement = 4; 
+
+}
+
+message DatabaseMetadata {
+
+	int32 retentionPolicy = 1;
 
 }
 
@@ -53,18 +102,11 @@ message Bucket {
 	
 }
 
-service MetaService {
-
-	rpc CreateDatabase (DBRequest) returns (Ack) {}
-	
-	rpc CreateMeasurement (MeasurementRequest) returns (Ack) {}
-	
-}
-
 message DBRequest {
 
 	int64 messageId = 1;
 	string dbName = 2;
+	DatabaseMetadata metadata = 3;
 
 }
 
@@ -108,4 +150,3 @@ message Point {
 	repeated string tags = 7;
 
 }
-

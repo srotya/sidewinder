@@ -24,6 +24,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
@@ -35,7 +37,7 @@ import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
  * @author ambud
  */
 public class TestTimeSeries {
-	
+
 	private static final String compression = ByzantineWriter.class.getName();
 	private Map<String, String> conf = new HashMap<>();
 
@@ -43,10 +45,38 @@ public class TestTimeSeries {
 	public void testTimeSeries() throws IOException {
 		Measurement measurement = new MockMeasurement(100);
 		DBMetadata metadata = new DBMetadata(24);
-		TimeSeries series = new TimeSeries(measurement, compression, "2214abfa", 4096, metadata, true, conf); 
+		TimeSeries series = new TimeSeries(measurement, compression, "2214abfa", 4096, metadata, true, conf);
 		assertEquals("2214abfa", series.getSeriesId());
 		assertEquals(4096, series.getTimeBucketSize());
 		assertEquals((24 * 3600) / 4096, series.getRetentionBuckets());
+	}
+
+	@Test
+	public void testThreadSafety() throws Exception {
+		Measurement measurement = new MockMeasurement(100);
+		DBMetadata metadata = new DBMetadata(24);
+		final TimeSeries series = new TimeSeries(measurement, compression, "2214abfa", 4096, metadata, true, conf);
+		final int THREAD_COUNT = 1;
+		final int POINT_COUNT = 4_000_000;
+		ExecutorService es = Executors.newFixedThreadPool(THREAD_COUNT);
+		long ts = System.currentTimeMillis();
+		for (int i = 0; i < THREAD_COUNT; i++) {
+			final int o = i;
+			es.submit(() -> {
+				long t = ts + o;
+				try {
+					for (int j = 0; j < POINT_COUNT; j++) {
+						series.addDataPoint(TimeUnit.MILLISECONDS, t, j);
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			});
+		}
+		es.shutdown();
+		es.awaitTermination(100, TimeUnit.SECONDS);
+		List<DataPoint> dps = series.queryDataPoints("", Arrays.asList(""), 0, Long.MAX_VALUE, null);
+		assertEquals(THREAD_COUNT * POINT_COUNT, dps.size());
 	}
 
 	@Test
@@ -130,7 +160,7 @@ public class TestTimeSeries {
 		Map<String, String> conf = new HashMap<>();
 		MockMeasurement measurement = new MockMeasurement(100);
 		DBMetadata metadata = new DBMetadata(28);
-		
+
 		TimeSeries ts = new TimeSeries(measurement, ByzantineWriter.class.getName(), "test12312", 4096 * 10, metadata,
 				false, conf);
 		long t = 1497720442566L;
@@ -142,7 +172,8 @@ public class TestTimeSeries {
 		int size = ts.getBucketMap().values().size();
 		assertTrue(!ts.isFp());
 
-		ts = new TimeSeries(measurement, ByzantineWriter.class.getName(), "test12312", 4096 * 10, metadata, false, conf);
+		ts = new TimeSeries(measurement, ByzantineWriter.class.getName(), "test12312", 4096 * 10, metadata, false,
+				conf);
 		ts.loadBucketMap(measurement.getBufTracker());
 		assertEquals(size, measurement.getBufferRenewCounter());
 		List<DataPoint> dps = ts.queryDataPoints("test", Arrays.asList("test32"), t, t + 1001, null);
@@ -160,7 +191,7 @@ public class TestTimeSeries {
 		Map<String, String> conf = new HashMap<>();
 		MockMeasurement measurement = new MockMeasurement(1024);
 		DBMetadata metadata = new DBMetadata(28);
-		
+
 		TimeSeries ts = new TimeSeries(measurement, ByzantineWriter.class.getName(), "test12312", 4096 * 10, metadata,
 				false, conf);
 		long t = 1497720442566L;
@@ -172,7 +203,8 @@ public class TestTimeSeries {
 		assertEquals(4, ts.getBucketMap().values().size());
 		assertTrue(!ts.isFp());
 
-		ts = new TimeSeries(measurement, ByzantineWriter.class.getName(), "test12312", 4096 * 10, metadata, false, conf);
+		ts = new TimeSeries(measurement, ByzantineWriter.class.getName(), "test12312", 4096 * 10, metadata, false,
+				conf);
 		ts.loadBucketMap(measurement.getBufTracker());
 		assertEquals(4, measurement.getBufferRenewCounter());
 		List<DataPoint> dps = ts.queryDataPoints("test", Arrays.asList("test32"), t, t + 1001, null);
@@ -189,7 +221,7 @@ public class TestTimeSeries {
 		Map<String, String> conf = new HashMap<>();
 		MockMeasurement measurement = new MockMeasurement(100);
 		DBMetadata metadata = new DBMetadata(28);
-		
+
 		TimeSeries ts = new TimeSeries(measurement, ByzantineWriter.class.getName(), "test12312", 4096 * 10, metadata,
 				false, conf);
 		long t = 1497720442566L;
@@ -211,7 +243,7 @@ public class TestTimeSeries {
 		Map<String, String> conf = new HashMap<>();
 		MockMeasurement measurement = new MockMeasurement(1024);
 		DBMetadata metadata = new DBMetadata(28);
-		
+
 		TimeSeries ts = new TimeSeries(measurement, ByzantineWriter.class.getName(), "test12312", 4096 * 10, metadata,
 				false, conf);
 		long t = 1497720442566L;

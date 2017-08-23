@@ -22,6 +22,7 @@ import java.util.List;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.utils.HTTPDataPointDecoder;
 
 /**
  * Unit tests for {@link HTTPDataPointDecoder}

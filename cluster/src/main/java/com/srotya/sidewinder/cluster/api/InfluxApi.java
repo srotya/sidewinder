@@ -30,9 +30,9 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.cluster.routing.Node;
 import com.srotya.sidewinder.cluster.routing.RoutingEngine;
-import com.srotya.sidewinder.core.ingress.http.HTTPDataPointDecoder;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.utils.HTTPDataPointDecoder;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
