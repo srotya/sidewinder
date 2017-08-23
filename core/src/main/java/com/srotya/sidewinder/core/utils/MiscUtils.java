@@ -108,6 +108,16 @@ public class MiscUtils {
 		return dp;
 	}
 
+	public static void ls(File file) throws IOException {
+		if (file.isDirectory()) {
+			for (File file2 : file.listFiles()) {
+				System.out.println(file2.getAbsolutePath());
+			}
+		} else {
+			System.out.println(file.getAbsolutePath());
+		}
+	}
+
 	public static void delete(File file) throws IOException {
 		if (file.isDirectory()) {
 			// directory is empty, then delete it
@@ -144,6 +154,11 @@ public class MiscUtils {
 
 	public static DataPoint pointToDataPoint(Point point) {
 		DataPoint dp = new DataPoint();
+		pointToDataPoint(dp, point);
+		return dp;
+	}
+	
+	public static void pointToDataPoint(DataPoint dp, Point point) {
 		dp.setDbName(point.getDbName());
 		dp.setFp(point.getFp());
 		dp.setLongValue(point.getValue());
@@ -151,7 +166,6 @@ public class MiscUtils {
 		dp.setTags(new ArrayList<>(point.getTagsList()));
 		dp.setTimestamp(point.getTimestamp());
 		dp.setValueFieldName(point.getValueFieldName());
-		return dp;
 	}
 
 	public static Filter<List<String>> buildTagFilter(String tagFilter, List<String> tags)

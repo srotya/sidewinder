@@ -25,7 +25,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Writer;
+import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * A simple delta-of-delta timeseries compression with no value compression
@@ -42,42 +43,51 @@ public class DodWriter implements Writer {
 	private long delta;
 	private int count;
 	private long lastTs;
+	private boolean readOnly;
 
 	public DodWriter() {
-		writer = new BitWriter(4096);
 	}
 
 	public DodWriter(long headTs, byte[] buf) {
 		prevTs = headTs;
 		writer = new BitWriter(buf);
 	}
-	
+
 	@Override
-	public void configure(Map<String, String> conf) {
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException {
+		writer = new BitWriter(buf);
 	}
 
-	public void write(DataPoint dp) {
-		write.lock();
-		writeDataPoint(dp.getTimestamp(), dp.getLongValue());
-		write.unlock();
+	public void write(DataPoint dp) throws RejectException {
+		if (readOnly) {
+			throw WRITE_REJECT_EXCEPTION;
+		}
+		try {
+			write.lock();
+			writeDataPoint(dp.getTimestamp(), dp.getLongValue());
+		} finally {
+			write.unlock();
+		}
 	}
 
 	public void write(List<DataPoint> dps) {
-		write.lock();
-		for (Iterator<DataPoint> itr = dps.iterator(); itr.hasNext();) {
-			DataPoint dp = itr.next();
-			writeDataPoint(dp.getTimestamp(), dp.getLongValue());
+		try {
+			for (Iterator<DataPoint> itr = dps.iterator(); itr.hasNext();) {
+				DataPoint dp = itr.next();
+				writeDataPoint(dp.getTimestamp(), dp.getLongValue());
+			}
+		} finally {
+			write.unlock();
 		}
-		write.unlock();
 	}
 
 	/**
-	 * (a) Calculate the delta of delta: D = (tn - tn1) - (tn1 - tn2) (b) If D
-	 * is zero, then store a single `0' bit (c) If D is between [-63, 64], store
-	 * `10' followed by the value (7 bits) (d) If D is between [-255, 256],
-	 * store `110' followed by the value (9 bits) (e) if D is between [-2047,
-	 * 2048], store `1110' followed by the value (12 bits) (f) Otherwise store
-	 * `1111' followed by D using 32 bits
+	 * (a) Calculate the delta of delta: D = (tn - tn1) - (tn1 - tn2) (b) If D is
+	 * zero, then store a single `0' bit (c) If D is between [-63, 64], store `10'
+	 * followed by the value (7 bits) (d) If D is between [-255, 256], store `110'
+	 * followed by the value (9 bits) (e) if D is between [-2047, 2048], store
+	 * `1110' followed by the value (12 bits) (f) Otherwise store `1111' followed by
+	 * D using 32 bits
 	 * 
 	 * @param dp
 	 */
@@ -94,7 +104,7 @@ public class DodWriter implements Writer {
 		prevTs = ts;
 		delta = newDelta;
 	}
-	
+
 	@Override
 	public void addValue(long timestamp, double value) {
 		addValue(timestamp, Double.doubleToLongBits(value));
@@ -111,9 +121,12 @@ public class DodWriter implements Writer {
 
 	@Override
 	public void addValue(long timestamp, long value) {
-		write.lock();
-		writeDataPoint(timestamp, value);
-		write.unlock();
+		try {
+			write.lock();
+			writeDataPoint(timestamp, value);
+		} finally {
+			write.unlock();
+		}
 	}
 
 	@Override
@@ -127,10 +140,6 @@ public class DodWriter implements Writer {
 		writer.writeBits(timestamp, 64);
 	}
 
-	@Override
-	public void setSeriesId(String seriesId) {
-	}
-	
 	public BitWriter getWriter() {
 		return writer;
 	}
@@ -155,14 +164,19 @@ public class DodWriter implements Writer {
 	}
 
 	@Override
-	public void close() throws IOException {
+	public void makeReadOnly() {
+		write.lock();
+		readOnly = true;
+		write.unlock();
 	}
 
 	@Override
-	public void setConf(Map<String, String> conf) {
+	public int currentOffset() {
+		return 0;
 	}
 
 	@Override
-	public void delete() throws IOException {
+	public int getCount() {
+		return count;
 	}
 }

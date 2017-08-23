@@ -16,25 +16,31 @@
 package com.srotya.sidewinder.core;
 
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.security.Principal;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.codahale.metrics.Metric;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
+import com.lmax.disruptor.TimeoutException;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
 import com.srotya.sidewinder.core.api.InfluxApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
+import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.health.RestAPIHealthCheck;
-import com.srotya.sidewinder.core.ingress.binary.NettyBinaryIngestionServer;
-import com.srotya.sidewinder.core.ingress.http.NettyHTTPIngestionServer;
+import com.srotya.sidewinder.core.rpc.WriterServiceImpl;
 import com.srotya.sidewinder.core.security.AllowAllAuthorizer;
 import com.srotya.sidewinder.core.security.BasicAuthenticator;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -45,6 +51,9 @@ import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.setup.Environment;
+import io.grpc.DecompressorRegistry;
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
 
 /**
  * Main driver class for single-node sidewinder. It will register the REST APIs,
@@ -65,40 +74,19 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		final MetricRegistry registry = new MetricRegistry();
 
 		Map<String, String> conf = new HashMap<>();
-		String path = config.getConfigPath();
-		if (path != null) {
-			Properties props = new Properties();
-			props.load(new FileInputStream(path));
-			for (final String name : props.stringPropertyNames()) {
-				conf.put(name, props.getProperty(name));
-			}
-		}
+		overloadProperties(config, conf);
 
-		String storageEngineClass = conf.getOrDefault(ConfigConstants.STORAGE_ENGINE,
-				ConfigConstants.DEFAULT_STORAGE_ENGINE);
-		logger.info("Using Storage Engine:" + storageEngineClass);
-
-		ScheduledExecutorService bgTasks = Executors.newScheduledThreadPool(2,
+		ScheduledExecutorService bgTasks = Executors.newScheduledThreadPool(
+				Integer.parseInt(conf.getOrDefault(ConfigConstants.BG_THREAD_COUNT, "2")),
 				new BackgrounThreadFactory("sidewinderbg-tasks"));
+		initializeStorageEngine(conf, bgTasks);
+		enableMonitoring(registry, bgTasks);
+		registerWebAPIs(env, conf, registry, bgTasks);
+		checkAndEnableGRPC(conf);
+	}
 
-		storageEngine = (StorageEngine) Class.forName(storageEngineClass).newInstance();
-		storageEngine.configure(conf, bgTasks);
-		storageEngine.connect();
+	private void enableMonitoring(final MetricRegistry registry, ScheduledExecutorService bgTasks) {
 		ResourceMonitor.getInstance().init(storageEngine, bgTasks);
-		env.jersey().register(new GrafanaQueryApi(storageEngine, registry));
-		env.jersey().register(new MeasurementOpsApi(storageEngine, registry));
-		env.jersey().register(new DatabaseOpsApi(storageEngine, registry));
-		env.jersey().register(new InfluxApi(storageEngine, registry));
-		env.healthChecks().register("restapi", new RestAPIHealthCheck());
-
-		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {
-			logger.info("Enabling basic authentication");
-			AuthFilter<BasicCredentials, Principal> basicCredentialAuthFilter = new BasicCredentialAuthFilter.Builder<>()
-					.setAuthenticator(new BasicAuthenticator(conf.get(ConfigConstants.AUTH_BASIC_USERS)))
-					.setAuthorizer(new AllowAllAuthorizer()).setPrefix("Basic").buildAuthFilter();
-			env.jersey().register(basicCredentialAuthFilter);
-		}
-
 		@SuppressWarnings("resource")
 		SidewinderDropwizardReporter reporter = new SidewinderDropwizardReporter(registry, "request",
 				new MetricFilter() {
@@ -109,17 +97,79 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 					}
 				}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine);
 		reporter.start(1, TimeUnit.SECONDS);
+	}
 
-		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.NETTY_HTTP_ENABLED, ConfigConstants.FALSE))) {
-			NettyHTTPIngestionServer server = new NettyHTTPIngestionServer();
-			server.init(storageEngine, conf, registry);
-			server.start();
+	private void overloadProperties(SidewinderConfig config, Map<String, String> conf)
+			throws IOException, FileNotFoundException {
+		String path = config.getConfigPath();
+		if (path != null) {
+			Properties props = new Properties();
+			props.load(new FileInputStream(path));
+			for (final String name : props.stringPropertyNames()) {
+				conf.put(name, props.getProperty(name));
+			}
 		}
+	}
 
-		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.NETTY_BINARY_ENABLED, ConfigConstants.FALSE))) {
-			NettyBinaryIngestionServer binServer = new NettyBinaryIngestionServer();
-			binServer.init(storageEngine, conf);
-			binServer.start();
+	private void initializeStorageEngine(Map<String, String> conf, ScheduledExecutorService bgTasks)
+			throws InstantiationException, IllegalAccessException, ClassNotFoundException, IOException {
+		String storageEngineClass = conf.getOrDefault(ConfigConstants.STORAGE_ENGINE,
+				ConfigConstants.DEFAULT_STORAGE_ENGINE);
+		logger.info("Using Storage Engine:" + storageEngineClass);
+		storageEngine = (StorageEngine) Class.forName(storageEngineClass).newInstance();
+		storageEngine.configure(conf, bgTasks);
+		storageEngine.connect();
+	}
+
+	private void registerWebAPIs(Environment env, Map<String, String> conf, final MetricRegistry registry,
+			ScheduledExecutorService bgTasks) throws SQLException, ClassNotFoundException {
+		env.jersey().register(new GrafanaQueryApi(storageEngine, registry));
+		env.jersey().register(new MeasurementOpsApi(storageEngine, registry));
+		env.jersey().register(new DatabaseOpsApi(storageEngine, registry));
+		env.jersey().register(new InfluxApi(storageEngine, registry));
+		env.jersey().register(new SqlApi(storageEngine));
+		env.healthChecks().register("restapi", new RestAPIHealthCheck());
+
+		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {
+			logger.info("Enabling basic authentication");
+			AuthFilter<BasicCredentials, Principal> basicCredentialAuthFilter = new BasicCredentialAuthFilter.Builder<>()
+					.setAuthenticator(new BasicAuthenticator(conf.get(ConfigConstants.AUTH_BASIC_USERS)))
+					.setAuthorizer(new AllowAllAuthorizer()).setPrefix("Basic").buildAuthFilter();
+			env.jersey().register(basicCredentialAuthFilter);
+		}
+	}
+
+	private void checkAndEnableGRPC(Map<String, String> conf) throws IOException {
+		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.ENABLE_GRPC, ConfigConstants.FALSE))) {
+			final ExecutorService es = Executors
+					.newFixedThreadPool(
+							Integer.parseInt(conf.getOrDefault(ConfigConstants.GRPC_EXECUTOR_COUNT,
+									ConfigConstants.DEFAULT_GRPC_EXECUTOR_COUNT)),
+							new BackgrounThreadFactory("grpc-threads"));
+
+			final WriterServiceImpl writer = new WriterServiceImpl(storageEngine, conf);
+			final Server server = ServerBuilder
+					.forPort(Integer.parseInt(conf.getOrDefault(ConfigConstants.GRPC_PORT, "9928"))).executor(es)
+					.decompressorRegistry(DecompressorRegistry.getDefaultInstance()).addService(writer).build().start();
+
+			Runtime.getRuntime().addShutdownHook(new Thread("shutdown-hook") {
+				@Override
+				public void run() {
+					server.shutdown();
+					try {
+						server.awaitTermination(100, TimeUnit.SECONDS);
+					} catch (InterruptedException e) {
+						logger.log(Level.SEVERE, "Failed to terminate GRPC server", e);
+					}
+					es.shutdownNow();
+					try {
+						writer.getDisruptor().shutdown(100, TimeUnit.SECONDS);
+					} catch (TimeoutException e) {
+						logger.log(Level.SEVERE, "Failed to terminate GRPC disruptor", e);
+					}
+					writer.getEs().shutdownNow();
+				}
+			});
 		}
 	}
 
