@@ -1,0 +1,152 @@
+/**
+ * Copyright 2017 Ambud Sharma
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ * 		http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.srotya.sidewinder.core.rpc";
+option optimize_for = SPEED;
+
+package rpcs;
+
+service WriterService {
+ 
+	rpc WriteSingleDataPoint (SingleData) returns (Ack) {}
+
+	rpc WriteBatchDataPoint (BatchData) returns (Ack) {}
+	
+	rpc WriteSeriesPoint (RawTimeSeriesBucket) returns (Ack) {}
+	
+	rpc WriteDataPointStream (stream SingleData) returns (stream Ack) {}
+
+}
+
+service MetaService {
+
+	rpc CreateDatabase (DBRequest) returns (Ack) {}
+	
+	rpc CreateMeasurement (MeasurementRequest) returns (Ack) {}
+	
+	rpc ListMeasurements (DatabaseName) returns (Database) {}
+	
+	rpc ListDatabases (Null) returns (DatabaseList) {}
+	
+}
+
+message Null {
+
+	int64 messageId = 1;
+	
+}
+
+message DatabaseName {
+
+	int64 messageId = 1;
+	string databaseName = 2;
+
+}
+
+message DatabaseList {
+
+	int64 messageId = 1;
+	repeated string databases = 2;
+
+}
+
+message Database {
+
+	int64 messageId = 1;
+	string database = 2;
+	DatabaseMetadata metadata = 3;
+	repeated string measurement = 4; 
+
+}
+
+message DatabaseMetadata {
+
+	int32 retentionPolicy = 1;
+
+}
+
+message RawTimeSeriesBucket {
+	
+	int64 messageId = 1;
+	string dbName = 2;
+	string measurementName = 3;
+	string valueFieldName = 4;
+	repeated string tags = 5;
+	bool fp = 6;
+	int32 bucketSize = 7;	
+	repeated Bucket buckets = 8;
+	
+}
+
+message Bucket {
+
+	string bucketId = 1;
+	int64 headerTimestamp = 2;
+	int32 count = 3;
+	bytes data = 4;
+	
+}
+
+message DBRequest {
+
+	int64 messageId = 1;
+	string dbName = 2;
+	DatabaseMetadata metadata = 3;
+
+}
+
+message MeasurementRequest {
+
+	int64 messageId = 1;
+	string dbName = 2; 
+	string measurementName = 3;
+
+}
+
+message Ack {
+
+	int64 messageId = 1;
+	int32 responseCode = 2;
+
+}
+
+message BatchData {
+
+	repeated Point points = 2;
+	int64 messageId = 1;
+	
+}
+
+message SingleData {
+
+	Point point = 2;
+	int64 messageId = 1;
+	
+}
+
+message Point {
+
+	string dbName = 1;
+	string measurementName = 2;
+	string valueFieldName = 3;
+	int64 timestamp = 4;
+	int64 value = 5;
+	bool fp = 6;
+	repeated string tags = 7;
+
+}

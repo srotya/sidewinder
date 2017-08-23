@@ -99,7 +99,6 @@ public class TestInMemoryByzantineDefaults {
 		get.setEntity(new StringEntity("1497720442566<cpu.value<1497720652566"));
 		response = TestUtils.makeRequest(get);
 		String entity = EntityUtils.toString(response.getEntity());
-		System.out.println("RESULT:" + entity);
 		JsonArray ary = new Gson().fromJson(entity, JsonArray.class);
 		assertEquals(3, ary.size());
 		for (int i = 0; i < ary.size(); i++) {
@@ -107,32 +106,13 @@ public class TestInMemoryByzantineDefaults {
 		}
 	}
 
-	public void testPerfWrites() throws KeyManagementException, ClientProtocolException, NoSuchAlgorithmException,
-			KeyStoreException, MalformedURLException, IOException, ParseException, InterruptedException {
-		long sts = 1497720452566L;
-		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-		format.setTimeZone(TimeZone.getTimeZone("utc"));
-		for (int i = 0; i < 1_0000; i++) {
-			HttpPost post = new HttpPost("http://localhost:8080/influx?db=qaSingleSeries");
-			post.setEntity(new StringEntity("cpu,host=server01,region=uswest value=1i "+(sts+i*1000)*1000000+"\n"
-					+ "cpu,host=server02,region=uswest value=1i "+(sts+i*1000)*1000000+"\n"
-					+ "cpu,host=server03,region=uswest value=1i "+(sts+i*1000)*1000000+"\n"
-					+ "cpu,host=server04,region=uswest value=1i "+(sts+i*1000)*1000000+"\n"
-					+ "cpu,host=server05,region=uswest value=1i "+(sts+i*1000)*1000000+"\n"
-					+ "cpu,host=server06,region=uswest value=1i "+(sts+i*1000)*1000000));
-			CloseableHttpResponse response = TestUtils.makeRequest(post);
-			assertEquals(204, response.getStatusLine().getStatusCode());
-		}
-	}
-
 	@Test
-	public void testSingleSeriesWrites()
+	public void testSingleSeriesWritesQueryGrafana()
 			throws KeyManagementException, ClientProtocolException, NoSuchAlgorithmException, KeyStoreException,
 			MalformedURLException, IOException, ParseException, InterruptedException {
 		long sts = 1497720452566L;
 		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		format.setTimeZone(TimeZone.getTimeZone("utc"));
-		String payload = "{\"panelId\":2,\"range\":{\"from\":\"%s\",\"to\":\"%s\",\"raw\":{\"from\":\"now-5m\",\"to\":\"now\"}},\"rangeRaw\":{\"from\":\"now-5m\",\"to\":\"now\"},\"interval\":\"200ms\",\"intervalMs\":200,\"targets\":[{\"target\":\"cpu\",\"filters\":[],\"aggregator\":{\"args\":[{\"index\":0,\"type\":\"int\",\"value\":\"20\"}],\"name\":\"none\",\"unit\":\"secs\"},\"field\":\"value\",\"refId\":\"A\",\"type\":\"timeserie\"}],\"format\":\"json\",\"maxDataPoints\":1280}";
 		HttpPost post = new HttpPost("http://localhost:8080/influx?db=qaSingleSeries");
 		CloseableHttpResponse response = TestUtils.makeRequest(post);
 		assertEquals(400, response.getStatusLine().getStatusCode());
@@ -150,6 +130,7 @@ public class TestInMemoryByzantineDefaults {
 		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
 		post.setHeader("Content-Type", "application/json");
 		response = TestUtils.makeRequest(post);
+		assertEquals(200, response.getStatusLine().getStatusCode());
 		Gson gson = new Gson();
 		JsonArray ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
 		assertEquals("cpu", ary.get(0).getAsString());
@@ -158,14 +139,17 @@ public class TestInMemoryByzantineDefaults {
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity("{ \"target\":\"cpu\" }"));
 		response = TestUtils.makeRequest(post);
+		assertEquals(200, response.getStatusLine().getStatusCode());
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
 		assertEquals(4, ary.size());
 
+		String payload = "{\"panelId\":2,\"range\":{\"from\":\"%s\",\"to\":\"%s\",\"raw\":{\"from\":\"now-5m\",\"to\":\"now\"}},\"rangeRaw\":{\"from\":\"now-5m\",\"to\":\"now\"},\"interval\":\"200ms\",\"intervalMs\":200,\"targets\":[{\"target\":\"cpu\",\"filters\":[],\"aggregator\":{\"args\":[{\"index\":0,\"type\":\"int\",\"value\":\"20\"}],\"name\":\"none\",\"unit\":\"secs\"},\"field\":\"value\",\"refId\":\"A\",\"type\":\"timeserie\"}],\"format\":\"json\",\"maxDataPoints\":1280}";
 		post = new HttpPost("http://localhost:8080/qaSingleSeries/query");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity(
 				String.format(payload, format.format(new Date(sts - 60_000)), format.format(new Date(sts + 60_000)))));
 		response = TestUtils.makeRequest(post);
+		assertEquals(200, response.getStatusLine().getStatusCode());
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
 		assertEquals(3, ary.size());
 		int i = 0;
@@ -199,6 +183,47 @@ public class TestInMemoryByzantineDefaults {
 			}
 		}
 		assertEquals(6, i);
+
+		HttpGet get = new HttpGet("http://localhost:8080/qaSingleSeries/hc");
+		get.setHeader("Content-Type", "application/json");
+		response = TestUtils.makeRequest(get);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+
+		payload = "{\"panelId\":1,\"range\":{\"from\":\"%s\",\"to\":\"%s\","
+				+ "\"raw\":{\"from\":\"now-6h\",\"to\":\"now\"}},"
+				+ "\"rangeRaw\":{\"from\":\"now-6h\",\"to\":\"now\"},"
+				+ "\"interval\":\"15s\",\"intervalMs\":15000,\"targets\":[{\"refId\":\"A\",\"raw\":\"cpu.value\",\"rawQuery\":true,\"type\":\"timeserie\"}],"
+				+ "\"format\":\"json\",\"maxDataPoints\":1272}";
+		post = new HttpPost("http://localhost:8080/qaSingleSeries/query");
+		post.setHeader("Content-Type", "application/json");
+		post.setEntity(new StringEntity(
+				String.format(payload, format.format(new Date(sts - 60_000)), format.format(new Date(sts + 60_000)))));
+		response = TestUtils.makeRequest(post);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
+		assertEquals(3, ary.size());
+		i = 0;
+		for (JsonElement ele : ary) {
+			i += ele.getAsJsonObject().get("datapoints").getAsJsonArray().size();
+		}
+		assertEquals(6, i);
+
+		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
+		post.setHeader("Content-Type", "application/json");
+		response = TestUtils.makeRequest(post);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+
+		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
+		post.setHeader("Content-Type", "application/json");
+		post.setEntity(new StringEntity("{\"target\":\"cpu\"}"));
+		response = TestUtils.makeRequest(post);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		
+		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
+		post.setHeader("Content-Type", "application/json");
+		post.setEntity(new StringEntity("{\"target\":\"cpu.*\"}"));
+		response = TestUtils.makeRequest(post);
+		assertEquals(200, response.getStatusLine().getStatusCode());
 	}
 
 }

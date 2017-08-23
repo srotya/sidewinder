@@ -52,23 +52,24 @@ public class TestMemTagIndex {
 		MemStorageEngine engine = new MemStorageEngine();
 		engine.configure(new HashMap<>(), null);
 		long ms = System.currentTimeMillis();
-		ExecutorService es = Executors.newFixedThreadPool(4);
-		for (int k = 0; k < 4; k++) {
+		ExecutorService es = Executors.newFixedThreadPool(7);
+		for (int k = 0; k < 7; k++) {
 			es.submit(() -> {
 				for (int i = 0; i < 30_000_000; i++) {
 					try {
 						engine.getOrCreateTimeSeries("db1", "m1", "v10",
-								Arrays.asList(String.valueOf(i % 10_000), "test=" + String.valueOf(i % 5),
+								Arrays.asList(String.valueOf(i % 1_000_000), "test=" + String.valueOf(i % 5),
 										"goliath=" + String.valueOf(i % 1000), "goliath2=" + String.valueOf(i % 150)),
 								4096, true);
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
-					if (i % 1000000 == 0)
+					if (i % 100000 == 0)
 						System.out.println(i);
 				}
 			});
 		}
+		es.shutdownNow();
 		es.awaitTermination(1000, TimeUnit.SECONDS);
 		ms = System.currentTimeMillis() - ms;
 		System.err.println("Index time:" + ms);
