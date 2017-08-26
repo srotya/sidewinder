@@ -22,7 +22,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Logger;
 
@@ -31,6 +33,7 @@ import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * @author ambud
@@ -81,7 +84,7 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer(String seriesId) throws IOException {
+	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException {
 		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(1024);
 		synchronized (bufTracker) {
 			bufTracker.add(allocateDirect);
@@ -127,4 +130,19 @@ public class MemoryMeasurement implements Measurement {
 		return logger;
 	}
 
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "MemoryMeasurement [measurementName=" + measurementName + ", metadata=" + metadata + ", seriesMap="
+				+ seriesMap + ", tagIndex=" + tagIndex + ", bufTracker=" + bufTracker + ", compressionClass="
+				+ compressionClass + "]";
+	}
+
+	@Override
+	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId) {
+		return new ConcurrentSkipListMap<>();
+	}
+	
 }

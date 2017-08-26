@@ -44,12 +44,10 @@ public class InfluxApi {
 
 	private Meter meter;
 	private RoutingEngine router;
-	private int replicationFactor;
 
 	public InfluxApi(RoutingEngine router, MetricRegistry registry, Map<String, String> conf) {
 		this.router = router;
 		meter = registry.meter("writes");
-		this.replicationFactor = Integer.parseInt(conf.getOrDefault("cluster.replication.factor", "3"));
 	}
 
 	@POST
@@ -64,7 +62,7 @@ public class InfluxApi {
 		}
 		meter.mark(dps.size());
 		for (Point dp : dps) {
-			List<Node> nodes = router.routeData(dp, replicationFactor);
+			List<Node> nodes = router.routeData(dp);
 			for (int i = 0; i < nodes.size(); i++) {
 				Node node = nodes.get(i);
 				System.err.println(MiscUtils.pointToDataPoint(dp)+"\t"+node);

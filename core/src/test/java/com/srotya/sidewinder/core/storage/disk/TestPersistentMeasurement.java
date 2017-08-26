@@ -15,8 +15,7 @@
  */
 package com.srotya.sidewinder.core.storage.disk;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.Assert.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -58,11 +57,14 @@ public class TestPersistentMeasurement {
 	private ScheduledExecutorService bgTaskPool = Executors.newScheduledThreadPool(1);
 
 	@Test
-	public void test() throws IOException {
+	public void testConfigure() throws IOException {
+		MiscUtils.delete(new File("target/pmeasurement1.idx"));
 		Measurement measurement = new PersistentMeasurement();
 		measurement.configure(conf, "m1", "target/pmeasurement1.idx", "target/pmeasurement1", metadata, bgTaskPool);
+		assertTrue(measurement.getTagIndex() != null);
 		// TimeSeries series = measurement.getOrCreateTimeSeries("v1",
 		// Arrays.asList("test1"), 4096, false, conf);
+		measurement.close();
 	}
 
 	@Test
@@ -81,7 +83,7 @@ public class TestPersistentMeasurement {
 		}
 		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
 		m.configure(map, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
-		int LIMIT = 1000000;
+		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
 			TimeSeries t = m.getOrCreateTimeSeries("value", tags, 4096, false, map);
 			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
@@ -95,6 +97,7 @@ public class TestPersistentMeasurement {
 		m.queryDataPoints("value", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, null, resultMap);
 		Iterator<SeriesQueryOutput> iterator = resultMap.iterator();
 		assertEquals(LIMIT, iterator.next().getDataPoints().size());
+		m.close();
 	}
 
 	@Test
@@ -107,6 +110,7 @@ public class TestPersistentMeasurement {
 		String encodeTagsToString = m.encodeTagsToString(index, tags);
 		String key = m.constructSeriesId("csd", tags, index);
 		assertEquals("csd#" + encodeTagsToString, key);
+		m.close();
 	}
 
 	@Test
@@ -141,6 +145,7 @@ public class TestPersistentMeasurement {
 		for (Reader reader : readers.keySet()) {
 			assertEquals(100, reader.getPairCount());
 		}
+		m.close();
 	}
 
 	@Test
@@ -181,12 +186,13 @@ public class TestPersistentMeasurement {
 			List<DataPoint> dps = ts.queryDataPoints("vf1", Arrays.asList("t1"), t1 - 120, t1 + 1000_000, null);
 			assertEquals(200, dps.size());
 			assertEquals(1, ts.getBucketCount());
+			m.close();
 		}
 	}
 
 	@Test
 	public void testLinearizabilityWithRollOverBucket() throws IOException, InterruptedException {
-		for (int p = 0; p < 100; p++) {
+		for (int p = 0; p < 2; p++) {
 			final int LIMIT = 10000;
 			MiscUtils.delete(new File("target/db135/"));
 			final long t1 = 1497720452566L;
@@ -222,6 +228,7 @@ public class TestPersistentMeasurement {
 			TimeSeries ts = m.getOrCreateTimeSeries("vf1", Arrays.asList("t1", "t2"), 4096, false, conf);
 			List<DataPoint> dps = ts.queryDataPoints("vf1", Arrays.asList("t1"), t1 - 100, t1 + 1000_0000, null);
 			assertEquals(LIMIT * 2, dps.size(), 10);
+			m.close();
 		}
 	}
 

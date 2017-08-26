@@ -17,12 +17,18 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.SortedMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Logger;
+
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * @author ambud
@@ -30,7 +36,7 @@ import java.util.logging.Logger;
 public class MockMeasurement implements Measurement {
 
 	private int bufferRenewCounter = 0;
-	private List<ByteBuffer> list;
+	private List<Entry<String, ByteBuffer>> list;
 	private int bufSize;
 
 	public MockMeasurement(int bufSize) {
@@ -62,10 +68,10 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer(String seriesId) throws IOException {
+	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException {
 		bufferRenewCounter++;
 		ByteBuffer allocate = ByteBuffer.allocate(bufSize);
-		list.add(allocate);
+		list.add(new AbstractMap.SimpleEntry<>(tsBucket, allocate));
 		return allocate;
 	}
 
@@ -73,7 +79,7 @@ public class MockMeasurement implements Measurement {
 		return bufferRenewCounter;
 	}
 
-	public List<ByteBuffer> getBufTracker() {
+	public List<Entry<String, ByteBuffer>> getBufTracker() {
 		return list;
 	}
 
@@ -82,8 +88,8 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize,
-			boolean fp, Map<String, String> conf) throws IOException {
+	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
+			Map<String, String> conf) throws IOException {
 		return null;
 	}
 
@@ -102,6 +108,9 @@ public class MockMeasurement implements Measurement {
 		return null;
 	}
 
-
+	@Override
+	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId) {
+		return new ConcurrentSkipListMap<>();
+	}
 
 }

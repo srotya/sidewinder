@@ -44,6 +44,7 @@ public class DodWriter implements Writer {
 	private int count;
 	private long lastTs;
 	private boolean readOnly;
+	private boolean full;
 
 	public DodWriter() {
 	}
@@ -178,5 +179,15 @@ public class DodWriter implements Writer {
 	@Override
 	public int getCount() {
 		return count;
+	}
+
+	@Override
+	public boolean isFull() {
+		return full;
+	}
+
+	@Override
+	public long getHeaderTimestamp() {
+		return 0;
 	}
 }

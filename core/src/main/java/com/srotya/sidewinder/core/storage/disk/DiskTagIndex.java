@@ -51,8 +51,8 @@ public class DiskTagIndex implements TagIndex {
 
 	public DiskTagIndex(String indexDir, String measurementName) throws IOException {
 		this.indexPath = indexDir + "/" + measurementName;
-		tagMap = new ConcurrentHashMap<>(1000);
-		rowKeyIndex = new ConcurrentHashMap<>(1000);
+		tagMap = new ConcurrentHashMap<>(10000);
+		rowKeyIndex = new ConcurrentHashMap<>(10000);
 		fwdIndex = indexPath + ".fwd";
 		revIndex = indexPath + ".rev";
 		prFwd = new PrintWriter( new FileOutputStream(new File(fwdIndex), true));
@@ -85,7 +85,7 @@ public class DiskTagIndex implements TagIndex {
 			String tag = split[0];
 			Set<String> set = rowKeyIndex.get(tag);
 			if (set == null) {
-				set = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
+				set = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>(100));
 				rowKeyIndex.put(split[0], set);
 			}
 			String rowKey = split[1];
@@ -144,9 +144,10 @@ public class DiskTagIndex implements TagIndex {
 		return rowKeyIndex.get(tag);
 	}
 
+	@Override
 	public void close() throws IOException {
 		prFwd.close();
 		prRv.close();
 	}
-
+	
 }

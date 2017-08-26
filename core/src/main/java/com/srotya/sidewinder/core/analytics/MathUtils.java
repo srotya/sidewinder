@@ -25,8 +25,8 @@ public class MathUtils {
 	/**
 	 * Compute PPMCC between the supplied arrays
 	 * 
-	 * @param a
-	 * @param b
+	 * @param a first array to compute ppmcc
+	 * @param b second array to compute ppmcc
 	 * @return ppmcc
 	 */
 	public static double ppmcc(double[] a, double[] b) {
@@ -43,7 +43,7 @@ public class MathUtils {
 	/**
 	 * Compute mean or average of the supplied array
 	 * 
-	 * @param a
+	 * @param a array to compute mean for
 	 * @return average / mean
 	 */
 	public static double mean(double[] a) {
@@ -58,7 +58,7 @@ public class MathUtils {
 	/**
 	 * Compute mean or average of the supplied array
 	 * 
-	 * @param a
+	 * @param a array to compute mean for
 	 * @return average / mean
 	 */
 	public static long mean(long[] a) {
@@ -72,10 +72,10 @@ public class MathUtils {
 	/**
 	 * Compute co-variance of the supplied array pair
 	 * 
-	 * @param a
-	 * @param amean
-	 * @param b
-	 * @param bmean
+	 * @param a array to compute covariance for
+	 * @param amean mean of array a
+	 * @param b array to compute covariance for
+	 * @param bmean mean of array b
 	 * @return co-variance
 	 */
 	public static double covariance(double[] a, double amean, double[] b, double bmean) {
@@ -89,7 +89,7 @@ public class MathUtils {
 	/**
 	 * Compute standard deviation for the supplied array
 	 * 
-	 * @param a
+	 * @param a array to compute stddev for
 	 * @param avg
 	 * @return standard deviation
 	 */

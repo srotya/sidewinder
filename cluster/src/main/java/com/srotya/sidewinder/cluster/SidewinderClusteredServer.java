@@ -74,19 +74,36 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 
 		ScheduledExecutorService bgTasks = Executors.newScheduledThreadPool(2, new BackgrounThreadFactory("bgtasks"));
 
+		StorageEngine storageEngine;
+
 		String storageEngineClass = conf.getOrDefault("storage.engine",
 				"com.srotya.sidewinder.core.storage.mem.MemStorageEngine");
-		StorageEngine storageEngine = (StorageEngine) Class.forName(storageEngineClass).newInstance();
-		storageEngine.configure(conf, bgTasks);
-		storageEngine.connect();
+		try {
+			storageEngine = (StorageEngine) Class.forName(storageEngineClass).newInstance();
+			storageEngine.configure(conf, bgTasks);
+			storageEngine.connect();
+		} catch (Exception e) {
+			throw new IOException(e);
+		}
 
-		ClusterConnector connector = (ClusterConnector) Class.forName(conf.getOrDefault("cluster.connector",
-				"com.srotya.sidewinder.cluster.connectors.ConfigConnector")).newInstance();
-		connector.init(conf);
+		ClusterConnector connector;
+		try {
+			connector = (ClusterConnector) Class.forName(
+					conf.getOrDefault("cluster.connector", "com.srotya.sidewinder.cluster.connectors.ConfigConnector"))
+					.newInstance();
+			connector.init(conf);
+		} catch (Exception e) {
+			throw new IOException(e);
+		}
 
-		RoutingEngine router = (RoutingEngine) Class.forName(conf.getOrDefault("cluster.routing.engine",
-				"com.srotya.sidewinder.cluster.routing.impl.MasterSlaveRoutingEngine")).newInstance();
-		router.init(conf, storageEngine, connector);
+		RoutingEngine router;
+		try {
+			router = (RoutingEngine) Class.forName(conf.getOrDefault("cluster.routing.engine",
+					"com.srotya.sidewinder.cluster.routing.impl.MasterSlaveRoutingEngine")).newInstance();
+			router.init(conf, storageEngine, connector);
+		} catch (Exception e) {
+			throw new IOException(e);
+		}
 
 		final Server server = ServerBuilder.forPort(port)
 				.decompressorRegistry(DecompressorRegistry.getDefaultInstance())
@@ -103,7 +120,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		});
 
 		ResourceMonitor.getInstance().init(storageEngine, bgTasks);
-		ClusterResourceMonitor.getInstance().init(storageEngine, connector, bgTasks);
+		 ClusterResourceMonitor.getInstance().init(storageEngine, connector, bgTasks);
 		env.jersey().register(new GrafanaQueryApi(storageEngine, registry));
 		env.jersey().register(new MeasurementOpsApi(storageEngine, registry));
 		env.jersey().register(new DatabaseOpsApi(storageEngine, registry));
@@ -111,14 +128,14 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 			env.jersey().register(new InfluxApi(router, registry, conf));
 		}
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
-		
+
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {
 			AuthFilter<BasicCredentials, Principal> basicCredentialAuthFilter = new BasicCredentialAuthFilter.Builder<>()
 					.setAuthenticator(new BasicAuthenticator(conf.get(ConfigConstants.AUTH_BASIC_USERS)))
 					.setAuthorizer(new AllowAllAuthorizer()).setPrefix("Basic").buildAuthFilter();
 			env.jersey().register(basicCredentialAuthFilter);
 		}
-		
+
 	}
 
 	private void loadConfiguration(ClusterConfiguration configuration, HashMap<String, String> conf)

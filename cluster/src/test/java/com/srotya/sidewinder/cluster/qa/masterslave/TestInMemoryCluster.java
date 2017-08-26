@@ -57,7 +57,7 @@ import io.dropwizard.testing.junit.DropwizardAppRule;
 /**
  * @author ambud
  */
-public class TestInMemory {
+public class TestInMemoryCluster {
 
 	@ClassRule
 	public static final DropwizardAppRule<ClusterConfiguration> MASTER = new DropwizardAppRule<>(

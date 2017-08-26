@@ -32,7 +32,7 @@ package com.srotya.sidewinder.cluster.routing;
 public class Node {
 
 	private String nodeKey;
-	private Writer writer;
+	private transient Writer writer;
 	private String address;
 	private int port;
 
@@ -77,6 +77,16 @@ public class Node {
 		return nodeKey.hashCode();
 	}
 
+	@Override
+	public boolean equals(Object obj) {
+		if (!(obj instanceof Node)) {
+			return false;
+		} else {
+			Node node = (Node) obj;
+			return node.address.equals(address) && node.port == port;
+		}
+	}
+
 	/**
 	 * @return the address
 	 */
@@ -91,7 +101,9 @@ public class Node {
 		return port;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
