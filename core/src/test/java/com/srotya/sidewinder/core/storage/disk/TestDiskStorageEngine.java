@@ -59,8 +59,8 @@ import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
-import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.compression.Reader;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -395,13 +395,16 @@ public class TestDiskStorageEngine {
 	@Test
 	public void testGarbageCollector() throws Exception {
 		StorageEngine engine = new DiskStorageEngine();
-		MiscUtils.delete(new File("target/db99/"));
+		MiscUtils.delete(new File("target/dbgc/"));
 		HashMap<String, String> map = new HashMap<>();
-		map.put("index.dir", "target/db99/index");
-		map.put("data.dir", "target/db99/data");
+		map.put("index.dir", "target/dbgc/index");
+		map.put("data.dir", "target/dbgc/data");
 		map.put(StorageEngine.GC_DELAY, "10");
 		map.put(StorageEngine.GC_FREQUENCY, "100");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
+		map.put(StorageEngine.DEFAULT_BUCKET_SIZE, "4096");
+		map.put(PersistentMeasurement.CONF_MEASUREMENT_INCREMENT_SIZE, "4096");
+		map.put(StorageEngine.RETENTION_HOURS, "28");
 		engine.configure(map, bgTasks);
 		long base = 1497720452566L;
 		long ts = base;
@@ -454,9 +457,10 @@ public class TestDiskStorageEngine {
 		map.put("data.dir", "target/db1/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		ByteBuffer buf = ByteBuffer.allocate(100);
-		TimeSeriesBucket timeSeries = new TimeSeriesBucket(ByzantineWriter.class.getName(), headerTimestamp, map, buf,
-				true);
-		timeSeries.addDataPoint(headerTimestamp, 1L);
+		Writer timeSeries = new ByzantineWriter();
+		timeSeries.configure(map, buf, true);
+		timeSeries.setHeaderTimestamp(headerTimestamp);
+		timeSeries.addValue(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, null, null, false);
 		assertEquals(1, points.size());
 		points.clear();
@@ -464,7 +468,6 @@ public class TestDiskStorageEngine {
 		Predicate timepredicate = new BetweenPredicate(Long.MAX_VALUE, Long.MAX_VALUE);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, timepredicate, null, false);
 		assertEquals(0, points.size());
-		timeSeries.close();
 	}
 
 	@Test

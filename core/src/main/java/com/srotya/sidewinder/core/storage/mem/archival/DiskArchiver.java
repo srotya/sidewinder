@@ -91,7 +91,7 @@ public class DiskArchiver implements Archiver {
 		bos.writeUTF(blob.getDb());
 		bos.writeUTF(blob.getMeasurement());
 		bos.writeUTF(blob.getKey());
-		bos.writeLong(blob.getBucket().getHeaderTimestamp());
+//		bos.writeLong(blob.getBucket().getHeaderTimestamp());
 //		bos.writeInt(blob.getBucket().getCount());
 //		Reader reader = blob.getBucket().getReader(null, null);
 //		byte[] buf = reader.toByteArray();

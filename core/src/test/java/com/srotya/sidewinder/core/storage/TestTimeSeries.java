@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.compression.Reader;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 
 /**
@@ -89,10 +90,10 @@ public class TestTimeSeries {
 			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
 		}
 		assertEquals(1, series.getBucketMap().size());
-		TimeSeriesBucket bucket = series.getBucketMap().values().iterator().next();
-		assertEquals(3, bucket.getCount());
+		Writer writer = series.getBucketMap().values().iterator().next();
+		assertEquals(3, writer.getCount());
 
-		Reader reader = bucket.getReader(null, null, true, "value", Arrays.asList("test"));
+		Reader reader = TimeSeries.getReader(writer, null, null, true, "value", Arrays.asList("test"));
 		for (int i = 0; i < 3; i++) {
 			reader.readPair();
 		}
@@ -149,7 +150,7 @@ public class TestTimeSeries {
 		readers = series.queryReader("test", Arrays.asList("test"), curr, curr + (4096_000) * 28, null);
 		// should return 25 partitions
 		assertEquals(25, readers.size());
-		List<TimeSeriesBucket> collectGarbage = series.collectGarbage();
+		List<Writer> collectGarbage = series.collectGarbage();
 		assertEquals(4, collectGarbage.size());
 		readers = series.queryReader("test", Arrays.asList("test"), curr, curr + (4096_000) * 28, null);
 		assertEquals(21, readers.size());

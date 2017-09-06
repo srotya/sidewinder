@@ -31,7 +31,6 @@ import com.srotya.sidewinder.core.rpc.WriterServiceGrpc.WriterServiceImplBase;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
-import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -85,40 +84,40 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 
 	@Override
 	public void writeBatchDataPoint(BatchData request, StreamObserver<Ack> responseObserver) {
+		Ack ack = null;
 		try {
 			for (Point point : request.getPointsList()) {
 				DataPoint dp = MiscUtils.pointToDataPoint(point);
 				engine.writeDataPoint(dp);
 			}
-			Ack ack = Ack.newBuilder().setMessageId(request.getMessageId()).build();
-			responseObserver.onNext(ack);
-			responseObserver.onCompleted();
+			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
 		} catch (Exception e) {
 			e.printStackTrace();
-			responseObserver.onError(e);
+			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(500).build();
 		}
+		responseObserver.onNext(ack);
+		responseObserver.onCompleted();
 	}
 
 	@Override
 	public void writeSeriesPoint(RawTimeSeriesBucket request, StreamObserver<Ack> responseObserver) {
+		Ack ack;
 		try {
 			TimeSeries series = engine.getOrCreateTimeSeries(request.getDbName(), request.getMeasurementName(),
 					request.getValueFieldName(), new ArrayList<>(request.getTagsList()), request.getBucketSize(),
 					request.getFp());
 			for (Bucket bucket : request.getBucketsList()) {
-				TimeSeriesBucket tsb = series.getOrCreateSeriesBucket(TimeUnit.MILLISECONDS,
-						bucket.getHeaderTimestamp());
-				Writer writer = tsb.getWriter();
+				Writer writer = series.getOrCreateSeriesBucket(TimeUnit.MILLISECONDS, bucket.getHeaderTimestamp());
 				writer.configure(conf, null, false);
 				writer.setCounter(bucket.getCount());
 				writer.bootstrap(bucket.getData().asReadOnlyByteBuffer());
 			}
-			Ack ack = Ack.newBuilder().setMessageId(request.getMessageId()).build();
-			responseObserver.onNext(ack);
-			responseObserver.onCompleted();
+			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
 		} catch (Exception e) {
-			responseObserver.onError(e);
+			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(500).build();
 		}
+		responseObserver.onNext(ack);
+		responseObserver.onCompleted();
 	}
 
 	@Override
@@ -241,11 +240,16 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			if (event.getHashValue() % handlerCount == handlerIndex) {
 				try {
 					engine.writeDataPoint(event.getDp());
-					event.getResponseObserver().onNext(Ack.newBuilder().setMessageId(event.getMessageId()).build());
-					event.getResponseObserver().onCompleted();
+					event.getResponseObserver()
+							.onNext(Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(200).build());
+				} catch (IOException e) {
+					event.getResponseObserver()
+							.onNext(Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(400).build());
 				} catch (Exception e) {
-					event.getResponseObserver().onError(e);
+					event.getResponseObserver()
+							.onNext(Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(500).build());
 				}
+				event.getResponseObserver().onCompleted();
 			}
 		}
 

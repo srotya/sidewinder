@@ -59,4 +59,8 @@ public interface Writer {
 	
 	public int getCount();
 
+	public boolean isFull();
+
+	public long getHeaderTimestamp();
+
 }

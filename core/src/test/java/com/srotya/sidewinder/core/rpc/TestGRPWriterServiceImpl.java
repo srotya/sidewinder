@@ -124,8 +124,11 @@ public class TestGRPWriterServiceImpl {
 				Point.newBuilder().setDbName(dbName).setFp(true).setMeasurementName(measurementName).addTags("host1")
 						.setTimestamp(sts + 1).setValue(2L).setValueFieldName("usage").build());
 		try {
-			client.writeBatchDataPoint(BatchData.newBuilder().setMessageId(sts).addAllPoints(points).build());
-			fail("Exception must be thrown");
+			Ack response = client
+					.writeBatchDataPoint(BatchData.newBuilder().setMessageId(sts).addAllPoints(points).build());
+			if (response.getResponseCode() == 200) {
+				fail("Exception must be thrown");
+			}
 		} catch (Exception e) {
 		}
 		// second data point should have been rejected

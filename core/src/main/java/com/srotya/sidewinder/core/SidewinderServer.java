@@ -20,7 +20,9 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.Principal;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
@@ -39,6 +41,7 @@ import com.srotya.sidewinder.core.api.InfluxApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
 import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
+import com.srotya.sidewinder.core.graphite.GraphiteServer;
 import com.srotya.sidewinder.core.health.RestAPIHealthCheck;
 import com.srotya.sidewinder.core.rpc.WriterServiceImpl;
 import com.srotya.sidewinder.core.security.AllowAllAuthorizer;
@@ -68,9 +71,11 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 	private static final Logger logger = Logger.getLogger(SidewinderServer.class.getName());
 	private StorageEngine storageEngine;
 	private static SidewinderServer sidewinderServer;
+	private List<Runnable> shutdownTasks;
 
 	@Override
 	public void run(SidewinderConfig config, Environment env) throws Exception {
+		shutdownTasks = new ArrayList<>();
 		final MetricRegistry registry = new MetricRegistry();
 
 		Map<String, String> conf = new HashMap<>();
@@ -83,6 +88,37 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		enableMonitoring(registry, bgTasks);
 		registerWebAPIs(env, conf, registry, bgTasks);
 		checkAndEnableGRPC(conf);
+		checkAndEnableGraphite(conf);
+		registerShutdownHook(conf);
+	}
+
+	private void registerShutdownHook(Map<String, String> conf) {
+		Runtime.getRuntime().addShutdownHook(new Thread("shutdown-hook") {
+			@Override
+			public void run() {
+				for (Runnable task : shutdownTasks) {
+					task.run();
+				}
+			}
+		});
+	}
+
+	private void checkAndEnableGraphite(Map<String, String> conf) throws Exception {
+		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.GRAPHITE_ENABLED, ConfigConstants.FALSE))) {
+			final GraphiteServer server = new GraphiteServer(conf, storageEngine);
+			server.start();
+			shutdownTasks.add(new Runnable() {
+
+				@Override
+				public void run() {
+					try {
+						server.stop();
+					} catch (Exception e) {
+						logger.log(Level.SEVERE, "Failed to shutdown graphite server", e);
+					}
+				}
+			});
+		}
 	}
 
 	private void enableMonitoring(final MetricRegistry registry, ScheduledExecutorService bgTasks) {
@@ -151,8 +187,8 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 			final Server server = ServerBuilder
 					.forPort(Integer.parseInt(conf.getOrDefault(ConfigConstants.GRPC_PORT, "9928"))).executor(es)
 					.decompressorRegistry(DecompressorRegistry.getDefaultInstance()).addService(writer).build().start();
+			shutdownTasks.add(new Runnable() {
 
-			Runtime.getRuntime().addShutdownHook(new Thread("shutdown-hook") {
 				@Override
 				public void run() {
 					server.shutdown();
@@ -170,6 +206,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 					writer.getEs().shutdownNow();
 				}
 			});
+
 		}
 	}
 

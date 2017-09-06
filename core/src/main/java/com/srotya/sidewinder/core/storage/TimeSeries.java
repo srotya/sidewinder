@@ -24,7 +24,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -34,6 +33,7 @@ import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.RollOverException;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
 /**
@@ -50,7 +50,7 @@ import com.srotya.sidewinder.core.utils.TimeUtils;
 public class TimeSeries {
 
 	private static final Logger logger = Logger.getLogger(TimeSeries.class.getName());
-	private SortedMap<String, List<TimeSeriesBucket>> bucketMap;
+	private SortedMap<String, List<Writer>> bucketMap;
 	private boolean fp;
 	private AtomicInteger retentionBuckets;
 	private String seriesId;
@@ -80,12 +80,12 @@ public class TimeSeries {
 		retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
-		bucketMap = new ConcurrentSkipListMap<>();
+		bucketMap = measurement.createNewBucketMap(seriesId);
 	}
 
-	public TimeSeriesBucket getOrCreateSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
+	public Writer getOrCreateSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
 		String tsBucket = getTimeBucket(unit, timestamp, timeBucketSize);
-		List<TimeSeriesBucket> list = bucketMap.get(tsBucket);
+		List<Writer> list = bucketMap.get(tsBucket);
 		if (list == null) {
 			synchronized (bucketMap) {
 				if ((list = bucketMap.get(tsBucket)) == null) {
@@ -97,7 +97,7 @@ public class TimeSeries {
 		}
 
 		synchronized (list) {
-			TimeSeriesBucket ans = list.get(list.size() - 1);
+			Writer ans = list.get(list.size() - 1);
 			if (ans.isFull()) {
 				if ((ans = list.get(list.size() - 1)).isFull()) {
 					logger.fine("Requesting new time series:" + seriesId + ",measurement:"
@@ -126,43 +126,54 @@ public class TimeSeries {
 		return tsBucket;
 	}
 
-	private TimeSeriesBucket createNewTimeSeriesBucket(long timestamp, String tsBucket, List<TimeSeriesBucket> list)
-			throws IOException {
-		ByteBuffer buf = measurement.createNewBuffer(seriesId);
+	private Writer createNewTimeSeriesBucket(long timestamp, String tsBucket, List<Writer> list) throws IOException {
+		ByteBuffer buf = measurement.createNewBuffer(seriesId, tsBucket);
 		// writeStringToBuffer(seriesId, buf);
-		writeStringToBuffer(tsBucket, buf);
-		buf.putLong(timestamp);
-		buf = buf.slice();
-		TimeSeriesBucket bucketEntry = new TimeSeriesBucket(compressionFQCN, timestamp, conf, buf, true);
-		list.add(bucketEntry);
+		Writer writer;
+		writer = getWriterInstance();
+		writer.configure(conf, buf, true);
+		writer.setHeaderTimestamp(timestamp);
+		list.add(writer);
 		bucketCount++;
-		return bucketEntry;
+		return writer;
+	}
+
+	private Writer getWriterInstance() {
+		try {
+			Writer writer = (Writer) Class.forName(compressionFQCN).newInstance();
+			return writer;
+		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+			throw new RuntimeException(e);
+		}
 	}
 
 	/**
 	 * Function to check and recover existing bucket map, if one exists.
-	 * @param bufList
+	 * 
+	 * @param bufferEntries
 	 * @throws IOException
 	 */
-	public void loadBucketMap(List<ByteBuffer> bufList) throws IOException {
+	public void loadBucketMap(List<Entry<String, ByteBuffer>> bufferEntries) throws IOException {
 		Map<String, String> cacheConf = new HashMap<>(conf);
 		logger.fine("Scanning buffer for:" + seriesId);
-		for (ByteBuffer entry : bufList) {
-			ByteBuffer duplicate = entry.duplicate();
+		for (Entry<String, ByteBuffer> entry : bufferEntries) {
+			ByteBuffer duplicate = entry.getValue();
 			duplicate.rewind();
 			// String series = getStringFromBuffer(duplicate);
 			// if (!series.equalsIgnoreCase(seriesId)) {
 			// continue;
 			// }
-			String tsBucket = getStringFromBuffer(duplicate);
-			List<TimeSeriesBucket> list = bucketMap.get(tsBucket);
+			String tsBucket = entry.getKey();
+			List<Writer> list = bucketMap.get(tsBucket);
 			if (list == null) {
 				list = new ArrayList<>();
 				bucketMap.put(tsBucket, list);
 			}
-			long bucketTimestamp = duplicate.getLong();
+			// long bucketTimestamp = duplicate.getLong();
 			ByteBuffer slice = duplicate.slice();
-			list.add(new TimeSeriesBucket(compressionFQCN, bucketTimestamp, cacheConf, slice, false));
+			Writer writer = getWriterInstance();
+			writer.configure(cacheConf, slice, false);
+			list.add(writer);
 			logger.fine("Loading bucketmap:" + seriesId + "\t" + tsBucket);
 		}
 	}
@@ -217,12 +228,11 @@ public class TimeSeries {
 		if (endTime == Long.MAX_VALUE) {
 			endTsBucket = bucketMap.lastKey();
 		}
-		SortedMap<String, List<TimeSeriesBucket>> series = bucketMap.subMap(startTsBucket,
-				endTsBucket + Character.MAX_VALUE);
-		for (List<TimeSeriesBucket> timeSeries : series.values()) {
-			for (TimeSeriesBucket bucketEntry : timeSeries) {
-				readers.add(bucketEntry.getReader(timeRangePredicate, valuePredicate, fp, appendFieldValueName,
-						appendTags));
+		SortedMap<String, List<Writer>> series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
+		for (List<Writer> writers : series.values()) {
+			for (Writer writer : writers) {
+				readers.add(
+						getReader(writer, timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
 			}
 		}
 		List<DataPoint> points = new ArrayList<>();
@@ -230,6 +240,45 @@ public class TimeSeries {
 			readerToDataPoints(points, reader);
 		}
 		return points;
+	}
+
+	/**
+	 * Get {@link Reader} with time and value filter predicates pushed-down to it.
+	 * Along with {@link DataPoint} enrichments pushed to it.
+	 * 
+	 * @param timePredicate
+	 * @param valuePredicate
+	 * @param isFp
+	 * @param appendFieldValueName
+	 * @param appendTags
+	 * @return point in time instance of reader
+	 * @throws IOException
+	 */
+	public static Reader getReader(Writer writer, Predicate timePredicate, Predicate valuePredicate, boolean isFp,
+			String appendFieldValueName, List<String> appendTags) throws IOException {
+		Reader reader = writer.getReader();
+		reader.setTimePredicate(timePredicate);
+		reader.setValuePredicate(valuePredicate);
+		reader.setFieldName(appendFieldValueName);
+		reader.setIsFP(isFp);
+		reader.setTags(appendTags);
+		return reader;
+	}
+
+	/**
+	 * Get {@link Reader} with time and value filter predicates pushed-down to it.
+	 * 
+	 * @param timePredicate
+	 * @param valuePredicate
+	 * @return point in time instance of reader
+	 * @throws IOException
+	 */
+	public static Reader getReader(Writer writer, Predicate timePredicate, Predicate valuePredicate)
+			throws IOException {
+		Reader reader = writer.getReader();
+		reader.setTimePredicate(timePredicate);
+		reader.setValuePredicate(valuePredicate);
+		return reader;
 	}
 
 	/**
@@ -264,12 +313,11 @@ public class TimeSeries {
 		String startTsBucket = Integer.toHexString(tsStartBucket);
 		int tsEndBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
 		String endTsBucket = Integer.toHexString(tsEndBucket);
-		SortedMap<String, List<TimeSeriesBucket>> series = bucketMap.subMap(startTsBucket,
-				endTsBucket + Character.MAX_VALUE);
-		for (List<TimeSeriesBucket> timeSeries : series.values()) {
-			for (TimeSeriesBucket bucketEntry : timeSeries) {
-				readers.add(bucketEntry.getReader(timeRangePredicate, valuePredicate, fp, appendFieldValueName,
-						appendTags));
+		SortedMap<String, List<Writer>> series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
+		for (List<Writer> writers : series.values()) {
+			for (Writer writer : writers) {
+				readers.add(
+						getReader(writer, timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
 			}
 		}
 		return readers;
@@ -287,11 +335,10 @@ public class TimeSeries {
 	 * @throws IOException
 	 */
 	public void addDataPoint(TimeUnit unit, long timestamp, double value) throws IOException {
-		TimeSeriesBucket timeseriesBucket = getOrCreateSeriesBucket(unit, timestamp);
+		Writer writer = getOrCreateSeriesBucket(unit, timestamp);
 		try {
-			timeseriesBucket.addDataPoint(timestamp, value);
+			writer.addValue(timestamp, value);
 		} catch (RollOverException e) {
-			timeseriesBucket.setFull(true);
 			addDataPoint(unit, timestamp, value);
 		} catch (NullPointerException e) {
 			logger.log(Level.SEVERE, "\n\nNPE occurred for add datapoint operation\n\n", e);
@@ -310,11 +357,10 @@ public class TimeSeries {
 	 * @throws IOException
 	 */
 	public void addDataPoint(TimeUnit unit, long timestamp, long value) throws IOException {
-		TimeSeriesBucket timeseriesBucket = getOrCreateSeriesBucket(unit, timestamp);
+		Writer timeseriesBucket = getOrCreateSeriesBucket(unit, timestamp);
 		try {
-			timeseriesBucket.addDataPoint(timestamp, value);
+			timeseriesBucket.addValue(timestamp, value);
 		} catch (RollOverException e) {
-			timeseriesBucket.setFull(true);
 			addDataPoint(unit, timestamp, value);
 		} catch (NullPointerException e) {
 			logger.log(Level.SEVERE, "\n\nNPE occurred for add datapoint operation\n\n", e);
@@ -332,7 +378,7 @@ public class TimeSeries {
 	 * 
 	 * @param points
 	 *            list data points are appended to
-	 * @param timeSeries
+	 * @param writer
 	 *            to extract the data points from
 	 * @param timePredicate
 	 *            time range filter
@@ -342,9 +388,9 @@ public class TimeSeries {
 	 * @throws IOException
 	 */
 	public static List<DataPoint> seriesToDataPoints(String appendFieldValueName, List<String> appendTags,
-			List<DataPoint> points, TimeSeriesBucket timeSeries, Predicate timePredicate, Predicate valuePredicate,
-			boolean isFp) throws IOException {
-		Reader reader = timeSeries.getReader(timePredicate, valuePredicate, isFp, appendFieldValueName, appendTags);
+			List<DataPoint> points, Writer writer, Predicate timePredicate, Predicate valuePredicate, boolean isFp)
+			throws IOException {
+		Reader reader = getReader(writer, timePredicate, valuePredicate, isFp, appendFieldValueName, appendTags);
 		DataPoint point = null;
 		while (true) {
 			try {
@@ -395,14 +441,15 @@ public class TimeSeries {
 	 * 
 	 * @throws IOException
 	 */
-	public List<TimeSeriesBucket> collectGarbage() throws IOException {
-		List<TimeSeriesBucket> gcedBuckets = new ArrayList<>();
+	public List<Writer> collectGarbage() throws IOException {
+		List<Writer> gcedBuckets = new ArrayList<>();
 		while (bucketMap.size() > retentionBuckets.get()) {
 			int oldSize = bucketMap.size();
 			String key = bucketMap.firstKey();
-			List<TimeSeriesBucket> buckets = bucketMap.remove(key);
-			for (TimeSeriesBucket bucket : buckets) {
-				bucket.close();
+			List<Writer> buckets = bucketMap.remove(key);
+			for (Writer bucket : buckets) {
+				// TODO close
+				// bucket.close();
 				gcedBuckets.add(bucket);
 				logger.log(Level.INFO,
 						"GC," + measurement.getMeasurementName() + ":" + seriesId + " removing bucket:" + key
@@ -426,7 +473,7 @@ public class TimeSeries {
 	}
 
 	/**
-	 * @return number of {@link TimeSeriesBucket}s to retain for this
+	 * @return number of buckets to retain for this
 	 *         {@link TimeSeries}
 	 */
 	public int getRetentionBuckets() {
@@ -436,19 +483,19 @@ public class TimeSeries {
 	/**
 	 * @return the bucketMap
 	 */
-	public SortedMap<String, TimeSeriesBucket> getBucketMap() {
-		SortedMap<String, TimeSeriesBucket> map = new TreeMap<>();
-		for (Entry<String, List<TimeSeriesBucket>> entry : bucketMap.entrySet()) {
-			List<TimeSeriesBucket> value = entry.getValue();
+	public SortedMap<String, Writer> getBucketMap() {
+		SortedMap<String, Writer> map = new TreeMap<>();
+		for (Entry<String, List<Writer>> entry : bucketMap.entrySet()) {
+			List<Writer> value = entry.getValue();
 			for (int i = 0; i < value.size(); i++) {
-				TimeSeriesBucket bucketEntry = value.get(i);
+				Writer bucketEntry = value.get(i);
 				map.put(entry.getKey() + i, bucketEntry);
 			}
 		}
 		return map;
 	}
-	
-	public SortedMap<String, List<TimeSeriesBucket>> getBucketRawMap() {
+
+	public SortedMap<String, List<Writer>> getBucketRawMap() {
 		return bucketMap;
 	}
 

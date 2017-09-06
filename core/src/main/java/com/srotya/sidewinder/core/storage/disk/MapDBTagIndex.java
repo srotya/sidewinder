@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.mem;
+package com.srotya.sidewinder.core.storage.disk;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -21,6 +21,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.DataInput2;
+import org.mapdb.DataOutput2;
+import org.mapdb.Serializer;
 
 import com.srotya.sidewinder.core.storage.TagIndex;
 
@@ -32,49 +38,48 @@ import net.jpountz.xxhash.XXHashFactory;
  * 
  * @author ambud
  */
-public class MemTagIndex implements TagIndex {
+public class MapDBTagIndex implements TagIndex {
 
 	private Map<Integer, String> tagMap;
 	private Map<String, Set<String>> rowKeyIndex;
 	private XXHashFactory factory = XXHashFactory.fastestInstance();
 	private XXHash32 hash;
+	private DB db;
 
-	public MemTagIndex() {
-		tagMap = new ConcurrentHashMap<>();
-		rowKeyIndex = new ConcurrentHashMap<>();
+	@SuppressWarnings("unchecked")
+	public MapDBTagIndex(String indexDir, String measurementName) throws IOException {
+		String indexPath = indexDir + "/" + measurementName + "/idx";
+		db = DBMaker.fileDB(indexPath).fileMmapEnableIfSupported().concurrencyScale(4)
+				.allocateStartSize(1024 * 1024 * 10).allocateIncrement(1024 * 1024 * 10).make();
+		tagMap = (Map<Integer, String>) db.hashMap("fwd").createOrOpen();
+		rowKeyIndex = (Map<String, Set<String>>) db.hashMap("rev").valueSerializer(new ValueSerializer()).createOrOpen();
 		hash = factory.hash32();
 	}
 
-	/**
-	 * Hashes the tag to UI
-	 * 
-	 * @param tag
-	 * @return uid
-	 */
-	public String createEntry(String tag) {
+	@Override
+	public String createEntry(String tag) throws IOException {
 		int hash32 = hash.hash(tag.getBytes(), 0, tag.length(), 57);
 		String val = tagMap.get(hash32);
 		if (val == null) {
-			tagMap.put(hash32, tag);
+			synchronized (tagMap) {
+				tagMap.put(hash32, tag);
+			}
 		}
 		return Integer.toHexString(hash32);
 	}
 
+	@Override
 	public String getEntry(String hexString) {
 		return tagMap.get(Integer.parseUnsignedInt(hexString, 16));
 	}
 
+	@Override
 	public Set<String> getTags() {
 		return new HashSet<>(tagMap.values());
 	}
 
-	/**
-	 * Indexes tag in the row key, creating an adjacency list
-	 * 
-	 * @param tag
-	 * @param rowKey
-	 */
-	public void index(String tag, String rowKey) {
+	@Override
+	public void index(String tag, String rowKey) throws IOException {
 		Set<String> rowKeySet = rowKeyIndex.get(tag);
 		if (rowKeySet == null) {
 			synchronized (rowKeyIndex) {
@@ -89,12 +94,34 @@ public class MemTagIndex implements TagIndex {
 		}
 	}
 
+	@Override
 	public Set<String> searchRowKeysForTag(String tag) {
 		return rowKeyIndex.get(tag);
 	}
 
 	@Override
 	public void close() throws IOException {
+		db.close();
+	}
+	
+	public static final class ValueSerializer implements Serializer<Set<String>> {
+		@Override
+		public void serialize(DataOutput2 out, Set<String> value) throws IOException {
+			out.write(value.size());
+			for (String val : value) {
+				out.writeUTF(val);
+			}
+		}
+
+		@Override
+		public Set<String> deserialize(DataInput2 input, int available) throws IOException {
+			int count = input.readInt();
+			Set<String> set = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
+			for (int i = 0; i < count; i++) {
+				set.add(input.readUTF());
+			}
+			return set;
+		}
 	}
 
 }

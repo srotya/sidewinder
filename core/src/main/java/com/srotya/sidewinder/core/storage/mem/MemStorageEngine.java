@@ -16,8 +16,6 @@
 package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -29,20 +27,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.srotya.sidewinder.core.aggregators.AggregationFunction;
-import com.srotya.sidewinder.core.filters.Filter;
-import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
-import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.RejectException;
-import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
-import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
-import com.srotya.sidewinder.core.storage.compression.Reader;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
 
 /**
@@ -60,7 +50,7 @@ import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
  * </li>
  * </ul>
  * 
- * {@link TimeSeriesBucket} is uses compressed in-memory representation of the
+ * {@link Writer} is uses compressed in-memory representation of the
  * actual data. Periodic checks against size ensure that Sidewinder server
  * doesn't run out of memory. <br>
  * <br>
@@ -70,10 +60,6 @@ import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
 public class MemStorageEngine implements StorageEngine {
 
 	private static final Logger logger = Logger.getLogger(MemStorageEngine.class.getName());
-	private static ItemNotFoundException NOT_FOUND_EXCEPTION = new ItemNotFoundException("Item not found");
-	private static RejectException FP_MISMATCH_EXCEPTION = new RejectException("Floating point mismatch");
-	private static RejectException INVALID_DATAPOINT_EXCEPTION = new RejectException(
-			"Datapoint is missing required values");
 	private Map<String, Map<String, Measurement>> databaseMap;
 	private AtomicInteger counter = new AtomicInteger(0);
 	private Map<String, DBMetadata> dbMetadataMap;
@@ -130,7 +116,7 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, int retentionHours)
-			throws ItemNotFoundException {
+			throws IOException {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -154,95 +140,6 @@ public class MemStorageEngine implements StorageEngine {
 				}
 			}
 		}
-	}
-
-	/**
-	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
-	 * @param startTime
-	 * @param endTime
-	 * @return
-	 * @throws Exception
-	 */
-	@Override
-	public LinkedHashMap<Reader, Boolean> queryReaders(String dbName, String measurementName, String valueFieldName,
-			long startTime, long endTime) throws Exception {
-		LinkedHashMap<Reader, Boolean> readers = new LinkedHashMap<>();
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		databaseMap.get(dbName).get(measurementName).queryReaders(valueFieldName, startTime, endTime, readers);
-		return readers;
-	}
-
-	@Override
-	public Set<SeriesQueryOutput> queryDataPoints(String dbName, String measurementName, String valueFieldName,
-			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
-			Predicate valuePredicate, AggregationFunction aggregationFunction) throws ItemNotFoundException {
-		Set<SeriesQueryOutput> resultMap = new HashSet<>();
-		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
-		if (measurementMap != null) {
-			Measurement measurement = measurementMap.get(measurementName);
-			if (measurement != null) {
-				try {
-					measurement.queryDataPoints(valueFieldName, startTime, endTime, tagList, tagFilter, valuePredicate,
-							aggregationFunction, resultMap);
-				} catch (IOException e) {
-					logger.log(Level.SEVERE, "Error running query on measurement", e);
-				}
-			} else {
-				throw new ItemNotFoundException("Measurement " + measurementName + " not found");
-			}
-		} else {
-			throw new ItemNotFoundException("Database " + dbName + " not found");
-		}
-		return resultMap;
-	}
-
-	@Override
-	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws Exception {
-		if (!checkIfExists(dbName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
-		partialMeasurementName = partialMeasurementName.trim();
-		if (partialMeasurementName.isEmpty()) {
-			return measurementMap.keySet();
-		} else {
-			Set<String> filteredSeries = new HashSet<>();
-			for (String measurementName : measurementMap.keySet()) {
-				if (measurementName.contains(partialMeasurementName)) {
-					filteredSeries.add(measurementName);
-				}
-			}
-			return filteredSeries;
-		}
-	}
-
-	public static void validateDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, TimeUnit unit) throws RejectException {
-		if (dbName == null || measurementName == null || valueFieldName == null || tags == null || unit == null) {
-			throw INVALID_DATAPOINT_EXCEPTION;
-		}
-	}
-
-	@Override
-	public void writeDataPoint(DataPoint dp) throws IOException {
-		validateDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(), dp.getTags(),
-				TimeUnit.MILLISECONDS);
-		TimeSeries timeSeries = getOrCreateTimeSeries(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
-				dp.getTags(), defaultTimebucketSize, dp.isFp());
-		if (dp.isFp() != timeSeries.isFp()) {
-			// drop this datapoint, mixed series are not allowed
-			throw FP_MISMATCH_EXCEPTION;
-		}
-		if (dp.isFp()) {
-			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getValue());
-		} else {
-			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getLongValue());
-		}
-		counter.incrementAndGet();
 	}
 
 	@Override
@@ -295,17 +192,6 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public boolean checkTimeSeriesExists(String dbName, String measurementName, String valueFieldName,
-			List<String> tags) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			return false;
-		}
-		// check and create timeseries
-		TimeSeries timeSeries = databaseMap.get(dbName).get(measurementName).getTimeSeries(valueFieldName, tags);
-		return timeSeries != null;
-	}
-
-	@Override
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
 			List<String> tags, int timeBucketSize, boolean fp) throws IOException {
 		// check and create database map
@@ -316,19 +202,6 @@ public class MemStorageEngine implements StorageEngine {
 
 		// check and create timeseries
 		return measurement.getOrCreateTimeSeries(valueFieldName, tags, timeBucketSize, fp, conf);
-	}
-
-	@Override
-	public TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags)
-			throws IOException {
-		// check and create database map
-		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
-
-		// check and create measurement map
-		Measurement measurementMap = getOrCreateMeasurement(dbMap, dbName, measurementName);
-
-		// check and create timeseries
-		return measurementMap.getTimeSeries(valueFieldName, tags);
 	}
 
 	@Override
@@ -347,36 +220,8 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags)
-			throws IOException {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		return databaseMap.get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
-	}
-
-	@Override
-	public Set<String> getTagFilteredRowKeys(String dbName, String measurementName, String valueFieldName,
-			Filter<List<String>> tagFilterTree, List<String> rawTags) throws IOException {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		return databaseMap.get(dbName).get(measurementName).getTagFilteredRowKeys(valueFieldName, tagFilterTree,
-				rawTags);
-	}
-
-	@Override
 	public Set<String> getDatabases() throws Exception {
 		return databaseMap.keySet();
-	}
-
-	@Override
-	public Set<String> getAllMeasurementsForDb(String dbName) throws Exception {
-		if (checkIfExists(dbName)) {
-			return databaseMap.get(dbName).keySet();
-		} else {
-			throw NOT_FOUND_EXCEPTION;
-		}
 	}
 
 	@Override
@@ -419,40 +264,6 @@ public class MemStorageEngine implements StorageEngine {
 	public void disconnect() throws IOException {
 	}
 
-	@Override
-	public boolean checkIfExists(String dbName, String measurement) {
-		if (checkIfExists(dbName)) {
-			return databaseMap.get(dbName).containsKey(measurement);
-		} else {
-			return false;
-		}
-	}
-
-	@Override
-	public Set<String> getTagsForMeasurement(String dbName, String measurementName) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		return databaseMap.get(dbName).get(measurementName).getTags();
-	}
-
-	@Override
-	public List<List<String>> getTagsForMeasurement(String dbName, String measurementName, String valueFieldName)
-			throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		return databaseMap.get(dbName).get(measurementName).getTagsForMeasurement(valueFieldName);
-	}
-
-	@Override
-	public Set<String> getFieldsForMeasurement(String dbName, String measurementName) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		return databaseMap.get(dbName).get(measurementName).getFieldsForMeasurement();
-	}
-
 	public Map<String, DBMetadata> getDbMetadataMap() {
 		return dbMetadataMap;
 	}
@@ -460,5 +271,20 @@ public class MemStorageEngine implements StorageEngine {
 	@Override
 	public Map<String, Map<String, Measurement>> getMeasurementMap() {
 		return databaseMap;
+	}
+
+	@Override
+	public Map<String, Map<String, Measurement>> getDatabaseMap() {
+		return databaseMap;
+	}
+
+	@Override
+	public int getDefaultTimebucketSize() {
+		return defaultTimebucketSize;
+	}
+
+	@Override
+	public AtomicInteger getCounter() {
+		return counter;
 	}
 }
