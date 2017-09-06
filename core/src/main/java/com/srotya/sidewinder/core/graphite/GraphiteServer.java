@@ -45,10 +45,12 @@ public class GraphiteServer implements Managed {
 	private String dbName;
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
+	private String bindAddress;
 
 	public GraphiteServer(Map<String, String> conf, StorageEngine storageEngine) {
 		this.storageEngine = storageEngine;
 		this.serverPort = Integer.parseInt(conf.getOrDefault("server.graphite.port", "8772"));
+		this.bindAddress = conf.getOrDefault("server.graphite.bind", "localhost");
 		this.dbName = conf.getOrDefault("server.graphite.dbname", "graphite");
 	}
 
@@ -70,7 +72,7 @@ public class GraphiteServer implements Managed {
 						p.addLast(workerGroup, new GraphiteDecoder(dbName, storageEngine));
 					}
 
-				}).bind("localhost", serverPort).sync().channel();
+				}).bind(bindAddress, serverPort).sync().channel();
 	}
 
 	@Override
