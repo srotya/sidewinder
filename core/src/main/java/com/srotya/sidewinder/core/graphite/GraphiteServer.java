@@ -71,7 +71,6 @@ public class GraphiteServer implements Managed {
 						p.addLast(workerGroup, new StringDecoder());
 						p.addLast(workerGroup, new GraphiteDecoder(dbName, storageEngine));
 					}
-
 				}).bind(bindAddress, serverPort).sync().channel();
 	}
 
