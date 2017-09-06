@@ -43,6 +43,7 @@ public class ByzantineWriter implements Writer {
 	private ByteBuffer buf;
 	private long prevValue;
 	private boolean readOnly;
+	private volatile boolean full;
 
 	public ByzantineWriter() {
 	}
@@ -154,6 +155,7 @@ public class ByzantineWriter implements Writer {
 
 	private void checkAndExpandBuffer() throws IOException {
 		if (buf.remaining() < 20 || buf.isReadOnly()) {
+			full = true;
 			throw BUF_ROLLOVER_EXCEPTION;
 		}
 	}
@@ -222,6 +224,11 @@ public class ByzantineWriter implements Writer {
 			prevTs = timestamp;
 			buf.putLong(timestamp);
 		}
+	}
+	
+	@Override
+	public long getHeaderTimestamp() {
+		return buf.getLong(4);
 	}
 
 	/**
@@ -323,5 +330,10 @@ public class ByzantineWriter implements Writer {
 		read.unlock();
 		return offset;
 	}
-	
+
+	@Override
+	public boolean isFull() {
+		return full;
+	}
+
 }

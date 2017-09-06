@@ -15,7 +15,6 @@
  */
 package com.srotya.sidewinder.core.utils;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.List;
@@ -51,40 +50,6 @@ public class ByteUtils {
 		val |= ((int)bytes[2])<< 8;
 		val |= ((int)bytes[3]);
 		return val;
-	}
-
-	/**
-	 * @param x
-	 * @return
-	 */
-	public static byte[] longToBytes(long x) {
-		ByteBuffer buffer = ByteBuffer.allocate(8);
-		buffer.putLong(x);
-		return buffer.array();
-	}
-	
-	public static long byteToLong(byte[] bytes) {
-		ByteBuffer buffer = ByteBuffer.wrap(bytes);
-		return buffer.getLong();
-	}
-	
-	/**
-	 * @param x
-	 * @return
-	 */
-	public static byte[] doubleToBytes(double x){
-		ByteBuffer buffer = ByteBuffer.allocate(8);
-		buffer.putDouble(x);
-		return buffer.array();
-	}
-	
-	/**
-	 * @param bytes
-	 * @return
-	 */
-	public static double bytesToDouble(byte[] bytes) {
-		ByteBuffer buffer = ByteBuffer.wrap(bytes);
-		return buffer.getDouble();
 	}
 
 	/**

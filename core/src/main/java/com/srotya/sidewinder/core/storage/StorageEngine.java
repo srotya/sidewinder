@@ -16,10 +16,14 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.AnyFilter;
@@ -40,7 +44,7 @@ public interface StorageEngine {
 			"Datapoint is missing required values");
 	public static final String DEFAULT_COMPRESSION_CLASS = "com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter";
 	public static final String COMPRESSION_CLASS = "compression.class";
-	public static final int DEFAULT_TIME_BUCKET_CONSTANT = 4096;
+	public static final int DEFAULT_TIME_BUCKET_CONSTANT = 32768;
 	public static final String DEFAULT_BUCKET_SIZE = "default.bucket.size";
 	public static final String RETENTION_HOURS = "default.series.retention.hours";
 	public static final int DEFAULT_RETENTION_HOURS = (int) Math
@@ -54,6 +58,7 @@ public interface StorageEngine {
 
 	/**
 	 * @param conf
+	 * @param bgTaskPool
 	 * @throws IOException
 	 */
 	public void configure(Map<String, String> conf, ScheduledExecutorService bgTaskPool) throws IOException;
@@ -78,11 +83,52 @@ public interface StorageEngine {
 	 * @param dp
 	 * @throws IOException
 	 */
-	public void writeDataPoint(DataPoint dp) throws IOException;
+	public default void writeDataPoint(DataPoint dp) throws IOException {
+		StorageEngine.validateDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(), dp.getTags(),
+				TimeUnit.MILLISECONDS);
+		TimeSeries timeSeries = getOrCreateTimeSeries(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
+				dp.getTags(), getDefaultTimebucketSize(), dp.isFp());
+		if (dp.isFp() != timeSeries.isFp()) {
+			// drop this datapoint, mixed series are not allowed
+			throw FP_MISMATCH_EXCEPTION;
+		}
+		if (dp.isFp()) {
+			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getValue());
+		} else {
+			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getLongValue());
+		}
+		getCounter().incrementAndGet();
+	}
+
+	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
+			long timestamp, long value) throws IOException {
+		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
+		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
+				getDefaultTimebucketSize(), false);
+		if (timeSeries.isFp()) {
+			// drop this datapoint, mixed series are not allowed
+			throw FP_MISMATCH_EXCEPTION;
+		}
+		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
+		getCounter().incrementAndGet();
+	}
+	
+	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
+			long timestamp, double value) throws IOException {
+		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
+		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
+				getDefaultTimebucketSize(), true);
+		if (!timeSeries.isFp()) {
+			// drop this datapoint, mixed series are not allowed
+			throw FP_MISMATCH_EXCEPTION;
+		}
+		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
+		getCounter().incrementAndGet();
+	}
 
 	/**
-	 * Query timeseries from the storage engine given the supplied attributes.
-	 * This function doesn't allow use of {@link AggregationFunction}.
+	 * Query timeseries from the storage engine given the supplied attributes. This
+	 * function doesn't allow use of {@link AggregationFunction}.
 	 * 
 	 * @param dbName
 	 * @param measurementName
@@ -91,7 +137,7 @@ public interface StorageEngine {
 	 * @param endTime
 	 * @param tags
 	 * @param valuePredicate
-	 * @return timeSeriesResultMap
+	 * @return
 	 * @throws ItemNotFoundException
 	 * @throws IOException
 	 */
@@ -103,8 +149,8 @@ public interface StorageEngine {
 	}
 
 	/**
-	 * Query timeseries from the storage engine given the supplied attributes.
-	 * This function does allow use of {@link AggregationFunction}.
+	 * Query timeseries from the storage engine given the supplied attributes. This
+	 * function does allow use of {@link AggregationFunction}.
 	 * 
 	 * @param dbName
 	 * @param measurementName
@@ -115,14 +161,20 @@ public interface StorageEngine {
 	 * @param tagFilter
 	 * @param valuePredicate
 	 * @param aggregationFunction
-	 * @return timeSeriesResultMap
-	 * @throws ItemNotFoundException
+	 * @return
 	 * @throws IOException
 	 */
-	public Set<SeriesQueryOutput> queryDataPoints(String dbName, String measurementName, String valueFieldName,
+	public default Set<SeriesQueryOutput> queryDataPoints(String dbName, String measurementName, String valueFieldName,
 			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
-			Predicate valuePredicate, AggregationFunction aggregationFunction)
-			throws ItemNotFoundException, IOException;
+			Predicate valuePredicate, AggregationFunction aggregationFunction) throws IOException {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		Set<SeriesQueryOutput> resultMap = new HashSet<>();
+		getDatabaseMap().get(dbName).get(measurementName).queryDataPoints(valueFieldName, startTime, endTime, tagList,
+				tagFilter, valuePredicate, aggregationFunction, resultMap);
+		return resultMap;
+	}
 
 	/**
 	 * List measurements containing the supplied keyword
@@ -132,7 +184,24 @@ public interface StorageEngine {
 	 * @return measurements
 	 * @throws Exception
 	 */
-	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws Exception;
+	public default Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws Exception {
+		if (!checkIfExists(dbName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		Map<String, Measurement> measurementMap = getDatabaseMap().get(dbName);
+		partialMeasurementName = partialMeasurementName.trim();
+		if (partialMeasurementName.isEmpty()) {
+			return measurementMap.keySet();
+		} else {
+			Set<String> filteredSeries = new HashSet<>();
+			for (String measurementName : measurementMap.keySet()) {
+				if (measurementName.contains(partialMeasurementName)) {
+					filteredSeries.add(measurementName);
+				}
+			}
+			return filteredSeries;
+		}
+	}
 
 	/**
 	 * List databases
@@ -149,27 +218,43 @@ public interface StorageEngine {
 	 * @return measurements
 	 * @throws Exception
 	 */
-	public Set<String> getAllMeasurementsForDb(String dbName) throws Exception;
+	public default Set<String> getAllMeasurementsForDb(String dbName) throws Exception {
+		if (checkIfExists(dbName)) {
+			return getDatabaseMap().get(dbName).keySet();
+		} else {
+			throw NOT_FOUND_EXCEPTION;
+		}
+	}
 
 	/**
 	 * List all tags for the supplied measurement
 	 * 
-	 * @param dbname
+	 * @param dbName
 	 * @param measurementName
 	 * @return tags
 	 * @throws Exception
 	 */
-	public Set<String> getTagsForMeasurement(String dbname, String measurementName) throws Exception;
+	public default Set<String> getTagsForMeasurement(String dbName, String measurementName) throws Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		return getDatabaseMap().get(dbName).get(measurementName).getTags();
+	}
 
 	/**
-	 * @param dbname
+	 * @param dbName
 	 * @param measurementName
 	 * @param valueFieldName
-	 * @return
+	 * @return tags for the supplied parameters
 	 * @throws Exception
 	 */
-	public List<List<String>> getTagsForMeasurement(String dbname, String measurementName, String valueFieldName)
-			throws Exception;
+	public default List<List<String>> getTagsForMeasurement(String dbName, String measurementName,
+			String valueFieldName) throws Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		return getDatabaseMap().get(dbName).get(measurementName).getTagsForMeasurement(valueFieldName);
+	}
 
 	/**
 	 * Delete all data in this instance
@@ -183,9 +268,9 @@ public interface StorageEngine {
 	 * 
 	 * @param dbName
 	 * @return true if db exists
-	 * @throws Exception
+	 * @throws IOException
 	 */
-	public boolean checkIfExists(String dbName) throws Exception;
+	public boolean checkIfExists(String dbName) throws IOException;
 
 	/**
 	 * Check if measurement exists
@@ -193,9 +278,15 @@ public interface StorageEngine {
 	 * @param dbName
 	 * @param measurement
 	 * @return true if measurement and db exists
-	 * @throws Exception
+	 * @throws IOException
 	 */
-	public boolean checkIfExists(String dbName, String measurement) throws Exception;
+	public default boolean checkIfExists(String dbName, String measurement) throws IOException {
+		if (checkIfExists(dbName)) {
+			return getDatabaseMap().get(dbName).containsKey(measurement);
+		} else {
+			return false;
+		}
+	}
 
 	/**
 	 * Drop database, all data for this database will be deleted
@@ -222,7 +313,12 @@ public interface StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public Set<String> getFieldsForMeasurement(String dbName, String measurementName) throws Exception;
+	public default Set<String> getFieldsForMeasurement(String dbName, String measurementName) throws Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		return getDatabaseMap().get(dbName).get(measurementName).getFieldsForMeasurement();
+	}
 
 	// retention policy update methods
 	/**
@@ -245,8 +341,10 @@ public interface StorageEngine {
 	 * @param measurementName
 	 * @param retentionHours
 	 * @throws ItemNotFoundException
+	 * @throws IOException
 	 */
-	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, int retentionHours) throws ItemNotFoundException;
+	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, int retentionHours)
+			throws ItemNotFoundException, IOException;
 
 	/**
 	 * Update default retention policy for a database
@@ -293,8 +391,7 @@ public interface StorageEngine {
 	 * @return measurementMap
 	 * @throws IOException
 	 */
-	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy)
-			throws IOException;
+	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy) throws IOException;
 
 	/**
 	 * Gets the measurement, creates it if it doesn't already exist
@@ -339,14 +436,21 @@ public interface StorageEngine {
 	 * 
 	 * @param dbName
 	 * @param measurementName
-	 * @param fieldName
-	 * @param key
-	 * @param value
-	 * @return readers
+	 * @param valueFieldName
+	 * @param startTime
+	 * @param endTime
+	 * @return
 	 * @throws Exception
 	 */
-	public Map<Reader, Boolean> queryReaders(String dbName, String measurementName, String fieldName, long key,
-			long value) throws Exception;
+	public default LinkedHashMap<Reader, Boolean> queryReaders(String dbName, String measurementName,
+			String valueFieldName, long startTime, long endTime) throws Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		LinkedHashMap<Reader, Boolean> readers = new LinkedHashMap<>();
+		getDatabaseMap().get(dbName).get(measurementName).queryReaders(valueFieldName, startTime, endTime, readers);
+		return readers;
+	}
 
 	/**
 	 * Check if timeseries exists
@@ -358,8 +462,15 @@ public interface StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public boolean checkTimeSeriesExists(String dbName, String measurementName, String valueFieldName,
-			List<String> tags) throws Exception;
+	public default boolean checkTimeSeriesExists(String dbName, String measurementName, String valueFieldName,
+			List<String> tags) throws Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			return false;
+		}
+		// check and create timeseries
+		TimeSeries timeSeries = getDatabaseMap().get(dbName).get(measurementName).getTimeSeries(valueFieldName, tags);
+		return timeSeries != null;
+	}
 
 	/**
 	 * Get timeseries object
@@ -369,10 +480,18 @@ public interface StorageEngine {
 	 * @param valueFieldName
 	 * @param tags
 	 * @return
-	 * @throws Exception
+	 * @throws IOException
 	 */
-	public TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags)
-			throws Exception;
+	public default TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName,
+			List<String> tags) throws IOException {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		// get timeseries
+		Measurement measurement = getDatabaseMap().get(dbName).get(measurementName);
+		TimeSeries timeSeries = measurement.getTimeSeries(valueFieldName, tags);
+		return timeSeries;
+	}
 
 	/**
 	 * Get metadata map
@@ -380,12 +499,37 @@ public interface StorageEngine {
 	 * @return metadata map
 	 */
 	public Map<String, DBMetadata> getDbMetadataMap();
-	
+
 	public Map<String, Map<String, Measurement>> getMeasurementMap();
 
-	Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> rawTags) throws ItemNotFoundException, Exception;
+	public default Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags)
+			throws ItemNotFoundException, Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		return getDatabaseMap().get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
+	}
 
-	Set<String> getTagFilteredRowKeys(String dbName, String measurementName, String valueFieldName,
-			Filter<List<String>> tagFilterTree, List<String> tags) throws ItemNotFoundException, Exception;
+	public default Set<String> getTagFilteredRowKeys(String dbName, String measurementName, String valueFieldName,
+			Filter<List<String>> tagFilterTree, List<String> rawTags) throws IOException {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		return getDatabaseMap().get(dbName).get(measurementName).getTagFilteredRowKeys(valueFieldName, tagFilterTree,
+				rawTags);
+	}
+
+	public Map<String, Map<String, Measurement>> getDatabaseMap();
+
+	public static void validateDataPoint(String dbName, String measurementName, String valueFieldName,
+			List<String> tags, TimeUnit unit) throws RejectException {
+		if (dbName == null || measurementName == null || valueFieldName == null || tags == null || unit == null) {
+			throw INVALID_DATAPOINT_EXCEPTION;
+		}
+	}
+
+	public int getDefaultTimebucketSize();
+
+	public AtomicInteger getCounter();
 
 }

@@ -34,7 +34,7 @@ public abstract class WindowedFunction implements AggregationFunction {
 	}
 
 	/**
-	 * @return
+	 * @return time window for this aggregation
 	 */
 	public int getTimeWindow() {
 		return timeWindow;

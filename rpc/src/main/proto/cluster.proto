@@ -52,6 +52,7 @@ message ListTimeseriesOffsetResponse {
 			int32 index = 1;
 			int32 offset = 2;
 			string bucketTs = 3;
+			int64 headerTs = 4;
 		}
 	
 		string valueFieldName = 1;

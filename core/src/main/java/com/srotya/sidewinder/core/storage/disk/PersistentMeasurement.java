@@ -25,15 +25,20 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -42,6 +47,7 @@ import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -49,13 +55,16 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class PersistentMeasurement implements Measurement {
 
+	private static final AtomicLong BUF_COUNTER = new AtomicLong();
 	private static final int DEFAULT_BUF_INCREMENT = 1048576;
 	private static final int DEFAULT_MAX_FILE_SIZE = Integer.MAX_VALUE;
+	private static final int DEFAULT_INCREMENT_SIZE = 32768;
 	public static final String CONF_MEASUREMENT_FILE_MAX = "measurement.file.max";
+	public static final String CONF_MEASUREMENT_INCREMENT_SIZE = "measurement.buf.increment";
 	public static final String CONF_MEASUREMENT_FILE_INCREMENT = "measurement.file.increment";
 	private static final Logger logger = Logger.getLogger(PersistentMeasurement.class.getName());
 	private Map<String, TimeSeries> seriesMap;
-	private DiskTagIndex tagIndex;
+	private TagIndex tagIndex;
 	private String compressionClass;
 	private String dataDirectory;
 	private DBMetadata metadata;
@@ -64,7 +73,7 @@ public class PersistentMeasurement implements Measurement {
 	private List<ByteBuffer> bufTracker;
 	private int itr;
 	private int fileMapIncrement;
-	private int increment = 4096;
+	private int increment;
 	private int curr;
 	private int base;
 	private int fcnt;
@@ -87,25 +96,29 @@ public class PersistentMeasurement implements Measurement {
 		if (metadata == null) {
 			throw new IOException("Metadata can't be null");
 		}
-		this.metadata = metadata;
-		this.seriesMap = new ConcurrentHashMap<>(10000);
-		this.tagIndex = new DiskTagIndex(this.indexDirectory, measurementName);
-		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
-				StorageEngine.DEFAULT_COMPRESSION_CLASS);
-		this.measurementName = measurementName;
-		this.bufTracker = new ArrayList<>();
-		this.prBufPointers = new PrintWriter(new FileOutputStream(new File(getPtrPath()), true));
-		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
 		this.fileMapIncrement = Integer
 				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_INCREMENT, String.valueOf(DEFAULT_BUF_INCREMENT)));
 		this.maxFileSize = Integer
 				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_MAX, String.valueOf(DEFAULT_MAX_FILE_SIZE)));
+		this.increment = Integer
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_INCREMENT_SIZE, String.valueOf(DEFAULT_INCREMENT_SIZE)));
 		if (maxFileSize < 0) {
 			throw new IllegalArgumentException("File size can't be negative or greater than:" + Integer.MAX_VALUE);
 		}
 		if (fileMapIncrement >= maxFileSize) {
 			throw new IllegalArgumentException("File increment can't be greater than or equal to file size");
 		}
+		this.metadata = metadata;
+		this.seriesMap = new ConcurrentHashMap<>(10000);
+		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
+				StorageEngine.DEFAULT_COMPRESSION_CLASS);
+		this.measurementName = measurementName;
+		this.bufTracker = new ArrayList<>();
+		this.prBufPointers = new PrintWriter(new FileOutputStream(new File(getPtrPath()), true));
+		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
+		this.tagIndex = new DiskTagIndex(this.indexDirectory, measurementName);
+		// bgTaskPool.scheduleAtFixedRate(()->System.out.println("Buffers:"+BUF_COUNTER.get()),
+		// 2, 2, TimeUnit.SECONDS);
 	}
 
 	private String getPtrPath() {
@@ -166,7 +179,7 @@ public class PersistentMeasurement implements Measurement {
 		DiskStorageEngine.appendLineToFile(seriesId + "\t" + fp + "\t" + timeBucketSize, prMetadata);
 	}
 
-	private Map<String, List<ByteBuffer>> seriesBufferMap() throws FileNotFoundException, IOException {
+	private Map<String, List<Entry<String, ByteBuffer>>> seriesBufferMap() throws FileNotFoundException, IOException {
 		Map<String, MappedByteBuffer> bufferMap = new ConcurrentHashMap<>();
 		File[] listFiles = new File(dataDirectory).listFiles(new FilenameFilter() {
 
@@ -188,13 +201,13 @@ public class PersistentMeasurement implements Measurement {
 			}
 		}
 		fcnt = listFiles.length;
-		Map<String, List<ByteBuffer>> seriesBuffers = new HashMap<>();
+		Map<String, List<Entry<String, ByteBuffer>>> seriesBuffers = new HashMap<>();
 		sliceMappedBuffersForBuckets(bufferMap, seriesBuffers);
 		return seriesBuffers;
 	}
 
 	private void sliceMappedBuffersForBuckets(Map<String, MappedByteBuffer> bufferMap,
-			Map<String, List<ByteBuffer>> seriesBuffers) throws IOException {
+			Map<String, List<Entry<String, ByteBuffer>>> seriesBuffers) throws IOException {
 		List<String> lines = MiscUtils.readAllLines(new File(getPtrPath()));
 		for (String line : lines) {
 			String[] splits = line.split("\\s+");
@@ -205,14 +218,15 @@ public class PersistentMeasurement implements Measurement {
 			MappedByteBuffer buf = bufferMap.get(fileName);
 			int position = positionOffset + pointer;
 			buf.position(position);
+			String tsBucket = TimeSeries.getStringFromBuffer(buf);
 			ByteBuffer slice = buf.slice();
 			slice.limit(increment);
-			List<ByteBuffer> list = seriesBuffers.get(seriesId);
+			List<Entry<String, ByteBuffer>> list = seriesBuffers.get(seriesId);
 			if (list == null) {
 				list = new ArrayList<>();
 				seriesBuffers.put(seriesId, list);
 			}
-			list.add(slice);
+			list.add(new AbstractMap.SimpleEntry<>(tsBucket, slice));
 		}
 	}
 
@@ -246,10 +260,10 @@ public class PersistentMeasurement implements Measurement {
 		List<String> seriesEntries = MiscUtils.readAllLines(file);
 		loadSeriesEntries(seriesEntries);
 
-		Map<String, List<ByteBuffer>> seriesBuffers = seriesBufferMap();
+		Map<String, List<Entry<String, ByteBuffer>>> seriesBuffers = seriesBufferMap();
 		for (String series : seriesMap.keySet()) {
 			TimeSeries ts = seriesMap.get(series);
-			List<ByteBuffer> list = seriesBuffers.get(series);
+			List<Entry<String, ByteBuffer>> list = seriesBuffers.get(series);
 			if (list != null) {
 				try {
 					ts.loadBucketMap(list);
@@ -261,7 +275,7 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer(String seriesId) throws IOException {
+	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException {
 		if (activeFile == null) {
 			synchronized (seriesMap) {
 				if (activeFile == null) {
@@ -290,7 +304,7 @@ public class PersistentMeasurement implements Measurement {
 							+ filename);
 					activeFile.close();
 					activeFile = null;
-					return createNewBuffer(seriesId);
+					return createNewBuffer(seriesId, tsBucket);
 				}
 				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, offset, fileMapIncrement);
 				logger.fine("Buffer expansion:" + offset + "\t\t" + curr);
@@ -300,10 +314,12 @@ public class PersistentMeasurement implements Measurement {
 			memoryMappedBuffer.position(curr);
 			appendBufferPointersToDisk(seriesId, filename, curr, offset);
 			base++;
+			TimeSeries.writeStringToBuffer(tsBucket, memoryMappedBuffer);
 			ByteBuffer buf = memoryMappedBuffer.slice();
 			buf.limit(increment);
 			// System.out.println("Position:" + buf.position() + "\t" + buf.limit() + "\t" +
 			// buf.capacity());
+			BUF_COUNTER.incrementAndGet();
 			return buf;
 		}
 	}
@@ -319,7 +335,7 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public Set<String> getTags() {
+	public Set<String> getTags() throws IOException {
 		return tagIndex.getTags();
 	}
 
@@ -350,6 +366,11 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public String toString() {
 		return "PersistentMeasurement [seriesMap=" + seriesMap + ", measurementName=" + measurementName + "]";
+	}
+
+	@Override
+	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId) {
+		return new ConcurrentSkipListMap<>();
 	}
 
 }

@@ -30,9 +30,8 @@ import org.junit.BeforeClass;
 import com.srotya.sidewinder.core.storage.ArchiveException;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.compression.Reader;
-import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
@@ -61,11 +60,11 @@ public class TestHDFSArchiver {
 		archiver.init(conf);
 		long ts = System.currentTimeMillis();
 		//TODO fix unit tests for HDFS Archiver
-		TimeSeriesBucket bucket = null;
+		Writer bucket = null;
 		for (int i = 0; i < 1000; i++) {
-			bucket.addDataPoint(ts + i * 1000, i);
+			bucket.addValue(ts + i * 1000, i);
 		}
-		Reader reader = bucket.getReader(null, null);
+		Reader reader = bucket.getReader();
 		for (int i = 0; i < 1000; i++) {
 			DataPoint pair = reader.readPair();
 			assertEquals(ts + i * 1000, pair.getTimestamp());
