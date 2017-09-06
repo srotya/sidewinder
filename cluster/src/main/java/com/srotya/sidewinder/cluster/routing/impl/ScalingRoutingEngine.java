@@ -40,13 +40,15 @@ public class ScalingRoutingEngine extends RoutingEngine {
 	private static final Logger logger = Logger.getLogger(RoutingEngine.class.getName());
 	private RoutingStrategy strategy;
 	private StorageEngine engine;
+	private int replica;
 
 	public ScalingRoutingEngine() {
 	}
 
 	@Override
-	public void init(Map<String, String> conf, StorageEngine engine, ClusterConnector connector) {
+	public void init(Map<String, String> conf, StorageEngine engine, ClusterConnector connector) throws Exception {
 		super.init(conf, engine, connector);
+		replica = Integer.parseInt(conf.getOrDefault("replication.factor", "3"));
 		String strategyClass = conf.getOrDefault(CLUSTER_ROUTING_STRATEGY, DEFAULT_CLUSTER_ROUTING_STRATEGY);
 		logger.info("Using rebalancing strategy:" + strategyClass);
 		try {
@@ -103,7 +105,7 @@ public class ScalingRoutingEngine extends RoutingEngine {
 	}
 
 	@Override
-	public List<Node> routeData(Point dp, int replica) {
+	public List<Node> routeData(Point dp) {
 		String key = encodeKey(dp);
 		return strategy.getNodes(key, replica);
 	}
@@ -115,6 +117,30 @@ public class ScalingRoutingEngine extends RoutingEngine {
 	public static String[] decodeKey(String key) {
 		String[] split = key.split("\\.");
 		return split;
+	}
+
+	@Override
+	public void addRoutableKey(Point point, int replicationFactor) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void makeCoordinator() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public Object getRoutingTable() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void updateLocalRouteTable(Object routingTable) {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

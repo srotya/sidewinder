@@ -41,13 +41,6 @@ public class TestByteUtils {
 	}
 
 	@Test
-	public void testLongBytes() {
-		byte[] doubleToBytes = ByteUtils.doubleToBytes(2.2);
-		double bytesToDouble = ByteUtils.bytesToDouble(doubleToBytes);
-		assertEquals(2.2, bytesToDouble, 0.01);
-	}
-
-	@Test
 	public void testJsonArrayToList() {
 		JsonArray ary = new JsonArray();
 		ary.add("test");

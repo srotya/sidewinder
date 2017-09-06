@@ -58,10 +58,6 @@ public class TestConsistentHashing {
 			}
 			map.put(result.getNodeKey(), res + 1);
 		}
-		for (Entry<String, Integer> entry : map.entrySet()) {
-			System.out.println(entry.getKey() + "\t" + entry.getValue());
-		}
-
 		long ts = System.currentTimeMillis();
 
 		for (int i = 0; i < 2; i++) {
@@ -72,7 +68,6 @@ public class TestConsistentHashing {
 			for (int k = 0; k < virtualNodeAmplificationFactor; k++) {
 				nodes.add(new Node("node", i, String.valueOf(k + (i * virtualNodeAmplificationFactor))));
 			}
-			System.out.println(hash.removeNodes(nodes).size());
 		}
 
 		ts = System.currentTimeMillis() - ts;

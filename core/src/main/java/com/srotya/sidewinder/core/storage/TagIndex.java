@@ -24,17 +24,15 @@ import java.util.Set;
 public interface TagIndex {
 	
 	/**
-	 * Hashes the tag to UI
-	 * 
 	 * @param tag
 	 * @return uid
 	 * @throws IOException
 	 */
 	public String createEntry(String tag) throws IOException;
 	
-	public String getEntry(String hexString);
+	public String getEntry(String hexString) throws IOException;
 	
-	public Set<String> getTags();
+	public Set<String> getTags() throws IOException;
 	
 	/**
 	 * Indexes tag in the row key, creating an adjacency list
@@ -48,7 +46,10 @@ public interface TagIndex {
 	/**
 	 * @param tag
 	 * @return
+	 * @throws IOException 
 	 */
-	public Set<String> searchRowKeysForTag(String tag);
+	public Set<String> searchRowKeysForTag(String tag) throws IOException;
+
+	public void close() throws IOException;
 
 }

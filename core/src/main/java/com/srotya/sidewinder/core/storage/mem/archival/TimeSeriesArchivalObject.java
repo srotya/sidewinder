@@ -15,7 +15,7 @@
  */
 package com.srotya.sidewinder.core.storage.mem.archival;
 
-import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * @author ambud
@@ -25,12 +25,12 @@ public class TimeSeriesArchivalObject {
 	private String db;
 	private String measurement;
 	private String key;
-	private TimeSeriesBucket bucket;
+	private Writer bucket;
 	
 	public TimeSeriesArchivalObject() {
 	}
 
-	public TimeSeriesArchivalObject(String db, String measurement, String key, TimeSeriesBucket bucket) {
+	public TimeSeriesArchivalObject(String db, String measurement, String key, Writer bucket) {
 		this.db = db;
 		this.measurement = measurement;
 		this.key = key;
@@ -85,16 +85,16 @@ public class TimeSeriesArchivalObject {
 	/**
 	 * @return the bucket
 	 */
-	public TimeSeriesBucket getBucket() {
+	public Writer getBucket() {
 		return bucket;
 	}
 
 	/**
-	 * @param bucket
-	 *            the bucket to set
+	 * @param bucket the bucket to set
 	 */
-	public void setBucket(TimeSeriesBucket bucket) {
+	public void setBucket(Writer bucket) {
 		this.bucket = bucket;
 	}
+
 
 }

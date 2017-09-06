@@ -20,8 +20,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -36,19 +34,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.google.gson.Gson;
-import com.srotya.sidewinder.core.aggregators.AggregationFunction;
-import com.srotya.sidewinder.core.filters.Filter;
-import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
-import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.RejectException;
-import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
-import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -101,6 +91,7 @@ public class DiskStorageEngine implements StorageEngine {
 		}
 		this.defaultTimebucketSize = Integer
 				.parseInt(conf.getOrDefault(DEFAULT_BUCKET_SIZE, String.valueOf(DEFAULT_TIME_BUCKET_CONSTANT)));
+		logger.info("Configuring default time bucket:" + getDefaultTimebucketSize());
 		if (Boolean.parseBoolean(conf.getOrDefault("gc.enabled", "true"))) {
 			bgTaskPool.scheduleAtFixedRate(() -> {
 				for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
@@ -160,84 +151,6 @@ public class DiskStorageEngine implements StorageEngine {
 				}
 			}
 		}
-	}
-
-	/**
-	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
-	 * @param startTime
-	 * @param endTime
-	 * @return
-	 * @throws Exception
-	 */
-	@Override
-	public LinkedHashMap<Reader, Boolean> queryReaders(String dbName, String measurementName, String valueFieldName,
-			long startTime, long endTime) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		LinkedHashMap<Reader, Boolean> readers = new LinkedHashMap<>();
-		databaseMap.get(dbName).get(measurementName).queryReaders(valueFieldName, startTime, endTime, readers);
-		return readers;
-	}
-
-	@Override
-	public Set<SeriesQueryOutput> queryDataPoints(String dbName, String measurementName, String valueFieldName,
-			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
-			Predicate valuePredicate, AggregationFunction aggregationFunction) throws IOException {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		Set<SeriesQueryOutput> resultMap = new HashSet<>();
-		databaseMap.get(dbName).get(measurementName).queryDataPoints(valueFieldName, startTime, endTime, tagList,
-				tagFilter, valuePredicate, aggregationFunction, resultMap);
-		return resultMap;
-	}
-
-	@Override
-	public Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws Exception {
-		if (!checkIfExists(dbName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
-		partialMeasurementName = partialMeasurementName.trim();
-		if (partialMeasurementName.isEmpty()) {
-			return measurementMap.keySet();
-		} else {
-			Set<String> filteredSeries = new HashSet<>();
-			for (String measurementName : measurementMap.keySet()) {
-				if (measurementName.contains(partialMeasurementName)) {
-					filteredSeries.add(measurementName);
-				}
-			}
-			return filteredSeries;
-		}
-	}
-
-	public static void validateDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, TimeUnit unit) throws RejectException {
-		if (dbName == null || measurementName == null || valueFieldName == null || tags == null || unit == null) {
-			throw INVALID_DATAPOINT_EXCEPTION;
-		}
-	}
-
-	@Override
-	public void writeDataPoint(DataPoint dp) throws IOException {
-		validateDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(), dp.getTags(),
-				TimeUnit.MILLISECONDS);
-		TimeSeries timeSeries = getOrCreateTimeSeries(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
-				dp.getTags(), defaultTimebucketSize, dp.isFp());
-		if (dp.isFp() != timeSeries.isFp()) {
-			// drop this datapoint, mixed series are not allowed
-			throw FP_MISMATCH_EXCEPTION;
-		}
-		if (dp.isFp()) {
-			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getValue());
-		} else {
-			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getLongValue());
-		}
-		counter.incrementAndGet();
 	}
 
 	@Override
@@ -395,18 +308,6 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName, List<String> tags)
-			throws IOException {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		// get timeseries
-		Measurement measurement = databaseMap.get(dbName).get(measurementName);
-		TimeSeries timeSeries = measurement.getTimeSeries(valueFieldName, tags);
-		return timeSeries;
-	}
-
-	@Override
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
 			List<String> tags, int timeBucketSize, boolean fp) throws IOException {
 		// check and create database map
@@ -449,30 +350,8 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public boolean checkTimeSeriesExists(String dbName, String measurementName, String valueFieldName,
-			List<String> tags) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			return false;
-		}
-
-		Measurement measurement = databaseMap.get(dbName).get(measurementName);
-		// check timeseries
-		TimeSeries timeSeries = measurement.getTimeSeries(valueFieldName, tags);
-		return timeSeries == null;
-	}
-
-	@Override
 	public Set<String> getDatabases() throws Exception {
 		return databaseMap.keySet();
-	}
-
-	@Override
-	public Set<String> getAllMeasurementsForDb(String dbName) throws Exception {
-		if (checkIfExists(dbName)) {
-			return databaseMap.get(dbName).keySet();
-		} else {
-			throw NOT_FOUND_EXCEPTION;
-		}
 	}
 
 	@Override
@@ -506,16 +385,6 @@ public class DiskStorageEngine implements StorageEngine {
 		}
 	}
 
-	@Override
-	public List<List<String>> getTagsForMeasurement(String dbName, String measurementName, String valueFieldName)
-			throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw new ItemNotFoundException("Database " + dbName + " not found");
-		}
-		Measurement measurement = databaseMap.get(dbName).get(measurementName);
-		return measurement.getTagsForMeasurement(valueFieldName);
-	}
-
 	/**
 	 * Function for unit testing
 	 * 
@@ -544,34 +413,6 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public boolean checkIfExists(String dbName, String measurement) throws IOException {
-		if (checkIfExists(dbName)) {
-			return databaseMap.get(dbName).containsKey(measurement);
-		} else {
-			logger.info("Database not found");
-			return false;
-		}
-	}
-
-	@Override
-	public Set<String> getTagsForMeasurement(String dbName, String measurementName) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw new ItemNotFoundException("Database " + dbName + " & " + measurementName + " not found");
-		}
-		return databaseMap.get(dbName).get(measurementName).getTags();
-	}
-
-	@Override
-	public Set<String> getFieldsForMeasurement(String dbName, String measurementName) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
-		Measurement measurement = measurementMap.get(measurementName);
-		return measurement.getFieldsForMeasurement();
-	}
-
-	@Override
 	public Map<String, DBMetadata> getDbMetadataMap() {
 		return dbMetadataMap;
 	}
@@ -582,22 +423,18 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public Set<String> getTagFilteredRowKeys(String dbName, String measurementName, String valueFieldName,
-			Filter<List<String>> tagFilterTree, List<String> rawTags) throws ItemNotFoundException, Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		return databaseMap.get(dbName).get(measurementName).getTagFilteredRowKeys(valueFieldName, tagFilterTree,
-				rawTags);
+	public Map<String, Map<String, Measurement>> getDatabaseMap() {
+		return databaseMap;
 	}
 
 	@Override
-	public Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags)
-			throws ItemNotFoundException, Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		return databaseMap.get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
+	public int getDefaultTimebucketSize() {
+		return defaultTimebucketSize;
+	}
+
+	@Override
+	public AtomicInteger getCounter() {
+		return counter;
 	}
 
 }

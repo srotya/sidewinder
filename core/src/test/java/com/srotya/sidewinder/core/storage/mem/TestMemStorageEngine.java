@@ -54,8 +54,8 @@ import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
-import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 import com.srotya.sidewinder.core.storage.compression.Reader;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
@@ -183,7 +183,6 @@ public class TestMemStorageEngine {
 	// + "\nWriting " + tcount + " each with " + (count/modulator) + " series");
 	// }
 
-
 	@Test
 	public void testConfigure() {
 		StorageEngine engine = new MemStorageEngine();
@@ -287,8 +286,10 @@ public class TestMemStorageEngine {
 		List<DataPoint> points = new ArrayList<>();
 		long headerTimestamp = System.currentTimeMillis();
 		ByteBuffer buf = ByteBuffer.allocate(1024);
-		TimeSeriesBucket timeSeries = new TimeSeriesBucket(ByzantineWriter.class.getName(), headerTimestamp, conf, buf, true);
-		timeSeries.addDataPoint(headerTimestamp, 1L);
+		Writer timeSeries = new ByzantineWriter();
+		timeSeries.configure(conf, buf, true);
+		timeSeries.setHeaderTimestamp(headerTimestamp);
+		timeSeries.addValue(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, null, null, false);
 		assertEquals(1, points.size());
 		points.clear();
@@ -602,20 +603,20 @@ public class TestMemStorageEngine {
 
 	/*
 	 * Test used for performance assessment of the old mechnism for data writes
-	 * using more parameters public void testWritePerformance() throws
-	 * IOException, InterruptedException { final MemStorageEngine engine = new
+	 * using more parameters public void testWritePerformance() throws IOException,
+	 * InterruptedException { final MemStorageEngine engine = new
 	 * MemStorageEngine(); engine.configure(new HashMap<>()); long timeMillis =
 	 * System.currentTimeMillis(); int tcount = 8; ExecutorService es =
 	 * Executors.newFixedThreadPool(tcount); int count = 1000000; final
 	 * AtomicInteger rejects = new AtomicInteger(0); for (int k = 0; k < tcount;
 	 * k++) { final int j = k; es.submit(() -> { long ts =
 	 * System.currentTimeMillis(); for (int i = 0; i < count; i++) { try {
-	 * engine.writeDataPoint("test", MiscUtils.buildDataPoint("test", j + "cpu"
-	 * + (i % 1000000), "value", Arrays.asList("test", "test2"), ts + i, i *
-	 * 1.1)); } catch (IOException e) { rejects.incrementAndGet(); } } }); }
-	 * es.shutdown(); es.awaitTermination(10, TimeUnit.SECONDS);
-	 * System.out.println("Write throughput object " + tcount + "x" + count +
-	 * ":" + (System.currentTimeMillis() - timeMillis) + "ms with " +
-	 * rejects.get() + " rejects using " + tcount); }
+	 * engine.writeDataPoint("test", MiscUtils.buildDataPoint("test", j + "cpu" + (i
+	 * % 1000000), "value", Arrays.asList("test", "test2"), ts + i, i * 1.1)); }
+	 * catch (IOException e) { rejects.incrementAndGet(); } } }); } es.shutdown();
+	 * es.awaitTermination(10, TimeUnit.SECONDS);
+	 * System.out.println("Write throughput object " + tcount + "x" + count + ":" +
+	 * (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get() +
+	 * " rejects using " + tcount); }
 	 */
 }

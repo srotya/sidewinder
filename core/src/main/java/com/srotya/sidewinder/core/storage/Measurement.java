@@ -25,8 +25,9 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
+import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -35,6 +36,7 @@ import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.compression.Reader;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * @author ambud
@@ -57,7 +59,7 @@ public interface Measurement {
 
 	public void close() throws IOException;
 
-	public ByteBuffer createNewBuffer(String seriesId) throws IOException;
+	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException;
 
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException;
@@ -89,7 +91,7 @@ public interface Measurement {
 		return rowKeyBuilder.toString();
 	}
 
-	public static List<String> decodeStringToTags(TagIndex tagLookupTable, String tagString) {
+	public static List<String> decodeStringToTags(TagIndex tagLookupTable, String tagString) throws IOException {
 		List<String> tagList = new ArrayList<>();
 		if (tagString == null || tagString.isEmpty()) {
 			return tagList;
@@ -156,10 +158,12 @@ public interface Measurement {
 	public default void garbageCollector() throws IOException {
 		for (Entry<String, TimeSeries> entry : getTimeSeriesMap().entrySet()) {
 			try {
-				List<TimeSeriesBucket> garbage = entry.getValue().collectGarbage();
-				for (TimeSeriesBucket timeSeriesBucket : garbage) {
-					timeSeriesBucket.delete();
-					getLogger().info("Collecting garbage for bucket:" + entry.getKey());
+				List<Writer> garbage = entry.getValue().collectGarbage();
+				for (Writer timeSeriesBucket : garbage) {
+					// TODO delete
+					// timeSeriesBucket.delete();
+					getLogger().info("Collecting garbage for bucket:" + entry.getKey() + "\tOffset:"
+							+ timeSeriesBucket.currentOffset());
 				}
 				getLogger().fine("Collecting garbage for time series:" + entry.getKey());
 			} catch (IOException e) {
@@ -222,9 +226,8 @@ public interface Measurement {
 			}
 			TimeSeries value = getTimeSeriesMap().get(entry);
 			if (value == null) {
-				getLogger().severe(
-						"Invalid time series value " + entry + "\t" + rowKeys + "\t" +  "\n\n");
-//				continue;
+				getLogger().severe("Invalid time series value " + entry + "\t" + rowKeys + "\t" + "\n\n");
+				continue;
 			}
 			points = value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate);
 			if (aggregationFunction != null) {
@@ -266,10 +269,12 @@ public interface Measurement {
 		}
 	}
 
-	public default Set<String> getTags() {
+	public default Set<String> getTags() throws IOException {
 		return getTagIndex().getTags();
 	}
 
 	public Logger getLogger();
+
+	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId);
 
 }

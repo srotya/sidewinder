@@ -87,4 +87,27 @@ public class ConfigConnector extends ClusterConnector {
 		return slavesList;
 	}
 
+	@Override
+	public boolean isLeader() {
+		return isMaster;
+	}
+
+	@Override
+	public Object fetchRoutingTable() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void updateTable(Object table) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public Node getLocalNode() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }

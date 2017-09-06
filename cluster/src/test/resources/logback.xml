@@ -1,0 +1,7 @@
+<configuration>
+    <logger name="io.grpc" level="OFF"/> 
+    <root level="ALL">
+        <appender class="ch.qos.logback.core.ConsoleAppender">
+        </appender>
+    </root>
+</configuration>

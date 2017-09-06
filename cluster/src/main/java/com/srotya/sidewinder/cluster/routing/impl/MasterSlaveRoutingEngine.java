@@ -45,14 +45,14 @@ public class MasterSlaveRoutingEngine extends RoutingEngine {
 	}
 
 	@Override
-	public void init(Map<String, String> conf, StorageEngine engine, ClusterConnector connector) {
+	public void init(Map<String, String> conf, StorageEngine engine, ClusterConnector connector) throws Exception {
 		super.init(conf, engine, connector);
 		connector.initializeRouterHooks(this);
 	}
 
 	@Override
-	public List<Node> routeData(Point point, int replicationFactor) {
-		return nodeSet.subList(0, replicationFactor < nodeSet.size() ? replicationFactor : nodeSet.size());
+	public List<Node> routeData(Point point) {
+		return nodeSet;
 	}
 
 	@Override
@@ -63,6 +63,30 @@ public class MasterSlaveRoutingEngine extends RoutingEngine {
 	@Override
 	public void nodeDeleted(Node node) {
 		nodeSet.add(node);
+	}
+
+	@Override
+	public void addRoutableKey(Point point, int replicationFactor) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void makeCoordinator() {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public Object getRoutingTable() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void updateLocalRouteTable(Object routingTable) {
+		// TODO Auto-generated method stub
+		
 	}
 
 }

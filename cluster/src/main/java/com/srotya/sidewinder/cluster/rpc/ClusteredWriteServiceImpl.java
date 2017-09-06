@@ -18,6 +18,7 @@ package com.srotya.sidewinder.cluster.rpc;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Logger;
 
 import com.srotya.sidewinder.cluster.routing.Node;
 import com.srotya.sidewinder.cluster.routing.RoutingEngine;
@@ -35,12 +36,11 @@ import io.grpc.stub.StreamObserver;
  */
 public class ClusteredWriteServiceImpl extends ClusteredWriteServiceImplBase {
 
+	private static final Logger logger = Logger.getLogger(ClusteredWriteServiceImpl.class.getName());
 	private RoutingEngine router;
-	private int replicationFactor;
 
 	public ClusteredWriteServiceImpl(RoutingEngine router, Map<String, String> conf) {
 		this.router = router;
-		this.replicationFactor = Integer.parseInt(conf.getOrDefault("cluster.replication.factor", "3"));
 	}
 
 	@Override
@@ -62,13 +62,14 @@ public class ClusteredWriteServiceImpl extends ClusteredWriteServiceImplBase {
 	}
 
 	private void routeWriteAndReplicate(Point point) {
-		List<Node> nodes = router.routeData(point, replicationFactor);
+		List<Node> nodes = router.routeData(point);
 		for (Node node : nodes) {
 			try {
 				node.getWriter().write(point);
 			} catch (IOException e) {
 				if (!(e instanceof RejectException)) {
-					e.printStackTrace();
+					logger.severe("Data point rejected:" + point.getDbName() + ":" + point.getMeasurementName() + " "
+							+ node.getAddress() + ":" + node.getPort());
 				} else {
 					break;
 				}

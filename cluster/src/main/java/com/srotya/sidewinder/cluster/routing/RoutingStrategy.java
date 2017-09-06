@@ -58,5 +58,5 @@ public interface RoutingStrategy {
 	public List<Node> getAllNodes();
 
 	public int getReplicationFactor(String key);
-
+	
 }

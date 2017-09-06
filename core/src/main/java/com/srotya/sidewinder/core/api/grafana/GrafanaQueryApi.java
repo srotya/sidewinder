@@ -118,16 +118,18 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryMeasurementNames(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
-		logger.log(Level.INFO, "Query measurements for db:" + dbName + "\t" + queryString);
+		logger.log(Level.FINE, "Query measurements for db:" + dbName + "\t" + queryString);
 		try {
 			if (queryString != null && !queryString.isEmpty()) {
 				JsonObject query = new Gson().fromJson(queryString, JsonObject.class);
 				if (query.has("target")) {
 					String target = query.get("target").getAsString();
-					if (target.contains("*")) {
-						return engine.getTagsForMeasurement(dbName, target.replace(".*", ""));
-					}else {
-						return engine.getFieldsForMeasurement(dbName, target);
+					if (target.startsWith("measurement:")) {
+						return engine.getTagsForMeasurement(dbName, target.replace("measurement:", ""));
+					} else if (target.contains("field:")) {
+						return engine.getFieldsForMeasurement(dbName, target.replace("field:", ""));
+					} else {
+						return engine.getMeasurementsLike(dbName, "");
 					}
 				}
 			}
