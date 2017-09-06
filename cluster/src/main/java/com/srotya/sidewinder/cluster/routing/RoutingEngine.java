@@ -28,7 +28,6 @@ import com.srotya.sidewinder.core.rpc.RawTimeSeriesBucket;
 import com.srotya.sidewinder.core.rpc.RawTimeSeriesBucket.Builder;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
-import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
 
 /**
  * Routing Engine provides the abstraction to stitch together the
@@ -38,7 +37,7 @@ import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
  * @author ambud
  */
 public abstract class RoutingEngine {
-	
+
 	public static final String DEFAULT_CLUSTER_GRPC_PORT = "55021";
 	public static final String CLUSTER_GRPC_PORT = "cluster.grpc.port";
 	public static final String DEFAULT_CLUSTER_HOST = "localhost";
@@ -46,15 +45,51 @@ public abstract class RoutingEngine {
 	private int port;
 	private String address;
 	private StorageEngine engine;
+	private Node leader;
 
-	public void init(Map<String, String> conf, StorageEngine engine, ClusterConnector connector) {
+	public void init(Map<String, String> conf, StorageEngine engine, ClusterConnector connector) throws Exception {
 		this.engine = engine;
 		this.port = Integer.parseInt(conf.getOrDefault(CLUSTER_GRPC_PORT, DEFAULT_CLUSTER_GRPC_PORT));
 		this.address = conf.getOrDefault(CLUSTER_HOST, DEFAULT_CLUSTER_HOST);
 	}
-	
-	public abstract List<Node> routeData(Point point, int replicationFactor);
 
+	public abstract List<Node> routeData(Point point);
+
+	public abstract void addRoutableKey(Point point, int replicationFactor);
+
+	public abstract void nodeAdded(Node node);
+
+	public abstract void nodeDeleted(Node node) throws Exception;
+
+	public abstract void makeCoordinator() throws Exception;
+
+	public abstract Object getRoutingTable();
+
+	public abstract void updateLocalRouteTable(Object routingTable);
+
+	public void setLeader(Node node) {
+		this.leader = node;
+	}
+	
+	public Node getLeader() {
+		return leader;
+	}
+	
+	public String getAddress() {
+		return address;
+	}
+
+	public int getPort() {
+		return port;
+	}
+
+	/**
+	 * @return the engine
+	 */
+	public StorageEngine getEngine() {
+		return engine;
+	}
+	
 	public static RawTimeSeriesBucket seriesToRawBucket(StorageEngine engine, String dbName, String measurementName,
 			String field, List<String> tags) throws Exception {
 		Builder rawData = RawTimeSeriesBucket.newBuilder();
@@ -69,32 +104,14 @@ public abstract class RoutingEngine {
 		rawData.setValueFieldName(field);
 		rawData.setFp(timeSeries.isFp());
 		rawData.setBucketSize(timeSeries.getTimeBucketSize());
-		for (Entry<String, TimeSeriesBucket> bucket : timeSeries.getBucketMap().entrySet()) {
-			ByteBuffer rawBytes = bucket.getValue().getWriter().getRawBytes();
+		for (Entry<String, com.srotya.sidewinder.core.storage.compression.Writer> bucket : timeSeries.getBucketMap()
+				.entrySet()) {
+			ByteBuffer rawBytes = bucket.getValue().getRawBytes();
 			rawBytes.reset();
 			Bucket rawBucket = Bucket.newBuilder().setData(ByteString.copyFrom(rawBytes)).setBucketId(bucket.getKey())
 					.build();
 			rawData.addBuckets(rawBucket);
 		}
 		return rawData.build();
-	}
-	
-	public abstract void nodeAdded(Node node);
-	
-	public abstract void nodeDeleted(Node node);
-	
-	public String getAddress() {
-		return address;
-	}
-	
-	public int getPort() {
-		return port;
-	}
-
-	/**
-	 * @return the engine
-	 */
-	public StorageEngine getEngine() {
-		return engine;
 	}
 }

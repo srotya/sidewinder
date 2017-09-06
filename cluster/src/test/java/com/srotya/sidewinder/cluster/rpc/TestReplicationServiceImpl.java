@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -31,7 +32,9 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.srotya.sidewinder.cluster.rpc.ListTimeseriesOffsetResponse.OffsetEntry;
+import com.srotya.sidewinder.cluster.rpc.ListTimeseriesOffsetResponse.OffsetEntry.Bucket;
 import com.srotya.sidewinder.cluster.rpc.ReplicationServiceGrpc.ReplicationServiceBlockingStub;
+import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
@@ -52,10 +55,11 @@ public class TestReplicationServiceImpl {
 	private static MemStorageEngine engine;
 	private static Server server;
 	private static ManagedChannel channel;
+	private static ScheduledExecutorService bgTaskPool;
 
 	@BeforeClass
 	public static void beforeClass() throws IOException {
-		ScheduledExecutorService bgTaskPool = Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("bgt"));
+		bgTaskPool = Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("bgt"));
 		engine = new MemStorageEngine();
 		engine.configure(new HashMap<>(), bgTaskPool);
 		int port = 50052;
@@ -72,6 +76,52 @@ public class TestReplicationServiceImpl {
 		if (server != null) {
 			server.shutdown().awaitTermination(100, TimeUnit.SECONDS);
 		}
+	}
+
+	@Test
+	public void testReplicationProtocol() throws Exception {
+		StorageEngine engine2 = new MemStorageEngine();
+		engine2.configure(new HashMap<>(), bgTaskPool);
+
+		TimeSeries series = engine.getOrCreateTimeSeries("db4", "m1", "vf1", Arrays.asList("12", "14"), 4096, false);
+		long ts = 1497720452566L;
+		for (int i = 0; i < 1000; i++) {
+			series.addDataPoint(TimeUnit.MILLISECONDS, ts, i);
+		}
+
+		ReplicationServiceBlockingStub replication = ReplicationServiceGrpc.newBlockingStub(channel);
+		ListTimeseriesOffsetRequest.Builder request = ListTimeseriesOffsetRequest.newBuilder();
+		request.setDbName("db4").setMeasurementName("m1");
+		ListTimeseriesOffsetResponse response = replication.listBatchTimeseriesOffsetList(request.build());
+		List<OffsetEntry> list = response.getEntriesList();
+		assertEquals(1, list.size());
+		OffsetEntry offsetEntry = list.get(0);
+		assertEquals("db4", response.getDbName());
+		assertEquals("m1", response.getMeasurementName());
+
+		TimeSeries timeSeries = engine2.getOrCreateTimeSeries(response.getDbName(), response.getMeasurementName(),
+				offsetEntry.getValueFieldName(), new ArrayList<>(offsetEntry.getTagsList()), 4096, false);
+		BatchRawTimeSeriesOffsetRequest.Builder batchRequest = BatchRawTimeSeriesOffsetRequest.newBuilder();
+		for (Bucket bucket : offsetEntry.getBucketsList()) {
+			String bucketTs = bucket.getBucketTs();
+			int offset = bucket.getOffset();
+			int index = bucket.getIndex();
+			long bts = bucket.getHeaderTs();
+			RawTimeSeriesOffsetRequest fetchRequest = RawTimeSeriesOffsetRequest.newBuilder().setBlockTimestamp(bts)
+					.setBucketSize(4096).setDbName(response.getDbName())
+					.setMeasurementName(response.getMeasurementName())
+					.setValueFieldName(offsetEntry.getValueFieldName()).addAllTags(offsetEntry.getTagsList())
+					.setIndex(index).setOffset(0).setBucketSize(4096).build();
+			batchRequest.addRequests(fetchRequest);
+		}
+		BatchRawTimeSeriesOffsetResponse dataResponse = replication
+				.batchFetchTimeseriesDataAtOffset(batchRequest.build());
+		int responseSize = 0;
+		for (RawTimeSeriesOffsetResponse rawTimeSeriesOffsetResponse : dataResponse.getResponsesList()) {
+			responseSize += rawTimeSeriesOffsetResponse.getData().size();
+		}
+		System.out.println("Completed:" + " requests with:" + dataResponse.getResponsesList().size()
+				+ "\tResponse size:" + responseSize);
 	}
 
 	@Test

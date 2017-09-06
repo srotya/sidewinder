@@ -17,19 +17,28 @@ package com.srotya.sidewinder.cluster.connectors;
 
 import java.util.Map;
 
+import com.srotya.sidewinder.cluster.routing.Node;
 import com.srotya.sidewinder.cluster.routing.RoutingEngine;
 
 /**
  * @author ambud
  */
 public abstract class ClusterConnector {
-	
+
 	public abstract void init(Map<String, String> conf) throws Exception;
-	
-	public abstract void initializeRouterHooks(final RoutingEngine engine);
-	
+
+	public abstract void initializeRouterHooks(final RoutingEngine engine) throws Exception;
+
 	public abstract int getClusterSize() throws Exception;
-	
+
 	public abstract boolean isBootstrap();
-	
+
+	public abstract boolean isLeader();
+
+	public abstract Object fetchRoutingTable();
+
+	public abstract void updateTable(Object table) throws Exception;
+
+	public abstract Node getLocalNode();
+
 }

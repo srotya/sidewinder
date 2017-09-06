@@ -9,7 +9,7 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 source /etc/environment
 
-export CHECK_UPGRADE="true"
+export CHECK_UPGRADE="false"
 
 function getCurrentVersion() {
   export VERSION=`rpm -qa | grep sidewinder |  awk -F'-' '{ print $3 }'`

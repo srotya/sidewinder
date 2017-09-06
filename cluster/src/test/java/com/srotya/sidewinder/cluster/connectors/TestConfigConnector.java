@@ -71,9 +71,33 @@ public class TestConfigConnector {
 			}
 
 			@Override
-			public List<Node> routeData(Point point, int replicationFactor) {
+			public List<Node> routeData(Point point) {
 				// TODO Auto-generated method stub
 				return null;
+			}
+
+			@Override
+			public void addRoutableKey(Point point, int replicationFactor) {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public void makeCoordinator() {
+				// TODO Auto-generated method stub
+				
+			}
+
+			@Override
+			public Object getRoutingTable() {
+				// TODO Auto-generated method stub
+				return null;
+			}
+
+			@Override
+			public void updateLocalRouteTable(Object routingTable) {
+				// TODO Auto-generated method stub
+				
 			}
 
 		});

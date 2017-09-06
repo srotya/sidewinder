@@ -30,7 +30,7 @@ import com.srotya.sidewinder.cluster.rpc.ReplicationServiceGrpc.ReplicationServi
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
-import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 import io.grpc.stub.StreamObserver;
 
@@ -54,6 +54,7 @@ public class ReplicationServiceImpl extends ReplicationServiceImplBase {
 			Measurement measurement = engine.getOrCreateMeasurement(dbName, measurementName);
 
 			ListTimeseriesOffsetResponse.Builder builder = ListTimeseriesOffsetResponse.newBuilder();
+			builder.setDbName(dbName).setMeasurementName(measurementName);
 			for (TimeSeries timeSeries : measurement.getTimeSeries()) {
 				OffsetEntry.Builder offsetBuilder = OffsetEntry.newBuilder();
 
@@ -65,14 +66,15 @@ public class ReplicationServiceImpl extends ReplicationServiceImplBase {
 				offsetBuilder.setValueFieldName(valueFieldName);
 				offsetBuilder.addAllTags(tags);
 
-				SortedMap<String, List<TimeSeriesBucket>> bucketRawMap = timeSeries.getBucketRawMap();
-				for (Entry<String, List<TimeSeriesBucket>> entry : bucketRawMap.entrySet()) {
+				SortedMap<String, List<Writer>> bucketRawMap = timeSeries.getBucketRawMap();
+				for (Entry<String, List<Writer>> entry : bucketRawMap.entrySet()) {
 					for (int i = 0; i < entry.getValue().size(); i++) {
-						TimeSeriesBucket timeSeriesBucket = entry.getValue().get(i);
+						Writer timeSeriesBucket = entry.getValue().get(i);
 						OffsetEntry.Bucket.Builder bucket = Bucket.newBuilder();
 						bucket.setIndex(i);
-						bucket.setOffset(timeSeriesBucket.getWriter().currentOffset());
+						bucket.setOffset(timeSeriesBucket.currentOffset());
 						bucket.setBucketTs(entry.getKey());
+						bucket.setHeaderTs(timeSeriesBucket.getHeaderTimestamp());
 						offsetBuilder.addBuckets(bucket.build());
 					}
 				}
@@ -105,9 +107,9 @@ public class ReplicationServiceImpl extends ReplicationServiceImplBase {
 				TimeSeries timeSeries = engine.getTimeSeries(dbName, measurementName, valueFieldName,
 						new ArrayList<>(tags));
 				String timeBucket = TimeSeries.getTimeBucket(TimeUnit.MILLISECONDS, blockTimestamp, bucketSize);
-				SortedMap<String, List<TimeSeriesBucket>> bucketRawMap = timeSeries.getBucketRawMap();
-				List<TimeSeriesBucket> list = bucketRawMap.get(timeBucket);
-				TimeSeriesBucket timeSeriesBucket = list.get(index);
+				SortedMap<String, List<Writer>> bucketRawMap = timeSeries.getBucketRawMap();
+				List<Writer> list = bucketRawMap.get(timeBucket);
+				Writer timeSeriesBucket = list.get(index);
 				builder.setBlockTimestamp(blockTimestamp);
 				builder.setDbName(dbName);
 				builder.setMeasurementName(measurementName);
@@ -117,9 +119,9 @@ public class ReplicationServiceImpl extends ReplicationServiceImplBase {
 				builder.setValueFieldName(valueFieldName);
 				builder.addAllTags(tags);
 				builder.setIndex(index);
-				
+
 				builder.setCount(timeSeriesBucket.getCount());
-				ByteBuffer buf = timeSeriesBucket.getWriter().getRawBytes();
+				ByteBuffer buf = timeSeriesBucket.getRawBytes();
 				buf.position(offset);
 				builder.setData(ByteString.copyFrom(buf));
 				rawBuilder.addResponses(builder.build());
@@ -146,12 +148,17 @@ public class ReplicationServiceImpl extends ReplicationServiceImplBase {
 		int offset = request.getOffset();
 		int bucketSize = request.getBucketSize();
 		try {
+			// System.out.println("\n\n\nDatabase Name:" + dbName + "\tMeasurement Name:" +
+			// measurementName + "\n\n\n");
 			TimeSeries timeSeries = engine.getTimeSeries(dbName, measurementName, valueFieldName,
 					new ArrayList<>(tags));
+			if (timeSeries == null) {
+				throw new Exception("Invalid time series query:" + dbName + "\t" + measurementName);
+			}
 			String timeBucket = TimeSeries.getTimeBucket(TimeUnit.MILLISECONDS, blockTimestamp, bucketSize);
-			SortedMap<String, List<TimeSeriesBucket>> bucketRawMap = timeSeries.getBucketRawMap();
-			List<TimeSeriesBucket> list = bucketRawMap.get(timeBucket);
-			TimeSeriesBucket timeSeriesBucket = list.get(index);
+			SortedMap<String, List<Writer>> bucketRawMap = timeSeries.getBucketRawMap();
+			List<Writer> list = bucketRawMap.get(timeBucket);
+			Writer timeSeriesBucket = list.get(index);
 
 			builder.setBlockTimestamp(blockTimestamp);
 			builder.setDbName(dbName);
@@ -163,7 +170,7 @@ public class ReplicationServiceImpl extends ReplicationServiceImplBase {
 			builder.addAllTags(tags);
 			builder.setIndex(index);
 			builder.setCount(timeSeriesBucket.getCount());
-			ByteBuffer buf = timeSeriesBucket.getWriter().getRawBytes();
+			ByteBuffer buf = timeSeriesBucket.getRawBytes();
 			buf.position(offset);
 			builder.setData(ByteString.copyFrom(buf));
 

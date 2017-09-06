@@ -15,23 +15,6 @@
  */
 package com.srotya.sidewinder.core.storage.mem.archival;
 
-import static org.junit.Assert.assertEquals;
-
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-import com.srotya.sidewinder.core.storage.ArchiveException;
-import com.srotya.sidewinder.core.storage.Archiver;
-import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.TimeSeriesBucket;
-import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 
 /**
@@ -43,76 +26,82 @@ public class TestDiskArchiver {
 	private String className = ByzantineWriter.class.getName();
 
 	// @Test
-	public void testStreamSerDe() throws IOException {
-		long ts = System.currentTimeMillis();
-		ByteBuffer buf = ByteBuffer.allocate(1024);
-		TimeSeriesBucket bucket = new TimeSeriesBucket(className, ts, new HashMap<>(), buf, true);
-		for (int i = 0; i < 1000; i++) {
-			bucket.addDataPoint(ts + i * 1000, i);
-		}
-		Reader reader = bucket.getReader(null, null);
-		for (int i = 0; i < 1000; i++) {
-			DataPoint pair = reader.readPair();
-			assertEquals(ts + i * 1000, pair.getTimestamp());
-		}
-		ByteArrayOutputStream str = new ByteArrayOutputStream();
-		DataOutputStream bos = new DataOutputStream(str);
-		DiskArchiver.serializeToStream(bos, new TimeSeriesArchivalObject("test", "cpu", "2", bucket));
-		DiskArchiver.serializeToStream(bos, new TimeSeriesArchivalObject("test", "cpu", "3", bucket));
-		bos.close();
-		str.close();
-		byte[] serializedBucket = str.toByteArray();
-		DataInputStream bis = new DataInputStream(new ByteArrayInputStream(serializedBucket));
-		TimeSeriesArchivalObject output = DiskArchiver.deserializeFromStream(bis);
-		assertEquals("test", output.getDb());
-		assertEquals("cpu", output.getMeasurement());
-		assertEquals("2", output.getKey());
-		bucket = output.getBucket();
-		assertEquals(ts, bucket.getHeaderTimestamp());
-		assertEquals(1000, bucket.getCount());
-		reader = bucket.getReader(null, null);
-		for (int i = 0; i < 999; i++) {
-			DataPoint pair = reader.readPair();
-			assertEquals(ts + i * 1000, pair.getTimestamp());
-			assertEquals(i, pair.getLongValue());
-		}
-
-		output = DiskArchiver.deserializeFromStream(bis);
-		assertEquals("test", output.getDb());
-		assertEquals("cpu", output.getMeasurement());
-		assertEquals("3", output.getKey());
-		bucket = output.getBucket();
-		assertEquals(ts, bucket.getHeaderTimestamp());
-		assertEquals(1000, bucket.getCount());
-		reader = bucket.getReader(null, null);
-		for (int i = 0; i < 999; i++) {
-			DataPoint pair = reader.readPair();
-			assertEquals(ts + i * 1000, pair.getTimestamp());
-			assertEquals(i, pair.getLongValue());
-		}
-	}
-
+	// public void testStreamSerDe() throws IOException {
+	// long ts = System.currentTimeMillis();
+	// ByteBuffer buf = ByteBuffer.allocate(1024);
+	// TimeSeriesBucket bucket = new TimeSeriesBucket(className, ts, new
+	// HashMap<>(), buf, true);
+	// for (int i = 0; i < 1000; i++) {
+	// bucket.addDataPoint(ts + i * 1000, i);
+	// }
+	// Reader reader = bucket.getReader(null, null);
+	// for (int i = 0; i < 1000; i++) {
+	// DataPoint pair = reader.readPair();
+	// assertEquals(ts + i * 1000, pair.getTimestamp());
+	// }
+	// ByteArrayOutputStream str = new ByteArrayOutputStream();
+	// DataOutputStream bos = new DataOutputStream(str);
+	// DiskArchiver.serializeToStream(bos, new TimeSeriesArchivalObject("test",
+	// "cpu", "2", bucket));
+	// DiskArchiver.serializeToStream(bos, new TimeSeriesArchivalObject("test",
+	// "cpu", "3", bucket));
+	// bos.close();
+	// str.close();
+	// byte[] serializedBucket = str.toByteArray();
+	// DataInputStream bis = new DataInputStream(new
+	// ByteArrayInputStream(serializedBucket));
+	// TimeSeriesArchivalObject output = DiskArchiver.deserializeFromStream(bis);
+	// assertEquals("test", output.getDb());
+	// assertEquals("cpu", output.getMeasurement());
+	// assertEquals("2", output.getKey());
+	// bucket = output.getBucket();
+	// assertEquals(ts, bucket.getHeaderTimestamp());
+	// assertEquals(1000, bucket.getCount());
+	// reader = bucket.getReader(null, null);
+	// for (int i = 0; i < 999; i++) {
+	// DataPoint pair = reader.readPair();
+	// assertEquals(ts + i * 1000, pair.getTimestamp());
+	// assertEquals(i, pair.getLongValue());
+	// }
+	//
+	// output = DiskArchiver.deserializeFromStream(bis);
+	// assertEquals("test", output.getDb());
+	// assertEquals("cpu", output.getMeasurement());
+	// assertEquals("3", output.getKey());
+	// bucket = output.getBucket();
+	// assertEquals(ts, bucket.getHeaderTimestamp());
+	// assertEquals(1000, bucket.getCount());
+	// reader = bucket.getReader(null, null);
+	// for (int i = 0; i < 999; i++) {
+	// DataPoint pair = reader.readPair();
+	// assertEquals(ts + i * 1000, pair.getTimestamp());
+	// assertEquals(i, pair.getLongValue());
+	// }
+	// }
+	//
 	// @Test
-	public void testDiskArchiver() throws IOException, ArchiveException {
-		Archiver archiver = new DiskArchiver();
-		Map<String, String> conf = new HashMap<>();
-		conf.put(DiskArchiver.ARCHIVAL_DISK_DIRECTORY, "target/test-diskbackup-" + System.currentTimeMillis());
-		archiver.init(conf);
-		long ts = System.currentTimeMillis();
-		ByteBuffer buf = ByteBuffer.allocate(1024);
-		TimeSeriesBucket bucket = new TimeSeriesBucket(className, ts, conf, buf, true);
-		for (int i = 0; i < 1000; i++) {
-			bucket.addDataPoint(ts + i * 1000, i);
-		}
-		Reader reader = bucket.getReader(null, null);
-		for (int i = 0; i < 1000; i++) {
-			DataPoint pair = reader.readPair();
-			assertEquals(ts + i * 1000, pair.getTimestamp());
-		}
-		archiver.archive(new TimeSeriesArchivalObject("test", "cpu", "2", bucket));
-		archiver.archive(new TimeSeriesArchivalObject("test", "cpu", "3", bucket));
-		List<TimeSeriesArchivalObject> unarchive = archiver.unarchive();
-		assertEquals(2, unarchive.size());
-	}
+	// public void testDiskArchiver() throws IOException, ArchiveException {
+	// Archiver archiver = new DiskArchiver();
+	// Map<String, String> conf = new HashMap<>();
+	// conf.put(DiskArchiver.ARCHIVAL_DISK_DIRECTORY, "target/test-diskbackup-" +
+	// System.currentTimeMillis());
+	// archiver.init(conf);
+	// long ts = System.currentTimeMillis();
+	// ByteBuffer buf = ByteBuffer.allocate(1024);
+	// TimeSeriesBucket bucket = new TimeSeriesBucket(className, ts, conf, buf,
+	// true);
+	// for (int i = 0; i < 1000; i++) {
+	// bucket.addDataPoint(ts + i * 1000, i);
+	// }
+	// Reader reader = bucket.getReader(null, null);
+	// for (int i = 0; i < 1000; i++) {
+	// DataPoint pair = reader.readPair();
+	// assertEquals(ts + i * 1000, pair.getTimestamp());
+	// }
+	// archiver.archive(new TimeSeriesArchivalObject("test", "cpu", "2", bucket));
+	// archiver.archive(new TimeSeriesArchivalObject("test", "cpu", "3", bucket));
+	// List<TimeSeriesArchivalObject> unarchive = archiver.unarchive();
+	// assertEquals(2, unarchive.size());
+	// }
 
 }
