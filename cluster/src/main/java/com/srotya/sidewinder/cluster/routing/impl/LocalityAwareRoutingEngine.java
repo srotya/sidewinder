@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.cluster.routing.impl;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -30,6 +31,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.cluster.connectors.ClusterConnector;
+import com.srotya.sidewinder.cluster.routing.EndpointService;
 import com.srotya.sidewinder.cluster.routing.Node;
 import com.srotya.sidewinder.cluster.routing.RoutingEngine;
 import com.srotya.sidewinder.core.rpc.Point;
@@ -50,6 +52,7 @@ public class LocalityAwareRoutingEngine extends RoutingEngine {
 
 	public LocalityAwareRoutingEngine() {
 		this.nodes = new LinkedList<>();
+		this.routingTable = new HashMap<>();
 	}
 
 	@Override
@@ -60,7 +63,31 @@ public class LocalityAwareRoutingEngine extends RoutingEngine {
 	}
 
 	@Override
-	public List<Node> routeData(Point point) {
+	public List<Node> routeData(Point point) throws IOException, InterruptedException {
+		List<Node> list = getRoutedNodes(point);
+		if (list == null) {
+			// cluster request route table for data point
+			logger.info("Routing info for point:" + point.getDbName() + ":" + point.getMeasurementName()
+					+ " does not exist, requesting coordinator to create an entry");
+			EndpointService eps = getLeader().getEndpointService();
+			eps.requestRouteEntry(point);
+			logger.info("Requested route entry from coordinator");
+			for (int i = 0; i < 100; i++) {
+				logger.info("Checking local route entry for:" + point.getDbName() + ":" + point.getMeasurementName());
+				list = getRoutedNodes(point);
+				if (list != null) {
+					return list;
+				} else {
+					logger.info("Local route entry for:" + point.getDbName() + ":" + point.getMeasurementName()
+							+ " not found waiting....");
+					Thread.sleep(1000);
+				}
+			}
+		}
+		return list;
+	}
+
+	private List<Node> getRoutedNodes(Point point) {
 		read.lock();
 		List<Node> list = routingTable.get(getRoutingKey(point));
 		read.unlock();
@@ -87,7 +114,6 @@ public class LocalityAwareRoutingEngine extends RoutingEngine {
 				list.add(node);
 				nodes.add(node);
 			}
-
 			try {
 				connector.updateTable(routingTable);
 				logger.info("Added " + routingKey + " to route table");
@@ -106,6 +132,8 @@ public class LocalityAwareRoutingEngine extends RoutingEngine {
 	@Override
 	public void nodeAdded(Node node) {
 		write.lock();
+		logger.info("Node added:" + node);
+		getNodeMap().put(node.getNodeKey(), node);
 		nodes.add(node);
 		write.unlock();
 	}
@@ -113,6 +141,7 @@ public class LocalityAwareRoutingEngine extends RoutingEngine {
 	@Override
 	public void nodeDeleted(Node node) throws Exception {
 		write.lock();
+		getNodeMap().remove(node.getNodeKey());
 		logger.info("Node deleted " + node.getNodeKey() + " cleaning up entries");
 		Iterator<Entry<String, List<Node>>> itr = routingTable.entrySet().iterator();
 		while (itr.hasNext()) {
@@ -161,6 +190,12 @@ public class LocalityAwareRoutingEngine extends RoutingEngine {
 	public void updateLocalRouteTable(Object routingTable) {
 		write.lock();
 		this.routingTable = (Map<String, List<Node>>) routingTable;
+		for (Entry<String, List<Node>> entry : this.routingTable.entrySet()) {
+			for (int i = 0; i < entry.getValue().size(); i++) {
+				Node node = entry.getValue().get(i);
+				entry.getValue().set(i, getNodeMap().get(node.getNodeKey()));
+			}
+		}
 		logger.info("Route table update, new route table has:" + this.routingTable.size() + " entries");
 		write.unlock();
 	}

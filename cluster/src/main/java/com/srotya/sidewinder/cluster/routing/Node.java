@@ -25,14 +25,14 @@ package com.srotya.sidewinder.cluster.routing;
  * 
  * The {@link Node} object simply provides a mechanism for the
  * {@link RoutingStrategy} to compute placement location and provides a helper
- * {@link Writer} concept to avoid using yet another lookup table.
+ * {@link EndpointService} concept to avoid using yet another lookup table.
  * 
  * @author ambud
  */
 public class Node {
 
 	private String nodeKey;
-	private transient Writer writer;
+	private transient EndpointService writer;
 	private String address;
 	private int port;
 
@@ -60,7 +60,7 @@ public class Node {
 	/**
 	 * @return the writer
 	 */
-	public Writer getWriter() {
+	public EndpointService getEndpointService() {
 		return writer;
 	}
 
@@ -68,7 +68,7 @@ public class Node {
 	 * @param writer
 	 *            the writer to set
 	 */
-	public void setWriter(Writer writer) {
+	public void setEndpointService(EndpointService writer) {
 		this.writer = writer;
 	}
 

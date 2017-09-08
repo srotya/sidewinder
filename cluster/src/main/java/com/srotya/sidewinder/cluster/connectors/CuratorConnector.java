@@ -29,7 +29,7 @@ import org.apache.curator.framework.recipes.nodes.PersistentNode;
 import org.apache.curator.retry.BoundedExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 
-import com.srotya.sidewinder.cluster.routing.LocalWriter;
+import com.srotya.sidewinder.cluster.routing.LocalEndpointService;
 import com.srotya.sidewinder.cluster.routing.Node;
 import com.srotya.sidewinder.cluster.routing.RoutingEngine;
 
@@ -60,7 +60,7 @@ public class CuratorConnector extends ClusterConnector {
 		port = engine.getPort();
 		address = engine.getAddress();
 		Node localNode = new Node(address, port, address + ":" + port);
-		localNode.setWriter(new LocalWriter(engine.getEngine()));
+		localNode.setEndpointService(new LocalEndpointService(engine.getEngine(), engine));
 		engine.nodeAdded(localNode);
 
 		PersistentNode node = new PersistentNode(curator, CreateMode.EPHEMERAL, true, "/sidewinder-nodes" + "/" + id,

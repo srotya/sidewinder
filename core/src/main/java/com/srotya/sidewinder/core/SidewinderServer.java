@@ -193,7 +193,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 				public void run() {
 					server.shutdown();
 					try {
-						server.awaitTermination(100, TimeUnit.SECONDS);
+						server.awaitTermination(10, TimeUnit.SECONDS);
 					} catch (InterruptedException e) {
 						logger.log(Level.SEVERE, "Failed to terminate GRPC server", e);
 					}

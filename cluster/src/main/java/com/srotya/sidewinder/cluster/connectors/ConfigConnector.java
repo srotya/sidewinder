@@ -19,8 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.srotya.sidewinder.cluster.routing.GRPCWriter;
-import com.srotya.sidewinder.cluster.routing.LocalWriter;
+import com.srotya.sidewinder.cluster.routing.GRPCEndpointService;
+import com.srotya.sidewinder.cluster.routing.LocalEndpointService;
 import com.srotya.sidewinder.cluster.routing.Node;
 import com.srotya.sidewinder.cluster.routing.RoutingEngine;
 
@@ -36,6 +36,7 @@ public class ConfigConnector extends ClusterConnector {
 	private List<Node> slavesList;
 	private String master;
 	private boolean isMaster;
+	private Node localNode;
 
 	public ConfigConnector() {
 		slavesList = new ArrayList<>();
@@ -58,14 +59,17 @@ public class ConfigConnector extends ClusterConnector {
 	@Override
 	public void initializeRouterHooks(RoutingEngine router) {
 		String[] split = master.split(":");
-		Node node = new Node(split[0], Integer.parseInt(split[1]), "");
-		node.setWriter(new LocalWriter(router.getEngine()));
-		router.nodeAdded(node);
-		for (Node slave : slavesList) {
-			ManagedChannel channel = ManagedChannelBuilder.forAddress(slave.getAddress(), slave.getPort())
-					.compressorRegistry(CompressorRegistry.getDefaultInstance()).usePlaintext(true).build();
-			slave.setWriter(new GRPCWriter(channel));
-			router.nodeAdded(slave);
+		localNode = new Node(split[0], Integer.parseInt(split[1]), master);
+		localNode.setEndpointService(new LocalEndpointService(router.getEngine(), router));
+		router.nodeAdded(localNode);
+		router.setLeader(localNode);
+		if (isMaster) {
+			for (Node slave : slavesList) {
+				ManagedChannel channel = ManagedChannelBuilder.forAddress(slave.getAddress(), slave.getPort())
+						.compressorRegistry(CompressorRegistry.getDefaultInstance()).usePlaintext(true).build();
+				slave.setEndpointService(new GRPCEndpointService(channel));
+				router.nodeAdded(slave);
+			}
 		}
 	}
 
@@ -94,20 +98,16 @@ public class ConfigConnector extends ClusterConnector {
 
 	@Override
 	public Object fetchRoutingTable() {
-		// TODO Auto-generated method stub
-		return null;
+		return getSlavesList();
 	}
 
 	@Override
 	public void updateTable(Object table) {
-		// TODO Auto-generated method stub
-		
 	}
 
 	@Override
 	public Node getLocalNode() {
-		// TODO Auto-generated method stub
-		return null;
+		return localNode;
 	}
 
 }

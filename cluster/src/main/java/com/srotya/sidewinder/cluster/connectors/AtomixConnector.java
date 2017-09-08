@@ -23,8 +23,8 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.srotya.sidewinder.cluster.routing.GRPCWriter;
-import com.srotya.sidewinder.cluster.routing.LocalWriter;
+import com.srotya.sidewinder.cluster.routing.GRPCEndpointService;
+import com.srotya.sidewinder.cluster.routing.LocalEndpointService;
 import com.srotya.sidewinder.cluster.routing.Node;
 import com.srotya.sidewinder.cluster.routing.RoutingEngine;
 
@@ -100,7 +100,7 @@ public class AtomixConnector extends ClusterConnector {
 		address = engine.getAddress();
 		final DistributedGroup group = getAtomix().getGroup(BROADCAST_GROUP).join();
 		localNode = new Node(address, port, address + ":" + port);
-		localNode.setWriter(new LocalWriter(engine.getEngine()));
+		localNode.setEndpointService(new LocalEndpointService(engine.getEngine(), engine));
 		// add local node to the node list so that requests can be routed to the local
 		// writer instead of GRPC writer
 		engine.nodeAdded(localNode);
@@ -120,9 +120,13 @@ public class AtomixConnector extends ClusterConnector {
 				} else {
 					logger.info("Leader election completed, " + t.leader().id() + " is the leader");
 					leader = false;
-					String[] id = t.leader().id().split(":");
-					engine.setLeader(new Node(id[0], Integer.parseInt(id[1]), t.leader().id()));
 				}
+				Node node = engine.getNodeMap().get(t.leader().id());
+				if (node == null) {
+					logger.info("Leader node is empty:" + t.leader().id());
+					node = buildNode(t.leader());
+				}
+				engine.setLeader(node);
 			}
 		});
 
@@ -132,14 +136,12 @@ public class AtomixConnector extends ClusterConnector {
 			public void accept(GroupMember t) {
 				if (!isLocal(t.id())) {
 					logger.info("Node found:" + t.id());
-					String[] split = t.id().split(":");
-					ManagedChannel channel = ManagedChannelBuilder.forAddress(split[0], Integer.parseInt(split[1]))
-							.compressorRegistry(CompressorRegistry.getDefaultInstance()).usePlaintext(true).build();
-					Node node = new Node(split[0], Integer.parseInt(split[1]), t.id());
-					node.setWriter(new GRPCWriter(channel));
+					Node node = buildNode(t);
 					engine.nodeAdded(node);
+					engine.getNodeMap().put(t.id(), node);
 				}
 			}
+
 		});
 
 		group.onLeave(new Consumer<GroupMember>() {
@@ -151,12 +153,21 @@ public class AtomixConnector extends ClusterConnector {
 					String[] split = t.id().split(":");
 					Node node = new Node(split[0], Integer.parseInt(split[1]), t.id());
 					engine.nodeAdded(node);
+					engine.getNodeMap().remove(t.id());
 				}
 			}
 		});
 
 		group.join(address + ":" + port).join();
 		logger.info("Created cluster using Atomix connector");
+
+		for (GroupMember groupMember : group.members()) {
+			if (isLocal(groupMember.id())) {
+				continue;
+			}
+			Node node = buildNode(groupMember);
+			engine.nodeAdded(node);
+		}
 
 		try {
 			getAtomix().getValue(TABLE).get().onChange(event -> {
@@ -166,6 +177,15 @@ public class AtomixConnector extends ClusterConnector {
 		} catch (InterruptedException | ExecutionException e) {
 			logger.log(Level.SEVERE, "Error updating route table on node " + address + ":" + port, e);
 		}
+	}
+
+	private Node buildNode(GroupMember t) {
+		String[] split = t.id().split(":");
+		ManagedChannel channel = ManagedChannelBuilder.forAddress(split[0], Integer.parseInt(split[1]))
+				.compressorRegistry(CompressorRegistry.getDefaultInstance()).usePlaintext(true).build();
+		Node node = new Node(split[0], Integer.parseInt(split[1]), t.id());
+		node.setEndpointService(new GRPCEndpointService(channel));
+		return node;
 	}
 
 	@Override
@@ -208,7 +228,7 @@ public class AtomixConnector extends ClusterConnector {
 	public void updateTable(Object table) throws Exception {
 		getAtomix().getValue(TABLE).get().set(table);
 	}
-	
+
 	@Override
 	public Node getLocalNode() {
 		return localNode;

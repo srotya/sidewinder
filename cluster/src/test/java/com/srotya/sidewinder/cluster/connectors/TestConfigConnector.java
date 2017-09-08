@@ -56,6 +56,7 @@ public class TestConfigConnector {
 	public void testCallbacks() throws Exception {
 		ConfigConnector connector = new ConfigConnector();
 		Map<String, String> conf = new HashMap<>();
+		conf.put("cluster.cc.ismaster", "true");
 		conf.put("cluster.cc.slaves", "192.168.1.1:55021, 192.168.1.2:55021");
 		connector.init(conf);
 		final List<Node> nodes = new ArrayList<>();
@@ -79,13 +80,13 @@ public class TestConfigConnector {
 			@Override
 			public void addRoutableKey(Point point, int replicationFactor) {
 				// TODO Auto-generated method stub
-				
+
 			}
 
 			@Override
 			public void makeCoordinator() {
 				// TODO Auto-generated method stub
-				
+
 			}
 
 			@Override
@@ -97,13 +98,13 @@ public class TestConfigConnector {
 			@Override
 			public void updateLocalRouteTable(Object routingTable) {
 				// TODO Auto-generated method stub
-				
+
 			}
 
 		});
 		assertEquals(3, nodes.size());
 		for (Node node : nodes) {
-			assertNotNull(node.getWriter());
+			assertNotNull(node.getEndpointService());
 		}
 	}
 

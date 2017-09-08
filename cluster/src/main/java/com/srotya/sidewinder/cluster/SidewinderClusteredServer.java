@@ -31,6 +31,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.cluster.api.InfluxApi;
 import com.srotya.sidewinder.cluster.connectors.ClusterConnector;
 import com.srotya.sidewinder.cluster.routing.RoutingEngine;
+import com.srotya.sidewinder.cluster.rpc.ClusterMetadataServiceImpl;
 import com.srotya.sidewinder.cluster.rpc.ClusteredWriteServiceImpl;
 import com.srotya.sidewinder.core.ConfigConstants;
 import com.srotya.sidewinder.core.ResourceMonitor;
@@ -105,9 +106,17 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 			throw new IOException(e);
 		}
 
+		System.err.print("Waiting for coordinator to be elected.");
+		while (router.getLeader() == null) {
+			Thread.sleep(1000);
+			System.out.print(".");
+		}
+		System.out.println("\nCoordinator elected, registering services");
+
 		final Server server = ServerBuilder.forPort(port)
 				.decompressorRegistry(DecompressorRegistry.getDefaultInstance())
 				.addService(new ClusteredWriteServiceImpl(router, conf))
+				.addService(new ClusterMetadataServiceImpl(router, conf))
 				.addService(new WriterServiceImpl(storageEngine, conf)).build().start();
 
 		registerMetrics(registry, storageEngine);
@@ -120,7 +129,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		});
 
 		ResourceMonitor.getInstance().init(storageEngine, bgTasks);
-		 ClusterResourceMonitor.getInstance().init(storageEngine, connector, bgTasks);
+		ClusterResourceMonitor.getInstance().init(storageEngine, connector, bgTasks);
 		env.jersey().register(new GrafanaQueryApi(storageEngine, registry));
 		env.jersey().register(new MeasurementOpsApi(storageEngine, registry));
 		env.jersey().register(new DatabaseOpsApi(storageEngine, registry));
