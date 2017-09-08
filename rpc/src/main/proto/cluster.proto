@@ -33,6 +33,12 @@ service ClusteredWriteService {
 
 }
 
+service ClusterMetadataService {
+
+	rpc RequestRouteTableEntry (SingleData) returns (Ack) {}
+
+}
+
 service ReplicationService {
 
 	rpc ReadTimeseriesBucket (RawTimeSeriesBucketRequest) returns (RawTimeSeriesBucketResponse) {}

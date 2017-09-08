@@ -66,6 +66,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			handlers[i] = new WriteHandler(engine, handlerCount, i);
 		}
 		disruptor.handleEventsWith(new HashHandler()).then(handlers);
+		buffer = disruptor.getRingBuffer();
 	}
 
 	@Override

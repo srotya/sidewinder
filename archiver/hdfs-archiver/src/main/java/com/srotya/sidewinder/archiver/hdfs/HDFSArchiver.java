@@ -36,7 +36,6 @@ import org.apache.hadoop.security.UserGroupInformation;
 
 import com.srotya.sidewinder.core.storage.ArchiveException;
 import com.srotya.sidewinder.core.storage.Archiver;
-import com.srotya.sidewinder.core.storage.mem.archival.DiskArchiver;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 
@@ -92,7 +91,7 @@ public class HDFSArchiver implements Archiver {
 				currentFile = new Path(archiveDirectory, "archive." + System.currentTimeMillis() + ".bin");
 				os = new DataOutputStream(new BufferedOutputStream(FileSystem.create(fs, currentFile, fsPermission)));
 			}
-			DiskArchiver.serializeToStream(os, new TimeSeriesArchivalObject(object.getDb(), object.getMeasurement(),
+			Archiver.serializeToStream(os, new TimeSeriesArchivalObject(object.getDb(), object.getMeasurement(),
 					object.getKey(), object.getBucket()));
 		} catch (IOException e) {
 			throw new ArchiveException(e);
@@ -107,7 +106,7 @@ public class HDFSArchiver implements Archiver {
 			while (itr.hasNext()) {
 				DataInputStream bis = new DataInputStream(new BufferedInputStream(fs.open(itr.next().getPath())));
 				while (bis.available() > 0) {
-					TimeSeriesArchivalObject object = DiskArchiver.deserializeFromStream(bis);
+					TimeSeriesArchivalObject object = Archiver.deserializeFromStream(bis);
 					list.add(object);
 				}
 				bis.close();
