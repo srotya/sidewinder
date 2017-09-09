@@ -73,10 +73,9 @@ public class GraphiteDecoder extends SimpleChannelInboundHandler<String> {
 			logger.fine("Ignoring bad metric:" + line);
 			return;
 		default:
-			measurementName = key[1];
+			measurementName = key[key.length - 2];
 			valueFieldName = key[key.length - 1];
-			tags.add(key[0]);
-			for (int i = 2; i < key.length - 1; i++) {
+			for (int i = 0; i < key.length - 2; i++) {
 				tags.add(key[i]);
 			}
 			break;
