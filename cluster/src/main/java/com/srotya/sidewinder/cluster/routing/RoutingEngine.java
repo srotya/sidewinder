@@ -15,10 +15,12 @@
  */
 package com.srotya.sidewinder.cluster.routing;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.protobuf.ByteString;
 import com.srotya.sidewinder.cluster.connectors.ClusterConnector;
@@ -45,15 +47,17 @@ public abstract class RoutingEngine {
 	private int port;
 	private String address;
 	private StorageEngine engine;
-	private Node leader;
+	private volatile Node leader;
+	private Map<String, Node> nodeMap;
 
 	public void init(Map<String, String> conf, StorageEngine engine, ClusterConnector connector) throws Exception {
 		this.engine = engine;
 		this.port = Integer.parseInt(conf.getOrDefault(CLUSTER_GRPC_PORT, DEFAULT_CLUSTER_GRPC_PORT));
 		this.address = conf.getOrDefault(CLUSTER_HOST, DEFAULT_CLUSTER_HOST);
+		nodeMap = new ConcurrentHashMap<>();
 	}
 
-	public abstract List<Node> routeData(Point point);
+	public abstract List<Node> routeData(Point point) throws IOException, InterruptedException;
 
 	public abstract void addRoutableKey(Point point, int replicationFactor);
 
@@ -88,6 +92,10 @@ public abstract class RoutingEngine {
 	 */
 	public StorageEngine getEngine() {
 		return engine;
+	}
+	
+	public Map<String, Node> getNodeMap() {
+		return nodeMap;
 	}
 	
 	public static RawTimeSeriesBucket seriesToRawBucket(StorageEngine engine, String dbName, String measurementName,

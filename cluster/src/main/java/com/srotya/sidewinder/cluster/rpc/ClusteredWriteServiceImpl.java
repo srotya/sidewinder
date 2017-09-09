@@ -47,7 +47,12 @@ public class ClusteredWriteServiceImpl extends ClusteredWriteServiceImplBase {
 	public void writeBatchDataPoint(BatchData request, StreamObserver<Ack> responseObserver) {
 		List<Point> points = request.getPointsList();
 		for (Point point : points) {
-			routeWriteAndReplicate(point);
+			try {
+				routeWriteAndReplicate(point);
+			} catch (IOException | InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		responseObserver.onNext(Ack.newBuilder().setMessageId(request.getMessageId()).build());
 		responseObserver.onCompleted();
@@ -56,16 +61,21 @@ public class ClusteredWriteServiceImpl extends ClusteredWriteServiceImplBase {
 	@Override
 	public void writeSingleDataPoint(SingleData request, StreamObserver<Ack> responseObserver) {
 		Point point = request.getPoint();
-		routeWriteAndReplicate(point);
+		try {
+			routeWriteAndReplicate(point);
+		} catch (IOException | InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		responseObserver.onNext(Ack.newBuilder().setMessageId(request.getMessageId()).build());
 		responseObserver.onCompleted();
 	}
 
-	private void routeWriteAndReplicate(Point point) {
+	private void routeWriteAndReplicate(Point point) throws IOException, InterruptedException {
 		List<Node> nodes = router.routeData(point);
 		for (Node node : nodes) {
 			try {
-				node.getWriter().write(point);
+				node.getEndpointService().write(point);
 			} catch (IOException e) {
 				if (!(e instanceof RejectException)) {
 					logger.severe("Data point rejected:" + point.getDbName() + ":" + point.getMeasurementName() + " "

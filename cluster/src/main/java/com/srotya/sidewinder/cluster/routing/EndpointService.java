@@ -29,9 +29,11 @@ import com.srotya.sidewinder.core.rpc.Point;
  * 
  * @author ambud
  */
-public interface Writer {
+public interface EndpointService {
 
 	public void write(Point point) throws IOException;
+	
+	public void requestRouteEntry(Point point) throws IOException;
 
 	public void close() throws IOException;
 

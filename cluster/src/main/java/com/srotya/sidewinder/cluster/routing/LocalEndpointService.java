@@ -25,11 +25,13 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 /**
  * @author ambud
  */
-public class LocalWriter implements Writer {
+public class LocalEndpointService implements EndpointService {
 
-	private StorageEngine engine;
+	private StorageEngine storageEngine;
+	private RoutingEngine engine;
 
-	public LocalWriter(StorageEngine engine) {
+	public LocalEndpointService(StorageEngine storageEngine, RoutingEngine engine) {
+		this.storageEngine = storageEngine;
 		this.engine = engine;
 	}
 
@@ -44,12 +46,17 @@ public class LocalWriter implements Writer {
 		dp.setTimestamp(point.getTimestamp());
 		dp.setValueFieldName(point.getValueFieldName());
 //		System.err.println("Writing dp:" + dp);
-		engine.writeDataPoint(dp);
+		storageEngine.writeDataPoint(dp);
 	}
 
 	@Override
 	public void close() throws IOException {
-		engine.disconnect();
+		storageEngine.disconnect();
+	}
+
+	@Override
+	public void requestRouteEntry(Point point) throws IOException {
+		engine.addRoutableKey(point, 3);
 	}
 
 }

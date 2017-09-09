@@ -23,7 +23,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.cluster.connectors.ClusterConnector;
-import com.srotya.sidewinder.cluster.routing.LocalWriter;
+import com.srotya.sidewinder.cluster.routing.LocalEndpointService;
 import com.srotya.sidewinder.cluster.routing.Node;
 import com.srotya.sidewinder.cluster.routing.RoutingEngine;
 import com.srotya.sidewinder.cluster.routing.RoutingStrategy;
@@ -74,7 +74,7 @@ public class ScalingRoutingEngine extends RoutingEngine {
 	private void checkAndMoveKeys(List<String> keys) {
 		for (String key : keys) {
 			List<Node> nodes = strategy.getNodes(key, strategy.getReplicationFactor(key));
-			if (nodes.get(0).getWriter() instanceof LocalWriter) {
+			if (nodes.get(0).getEndpointService() instanceof LocalEndpointService) {
 				// check if data exists locally
 				String[] decodeKey = decodeKey(key);
 				String dbName = decodeKey[0];
@@ -100,7 +100,7 @@ public class ScalingRoutingEngine extends RoutingEngine {
 	public void uninitialize() throws InterruptedException, ExecutionException, IOException {
 		logger.info("Leaving cluster");
 		for (Node node : strategy.getAllNodes()) {
-			node.getWriter().close();
+			node.getEndpointService().close();
 		}
 	}
 

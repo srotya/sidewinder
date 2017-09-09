@@ -21,6 +21,8 @@ import java.util.Map;
 
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
+import javax.ws.rs.InternalServerErrorException;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
@@ -33,7 +35,6 @@ import com.srotya.sidewinder.cluster.routing.RoutingEngine;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.utils.HTTPDataPointDecoder;
-import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
@@ -62,12 +63,20 @@ public class InfluxApi {
 		}
 		meter.mark(dps.size());
 		for (Point dp : dps) {
-			List<Node> nodes = router.routeData(dp);
+			List<Node> nodes = null;
+			try {
+				nodes = router.routeData(dp);
+			} catch (IOException | InterruptedException e) {
+				throw new InternalServerErrorException(e);
+			}
+			if (nodes == null) {
+				throw new NotFoundException(
+						"Route entry not found for:" + dp.getDbName() + "," + dp.getMeasurementName());
+			}
 			for (int i = 0; i < nodes.size(); i++) {
 				Node node = nodes.get(i);
-				System.err.println(MiscUtils.pointToDataPoint(dp)+"\t"+node);
 				try {
-					node.getWriter().write(dp);
+					node.getEndpointService().write(dp);
 				} catch (IOException e) {
 					if (!(e instanceof RejectException)) {
 						e.printStackTrace();

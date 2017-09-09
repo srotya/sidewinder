@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.cluster.rpc;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -101,10 +102,11 @@ public class TestReplicationServiceImpl {
 
 		TimeSeries timeSeries = engine2.getOrCreateTimeSeries(response.getDbName(), response.getMeasurementName(),
 				offsetEntry.getValueFieldName(), new ArrayList<>(offsetEntry.getTagsList()), 4096, false);
+		assertNotNull(timeSeries);
 		BatchRawTimeSeriesOffsetRequest.Builder batchRequest = BatchRawTimeSeriesOffsetRequest.newBuilder();
 		for (Bucket bucket : offsetEntry.getBucketsList()) {
-			String bucketTs = bucket.getBucketTs();
-			int offset = bucket.getOffset();
+			// String bucketTs = bucket.getBucketTs();
+			// int offset = bucket.getOffset();
 			int index = bucket.getIndex();
 			long bts = bucket.getHeaderTs();
 			RawTimeSeriesOffsetRequest fetchRequest = RawTimeSeriesOffsetRequest.newBuilder().setBlockTimestamp(bts)

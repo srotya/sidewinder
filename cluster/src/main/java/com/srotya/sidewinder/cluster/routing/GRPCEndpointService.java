@@ -17,6 +17,9 @@ package com.srotya.sidewinder.cluster.routing;
 
 import java.io.IOException;
 
+import com.srotya.sidewinder.cluster.rpc.ClusterMetadataServiceGrpc;
+import com.srotya.sidewinder.cluster.rpc.ClusterMetadataServiceGrpc.ClusterMetadataServiceBlockingStub;
+import com.srotya.sidewinder.core.rpc.Ack;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.SingleData;
 import com.srotya.sidewinder.core.rpc.WriterServiceGrpc;
@@ -27,14 +30,16 @@ import io.grpc.ManagedChannel;
 /**
  * @author ambud
  */
-public class GRPCWriter implements Writer {
+public class GRPCEndpointService implements EndpointService {
 
 	private WriterServiceBlockingStub stub;
+	private ClusterMetadataServiceBlockingStub mdService;
 	private ManagedChannel channel;
 
-	public GRPCWriter(ManagedChannel channel) {
+	public GRPCEndpointService(ManagedChannel channel) {
 		this.channel = channel;
 		stub = WriterServiceGrpc.newBlockingStub(channel);
+		mdService = ClusterMetadataServiceGrpc.newBlockingStub(channel);
 	}
 
 	@Override
@@ -46,6 +51,15 @@ public class GRPCWriter implements Writer {
 	public void close() throws IOException {
 		if (!channel.isShutdown()) {
 			channel.shutdownNow();
+		}
+	}
+
+	@Override
+	public void requestRouteEntry(Point point) throws IOException {
+		SingleData request = SingleData.newBuilder().setMessageId(point.getTimestamp()).setPoint(point).build();
+		Ack ack = mdService.requestRouteTableEntry(request);
+		if(ack.getResponseCode()!=200) {
+			throw new IOException("Failed to request route entry");
 		}
 	}
 
