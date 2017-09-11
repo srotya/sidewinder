@@ -33,7 +33,6 @@ import com.srotya.sidewinder.core.storage.compression.Writer;
  */
 public class ByzantineWriter implements Writer {
 
-	private static final int BYTES_PER_DATAPOINT = 16;
 	private Lock read;
 	private Lock write;
 	private long prevTs;
@@ -170,10 +169,10 @@ public class ByzantineWriter implements Writer {
 			tBuf.put((byte) 1);
 			tBuf.put((byte) deltaOfDelta);
 		} else if (deltaOfDelta >= Short.MIN_VALUE && deltaOfDelta <= Short.MAX_VALUE) {
-			tBuf.put((byte) 10);
+			tBuf.put((byte) 2);
 			tBuf.putShort((short) deltaOfDelta);
 		} else {
-			tBuf.put((byte) 11);
+			tBuf.put((byte) 3);
 			tBuf.putInt(deltaOfDelta);
 		}
 		prevTs = ts;
@@ -213,7 +212,7 @@ public class ByzantineWriter implements Writer {
 	public double getCompressionRatio() {
 		double ratio = 0;
 		read.lock();
-		ratio = ((double) count * BYTES_PER_DATAPOINT) / buf.position();
+		ratio = ((double) count * Long.BYTES * 2) / buf.position();
 		read.unlock();
 		return ratio;
 	}
@@ -225,7 +224,7 @@ public class ByzantineWriter implements Writer {
 			buf.putLong(timestamp);
 		}
 	}
-	
+
 	@Override
 	public long getHeaderTimestamp() {
 		return buf.getLong(4);
