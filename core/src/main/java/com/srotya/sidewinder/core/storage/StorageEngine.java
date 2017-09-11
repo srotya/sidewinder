@@ -16,10 +16,13 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -100,6 +103,31 @@ public interface StorageEngine {
 		getCounter().incrementAndGet();
 	}
 
+	public default void writeDataPoint(List<DataPoint> dps) throws IOException {
+		Map<TimeSeries, List<DataPoint>> dpMap = new HashMap<>();
+		for (DataPoint dp : dps) {
+			StorageEngine.validateDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
+					dp.getTags(), TimeUnit.MILLISECONDS);
+			TimeSeries timeSeries = getOrCreateTimeSeries(dp.getDbName(), dp.getMeasurementName(),
+					dp.getValueFieldName(), dp.getTags(), getDefaultTimebucketSize(), dp.isFp());
+			if (dp.isFp() != timeSeries.isFp()) {
+				// drop this datapoint, mixed series are not allowed
+				throw FP_MISMATCH_EXCEPTION;
+			}
+			List<DataPoint> dpx;
+			if (!dpMap.containsKey(timeSeries)) {
+				dpMap.put(timeSeries, dpx = new ArrayList<>());
+			} else {
+				dpx = dpMap.get(timeSeries);
+			}
+			dpx.add(dp);
+		}
+		for (Entry<TimeSeries, List<DataPoint>> entry : dpMap.entrySet()) {
+			entry.getKey().addDataPoints(TimeUnit.MILLISECONDS, entry.getValue());
+			getCounter().addAndGet(entry.getValue().size());
+		}
+	}
+
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
 			long timestamp, long value) throws IOException {
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
@@ -112,7 +140,7 @@ public interface StorageEngine {
 		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
 		getCounter().incrementAndGet();
 	}
-	
+
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
 			long timestamp, double value) throws IOException {
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);

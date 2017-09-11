@@ -21,7 +21,6 @@ import java.util.List;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
 /**
@@ -29,7 +28,6 @@ import com.srotya.sidewinder.core.storage.compression.Reader;
  */
 public class ByzantineReader implements Reader {
 
-	private static final RejectException EOS_EXCEPTION = new RejectException("End of stream reached");
 	private long prevTs;
 	private long delta;
 	private int counter;
@@ -105,7 +103,7 @@ public class ByzantineReader implements Reader {
 			deltaOfDelta = 0;
 		} else if (b == (byte) 1) {
 			deltaOfDelta = buf.get();
-		} else if (b == (byte) 10) {
+		} else if (b == (byte) 2) {
 			deltaOfDelta = buf.getShort();
 		} else {
 			deltaOfDelta = buf.getInt();

@@ -46,6 +46,19 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 public class TestByzantineReadWrite {
 
 	@Test
+	public void testXorExtraction() {
+		double p1 = 1.1;
+		double p2 = 2.2;
+		long p1l = Double.doubleToLongBits(p1);
+		long p2l = Double.doubleToLongBits(p2);
+		long xor = p1l ^ p2l;
+		int numberOfLeadingZeros = Long.numberOfLeadingZeros(p1l);
+		int numberOfTrailingZeros = Long.numberOfTrailingZeros(p1l);
+		System.out.println(xor + "\t\t" + numberOfLeadingZeros + "\t" + numberOfTrailingZeros);
+		System.out.println(p2l - p1l);
+	}
+
+	@Test
 	public void testByzantineReaderInit() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
 		ByzantineWriter writer = new ByzantineWriter();
@@ -225,14 +238,14 @@ public class TestByzantineReadWrite {
 
 	@Test
 	public void testWriteReadNoLock() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 100);
+		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1000);
 		Writer writer = new ByzantineWriter();
 		Map<String, String> conf = new HashMap<>();
 		conf.put("lock.enabled", "false");
 		writer.configure(conf, buf, true);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
-		int LIMIT = 10000;
+		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
 			writer.addValue(ts + i * 1000, i);
 		}
@@ -240,7 +253,7 @@ public class TestByzantineReadWrite {
 		Reader reader = writer.getReader();
 		for (int i = 0; i < LIMIT; i++) {
 			DataPoint dp = reader.readPair();
-			assertEquals(ts + i * 1000, dp.getTimestamp());
+			assertEquals("Iteration:" + i, ts + i * 1000, dp.getTimestamp());
 		}
 	}
 
@@ -250,7 +263,7 @@ public class TestByzantineReadWrite {
 		ByzantineWriter writer = new ByzantineWriter();
 		writer.configure(new HashMap<>(), buf, true);
 		long ots = System.currentTimeMillis();
-		writer.setHeaderTimestamp(ots);
+		 writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
 			writer.addValue(ots + i * 1000, i);
@@ -258,8 +271,8 @@ public class TestByzantineReadWrite {
 		Reader reader = writer.getReader();
 		for (int i = 0; i < limit; i++) {
 			DataPoint pair = reader.readPair();
-			assertEquals(ots + i * 1000, pair.getTimestamp());
-			assertEquals(i, pair.getLongValue());
+			assertEquals("Iteration:"+i, ots + i * 1000, pair.getTimestamp());
+			assertEquals("Iteration:"+i, i, pair.getLongValue());
 		}
 		ByteBuffer rawBytes = writer.getRawBytes();
 		try {
@@ -289,7 +302,7 @@ public class TestByzantineReadWrite {
 		ByzantineWriter writer = new ByzantineWriter();
 		writer.configure(new HashMap<>(), buf, true);
 		long ots = System.currentTimeMillis();
-		writer.setHeaderTimestamp(ots);
+		 writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
 			writer.addValue(ots + i * 1000, i);
