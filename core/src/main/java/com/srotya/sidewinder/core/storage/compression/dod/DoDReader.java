@@ -30,7 +30,6 @@ import com.srotya.sidewinder.core.storage.compression.Reader;
 public class DoDReader implements Reader {
 
 	private static final RejectException EOS_EXCEPTION = new RejectException("End of stream reached");
-	private volatile ByteBuffer buf;
 	private long prevTs;
 	private long delta;
 	private int counter;
@@ -41,13 +40,16 @@ public class DoDReader implements Reader {
 	private boolean fp;
 	private String fieldName;
 	private List<String> tags;
+	private BitReader reader;
+	private long prevValue;
+	private long prevXor;
 
 	public DoDReader(ByteBuffer buf, int count, long lastTs) {
-		this.buf = buf;
+		// this.buf = buf;
 		this.lastTs = lastTs;
 		buf.rewind();
 		this.count = count;
-		prevTs = buf.getLong();
+		reader = new BitReader(buf);
 	}
 
 	public int getCounter() {
@@ -55,33 +57,39 @@ public class DoDReader implements Reader {
 	}
 
 	public ByteBuffer getBuf() {
-		return buf;
+		// return buf;
+		return null;
 	}
 
 	public long getLastTs() {
 		return lastTs;
 	}
 
+	/**
+	 * (a) Calculate the delta of delta: D = (tn - tn1) - (tn1 - tn2) (b) If D is
+	 * zero, then store a single `0' bit (c) If D is between [-63, 64], store `10'
+	 * followed by the value (7 bits) (d) If D is between [-255, 256], store `110'
+	 * followed by the value (9 bits) (e) if D is between [-2047, 2048], store
+	 * `1110' followed by the value (12 bits) (f) Otherwise store `1111' followed by
+	 * D using 32 bits
+	 */
 	@Override
 	public DataPoint readPair() throws IOException {
 		DataPoint dp = null;
 		if (counter < count) {
-			long val = 0;
-			int temp = buf.getInt();
-			val = buf.getLong();
-			delta = delta + temp;
-			prevTs += delta;
+			uncompressTimestamp();
+			uncompressValue();
 			counter++;
 
 			if (timePredicate != null && !timePredicate.apply(prevTs)) {
 				return null;
 			}
-			if (valuePredicate != null && !valuePredicate.apply(val)) {
+			if (valuePredicate != null && !valuePredicate.apply(prevValue)) {
 				return null;
 			}
 			dp = new DataPoint();
 			dp.setTimestamp(prevTs);
-			dp.setValue(val);
+			dp.setValue(prevValue);
 			dp.setFp(fp);
 
 			if (tags != null) {
@@ -95,6 +103,55 @@ public class DoDReader implements Reader {
 			return dp;
 		} else {
 			throw EOS_EXCEPTION;
+		}
+	}
+
+	private void uncompressValue() {
+		if (counter == 0) {
+			prevValue = reader.readBits(64);
+		} else {
+			long xor = 0;
+			if (reader.readBit()) {
+				if (!reader.readBit()) {
+					int prevNumberOfLeadingZeros = Long.numberOfLeadingZeros(prevXor);
+					int prevNumberOfTrailingZeros = Long.numberOfTrailingZeros(prevXor);
+					int length = Long.SIZE - prevNumberOfTrailingZeros - prevNumberOfLeadingZeros;
+					long value = reader.readBits(length);
+					xor = value << prevNumberOfTrailingZeros;
+				} else {
+					int leadingZeros = (int) (reader.readBits(6)); // & ((1 << 6) - 1)
+					int length = (int) (reader.readBits(6));
+					long v = reader.readBits(length);
+					xor = (v << (Long.SIZE - leadingZeros - length));
+				}
+			}
+			prevXor = xor;
+			prevValue = prevValue ^ prevXor;
+		}
+	}
+
+	private void uncompressTimestamp() {
+		if (counter == 0) {
+			prevTs = reader.readBits(64);
+		} else {
+			int temp = 0;
+			if (reader.readBit()) {
+				if (reader.readBit()) {
+					if (reader.readBit()) {
+						if (reader.readBit()) {
+							temp = (int) reader.readBits(32);
+						} else {
+							temp = (int) reader.readBits(12);
+						}
+					} else {
+						temp = (int) reader.readBits(9);
+					}
+				} else {
+					temp = (int) reader.readBits(7);
+				}
+			}
+			delta = delta + temp;
+			prevTs += delta;
 		}
 	}
 

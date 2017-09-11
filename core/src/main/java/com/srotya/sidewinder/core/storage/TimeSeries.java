@@ -367,6 +367,23 @@ public class TimeSeries {
 		}
 	}
 
+	public void addDataPoints(TimeUnit unit, List<DataPoint> dps) throws IOException {
+		Map<Writer, List<DataPoint>> dpMap = new HashMap<>();
+		for (DataPoint dp : dps) {
+			Writer writer = getOrCreateSeriesBucket(unit, dp.getTimestamp());
+			List<DataPoint> dpx;
+			if (!dpMap.containsKey(writer)) {
+				dpMap.put(writer, dpx = new ArrayList<>());
+			} else {
+				dpx = dpMap.get(writer);
+			}
+			dpx.add(dp);
+		}
+		for (Entry<Writer, List<DataPoint>> entry : dpMap.entrySet()) {
+			entry.getKey().write(entry.getValue());
+		}
+	}
+
 	/**
 	 * Converts timeseries to a list of datapoints appended to the supplied list
 	 * object. Datapoints are filtered by the supplied predicates before they are
@@ -473,8 +490,7 @@ public class TimeSeries {
 	}
 
 	/**
-	 * @return number of buckets to retain for this
-	 *         {@link TimeSeries}
+	 * @return number of buckets to retain for this {@link TimeSeries}
 	 */
 	public int getRetentionBuckets() {
 		return retentionBuckets.get();
