@@ -43,8 +43,6 @@ public interface Writer {
 
 	public double getCompressionRatio();
 
-	public void setHeaderTimestamp(long timestamp);
-	
 	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException;
 
 	public void bootstrap(ByteBuffer buf) throws IOException;
@@ -62,5 +60,7 @@ public interface Writer {
 	public boolean isFull();
 
 	public long getHeaderTimestamp();
+
+	public void setHeaderTimestamp(long timestamp);
 
 }
