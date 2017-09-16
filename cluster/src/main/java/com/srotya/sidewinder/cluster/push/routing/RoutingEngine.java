@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.cluster.routing;
+package com.srotya.sidewinder.cluster.push.routing;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -23,7 +23,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.protobuf.ByteString;
-import com.srotya.sidewinder.cluster.connectors.ClusterConnector;
+import com.srotya.sidewinder.cluster.push.connectors.ClusterConnector;
 import com.srotya.sidewinder.core.rpc.Bucket;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.RawTimeSeriesBucket;

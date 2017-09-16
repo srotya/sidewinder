@@ -44,7 +44,7 @@ public class TestGraphiteDecoder {
 
 	@Test
 	public void testHandler() throws IOException {
-		EmbeddedChannel ch = new EmbeddedChannel(new StringDecoder(), new GraphiteDecoder("test", engine));
+		EmbeddedChannel ch = new EmbeddedChannel(new StringDecoder(), new GraphiteDecoder("test", engine, null));
 		ch.writeInbound(Unpooled.copiedBuffer("app1.server1.jvm.heap.max 233123 1497720452", Charset.defaultCharset()));
 		ch.readInbound();
 		verify(engine, times(1)).writeDataPoint("test", "heap", "max", Arrays.asList("app1", "server1", "jvm"),

@@ -80,6 +80,27 @@ public class ByzantineReader implements Reader {
 			throw EOS_EXCEPTION;
 		}
 	}
+	
+	@Override
+	public long[] read() throws IOException {
+		if (counter < count) {
+			long[] dp = new long[2];
+			uncompressAndReadTimestamp();
+			uncompressAndReadValue();
+			counter++;
+			if (timePredicate != null && !timePredicate.apply(prevTs)) {
+				return null;
+			}
+			if (valuePredicate != null && !valuePredicate.apply(prevValue)) {
+				return null;
+			}
+			dp[0] = prevTs;
+			dp[1] = prevValue;
+			return dp;
+		} else {
+			throw EOS_EXCEPTION;
+		}
+	}
 
 	public void uncompressAndReadValue() {
 		byte flag = buf.get();

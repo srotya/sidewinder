@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.cluster.routing.impl;
+package com.srotya.sidewinder.cluster.push.routing.impl;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -23,8 +23,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.facebook.util.digest.MurmurHash;
-import com.srotya.sidewinder.cluster.routing.Node;
-import com.srotya.sidewinder.cluster.routing.RoutingStrategy;
+import com.srotya.sidewinder.cluster.push.routing.Node;
+import com.srotya.sidewinder.cluster.push.routing.RoutingStrategy;
 
 /**
  * @author ambud

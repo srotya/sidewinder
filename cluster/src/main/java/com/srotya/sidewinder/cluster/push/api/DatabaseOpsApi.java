@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.cluster.api;
+package com.srotya.sidewinder.cluster.push.api;
 
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.POST;
@@ -21,7 +21,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 
 import com.codahale.metrics.MetricRegistry;
-import com.srotya.sidewinder.cluster.routing.RoutingEngine;
+import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
 import com.srotya.sidewinder.core.rpc.Point;
 
 @Path("/cluster/databases")

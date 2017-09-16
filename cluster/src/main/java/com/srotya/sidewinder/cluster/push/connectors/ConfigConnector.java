@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.cluster.connectors;
+package com.srotya.sidewinder.cluster.push.connectors;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import com.srotya.sidewinder.cluster.routing.GRPCEndpointService;
-import com.srotya.sidewinder.cluster.routing.LocalEndpointService;
-import com.srotya.sidewinder.cluster.routing.Node;
-import com.srotya.sidewinder.cluster.routing.RoutingEngine;
+import com.srotya.sidewinder.cluster.push.routing.GRPCEndpointService;
+import com.srotya.sidewinder.cluster.push.routing.LocalEndpointService;
+import com.srotya.sidewinder.cluster.push.routing.Node;
+import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
 
 import io.grpc.CompressorRegistry;
 import io.grpc.ManagedChannel;

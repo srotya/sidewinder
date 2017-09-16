@@ -82,6 +82,25 @@ public class ZipReader implements Reader {
 	}
 
 	@Override
+	public long[] read() throws IOException {
+		long[] dp = new long[2];
+		try {
+			dp[0] = dis.readLong();
+			dp[1] = dis.readLong();
+		} catch (IOException e) {
+			return null;
+		}
+
+		if (timePredicate != null && !timePredicate.apply(dp[0])) {
+			return null;
+		}
+		if (valuePredicate != null && !valuePredicate.apply(dp[1])) {
+			return null;
+		}
+		return dp;
+	}
+
+	@Override
 	public int getCounter() {
 		return counter;
 	}

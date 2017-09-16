@@ -42,8 +42,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.junit.ClassRule;
-import org.junit.Test;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -59,14 +57,14 @@ import io.dropwizard.testing.junit.DropwizardAppRule;
  */
 public class TestInMemoryCluster {
 
-	@ClassRule
+	// @ClassRule
 	public static final DropwizardAppRule<ClusterConfiguration> MASTER = new DropwizardAppRule<>(
 			SidewinderClusteredServer.class, "src/test/resources/master-slave-simple/master.yaml");
-	@ClassRule
+	// @ClassRule
 	public static final DropwizardAppRule<ClusterConfiguration> SLAVE = new DropwizardAppRule<>(
 			SidewinderClusteredServer.class, "src/test/resources/master-slave-simple/slave.yaml");
 
-	@Test
+	// @Test
 	public void test() throws KeyManagementException, Exception {
 		long sts = 1497720452566L;
 		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
@@ -138,15 +136,14 @@ public class TestInMemoryCluster {
 			}
 		}
 		assertEquals(6, i);
-		
+
 		// check slave node for replicated data
 		response = makeRequest(
 				new HttpGet("http://localhost:8082/databases/qaSingleSeries/measurements/cpu/fields/value?startTime="
 						+ (sts - 2000) + "&endTime=" + (sts + 2000)));
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
-		tag = new HashSet<>(
-				Arrays.asList("host=server01", "host=server02", "host=server03", "region=uswest"));
+		tag = new HashSet<>(Arrays.asList("host=server01", "host=server02", "host=server03", "region=uswest"));
 		itr = ary.iterator();
 		i = 0;
 		while (itr.hasNext()) {

@@ -31,6 +31,11 @@
       <artifactId>protobuf-java</artifactId>
     </dependency>
     <dependency>
+      <groupId>com.srotya.minuteman</groupId>
+      <artifactId>minuteman-core</artifactId>
+      <version>0.0.2</version>
+    </dependency>
+    <dependency>
       <groupId>com.srotya.sidewinder</groupId>
       <artifactId>sidewinder-core</artifactId>
       <version>${project.version}</version>
@@ -100,6 +105,11 @@
           <artifactId>commons-logging</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.xerial.snappy</groupId>
+      <artifactId>snappy-java</artifactId>
+      <version>1.1.4</version>
     </dependency>
   </dependencies>
   <build>
