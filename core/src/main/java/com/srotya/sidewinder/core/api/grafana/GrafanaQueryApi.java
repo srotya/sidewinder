@@ -41,6 +41,8 @@ import javax.ws.rs.core.MediaType;
 
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
+import com.codahale.metrics.Timer.Context;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
@@ -63,11 +65,13 @@ public class GrafanaQueryApi {
 	private StorageEngine engine;
 	private TimeZone tz;
 	private Meter grafanaQueryCounter;
+	private Timer grafanaQueryLatency;
 
 	public GrafanaQueryApi(StorageEngine engine, MetricRegistry registry) throws SQLException {
 		this.engine = engine;
 		tz = TimeZone.getDefault();
-		grafanaQueryCounter = registry.meter("queries");
+		grafanaQueryCounter = registry.meter("gr-queries");
+		grafanaQueryLatency = registry.timer("gr-latency");
 	}
 
 	@Path("/hc")
@@ -87,6 +91,7 @@ public class GrafanaQueryApi {
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public String query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		grafanaQueryCounter.mark();
+		Context time = grafanaQueryLatency.time();
 		logger.log(Level.FINE, "Grafana query:" + dbName + "\t" + query);
 		Gson gson = new GsonBuilder().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
@@ -110,6 +115,7 @@ public class GrafanaQueryApi {
 			}
 		}
 		logger.log(Level.FINE, "Response:" + dbName + "\t" + gson.toJson(json) + "\t" + gson.toJson(output));
+		time.stop();
 		return gson.toJson(output);
 	}
 
@@ -218,6 +224,7 @@ public class GrafanaQueryApi {
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public String rawQuery(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		grafanaQueryCounter.mark();
+		Context time = grafanaQueryLatency.time();
 		Gson gson = new GsonBuilder().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
@@ -238,7 +245,9 @@ public class GrafanaQueryApi {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return gson.toJson(output);
+		String jsonOutput = gson.toJson(output);
+		time.stop();
+		return jsonOutput;
 	}
 
 }

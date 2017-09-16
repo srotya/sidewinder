@@ -17,7 +17,7 @@ package com.srotya.sidewinder.cluster.rpc;
 
 import java.util.Map;
 
-import com.srotya.sidewinder.cluster.routing.RoutingEngine;
+import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
 import com.srotya.sidewinder.cluster.rpc.ClusterMetadataServiceGrpc.ClusterMetadataServiceImplBase;
 import com.srotya.sidewinder.core.rpc.Ack;
 import com.srotya.sidewinder.core.rpc.SingleData;

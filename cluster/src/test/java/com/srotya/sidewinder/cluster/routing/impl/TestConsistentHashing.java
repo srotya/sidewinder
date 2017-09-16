@@ -25,8 +25,8 @@ import java.util.TreeMap;
 
 import org.junit.Test;
 
-import com.srotya.sidewinder.cluster.routing.Node;
-import com.srotya.sidewinder.cluster.routing.impl.ConsistentHashRoutingStrategy;
+import com.srotya.sidewinder.cluster.push.routing.Node;
+import com.srotya.sidewinder.cluster.push.routing.impl.ConsistentHashRoutingStrategy;
 
 /**
  * Unit tests for {@link ConsistentHashRoutingStrategy}

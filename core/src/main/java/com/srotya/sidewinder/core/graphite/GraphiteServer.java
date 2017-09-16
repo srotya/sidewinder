@@ -17,6 +17,8 @@ package com.srotya.sidewinder.core.graphite;
 
 import java.util.Map;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 import io.dropwizard.lifecycle.Managed;
@@ -46,12 +48,14 @@ public class GraphiteServer implements Managed {
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
 	private String bindAddress;
+	private Counter writeCounter;
 
-	public GraphiteServer(Map<String, String> conf, StorageEngine storageEngine) {
+	public GraphiteServer(Map<String, String> conf, StorageEngine storageEngine, MetricRegistry registry) {
 		this.storageEngine = storageEngine;
 		this.serverPort = Integer.parseInt(conf.getOrDefault("server.graphite.port", "8772"));
 		this.bindAddress = conf.getOrDefault("server.graphite.bind", "localhost");
 		this.dbName = conf.getOrDefault("server.graphite.dbname", "graphite");
+		writeCounter = registry.counter("graphite-writes");
 	}
 
 	@Override
@@ -69,7 +73,7 @@ public class GraphiteServer implements Managed {
 						ChannelPipeline p = ch.pipeline();
 						p.addLast(workerGroup, new LineBasedFrameDecoder(1024, true, true));
 						p.addLast(workerGroup, new StringDecoder());
-						p.addLast(workerGroup, new GraphiteDecoder(dbName, storageEngine));
+						p.addLast(workerGroup, new GraphiteDecoder(dbName, storageEngine, writeCounter));
 					}
 				}).bind(bindAddress, serverPort).sync().channel();
 	}
