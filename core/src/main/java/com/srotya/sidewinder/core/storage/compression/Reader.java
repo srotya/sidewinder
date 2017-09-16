@@ -31,6 +31,8 @@ public interface Reader {
 
 	public DataPoint readPair() throws IOException;
 	
+	public long[] read() throws IOException;
+	
 	public int getCounter();
 	
 	public int getPairCount();

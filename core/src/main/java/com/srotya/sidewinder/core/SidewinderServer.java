@@ -87,8 +87,8 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		initializeStorageEngine(conf, bgTasks);
 		enableMonitoring(registry, bgTasks);
 		registerWebAPIs(env, conf, registry, bgTasks);
-		checkAndEnableGRPC(conf);
-		checkAndEnableGraphite(conf);
+		checkAndEnableGRPC(conf, registry);
+		checkAndEnableGraphite(conf, registry);
 		registerShutdownHook(conf);
 	}
 
@@ -103,9 +103,9 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		});
 	}
 
-	private void checkAndEnableGraphite(Map<String, String> conf) throws Exception {
+	private void checkAndEnableGraphite(Map<String, String> conf, MetricRegistry registry) throws Exception {
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.GRAPHITE_ENABLED, ConfigConstants.FALSE))) {
-			final GraphiteServer server = new GraphiteServer(conf, storageEngine);
+			final GraphiteServer server = new GraphiteServer(conf, storageEngine, registry);
 			server.start();
 			shutdownTasks.add(new Runnable() {
 
@@ -175,7 +175,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		}
 	}
 
-	private void checkAndEnableGRPC(Map<String, String> conf) throws IOException {
+	private void checkAndEnableGRPC(Map<String, String> conf, MetricRegistry registry) throws IOException {
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.ENABLE_GRPC, ConfigConstants.FALSE))) {
 			final ExecutorService es = Executors
 					.newFixedThreadPool(

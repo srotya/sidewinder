@@ -148,5 +148,6 @@ message Point {
 	int64 value = 5;
 	bool fp = 6;
 	repeated string tags = 7;
+	int64 messageId = 8;
 
 }
