@@ -74,6 +74,17 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 				}
 			}
 		}
+		if (timers != null) {
+			for (Entry<String, Timer> entry : timers.entrySet()) {
+				DataPoint dp = MiscUtils.buildDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
+						System.currentTimeMillis(), entry.getValue().getSnapshot().getMean());
+				try {
+					engine.writeDataPoint(dp);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		}
 	}
 
 }

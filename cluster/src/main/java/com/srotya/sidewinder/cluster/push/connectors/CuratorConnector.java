@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.cluster.connectors;
+package com.srotya.sidewinder.cluster.push.connectors;
 
 import java.util.Map;
 import java.util.logging.Logger;
@@ -29,9 +29,9 @@ import org.apache.curator.framework.recipes.nodes.PersistentNode;
 import org.apache.curator.retry.BoundedExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 
-import com.srotya.sidewinder.cluster.routing.LocalEndpointService;
-import com.srotya.sidewinder.cluster.routing.Node;
-import com.srotya.sidewinder.cluster.routing.RoutingEngine;
+import com.srotya.sidewinder.cluster.push.routing.LocalEndpointService;
+import com.srotya.sidewinder.cluster.push.routing.Node;
+import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
 
 /**
  * @author ambud

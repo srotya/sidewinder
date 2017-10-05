@@ -193,7 +193,7 @@ public class PersistentMeasurement implements Measurement {
 			try {
 				RandomAccessFile raf = new RandomAccessFile(dataFile, "r");
 				MappedByteBuffer map = raf.getChannel().map(MapMode.READ_ONLY, 0, dataFile.length());
-				bufferMap.put(dataDirectory + "/" + dataFile.getName(), map);
+				bufferMap.put(dataFile.getName(), map);
 				logger.info("Recovering data file:" + dataDirectory + "/" + dataFile.getName());
 				raf.close();
 			} catch (Exception e) {
@@ -279,7 +279,7 @@ public class PersistentMeasurement implements Measurement {
 		if (activeFile == null) {
 			synchronized (seriesMap) {
 				if (activeFile == null) {
-					filename = dataDirectory + "/data-" + String.format("%03d", fcnt) + ".dat";
+					filename = dataDirectory + "/data-" + String.format("%012d", fcnt) + ".dat";
 					activeFile = new RandomAccessFile(filename, "rwd");
 					offset = 0;
 					logger.info("Creating new datafile for measurement:" + filename);
@@ -326,7 +326,9 @@ public class PersistentMeasurement implements Measurement {
 
 	protected void appendBufferPointersToDisk(String seriesId, String filename, int curr, long offset)
 			throws IOException {
-		DiskStorageEngine.appendLineToFile(seriesId + "\t" + filename + "\t" + curr + "\t" + offset, prBufPointers);
+		String[] split = filename.split("/");
+		DiskStorageEngine.appendLineToFile(seriesId + "\t" + split[split.length - 1] + "\t" + curr + "\t" + offset,
+				prBufPointers);
 	}
 
 	@Override

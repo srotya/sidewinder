@@ -22,8 +22,8 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import com.srotya.sidewinder.cluster.connectors.ClusterConnector;
-import com.srotya.sidewinder.cluster.routing.RoutingEngine;
+import com.srotya.sidewinder.cluster.push.connectors.ClusterConnector;
+import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;

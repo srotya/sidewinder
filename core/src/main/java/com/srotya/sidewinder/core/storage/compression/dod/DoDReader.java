@@ -106,6 +106,28 @@ public class DoDReader implements Reader {
 		}
 	}
 
+	@Override
+	public long[] read() throws IOException {
+		if (counter < count) {
+			long[] dp = new long[2];
+			uncompressTimestamp();
+			uncompressValue();
+			counter++;
+
+			if (timePredicate != null && !timePredicate.apply(prevTs)) {
+				return null;
+			}
+			if (valuePredicate != null && !valuePredicate.apply(prevValue)) {
+				return null;
+			}
+			dp[0] = prevTs;
+			dp[1] = prevValue;
+			return dp;
+		} else {
+			throw EOS_EXCEPTION;
+		}
+	}
+	
 	private void uncompressValue() {
 		if (counter == 0) {
 			prevValue = reader.readBits(64);

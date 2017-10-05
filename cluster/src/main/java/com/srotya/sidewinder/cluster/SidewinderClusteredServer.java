@@ -15,11 +15,12 @@
  */
 package com.srotya.sidewinder.cluster;
 
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.security.Principal;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -28,32 +29,21 @@ import java.util.concurrent.TimeUnit;
 import com.codahale.metrics.Metric;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
+import com.srotya.minuteman.cluster.WALManager;
+import com.srotya.minuteman.cluster.WALManagerImpl;
+import com.srotya.minuteman.connectors.AtomixConnector;
+import com.srotya.minuteman.connectors.ClusterConnector;
+import com.srotya.minuteman.utils.FileUtils;
 import com.srotya.sidewinder.cluster.api.InfluxApi;
-import com.srotya.sidewinder.cluster.connectors.ClusterConnector;
-import com.srotya.sidewinder.cluster.routing.RoutingEngine;
-import com.srotya.sidewinder.cluster.rpc.ClusterMetadataServiceImpl;
-import com.srotya.sidewinder.cluster.rpc.ClusteredWriteServiceImpl;
-import com.srotya.sidewinder.core.ConfigConstants;
+import com.srotya.sidewinder.cluster.storage.SidewinderWALClient;
 import com.srotya.sidewinder.core.ResourceMonitor;
 import com.srotya.sidewinder.core.SidewinderDropwizardReporter;
-import com.srotya.sidewinder.core.api.DatabaseOpsApi;
-import com.srotya.sidewinder.core.api.MeasurementOpsApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
-import com.srotya.sidewinder.core.health.RestAPIHealthCheck;
-import com.srotya.sidewinder.core.rpc.WriterServiceImpl;
-import com.srotya.sidewinder.core.security.AllowAllAuthorizer;
-import com.srotya.sidewinder.core.security.BasicAuthenticator;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.dropwizard.Application;
-import io.dropwizard.auth.AuthFilter;
-import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
-import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.setup.Environment;
-import io.grpc.DecompressorRegistry;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
 
 /**
  * @author ambud
@@ -67,18 +57,19 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 	@Override
 	public void run(ClusterConfiguration configuration, Environment env) throws Exception {
 		final MetricRegistry registry = new MetricRegistry();
-		HashMap<String, String> conf = new HashMap<>();
+		Map<String, String> conf = new HashMap<>();
 		if (configuration.getConfigPath() != null) {
 			loadConfiguration(configuration, conf);
 		}
-		int port = Integer.parseInt(conf.getOrDefault("cluster.grpc.port", "55021"));
-
 		ScheduledExecutorService bgTasks = Executors.newScheduledThreadPool(2, new BackgrounThreadFactory("bgtasks"));
 
-		StorageEngine storageEngine;
-
+		FileUtils.delete(new File(conf.get("wal.dir")));
+		FileUtils.delete(new File(conf.get("data.dir")));
+		FileUtils.delete(new File(conf.get("index.dir")));
+		conf.put(WALManager.WAL_CLIENT_CLASS, SidewinderWALClient.class.getName());
 		String storageEngineClass = conf.getOrDefault("storage.engine",
 				"com.srotya.sidewinder.core.storage.mem.MemStorageEngine");
+		StorageEngine storageEngine;
 		try {
 			storageEngine = (StorageEngine) Class.forName(storageEngineClass).newInstance();
 			storageEngine.configure(conf, bgTasks);
@@ -86,68 +77,45 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		} catch (Exception e) {
 			throw new IOException(e);
 		}
+		
+		ResourceMonitor rm = ResourceMonitor.getInstance();
+		rm.init(storageEngine, bgTasks);
+		
+		registerMetrics(registry, storageEngine);
+		WALManager walManager = buildClusterAndWALManager(conf, bgTasks, registry, storageEngine);
+		System.out.println("WAL Manager:" + walManager.getAddress());
 
-		ClusterConnector connector;
+		env.jersey().register(new InfluxApi(walManager, registry, conf));
+		env.jersey().register(new GrafanaQueryApi(storageEngine, registry));
+	}
+
+	private WALManager buildClusterAndWALManager(Map<String, String> conf, ScheduledExecutorService bgTasks,
+			MetricRegistry registry, StorageEngine storageEngine) throws IOException, Exception {
+		final ClusterConnector connector;
 		try {
-			connector = (ClusterConnector) Class.forName(
-					conf.getOrDefault("cluster.connector", "com.srotya.sidewinder.cluster.connectors.ConfigConnector"))
-					.newInstance();
+			connector = new AtomixConnector();
 			connector.init(conf);
 		} catch (Exception e) {
 			throw new IOException(e);
 		}
-
-		RoutingEngine router;
-		try {
-			router = (RoutingEngine) Class.forName(conf.getOrDefault("cluster.routing.engine",
-					"com.srotya.sidewinder.cluster.routing.impl.MasterSlaveRoutingEngine")).newInstance();
-			router.init(conf, storageEngine, connector);
-		} catch (Exception e) {
-			throw new IOException(e);
-		}
-
-		System.err.print("Waiting for coordinator to be elected.");
-		while (router.getLeader() == null) {
-			Thread.sleep(1000);
-			System.out.print(".");
-		}
-		System.out.println("\nCoordinator elected, registering services");
-
-		final Server server = ServerBuilder.forPort(port)
-				.decompressorRegistry(DecompressorRegistry.getDefaultInstance())
-				.addService(new ClusteredWriteServiceImpl(router, conf))
-				.addService(new ClusterMetadataServiceImpl(router, conf))
-				.addService(new WriterServiceImpl(storageEngine, conf)).build().start();
-
-		registerMetrics(registry, storageEngine);
-
-		Runtime.getRuntime().addShutdownHook(new Thread("shutdown-hook") {
+		final WALManager walManager = new WALManagerImpl();
+		walManager.init(conf, connector, bgTasks, storageEngine);
+		Runtime.getRuntime().addShutdownHook(new Thread() {
 			@Override
 			public void run() {
-				server.shutdownNow();
+				try {
+					connector.stop();
+					walManager.stop();
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		});
-
-		ResourceMonitor.getInstance().init(storageEngine, bgTasks);
-		ClusterResourceMonitor.getInstance().init(storageEngine, connector, bgTasks);
-		env.jersey().register(new GrafanaQueryApi(storageEngine, registry));
-		env.jersey().register(new MeasurementOpsApi(storageEngine, registry));
-		env.jersey().register(new DatabaseOpsApi(storageEngine, registry));
-		if (connector.isBootstrap()) {
-			env.jersey().register(new InfluxApi(router, registry, conf));
-		}
-		env.healthChecks().register("restapi", new RestAPIHealthCheck());
-
-		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {
-			AuthFilter<BasicCredentials, Principal> basicCredentialAuthFilter = new BasicCredentialAuthFilter.Builder<>()
-					.setAuthenticator(new BasicAuthenticator(conf.get(ConfigConstants.AUTH_BASIC_USERS)))
-					.setAuthorizer(new AllowAllAuthorizer()).setPrefix("Basic").buildAuthFilter();
-			env.jersey().register(basicCredentialAuthFilter);
-		}
-
+		return walManager;
 	}
 
-	private void loadConfiguration(ClusterConfiguration configuration, HashMap<String, String> conf)
+	private void loadConfiguration(ClusterConfiguration configuration, Map<String, String> conf)
 			throws IOException, FileNotFoundException {
 		String path = configuration.getConfigPath();
 		if (path != null) {
