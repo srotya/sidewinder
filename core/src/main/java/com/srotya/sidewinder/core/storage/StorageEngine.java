@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.AnyFilter;
@@ -181,8 +182,8 @@ public interface StorageEngine {
 	 * function does allow use of {@link AggregationFunction}.
 	 * 
 	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
+	 * @param measurementPattern
+	 * @param valueFieldPattern
 	 * @param startTime
 	 * @param endTime
 	 * @param tagList
@@ -192,15 +193,19 @@ public interface StorageEngine {
 	 * @return
 	 * @throws IOException
 	 */
-	public default Set<SeriesQueryOutput> queryDataPoints(String dbName, String measurementName, String valueFieldName,
-			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
-			Predicate valuePredicate, AggregationFunction aggregationFunction) throws IOException {
-		if (!checkIfExists(dbName, measurementName)) {
+	public default Set<SeriesQueryOutput> queryDataPoints(String dbName, String measurementPattern,
+			String valueFieldPattern, long startTime, long endTime, List<String> tagList,
+			Filter<List<String>> tagFilter, Predicate valuePredicate, AggregationFunction aggregationFunction)
+			throws IOException {
+		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
+		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementPattern);
 		Set<SeriesQueryOutput> resultMap = new HashSet<>();
-		getDatabaseMap().get(dbName).get(measurementName).queryDataPoints(valueFieldName, startTime, endTime, tagList,
-				tagFilter, valuePredicate, aggregationFunction, resultMap);
+		for (String measurement : measurementsLike) {
+			getDatabaseMap().get(dbName).get(measurement).queryDataPoints(valueFieldPattern, startTime, endTime,
+					tagList, tagFilter, valuePredicate, aggregationFunction, resultMap);
+		}
 		return resultMap;
 	}
 
@@ -210,9 +215,9 @@ public interface StorageEngine {
 	 * @param dbName
 	 * @param partialMeasurementName
 	 * @return measurements
-	 * @throws Exception
+	 * @throws IOException
 	 */
-	public default Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws Exception {
+	public default Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws IOException {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -221,11 +226,20 @@ public interface StorageEngine {
 		if (partialMeasurementName.isEmpty()) {
 			return measurementMap.keySet();
 		} else {
+			Pattern p;
+			try {
+				p = Pattern.compile(partialMeasurementName);
+			} catch (Exception e) {
+				throw new IOException("Invalid regex for measurement name:" + e.getMessage());
+			}
 			Set<String> filteredSeries = new HashSet<>();
 			for (String measurementName : measurementMap.keySet()) {
-				if (measurementName.contains(partialMeasurementName)) {
+				if (p.matcher(measurementName).matches()) {
 					filteredSeries.add(measurementName);
 				}
+			}
+			if(filteredSeries.isEmpty()) {
+				throw NOT_FOUND_EXCEPTION;
 			}
 			return filteredSeries;
 		}
@@ -263,10 +277,15 @@ public interface StorageEngine {
 	 * @throws Exception
 	 */
 	public default Set<String> getTagsForMeasurement(String dbName, String measurementName) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
+		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		return getDatabaseMap().get(dbName).get(measurementName).getTags();
+		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
+		Set<String> results = new HashSet<>();
+		for (String m : measurementsLike) {
+			results.addAll(getDatabaseMap().get(dbName).get(m).getTags());
+		}
+		return results;
 	}
 
 	/**
@@ -281,7 +300,12 @@ public interface StorageEngine {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		return getDatabaseMap().get(dbName).get(measurementName).getTagsForMeasurement(valueFieldName);
+		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
+		List<List<String>> results = new ArrayList<>();
+		for (String m : measurementsLike) {
+			results.addAll(getDatabaseMap().get(dbName).get(m).getTagsForMeasurement(valueFieldName));
+		}
+		return results;
 	}
 
 	/**
@@ -337,15 +361,35 @@ public interface StorageEngine {
 	 * Get all fields for a measurement
 	 * 
 	 * @param dbName
-	 * @param measurementName
+	 * @param measurementNameRegex
 	 * @return
 	 * @throws Exception
 	 */
-	public default Set<String> getFieldsForMeasurement(String dbName, String measurementName) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
+	public default Set<String> getFieldsForMeasurement(String dbName, String measurementNameRegex) throws Exception {
+		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		return getDatabaseMap().get(dbName).get(measurementName).getFieldsForMeasurement();
+		Set<String> filterdMeasurements = new HashSet<>();
+		findMeasurementsLike(dbName, measurementNameRegex, filterdMeasurements);
+		Set<String> superSet = new HashSet<>();
+		if (filterdMeasurements.isEmpty()) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		for (String name : filterdMeasurements) {
+			superSet.addAll(getDatabaseMap().get(dbName).get(name).getFieldsForMeasurement());
+		}
+		return superSet;
+	}
+
+	public default void findMeasurementsLike(String dbName, String measurementNameRegex,
+			Set<String> filterdMeasurements) {
+		Pattern p = Pattern.compile(measurementNameRegex);
+		Set<String> measurementNames = getDatabaseMap().get(dbName).keySet();
+		for (String name : measurementNames) {
+			if (p.matcher(name).matches()) {
+				filterdMeasurements.add(name);
+			}
+		}
 	}
 
 	// retention policy update methods

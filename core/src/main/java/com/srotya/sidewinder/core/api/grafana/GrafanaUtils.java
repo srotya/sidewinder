@@ -23,6 +23,7 @@ import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.NotFoundException;
 
 import com.google.gson.JsonArray;
@@ -61,6 +62,8 @@ public class GrafanaUtils {
 					targetSeriesEntry.getTagFilter(), null, targetSeriesEntry.getAggregationFunction());
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
+		} catch (Exception e) {
+			throw new BadRequestException(e.getMessage());
 		}
 		for (SeriesQueryOutput entry : points) {
 			List<DataPoint> dataPoints = entry.getDataPoints();
