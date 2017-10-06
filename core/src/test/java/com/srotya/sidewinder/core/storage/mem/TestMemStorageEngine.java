@@ -274,10 +274,10 @@ public class TestMemStorageEngine {
 		Set<String> result = engine.getMeasurementsLike("test", " ");
 		assertEquals(3, result.size());
 
-		result = engine.getMeasurementsLike("test", "c");
+		result = engine.getMeasurementsLike("test", "c.*");
 		assertEquals(1, result.size());
 
-		result = engine.getMeasurementsLike("test", "m");
+		result = engine.getMeasurementsLike("test", ".*m.*");
 		assertEquals(2, result.size());
 	}
 
@@ -473,7 +473,7 @@ public class TestMemStorageEngine {
 		System.out.println(engine.getTagsForMeasurement(dbName, measurementName));
 		tagFilterTree = new AndFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("1"),
 				new ContainsFilter<String, List<String>>("8")));
-		series = engine.getTagFilteredRowKeys(dbName, measurementName, valueFieldName, tagFilterTree,
+		series = engine.getTagFilteredRowKeys(dbName, measurementName, valueFieldName+"$", tagFilterTree,
 				Arrays.asList("1", "8"));
 		System.out.println("Series::" + series);
 		assertEquals(1, series.size());
@@ -596,6 +596,14 @@ public class TestMemStorageEngine {
 
 		try {
 			engine.getFieldsForMeasurement(dbName, measurementName + "1");
+			fail("This measurement should not exist");
+		} catch (Exception e) {
+		}
+
+		assertEquals(1, engine.getFieldsForMeasurement(dbName, "c.*").size());
+		assertEquals(1, engine.getFieldsForMeasurement(dbName, ".*").size());
+		try {
+			engine.getFieldsForMeasurement(dbName, "d.*");
 			fail("This measurement should not exist");
 		} catch (Exception e) {
 		}

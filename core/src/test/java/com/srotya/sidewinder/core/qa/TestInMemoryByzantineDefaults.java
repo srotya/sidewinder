@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
 
@@ -106,6 +107,7 @@ public class TestInMemoryByzantineDefaults {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	@Test
 	public void testSingleSeriesWritesQueryGrafana()
 			throws KeyManagementException, ClientProtocolException, NoSuchAlgorithmException, KeyStoreException,
@@ -218,12 +220,24 @@ public class TestInMemoryByzantineDefaults {
 		post.setEntity(new StringEntity("{\"target\":\"cpu\"}"));
 		response = TestUtils.makeRequest(post);
 		assertEquals(200, response.getStatusLine().getStatusCode());
-		
+
 		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity("{\"target\":\"cpu.*\"}"));
 		response = TestUtils.makeRequest(post);
 		assertEquals(200, response.getStatusLine().getStatusCode());
+		String res = EntityUtils.toString(response.getEntity());
+		List<String> fromJson = new Gson().fromJson(res, List.class);
+		assertEquals(1, fromJson.size());
+		
+		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
+		post.setHeader("Content-Type", "application/json");
+		post.setEntity(new StringEntity("{\"target\":\".*\"}"));
+		response = TestUtils.makeRequest(post);
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		res = EntityUtils.toString(response.getEntity());
+		fromJson = new Gson().fromJson(res, List.class);
+		assertEquals(1, fromJson.size());
 	}
 
 }
