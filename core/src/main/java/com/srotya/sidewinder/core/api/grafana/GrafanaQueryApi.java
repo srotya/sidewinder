@@ -135,7 +135,7 @@ public class GrafanaQueryApi {
 					} else if (target.contains("field:")) {
 						return engine.getFieldsForMeasurement(dbName, target.replace("field:", ""));
 					} else {
-						return engine.getMeasurementsLike(dbName, "");
+						return engine.getMeasurementsLike(dbName, target);
 					}
 				}
 			}
@@ -143,6 +143,7 @@ public class GrafanaQueryApi {
 		} catch (RejectException e) {
 			throw new BadRequestException(e);
 		} catch (Exception e) {
+			e.printStackTrace();
 			throw new InternalServerErrorException(e.getMessage());
 		}
 	}

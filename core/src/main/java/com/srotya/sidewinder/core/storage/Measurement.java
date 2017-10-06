@@ -31,6 +31,7 @@ import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
@@ -104,17 +105,33 @@ public interface Measurement {
 
 	public String getMeasurementName();
 
-	public default List<List<String>> getTagsForMeasurement(String valueFieldName) throws Exception {
+	public default List<List<String>> getTagsForMeasurement(String valueFieldPattern) throws Exception {
+		String tmpOriginal = valueFieldPattern;
 		Set<String> keySet = new HashSet<>();
+		if (valueFieldPattern.endsWith("$")) {
+			valueFieldPattern = valueFieldPattern.substring(0, valueFieldPattern.length() - 1);
+		}
+		Pattern p = null;
+		try {
+			valueFieldPattern += ".*";
+			p = Pattern.compile(valueFieldPattern);
+		} catch (Exception e) {
+			throw new IOException("Invalid regex pattern for value field name:" + e.getMessage());
+		}
 		for (Entry<String, TimeSeries> entry : getTimeSeriesMap().entrySet()) {
-			if (entry.getKey().startsWith(valueFieldName)) {
+			if (p.matcher(entry.getKey()).matches()) {
 				keySet.add(entry.getKey());
 			}
+		}
+		try {
+			p = Pattern.compile(tmpOriginal);
+		} catch (Exception e) {
+			throw new IOException("Invalid regex pattern for value field name:" + e.getMessage());
 		}
 		List<List<String>> tagList = new ArrayList<>();
 		for (String entry : keySet) {
 			String[] keys = entry.split(FIELD_TAG_SEPARATOR);
-			if (!keys[0].equals(valueFieldName)) {
+			if (!p.matcher(keys[0]).matches()) {
 				continue;
 			}
 			List<String> tags = decodeStringToTags(getTagIndex(), keys[1]);
@@ -123,14 +140,17 @@ public interface Measurement {
 		return tagList;
 	}
 
-	public default Set<String> getTagFilteredRowKeys(String valueFieldName, Filter<List<String>> tagFilterTree,
+	public default Set<String> getTagFilteredRowKeys(String valueFieldNamePattern, Filter<List<String>> tagFilterTree,
 			List<String> rawTags) throws IOException {
+		Pattern p = null;
+		try {
+			p = Pattern.compile(valueFieldNamePattern);
+		} catch (Exception e) {
+			throw new IOException("Invalid regex for value field name:" + e.getMessage());
+		}
 		Set<String> filteredSeries = getSeriesIdsWhereTags(rawTags);
 		for (Iterator<String> iterator = filteredSeries.iterator(); iterator.hasNext();) {
 			String rowKey = iterator.next();
-			if (!rowKey.startsWith(valueFieldName)) {
-				continue;
-			}
 			String[] keys = rowKey.split(FIELD_TAG_SEPARATOR);
 			if (keys.length != 2) {
 				// field encoding
@@ -138,7 +158,7 @@ public interface Measurement {
 				iterator.remove();
 				continue;
 			}
-			if (!keys[0].equals(valueFieldName)) {
+			if (!p.matcher(keys[0]).matches()) {
 				iterator.remove();
 				continue;
 			}
@@ -203,18 +223,24 @@ public interface Measurement {
 		return series;
 	}
 
-	public default void queryDataPoints(String valueFieldName, long startTime, long endTime, List<String> tagList,
-			Filter<List<String>> tagFilter, Predicate valuePredicate, AggregationFunction aggregationFunction,
-			Set<SeriesQueryOutput> resultMap) throws IOException {
+	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime,
+			List<String> tagList, Filter<List<String>> tagFilter, Predicate valuePredicate,
+			AggregationFunction aggregationFunction, Set<SeriesQueryOutput> resultMap) throws IOException {
 		Set<String> rowKeys = null;
+		Pattern p = null;
+		try {
+			p = Pattern.compile(valueFieldNamePattern);
+		} catch (Exception e) {
+			throw new IOException("Invalid regex for value field name:" + e.getMessage());
+		}
 		if (tagList == null || tagList.size() == 0) {
 			rowKeys = getTimeSeriesMap().keySet();
 		} else {
-			rowKeys = getTagFilteredRowKeys(valueFieldName, tagFilter, tagList);
+			rowKeys = getTagFilteredRowKeys(valueFieldNamePattern, tagFilter, tagList);
 		}
 		for (String entry : rowKeys) {
 			String[] keys = entry.split(FIELD_TAG_SEPARATOR);
-			if (!keys[0].equals(valueFieldName)) {
+			if (!p.matcher(keys[0]).matches()) {
 				continue;
 			}
 			List<DataPoint> points = null;
