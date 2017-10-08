@@ -38,10 +38,12 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -55,7 +57,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class PersistentMeasurement implements Measurement {
 
-	private static final AtomicLong BUF_COUNTER = new AtomicLong();
+	// 100MB default buffer increment size
 	private static final int DEFAULT_BUF_INCREMENT = 1048576;
 	private static final int DEFAULT_MAX_FILE_SIZE = Integer.MAX_VALUE;
 	private static final int DEFAULT_INCREMENT_SIZE = 32768;
@@ -85,10 +87,17 @@ public class PersistentMeasurement implements Measurement {
 	private PrintWriter prMetadata;
 	private String indexDirectory;
 	private long offset;
+	// metrics
+	private Counter metricsBufferSize;
+	private Counter metricsBufferResize;
+	private Counter metricsFileRotation;
+	private Counter metricsBufferCounter;
+	private Counter metricsTimeSeriesCounter;
 
 	@Override
-	public void configure(Map<String, String> conf, String measurementName, String indexDirectory, String dataDirectory,
-			DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
+	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String indexDirectory,
+			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
+		enableMetricsMonitoring(engine);
 		this.conf = conf;
 		this.dataDirectory = dataDirectory + "/" + measurementName;
 		this.indexDirectory = indexDirectory + "/" + measurementName;
@@ -116,9 +125,24 @@ public class PersistentMeasurement implements Measurement {
 		this.bufTracker = new ArrayList<>();
 		this.prBufPointers = new PrintWriter(new FileOutputStream(new File(getPtrPath()), true));
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
-		this.tagIndex = new DiskTagIndex(this.indexDirectory, measurementName);
+		this.tagIndex = new DiskTagIndex(this.indexDirectory, measurementName,
+				MetricsRegistryService.getInstance(engine).getInstance("requests"));
 		// bgTaskPool.scheduleAtFixedRate(()->System.out.println("Buffers:"+BUF_COUNTER.get()),
 		// 2, 2, TimeUnit.SECONDS);
+	}
+
+	private void enableMetricsMonitoring(StorageEngine engine) {
+		if (engine == null) {
+			return;
+		}
+		MetricsRegistryService reg = MetricsRegistryService.getInstance(engine);
+		MetricRegistry r = reg.getInstance("memoryops");
+		metricsBufferSize = r.counter("buffer-size");
+		metricsBufferResize = r.counter("buffer-resize");
+		metricsFileRotation = r.counter("file-rotation");
+		metricsBufferCounter = r.counter("buffer-counter");
+		MetricRegistry metaops = reg.getInstance("metaops");
+		metricsTimeSeriesCounter = metaops.counter("timeseries-counter");
 	}
 
 	private String getPtrPath() {
@@ -144,6 +168,7 @@ public class PersistentMeasurement implements Measurement {
 					appendTimeseriesToMeasurementMetadata(seriesId, fp, timeBucketSize);
 					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
 							+ seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesMap.size());
+					metricsTimeSeriesCounter.inc();
 				}
 			}
 		}
@@ -286,6 +311,7 @@ public class PersistentMeasurement implements Measurement {
 					memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, fileMapIncrement);
 					bufTracker.add(memoryMappedBuffer);
 					fcnt++;
+					metricsFileRotation.inc();
 				}
 			}
 		}
@@ -308,7 +334,8 @@ public class PersistentMeasurement implements Measurement {
 				}
 				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, offset, fileMapIncrement);
 				logger.fine("Buffer expansion:" + offset + "\t\t" + curr);
-				// bufTracker.add(memoryMappedBuffer);
+				metricsBufferResize.inc();
+				metricsBufferSize.inc(fileMapIncrement);
 			}
 			curr = base * increment;
 			memoryMappedBuffer.position(curr);
@@ -317,9 +344,8 @@ public class PersistentMeasurement implements Measurement {
 			TimeSeries.writeStringToBuffer(tsBucket, memoryMappedBuffer);
 			ByteBuffer buf = memoryMappedBuffer.slice();
 			buf.limit(increment);
-			// System.out.println("Position:" + buf.position() + "\t" + buf.limit() + "\t" +
-			// buf.capacity());
-			BUF_COUNTER.incrementAndGet();
+			logger.fine("Position:" + buf.position() + "\t" + buf.limit() + "\t" + buf.capacity());
+			metricsBufferCounter.inc();
 			return buf;
 		}
 	}

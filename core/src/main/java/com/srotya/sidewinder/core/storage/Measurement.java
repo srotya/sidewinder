@@ -47,7 +47,7 @@ public interface Measurement {
 	public static final String FIELD_TAG_SEPARATOR = "#";
 	public static final String TAG_SEPARATOR = "_";
 
-	public void configure(Map<String, String> conf, String measurementName, String baseIndexDirectory,
+	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String baseIndexDirectory,
 			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException;
 
 	public Collection<TimeSeries> getTimeSeries();

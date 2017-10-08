@@ -26,6 +26,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -48,8 +50,10 @@ public class DiskTagIndex implements TagIndex {
 	private XXHash32 hash;
 	private String fwdIndex;
 	private String revIndex;
+	private Counter metricIndexTag;
+	private Counter metricIndexRow;
 
-	public DiskTagIndex(String indexDir, String measurementName) throws IOException {
+	public DiskTagIndex(String indexDir, String measurementName, MetricRegistry registry) throws IOException {
 		this.indexPath = indexDir + "/" + measurementName;
 		tagMap = new ConcurrentHashMap<>(10000);
 		rowKeyIndex = new ConcurrentHashMap<>(10000);
@@ -58,6 +62,8 @@ public class DiskTagIndex implements TagIndex {
 		prFwd = new PrintWriter( new FileOutputStream(new File(fwdIndex), true));
 		prRv = new PrintWriter(new FileOutputStream(new File(revIndex), true));
 		hash = factory.hash32();
+		metricIndexTag = registry.counter("index-tag");
+		metricIndexRow = registry.counter("index-row");
 		loadTagIndex();
 	}
 
@@ -105,6 +111,7 @@ public class DiskTagIndex implements TagIndex {
 				}
 			}
 		}
+		metricIndexTag.inc();
 		return Integer.toHexString(hash32);
 	}
 
@@ -132,6 +139,7 @@ public class DiskTagIndex implements TagIndex {
 		if (!rowKeySet.contains(rowKey)) {
 			boolean add = rowKeySet.add(rowKey);
 			if (add) {
+				metricIndexRow.inc();
 				synchronized (tagMap) {
 					DiskStorageEngine.appendLineToFile(tag + "\t" + rowKey, prRv);
 				}

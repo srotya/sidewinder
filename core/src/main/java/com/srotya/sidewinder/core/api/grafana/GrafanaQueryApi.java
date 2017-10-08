@@ -48,6 +48,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.aggregators.FunctionTable;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -67,11 +68,12 @@ public class GrafanaQueryApi {
 	private Meter grafanaQueryCounter;
 	private Timer grafanaQueryLatency;
 
-	public GrafanaQueryApi(StorageEngine engine, MetricRegistry registry) throws SQLException {
+	public GrafanaQueryApi(StorageEngine engine) throws SQLException {
 		this.engine = engine;
 		tz = TimeZone.getDefault();
-		grafanaQueryCounter = registry.meter("gr-queries");
-		grafanaQueryLatency = registry.timer("gr-latency");
+		MetricRegistry registry = MetricsRegistryService.getInstance(engine).getInstance("grafana");
+		grafanaQueryCounter = registry.meter("queries");
+		grafanaQueryLatency = registry.timer("latency");
 	}
 
 	@Path("/hc")

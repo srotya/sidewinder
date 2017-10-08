@@ -85,8 +85,8 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		WALManager walManager = buildClusterAndWALManager(conf, bgTasks, registry, storageEngine);
 		System.out.println("WAL Manager:" + walManager.getAddress());
 
-		env.jersey().register(new InfluxApi(walManager, registry, conf));
-		env.jersey().register(new GrafanaQueryApi(storageEngine, registry));
+		env.jersey().register(new InfluxApi(walManager, storageEngine, conf));
+		env.jersey().register(new GrafanaQueryApi(storageEngine));
 	}
 
 	private WALManager buildClusterAndWALManager(Map<String, String> conf, ScheduledExecutorService bgTasks,

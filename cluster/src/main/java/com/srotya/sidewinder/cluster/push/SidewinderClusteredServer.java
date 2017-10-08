@@ -131,9 +131,9 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 
 		ResourceMonitor.getInstance().init(storageEngine, bgTasks);
 		ClusterResourceMonitor.getInstance().init(storageEngine, connector, bgTasks);
-		env.jersey().register(new GrafanaQueryApi(storageEngine, registry));
-		env.jersey().register(new MeasurementOpsApi(storageEngine, registry));
-		env.jersey().register(new DatabaseOpsApi(storageEngine, registry));
+		env.jersey().register(new GrafanaQueryApi(storageEngine));
+		env.jersey().register(new MeasurementOpsApi(storageEngine));
+		env.jersey().register(new DatabaseOpsApi(storageEngine));
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
 
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {

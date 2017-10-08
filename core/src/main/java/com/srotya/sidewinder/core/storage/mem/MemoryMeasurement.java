@@ -28,6 +28,7 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Logger;
 
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -49,11 +50,11 @@ public class MemoryMeasurement implements Measurement {
 	private String compressionClass;
 
 	@Override
-	public void configure(Map<String, String> conf, String measurementName, String baseIndexDirectory,
+	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String baseIndexDirectory,
 			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
 		this.measurementName = measurementName;
 		this.metadata = metadata;
-		this.tagIndex = new MemTagIndex();
+		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine).getInstance("request"));
 		this.seriesMap = new ConcurrentHashMap<>();
 		this.bufTracker = new ArrayList<>();
 		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,

@@ -41,8 +41,10 @@ import com.srotya.minuteman.rpc.ReplicationServiceGrpc;
 import com.srotya.minuteman.rpc.ReplicationServiceGrpc.ReplicationServiceBlockingStub;
 import com.srotya.minuteman.rpc.RouteRequest;
 import com.srotya.minuteman.rpc.RouteResponse;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.rpc.BatchData;
 import com.srotya.sidewinder.core.rpc.Point;
+import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.HTTPDataPointDecoder;
 
 /**
@@ -56,8 +58,9 @@ public class InfluxApi {
 	private WALManager mgr;
 	private static AtomicInteger counter = new AtomicInteger(0);
 
-	public InfluxApi(WALManager mgr, MetricRegistry registry, Map<String, String> conf) {
+	public InfluxApi(WALManager mgr, StorageEngine engine, Map<String, String> conf) {
 		this.mgr = mgr;
+		MetricRegistry registry = MetricsRegistryService.getInstance(engine).getInstance("requests");
 		meter = registry.meter("writes");
 	}
 

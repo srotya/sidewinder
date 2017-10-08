@@ -32,9 +32,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.codahale.metrics.Metric;
-import com.codahale.metrics.MetricFilter;
-import com.codahale.metrics.MetricRegistry;
 import com.lmax.disruptor.TimeoutException;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
 import com.srotya.sidewinder.core.api.InfluxApi;
@@ -76,8 +73,6 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 	@Override
 	public void run(SidewinderConfig config, Environment env) throws Exception {
 		shutdownTasks = new ArrayList<>();
-		final MetricRegistry registry = new MetricRegistry();
-
 		Map<String, String> conf = new HashMap<>();
 		overloadProperties(config, conf);
 
@@ -85,10 +80,10 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 				Integer.parseInt(conf.getOrDefault(ConfigConstants.BG_THREAD_COUNT, "2")),
 				new BackgrounThreadFactory("sidewinderbg-tasks"));
 		initializeStorageEngine(conf, bgTasks);
-		enableMonitoring(registry, bgTasks);
-		registerWebAPIs(env, conf, registry, bgTasks);
-		checkAndEnableGRPC(conf, registry);
-		checkAndEnableGraphite(conf, registry);
+		enableMonitoring(bgTasks);
+		registerWebAPIs(env, conf, bgTasks);
+		checkAndEnableGRPC(conf);
+		checkAndEnableGraphite(conf);
 		registerShutdownHook(conf);
 	}
 
@@ -103,9 +98,9 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		});
 	}
 
-	private void checkAndEnableGraphite(Map<String, String> conf, MetricRegistry registry) throws Exception {
+	private void checkAndEnableGraphite(Map<String, String> conf) throws Exception {
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.GRAPHITE_ENABLED, ConfigConstants.FALSE))) {
-			final GraphiteServer server = new GraphiteServer(conf, storageEngine, registry);
+			final GraphiteServer server = new GraphiteServer(conf, storageEngine);
 			server.start();
 			shutdownTasks.add(new Runnable() {
 
@@ -121,18 +116,8 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		}
 	}
 
-	private void enableMonitoring(final MetricRegistry registry, ScheduledExecutorService bgTasks) {
+	private void enableMonitoring(ScheduledExecutorService bgTasks) {
 		ResourceMonitor.getInstance().init(storageEngine, bgTasks);
-		@SuppressWarnings("resource")
-		SidewinderDropwizardReporter reporter = new SidewinderDropwizardReporter(registry, "request",
-				new MetricFilter() {
-
-					@Override
-					public boolean matches(String name, Metric metric) {
-						return true;
-					}
-				}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine);
-		reporter.start(1, TimeUnit.SECONDS);
 	}
 
 	private void overloadProperties(SidewinderConfig config, Map<String, String> conf)
@@ -157,12 +142,12 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		storageEngine.connect();
 	}
 
-	private void registerWebAPIs(Environment env, Map<String, String> conf, final MetricRegistry registry,
-			ScheduledExecutorService bgTasks) throws SQLException, ClassNotFoundException {
-		env.jersey().register(new GrafanaQueryApi(storageEngine, registry));
-		env.jersey().register(new MeasurementOpsApi(storageEngine, registry));
-		env.jersey().register(new DatabaseOpsApi(storageEngine, registry));
-		env.jersey().register(new InfluxApi(storageEngine, registry));
+	private void registerWebAPIs(Environment env, Map<String, String> conf, ScheduledExecutorService bgTasks)
+			throws SQLException, ClassNotFoundException {
+		env.jersey().register(new GrafanaQueryApi(storageEngine));
+		env.jersey().register(new MeasurementOpsApi(storageEngine));
+		env.jersey().register(new DatabaseOpsApi(storageEngine));
+		env.jersey().register(new InfluxApi(storageEngine));
 		env.jersey().register(new SqlApi(storageEngine));
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
 
@@ -175,7 +160,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		}
 	}
 
-	private void checkAndEnableGRPC(Map<String, String> conf, MetricRegistry registry) throws IOException {
+	private void checkAndEnableGRPC(Map<String, String> conf) throws IOException {
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.ENABLE_GRPC, ConfigConstants.FALSE))) {
 			final ExecutorService es = Executors
 					.newFixedThreadPool(

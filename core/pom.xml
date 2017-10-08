@@ -287,6 +287,7 @@
                 <script>mkdir -p /usr/sidewinder/lib</script>
                 <script>mkdir -p /usr/sidewinder/bin</script>
                 <script>mkdir -p /etc/sidewinder</script>
+                <script>sysctl -w vm.max_map_count=262144</script>
               </preinstallScriptlet>
               <postinstallScriptlet>
                 <script>chmod +x /usr/sidewinder/bin/sidewinder</script>
