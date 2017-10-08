@@ -34,7 +34,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
-import com.codahale.metrics.MetricRegistry;
 import com.google.gson.Gson;
 import com.srotya.sidewinder.core.api.grafana.TargetSeries;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
@@ -48,11 +47,8 @@ public class DatabaseOpsApi {
 	public static final String DB_NAME = "dbName";
 	private StorageEngine storageEngine;
 
-	public DatabaseOpsApi(StorageEngine storageEngine, MetricRegistry registry) {
+	public DatabaseOpsApi(StorageEngine storageEngine) {
 		this.storageEngine = storageEngine;
-		if (registry != null) {
-			// register things
-		}
 	}
 
 	@GET

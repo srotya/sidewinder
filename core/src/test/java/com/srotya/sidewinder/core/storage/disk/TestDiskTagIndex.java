@@ -27,9 +27,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.Measurement;
+import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemTagIndex;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -39,9 +43,17 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class TestDiskTagIndex {
 
+	private static StorageEngine engine;
+
+	@BeforeClass
+	public static void before() throws IOException {
+		engine = new MemStorageEngine();
+		engine.configure(new HashMap<>(), Executors.newScheduledThreadPool(1));
+	}
+
 	@Test
 	public void testDiskTagIndexBasic() {
-		MemTagIndex index = new MemTagIndex();
+		MemTagIndex index = new MemTagIndex(MetricsRegistryService.getInstance(engine).getInstance("requests"));
 		for (int i = 0; i < 1000; i++) {
 			String idx = index.createEntry("tag" + (i + 1));
 			index.index(idx, "test212");
@@ -53,7 +65,7 @@ public class TestDiskTagIndex {
 		}
 	}
 
-//	@Test
+	// @Test
 	public void testTagIndexPerformance() throws IOException, InterruptedException {
 		MiscUtils.delete(new File("target/perf/index-dir"));
 		MiscUtils.delete(new File("target/perf/data-dir"));
@@ -99,7 +111,8 @@ public class TestDiskTagIndex {
 	public void testTagIndexThreaded() throws InterruptedException, IOException {
 		String indexDir = "target/index";
 		new File(indexDir).mkdirs();
-		final DiskTagIndex index = new DiskTagIndex(indexDir, "m2");
+		final DiskTagIndex index = new DiskTagIndex(indexDir, "m2",
+				MetricsRegistryService.getInstance(engine).getInstance("requests"));
 		ExecutorService es = Executors.newCachedThreadPool();
 		for (int k = 0; k < 10; k++) {
 			es.submit(() -> {
@@ -121,7 +134,8 @@ public class TestDiskTagIndex {
 			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
 
-		DiskTagIndex index2 = new DiskTagIndex(indexDir, "m2");
+		DiskTagIndex index2 = new DiskTagIndex(indexDir, "m2",
+				MetricsRegistryService.getInstance(engine).getInstance("requests"));
 		for (int i = 0; i < 1000; i++) {
 			String entry = index2.createEntry("tag" + (i + 1));
 			assertEquals("tag" + (i + 1), index2.getEntry(entry));

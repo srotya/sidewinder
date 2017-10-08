@@ -49,7 +49,7 @@ public class TestDatabaseOpsApi {
 		dp.setValueFieldName("value");
 		engine.writeDataPoint(dp);
 
-		DatabaseOpsApi api = new DatabaseOpsApi(engine, null);
+		DatabaseOpsApi api = new DatabaseOpsApi(engine);
 		String querySeries = api.querySeries("test1",
 				"2000-12-10T10:10:10<cpu.value.host=1|te=2&vm1<2020-12-10T10:10:10");
 		JsonArray results = new Gson().fromJson(querySeries, JsonArray.class);

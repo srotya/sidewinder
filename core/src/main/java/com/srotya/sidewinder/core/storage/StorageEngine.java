@@ -26,9 +26,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
 
+import com.codahale.metrics.Counter;
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.filters.Filter;
@@ -101,7 +101,7 @@ public interface StorageEngine {
 		} else {
 			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getLongValue());
 		}
-		getCounter().incrementAndGet();
+		getCounter().inc();
 	}
 
 	public default void writeDataPoint(List<DataPoint> dps) throws IOException {
@@ -125,7 +125,7 @@ public interface StorageEngine {
 		}
 		for (Entry<TimeSeries, List<DataPoint>> entry : dpMap.entrySet()) {
 			entry.getKey().addDataPoints(TimeUnit.MILLISECONDS, entry.getValue());
-			getCounter().addAndGet(entry.getValue().size());
+			getCounter().inc(entry.getValue().size());
 		}
 	}
 
@@ -139,7 +139,7 @@ public interface StorageEngine {
 			throw FP_MISMATCH_EXCEPTION;
 		}
 		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
-		getCounter().incrementAndGet();
+		getCounter().inc();
 	}
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
@@ -152,7 +152,7 @@ public interface StorageEngine {
 			throw FP_MISMATCH_EXCEPTION;
 		}
 		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
-		getCounter().incrementAndGet();
+		getCounter().inc();
 	}
 
 	/**
@@ -238,7 +238,7 @@ public interface StorageEngine {
 					filteredSeries.add(measurementName);
 				}
 			}
-			if(filteredSeries.isEmpty()) {
+			if (filteredSeries.isEmpty()) {
 				throw NOT_FOUND_EXCEPTION;
 			}
 			return filteredSeries;
@@ -602,6 +602,6 @@ public interface StorageEngine {
 
 	public int getDefaultTimebucketSize();
 
-	public AtomicInteger getCounter();
+	public Counter getCounter();
 
 }

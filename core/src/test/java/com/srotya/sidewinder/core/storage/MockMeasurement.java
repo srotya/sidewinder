@@ -94,7 +94,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public void configure(Map<String, String> conf, String measurementName, String baseIndexDirectory,
+	public void configure(Map<String, String> conf, StorageEngine engine , String measurementName, String baseIndexDirectory,
 			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
 	}
 

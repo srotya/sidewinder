@@ -29,11 +29,13 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
 import com.google.gson.Gson;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -55,7 +57,6 @@ public class DiskStorageEngine implements StorageEngine {
 	private static final String DATA_DIRS = "data.dir";
 	private static final Logger logger = Logger.getLogger(DiskStorageEngine.class.getName());
 	private Map<String, Map<String, Measurement>> databaseMap;
-	private AtomicInteger counter = new AtomicInteger(0);
 	private Map<String, DBMetadata> dbMetadataMap;
 	private int defaultRetentionHours;
 	private int defaultTimebucketSize;
@@ -64,6 +65,9 @@ public class DiskStorageEngine implements StorageEngine {
 	private String[] dataDirs;
 	private String baseIndexDirectory;
 	private ScheduledExecutorService bgTaskPool;
+	private Counter metricsDbCounter;
+	private Counter metricsMeasurementCounter;
+	private Counter metricsWriteCounter;
 
 	@Override
 	public void configure(Map<String, String> conf, ScheduledExecutorService bgTaskPool) throws IOException {
@@ -72,7 +76,6 @@ public class DiskStorageEngine implements StorageEngine {
 		this.defaultRetentionHours = Integer
 				.parseInt(conf.getOrDefault(RETENTION_HOURS, String.valueOf(DEFAULT_RETENTION_HOURS)));
 		logger.info("Setting default timeseries retention hours policy to:" + defaultRetentionHours);
-
 		dataDirs = MiscUtils.splitAndNormalizeString(conf.getOrDefault(DATA_DIRS, TMP_SIDEWINDER_METADATA));
 		baseIndexDirectory = conf.getOrDefault(INDEX_DIR, TMP_SIDEWINDER_INDEX);
 		for (String dataDir : dataDirs) {
@@ -92,6 +95,7 @@ public class DiskStorageEngine implements StorageEngine {
 		this.defaultTimebucketSize = Integer
 				.parseInt(conf.getOrDefault(DEFAULT_BUCKET_SIZE, String.valueOf(DEFAULT_TIME_BUCKET_CONSTANT)));
 		logger.info("Configuring default time bucket:" + getDefaultTimebucketSize());
+		enableMetricsService();
 		if (Boolean.parseBoolean(conf.getOrDefault("gc.enabled", "true"))) {
 			bgTaskPool.scheduleAtFixedRate(() -> {
 				for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
@@ -111,6 +115,14 @@ public class DiskStorageEngine implements StorageEngine {
 			logger.info("WARNING: GC has been disabled, data retention policies will not be honored");
 		}
 		loadDatabases();
+	}
+
+	public void enableMetricsService() {
+		MetricsRegistryService reg = MetricsRegistryService.getInstance(this);
+		MetricRegistry metaops = reg.getInstance("metaops");
+		metricsDbCounter = metaops.counter("db-create");
+		metricsMeasurementCounter = metaops.counter("measurement-create");
+		metricsWriteCounter = reg.getInstance("ops").counter("write-counter");
 	}
 
 	@Override
@@ -168,6 +180,7 @@ public class DiskStorageEngine implements StorageEngine {
 					saveDBMetadata(dbName, metadata);
 					logger.info("Created new database:" + dbName + "\t with retention period:" + defaultRetentionHours
 							+ " hours");
+					metricsDbCounter.inc();
 				}
 			}
 		}
@@ -247,10 +260,11 @@ public class DiskStorageEngine implements StorageEngine {
 			synchronized (databaseMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					measurement = new PersistentMeasurement();
-					measurement.configure(conf, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName),
+					measurement.configure(conf, this, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName),
 							dbMetadataMap.get(dbName), bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
+					metricsMeasurementCounter.inc();
 				}
 			}
 		}
@@ -286,7 +300,7 @@ public class DiskStorageEngine implements StorageEngine {
 			}
 			String measurementName = measurementMdFile.getName();
 			Measurement measurement = new PersistentMeasurement();
-			measurement.configure(conf, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName), metadata,
+			measurement.configure(conf, this, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName), metadata,
 					bgTaskPool);
 			measurementMap.put(measurementName, measurement);
 			logger.info("Loading measurements:" + measurementName);
@@ -374,6 +388,7 @@ public class DiskStorageEngine implements StorageEngine {
 			}
 			MiscUtils.delete(new File(dbDirectoryPath(dbName)));
 			MiscUtils.delete(new File(dbIndexPath(dbName)));
+			metricsDbCounter.dec();
 		}
 	}
 
@@ -382,6 +397,7 @@ public class DiskStorageEngine implements StorageEngine {
 		Map<String, Measurement> map = databaseMap.get(dbName);
 		synchronized (databaseMap) {
 			map.remove(measurementName);
+			metricsMeasurementCounter.dec();
 		}
 	}
 
@@ -433,8 +449,8 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public AtomicInteger getCounter() {
-		return counter;
+	public Counter getCounter() {
+		return metricsWriteCounter;
 	}
 
 }

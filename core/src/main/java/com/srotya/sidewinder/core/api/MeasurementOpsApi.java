@@ -36,7 +36,6 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
-import com.codahale.metrics.MetricRegistry;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -59,7 +58,7 @@ public class MeasurementOpsApi {
 	public static final String VALUE = "value";
 	private StorageEngine engine;
 
-	public MeasurementOpsApi(StorageEngine storageEngine, MetricRegistry registry) {
+	public MeasurementOpsApi(StorageEngine storageEngine) {
 		this.engine = storageEngine;
 	}
 
