@@ -52,8 +52,9 @@ import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
 import io.dropwizard.setup.Environment;
 import io.grpc.DecompressorRegistry;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.ServerInterceptors;
+import io.grpc.internal.ServerImpl;
+import io.grpc.netty.NettyServerBuilder;
 
 /**
  * Main driver class for single-node sidewinder. It will register the REST APIs,
@@ -169,9 +170,17 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 							new BackgrounThreadFactory("grpc-threads"));
 
 			final WriterServiceImpl writer = new WriterServiceImpl(storageEngine, conf);
-			final Server server = ServerBuilder
+			NettyServerBuilder serverBuilder = NettyServerBuilder
 					.forPort(Integer.parseInt(conf.getOrDefault(ConfigConstants.GRPC_PORT, "9928"))).executor(es)
-					.decompressorRegistry(DecompressorRegistry.getDefaultInstance()).addService(writer).build().start();
+					.maxMessageSize(10485760).decompressorRegistry(DecompressorRegistry.getDefaultInstance());
+			// enable GRPC authentication
+			if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {
+				serverBuilder.addService(ServerInterceptors.intercept(writer,
+						new BasicAuthenticator(conf.get(ConfigConstants.AUTH_BASIC_USERS))));
+			} else {
+				serverBuilder.addService(writer);
+			}
+			ServerImpl server = serverBuilder.build().start();
 			shutdownTasks.add(new Runnable() {
 
 				@Override

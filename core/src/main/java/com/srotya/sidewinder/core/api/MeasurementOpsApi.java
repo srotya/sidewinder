@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
@@ -197,8 +198,11 @@ public class MeasurementOpsApi {
 	}
 
 	public List<Number[]> getSeries(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
-			@PathParam(MEASUREMENT) String measurementName,
+			@PathParam(MEASUREMENT) String measurementName, @QueryParam("field") String valueFieldName, 
 			@DefaultValue("now-1h") @QueryParam(START_TIME) String startTime, @QueryParam(END_TIME) String endTime) {
+		if(valueFieldName==null) {
+			throw new BadRequestException("Must specify a value field");
+		}
 		try {
 			SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 			long endTs = System.currentTimeMillis();
@@ -211,7 +215,7 @@ public class MeasurementOpsApi {
 				startTs = sdf.parse(startTime).getTime();
 				endTs = sdf.parse(endTime).getTime();
 			}
-			Set<SeriesQueryOutput> points = engine.queryDataPoints(dbName, measurementName, "value",
+			Set<SeriesQueryOutput> points = engine.queryDataPoints(dbName, measurementName, valueFieldName,
 					startTs, endTs, Arrays.asList(""), null);
 			List<Number[]> response = new ArrayList<>();
 			for (SeriesQueryOutput entry : points) {
