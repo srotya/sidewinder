@@ -246,10 +246,10 @@ public class TestPersistentMeasurement {
 	@Test
 	public void testTagEncodeDecode() throws IOException {
 		String indexDir = "target/test";
+		MetricsRegistryService.getInstance(engine).getInstance("requests");
 		MiscUtils.delete(new File(indexDir));
 		new File(indexDir).mkdirs();
-		DiskTagIndex table = new DiskTagIndex(indexDir, "test2",
-				MetricsRegistryService.getInstance(engine).getInstance("requests"));
+		DiskTagIndex table = new DiskTagIndex(indexDir, "test2");
 		Measurement measurement = new PersistentMeasurement();
 		String encodedStr = measurement.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
 		List<String> decodedStr = Measurement.decodeStringToTags(table, encodedStr);
