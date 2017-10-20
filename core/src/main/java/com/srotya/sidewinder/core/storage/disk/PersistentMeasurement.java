@@ -88,6 +88,7 @@ public class PersistentMeasurement implements Measurement {
 	private String indexDirectory;
 	private long offset;
 	// metrics
+	private boolean enableMetricsCapture;
 	private Counter metricsBufferSize;
 	private Counter metricsBufferResize;
 	private Counter metricsFileRotation;
@@ -125,14 +126,14 @@ public class PersistentMeasurement implements Measurement {
 		this.bufTracker = new ArrayList<>();
 		this.prBufPointers = new PrintWriter(new FileOutputStream(new File(getPtrPath()), true));
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
-		this.tagIndex = new DiskTagIndex(this.indexDirectory, measurementName,
-				MetricsRegistryService.getInstance(engine).getInstance("requests"));
+		this.tagIndex = new DiskTagIndex(this.indexDirectory, measurementName);
 		// bgTaskPool.scheduleAtFixedRate(()->System.out.println("Buffers:"+BUF_COUNTER.get()),
 		// 2, 2, TimeUnit.SECONDS);
 	}
 
 	private void enableMetricsMonitoring(StorageEngine engine) {
 		if (engine == null) {
+			enableMetricsCapture = false;
 			return;
 		}
 		MetricsRegistryService reg = MetricsRegistryService.getInstance(engine);
@@ -143,6 +144,7 @@ public class PersistentMeasurement implements Measurement {
 		metricsBufferCounter = r.counter("buffer-counter");
 		MetricRegistry metaops = reg.getInstance("metaops");
 		metricsTimeSeriesCounter = metaops.counter("timeseries-counter");
+		enableMetricsCapture = true;
 	}
 
 	private String getPtrPath() {
@@ -168,7 +170,9 @@ public class PersistentMeasurement implements Measurement {
 					appendTimeseriesToMeasurementMetadata(seriesId, fp, timeBucketSize);
 					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
 							+ seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesMap.size());
-					metricsTimeSeriesCounter.inc();
+					if (enableMetricsCapture) {
+						metricsTimeSeriesCounter.inc();
+					}
 				}
 			}
 		}
@@ -311,7 +315,9 @@ public class PersistentMeasurement implements Measurement {
 					memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, fileMapIncrement);
 					bufTracker.add(memoryMappedBuffer);
 					fcnt++;
-					metricsFileRotation.inc();
+					if (enableMetricsCapture) {
+						metricsFileRotation.inc();
+					}
 				}
 			}
 		}
@@ -334,8 +340,10 @@ public class PersistentMeasurement implements Measurement {
 				}
 				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, offset, fileMapIncrement);
 				logger.fine("Buffer expansion:" + offset + "\t\t" + curr);
-				metricsBufferResize.inc();
-				metricsBufferSize.inc(fileMapIncrement);
+				if (enableMetricsCapture) {
+					metricsBufferResize.inc();
+					metricsBufferSize.inc(fileMapIncrement);
+				}
 			}
 			curr = base * increment;
 			memoryMappedBuffer.position(curr);
@@ -345,7 +353,9 @@ public class PersistentMeasurement implements Measurement {
 			ByteBuffer buf = memoryMappedBuffer.slice();
 			buf.limit(increment);
 			logger.fine("Position:" + buf.position() + "\t" + buf.limit() + "\t" + buf.capacity());
-			metricsBufferCounter.inc();
+			if (enableMetricsCapture) {
+				metricsBufferCounter.inc();
+			}
 			return buf;
 		}
 	}

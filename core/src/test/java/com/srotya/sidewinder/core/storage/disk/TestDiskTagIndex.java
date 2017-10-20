@@ -111,8 +111,8 @@ public class TestDiskTagIndex {
 	public void testTagIndexThreaded() throws InterruptedException, IOException {
 		String indexDir = "target/index";
 		new File(indexDir).mkdirs();
-		final DiskTagIndex index = new DiskTagIndex(indexDir, "m2",
-				MetricsRegistryService.getInstance(engine).getInstance("requests"));
+		MetricsRegistryService.getInstance(engine).getInstance("requests");
+		final DiskTagIndex index = new DiskTagIndex(indexDir, "m2");
 		ExecutorService es = Executors.newCachedThreadPool();
 		for (int k = 0; k < 10; k++) {
 			es.submit(() -> {
@@ -134,8 +134,7 @@ public class TestDiskTagIndex {
 			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
 
-		DiskTagIndex index2 = new DiskTagIndex(indexDir, "m2",
-				MetricsRegistryService.getInstance(engine).getInstance("requests"));
+		DiskTagIndex index2 = new DiskTagIndex(indexDir, "m2");
 		for (int i = 0; i < 1000; i++) {
 			String entry = index2.createEntry("tag" + (i + 1));
 			assertEquals("tag" + (i + 1), index2.getEntry(entry));

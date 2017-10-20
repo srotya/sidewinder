@@ -47,6 +47,10 @@ public class MetricsRegistryService {
 		}
 		return instance;
 	}
+	
+	public static MetricsRegistryService getInstance() {
+		return instance;
+	}
 
 	public MetricRegistry getInstance(String key) {
 		MetricRegistry reg = registry.get(key);
