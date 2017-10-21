@@ -119,14 +119,14 @@ public class PersistentMeasurement implements Measurement {
 			throw new IllegalArgumentException("File increment can't be greater than or equal to file size");
 		}
 		this.metadata = metadata;
-		this.seriesMap = new ConcurrentHashMap<>(10000);
+		this.seriesMap = new ConcurrentHashMap<>(100_000);
 		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
 				StorageEngine.DEFAULT_COMPRESSION_CLASS);
 		this.measurementName = measurementName;
 		this.bufTracker = new ArrayList<>();
 		this.prBufPointers = new PrintWriter(new FileOutputStream(new File(getPtrPath()), true));
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
-		this.tagIndex = new DiskTagIndex(this.indexDirectory, measurementName);
+		this.tagIndex = new MappedTagIndex(this.indexDirectory, measurementName);
 		// bgTaskPool.scheduleAtFixedRate(()->System.out.println("Buffers:"+BUF_COUNTER.get()),
 		// 2, 2, TimeUnit.SECONDS);
 	}
@@ -304,7 +304,7 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException {
+	public Entry<String, ByteBuffer> createNewBuffer(String seriesId, String tsBucket) throws IOException {
 		if (activeFile == null) {
 			synchronized (seriesMap) {
 				if (activeFile == null) {
@@ -347,7 +347,7 @@ public class PersistentMeasurement implements Measurement {
 			}
 			curr = base * increment;
 			memoryMappedBuffer.position(curr);
-			appendBufferPointersToDisk(seriesId, filename, curr, offset);
+			String ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset);
 			base++;
 			TimeSeries.writeStringToBuffer(tsBucket, memoryMappedBuffer);
 			ByteBuffer buf = memoryMappedBuffer.slice();
@@ -356,15 +356,16 @@ public class PersistentMeasurement implements Measurement {
 			if (enableMetricsCapture) {
 				metricsBufferCounter.inc();
 			}
-			return buf;
+			return new AbstractMap.SimpleEntry<String, ByteBuffer>(ptrKey, buf);
 		}
 	}
 
-	protected void appendBufferPointersToDisk(String seriesId, String filename, int curr, long offset)
+	protected String appendBufferPointersToDisk(String seriesId, String filename, int curr, long offset)
 			throws IOException {
 		String[] split = filename.split("/");
-		DiskStorageEngine.appendLineToFile(seriesId + "\t" + split[split.length - 1] + "\t" + curr + "\t" + offset,
-				prBufPointers);
+		String line = seriesId + "\t" + split[split.length - 1] + "\t" + curr + "\t" + offset;
+		DiskStorageEngine.appendLineToFile(line, prBufPointers);
+		return line;
 	}
 
 	@Override

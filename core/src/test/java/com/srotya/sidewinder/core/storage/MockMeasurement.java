@@ -68,11 +68,11 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException {
+	public Entry<String, ByteBuffer> createNewBuffer(String seriesId, String tsBucket) throws IOException {
 		bufferRenewCounter++;
 		ByteBuffer allocate = ByteBuffer.allocate(bufSize);
 		list.add(new AbstractMap.SimpleEntry<>(tsBucket, allocate));
-		return allocate;
+		return new AbstractMap.SimpleEntry<String, ByteBuffer>(seriesId + "\t" + tsBucket, allocate);
 	}
 
 	public int getBufferRenewCounter() {
@@ -94,8 +94,9 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine , String measurementName, String baseIndexDirectory,
-			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
+	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName,
+			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
+			throws IOException {
 	}
 
 	@Override
