@@ -47,8 +47,9 @@ public interface Measurement {
 	public static final String FIELD_TAG_SEPARATOR = "#";
 	public static final String TAG_SEPARATOR = "_";
 
-	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String baseIndexDirectory,
-			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException;
+	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName,
+			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
+			throws IOException;
 
 	public Collection<TimeSeries> getTimeSeries();
 
@@ -60,7 +61,7 @@ public interface Measurement {
 
 	public void close() throws IOException;
 
-	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException;
+	public Entry<String, ByteBuffer> createNewBuffer(String seriesId, String tsBucket) throws IOException;
 
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException;

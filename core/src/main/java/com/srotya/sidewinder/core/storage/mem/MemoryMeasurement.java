@@ -17,12 +17,14 @@ package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -50,8 +52,9 @@ public class MemoryMeasurement implements Measurement {
 	private String compressionClass;
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String baseIndexDirectory,
-			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
+	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName,
+			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
+			throws IOException {
 		this.measurementName = measurementName;
 		this.metadata = metadata;
 		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine).getInstance("request"));
@@ -85,12 +88,12 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException {
+	public Entry<String, ByteBuffer> createNewBuffer(String seriesId, String tsBucket) throws IOException {
 		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(1024);
 		synchronized (bufTracker) {
 			bufTracker.add(allocateDirect);
 		}
-		return allocateDirect;
+		return new AbstractMap.SimpleEntry<String, ByteBuffer>(seriesId + "\t" + tsBucket, allocateDirect);
 	}
 
 	public List<ByteBuffer> getBufTracker() {
@@ -131,7 +134,9 @@ public class MemoryMeasurement implements Measurement {
 		return logger;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
@@ -145,5 +150,5 @@ public class MemoryMeasurement implements Measurement {
 	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId) {
 		return new ConcurrentSkipListMap<>();
 	}
-	
+
 }

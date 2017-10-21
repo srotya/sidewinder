@@ -40,7 +40,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 /**
  * @author ambud
  */
-public class TestDiskTagIndex {
+public class TestMappedTagIndex {
 
 	private static StorageEngine engine;
 
@@ -52,10 +52,10 @@ public class TestDiskTagIndex {
 
 	@Test
 	public void testDiskTagIndexBasic() throws IOException {
-		MiscUtils.delete(new File("target/i1"));
-		String indexDir = "target/i1";
+		MiscUtils.delete(new File("target/i5"));
+		String indexDir = "target/i5";
 		new File(indexDir).mkdirs();
-		DiskTagIndex index = new DiskTagIndex(indexDir, "i1");
+		MappedTagIndex index = new MappedTagIndex(indexDir, "i2");
 		for (int i = 0; i < 1000; i++) {
 			String idx = index.createEntry("tag" + (i + 1));
 			index.index(idx, "test212");
@@ -105,16 +105,16 @@ public class TestDiskTagIndex {
 		assertEquals("db1", next.getKey());
 		Entry<String, Measurement> itr = next.getValue().entrySet().iterator().next();
 		assertEquals("m1", itr.getKey());
-		DiskTagIndex value = (DiskTagIndex) itr.getValue().getTagIndex();
+		MappedTagIndex value = (MappedTagIndex) itr.getValue().getTagIndex();
 		assertEquals(20000 + 10 + 1500, value.getTags().size());
 	}
 
 	@Test
 	public void testTagIndexThreaded() throws InterruptedException, IOException {
-		String indexDir = "target/index";
+		String indexDir = "target/i4";
 		new File(indexDir).mkdirs();
 		MetricsRegistryService.getInstance(engine).getInstance("requests");
-		final DiskTagIndex index = new DiskTagIndex(indexDir, "m2");
+		final MappedTagIndex index = new MappedTagIndex(indexDir, "m2");
 		ExecutorService es = Executors.newCachedThreadPool();
 		for (int k = 0; k < 10; k++) {
 			es.submit(() -> {
@@ -136,7 +136,7 @@ public class TestDiskTagIndex {
 			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
 
-		DiskTagIndex index2 = new DiskTagIndex(indexDir, "m2");
+		MappedTagIndex index2 = new MappedTagIndex(indexDir, "m2");
 		for (int i = 0; i < 1000; i++) {
 			String entry = index2.createEntry("tag" + (i + 1));
 			assertEquals("tag" + (i + 1), index2.getEntry(entry));

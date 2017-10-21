@@ -127,11 +127,11 @@ public class TimeSeries {
 	}
 
 	private Writer createNewTimeSeriesBucket(long timestamp, String tsBucket, List<Writer> list) throws IOException {
-		ByteBuffer buf = measurement.createNewBuffer(seriesId, tsBucket);
+		Entry<String, ByteBuffer> bufPair = measurement.createNewBuffer(seriesId, tsBucket);
 		// writeStringToBuffer(seriesId, buf);
 		Writer writer;
 		writer = getWriterInstance();
-		writer.configure(conf, buf, true);
+		writer.configure(conf, bufPair.getValue(), true);
 		writer.setHeaderTimestamp(timestamp);
 		list.add(writer);
 		bucketCount++;
