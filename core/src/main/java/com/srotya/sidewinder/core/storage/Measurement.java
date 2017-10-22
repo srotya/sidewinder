@@ -16,7 +16,6 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,6 +28,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -61,7 +61,7 @@ public interface Measurement {
 
 	public void close() throws IOException;
 
-	public Entry<String, ByteBuffer> createNewBuffer(String seriesId, String tsBucket) throws IOException;
+	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException;
 
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException;
@@ -177,21 +177,36 @@ public interface Measurement {
 	}
 
 	public default void garbageCollector() throws IOException {
-		for (Entry<String, TimeSeries> entry : getTimeSeriesMap().entrySet()) {
-			try {
-				List<Writer> garbage = entry.getValue().collectGarbage();
-				for (Writer timeSeriesBucket : garbage) {
-					// TODO delete
-					// timeSeriesBucket.delete();
-					getLogger().info("Collecting garbage for bucket:" + entry.getKey() + "\tOffset:"
-							+ timeSeriesBucket.currentOffset());
+		getLock().lock();
+		try {
+			Set<String> cleanupList = new HashSet<>();
+			for (Entry<String, TimeSeries> entry : getTimeSeriesMap().entrySet()) {
+				try {
+					List<Writer> garbage = entry.getValue().collectGarbage();
+					for (Writer timeSeriesBucket : garbage) {
+						// TODO delete
+						// timeSeriesBucket.delete();
+						cleanupList.add(timeSeriesBucket.getBufferId());
+						getLogger().fine("Collecting garbage for bucket:" + entry.getKey() + "\tOffset:"
+								+ timeSeriesBucket.currentOffset());
+					}
+					getLogger().fine("Collecting garbage for time series:" + entry.getKey());
+				} catch (IOException e) {
+					getLogger().log(Level.SEVERE, "Error collecing garbage", e);
 				}
-				getLogger().fine("Collecting garbage for time series:" + entry.getKey());
-			} catch (IOException e) {
-				getLogger().log(Level.SEVERE, "Error collecing garbage", e);
 			}
+			// cleanup these buffer ids
+			if (cleanupList.size() > 0) {
+				getLogger().info("For measurement:" + getMeasurementName() + " collected garbage for:"
+						+ cleanupList.size() + " buffers");
+			}
+			cleanupBufferIds(cleanupList);
+		} finally {
+			getLock().unlock();
 		}
 	}
+
+	public void cleanupBufferIds(Set<String> cleanupList) throws IOException;
 
 	public default TimeSeries getTimeSeries(String valueFieldName, List<String> tags) throws IOException {
 		Collections.sort(tags);
@@ -303,5 +318,7 @@ public interface Measurement {
 	public Logger getLogger();
 
 	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId);
+
+	public ReentrantLock getLock();
 
 }

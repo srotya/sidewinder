@@ -23,9 +23,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.storage.compression.Writer;
@@ -35,8 +37,9 @@ import com.srotya.sidewinder.core.storage.compression.Writer;
  */
 public class MockMeasurement implements Measurement {
 
+	private ReentrantLock lock = new ReentrantLock();
 	private int bufferRenewCounter = 0;
-	private List<Entry<String, ByteBuffer>> list;
+	private List<Entry<String, BufferObject>> list;
 	private int bufSize;
 
 	public MockMeasurement(int bufSize) {
@@ -68,18 +71,19 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public Entry<String, ByteBuffer> createNewBuffer(String seriesId, String tsBucket) throws IOException {
+	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
 		bufferRenewCounter++;
 		ByteBuffer allocate = ByteBuffer.allocate(bufSize);
-		list.add(new AbstractMap.SimpleEntry<>(tsBucket, allocate));
-		return new AbstractMap.SimpleEntry<String, ByteBuffer>(seriesId + "\t" + tsBucket, allocate);
+		BufferObject obj = new BufferObject(seriesId + "\t" + tsBucket, allocate);
+		list.add(new AbstractMap.SimpleEntry<>(tsBucket, obj));
+		return obj;
 	}
 
 	public int getBufferRenewCounter() {
 		return bufferRenewCounter;
 	}
 
-	public List<Entry<String, ByteBuffer>> getBufTracker() {
+	public List<Entry<String, BufferObject>> getBufTracker() {
 		return list;
 	}
 
@@ -112,6 +116,15 @@ public class MockMeasurement implements Measurement {
 	@Override
 	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId) {
 		return new ConcurrentSkipListMap<>();
+	}
+
+	@Override
+	public void cleanupBufferIds(Set<String> cleanupList) {
+	}
+
+	@Override
+	public ReentrantLock getLock() {
+		return lock;
 	}
 
 }
