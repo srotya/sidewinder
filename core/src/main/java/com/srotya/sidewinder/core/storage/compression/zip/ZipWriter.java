@@ -42,6 +42,7 @@ public class ZipWriter implements Writer {
 	private OutputStream zip;
 	private ByteBuffer buf;
 	private DataOutputStream dos;
+	private String bufferId;
 
 	@Override
 	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException {
@@ -173,6 +174,16 @@ public class ZipWriter implements Writer {
 			buffer.put((byte) (b & 0xFF));
 		}
 
+	}
+
+	@Override
+	public void setBufferId(String key) {
+		this.bufferId = key;
+	}
+
+	@Override
+	public String getBufferId() {
+		return bufferId;
 	}
 
 }

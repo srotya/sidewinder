@@ -127,12 +127,13 @@ public class TimeSeries {
 	}
 
 	private Writer createNewTimeSeriesBucket(long timestamp, String tsBucket, List<Writer> list) throws IOException {
-		Entry<String, ByteBuffer> bufPair = measurement.createNewBuffer(seriesId, tsBucket);
+		BufferObject bufPair = measurement.createNewBuffer(seriesId, tsBucket);
 		// writeStringToBuffer(seriesId, buf);
 		Writer writer;
 		writer = getWriterInstance();
-		writer.configure(conf, bufPair.getValue(), true);
+		writer.configure(conf, bufPair.getBuf(), true);
 		writer.setHeaderTimestamp(timestamp);
+		writer.setBufferId(bufPair.getBufferId());
 		list.add(writer);
 		bucketCount++;
 		return writer;
@@ -153,11 +154,11 @@ public class TimeSeries {
 	 * @param bufferEntries
 	 * @throws IOException
 	 */
-	public void loadBucketMap(List<Entry<String, ByteBuffer>> bufferEntries) throws IOException {
+	public void loadBucketMap(List<Entry<String, BufferObject>> bufferEntries) throws IOException {
 		Map<String, String> cacheConf = new HashMap<>(conf);
 		logger.fine("Scanning buffer for:" + seriesId);
-		for (Entry<String, ByteBuffer> entry : bufferEntries) {
-			ByteBuffer duplicate = entry.getValue();
+		for (Entry<String, BufferObject> entry : bufferEntries) {
+			ByteBuffer duplicate = entry.getValue().getBuf();
 			duplicate.rewind();
 			// String series = getStringFromBuffer(duplicate);
 			// if (!series.equalsIgnoreCase(seriesId)) {
@@ -173,6 +174,7 @@ public class TimeSeries {
 			ByteBuffer slice = duplicate.slice();
 			Writer writer = getWriterInstance();
 			writer.configure(cacheConf, slice, false);
+			writer.setBufferId(entry.getValue().getBufferId());
 			list.add(writer);
 			logger.fine("Loading bucketmap:" + seriesId + "\t" + tsBucket);
 		}
@@ -468,11 +470,14 @@ public class TimeSeries {
 				// TODO close
 				// bucket.close();
 				gcedBuckets.add(bucket);
-				logger.log(Level.INFO,
+				logger.log(Level.FINE,
 						"GC," + measurement.getMeasurementName() + ":" + seriesId + " removing bucket:" + key
 								+ ": as it passed retention period of:" + retentionBuckets.get() + ":old size:"
 								+ oldSize + ":newsize:" + bucketMap.size() + ":");
 			}
+		}
+		if (gcedBuckets.size() > 0) {
+			logger.info("GC," + measurement.getMeasurementName() + " buckets:" + gcedBuckets.size());
 		}
 		return gcedBuckets;
 	}
