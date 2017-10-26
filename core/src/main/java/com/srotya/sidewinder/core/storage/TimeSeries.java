@@ -230,7 +230,12 @@ public class TimeSeries {
 		if (endTime == Long.MAX_VALUE) {
 			endTsBucket = bucketMap.lastKey();
 		}
-		SortedMap<String, List<Writer>> series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
+		SortedMap<String, List<Writer>> series = null;
+		if (bucketMap.size() > 1) {
+			series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
+		} else {
+			series = bucketMap;
+		}
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
 				readers.add(
@@ -470,14 +475,15 @@ public class TimeSeries {
 				// TODO close
 				// bucket.close();
 				gcedBuckets.add(bucket);
-				logger.log(Level.FINE,
+				logger.log(Level.FINEST,
 						"GC," + measurement.getMeasurementName() + ":" + seriesId + " removing bucket:" + key
 								+ ": as it passed retention period of:" + retentionBuckets.get() + ":old size:"
 								+ oldSize + ":newsize:" + bucketMap.size() + ":");
 			}
 		}
 		if (gcedBuckets.size() > 0) {
-			logger.info("GC," + measurement.getMeasurementName() + " buckets:" + gcedBuckets.size());
+			logger.fine("GC," + measurement.getMeasurementName() + " buckets:" + gcedBuckets.size() + " retention size:"
+					+ retentionBuckets);
 		}
 		return gcedBuckets;
 	}
@@ -488,10 +494,13 @@ public class TimeSeries {
 	 * @param retentionHours
 	 */
 	public void setRetentionHours(int retentionHours) {
-		if (retentionHours < 1) {
-			retentionHours = 2;
+		int val = (int) (((long) retentionHours * 3600) / timeBucketSize);
+		if (val < 1) {
+			logger.fine("Incorrect bucket(" + timeBucketSize + ") or retention(" + retentionHours
+					+ ") configuration; correcting to 1 bucket for measurement:" + measurement.getMeasurementName());
+			val = 1;
 		}
-		this.retentionBuckets.set((int) ((long) retentionHours * 3600) / timeBucketSize);
+		this.retentionBuckets.set(val);
 	}
 
 	/**

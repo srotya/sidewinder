@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -51,12 +52,14 @@ public class ResourceMonitor {
 	public void init(StorageEngine storageEngine, ScheduledExecutorService bgTasks) {
 		this.storageEngine = storageEngine;
 		if (bgTasks != null) {
-			try {
-				storageEngine.getOrCreateDatabase(DB, 28);
-			} catch (IOException e) {
-				throw new RuntimeException("Unable create internal database", e);
+			if (!MetricsRegistryService.DISABLE_SELF_MONITORING) {
+				try {
+					storageEngine.getOrCreateDatabase(DB, 28);
+				} catch (IOException e) {
+					throw new RuntimeException("Unable create internal database", e);
+				}
+				bgTasks.scheduleAtFixedRate(() -> memAndCPUMonitor(), 0, 2, TimeUnit.SECONDS);
 			}
-			bgTasks.scheduleAtFixedRate(() -> memAndCPUMonitor(), 0, 2, TimeUnit.SECONDS);
 		}
 	}
 

@@ -18,21 +18,23 @@ package com.srotya.sidewinder.core.aggregators.single;
 import java.util.Iterator;
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.aggregators.SingleResultFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "smax")
 public class MaxFunction extends SingleResultFunction {
-	
+
 	@Override
 	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {
 		if (output.isFp()) {
 			double max = 0;
 			for (Iterator<DataPoint> iterator = dataPoints.iterator(); iterator.hasNext();) {
 				DataPoint dataPoint = iterator.next();
-				if(dataPoint.getValue()>max) {
+				if (dataPoint.getValue() > max) {
 					max = dataPoint.getValue();
 				}
 			}
@@ -41,7 +43,7 @@ public class MaxFunction extends SingleResultFunction {
 			long max = 0;
 			for (Iterator<DataPoint> iterator = dataPoints.iterator(); iterator.hasNext();) {
 				DataPoint dataPoint = iterator.next();
-				if(dataPoint.getValue()>max) {
+				if (dataPoint.getValue() > max) {
 					max = dataPoint.getLongValue();
 				}
 			}

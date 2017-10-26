@@ -30,6 +30,8 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
  */
 public class MetricsRegistryService {
 
+	public static final String DISABLE_SELFMON = "selfmon.disabled";
+	public static boolean DISABLE_SELF_MONITORING = Boolean.parseBoolean(System.getProperty(DISABLE_SELFMON, "false"));
 	private static MetricsRegistryService instance;
 	private Map<String, MetricRegistry> registry;
 	private Map<String, SidewinderDropwizardReporter> reporter;
@@ -47,7 +49,7 @@ public class MetricsRegistryService {
 		}
 		return instance;
 	}
-	
+
 	public static MetricsRegistryService getInstance() {
 		return instance;
 	}
@@ -56,16 +58,18 @@ public class MetricsRegistryService {
 		MetricRegistry reg = registry.get(key);
 		if (reg == null) {
 			reg = new MetricRegistry();
-			SidewinderDropwizardReporter reporter = new SidewinderDropwizardReporter(reg, key, new MetricFilter() {
+			if (!DISABLE_SELF_MONITORING) {
+				SidewinderDropwizardReporter reporter = new SidewinderDropwizardReporter(reg, key, new MetricFilter() {
 
-				@Override
-				public boolean matches(String name, Metric metric) {
-					return true;
-				}
-			}, TimeUnit.SECONDS, TimeUnit.SECONDS, engine);
-			reporter.start(1, TimeUnit.SECONDS);
+					@Override
+					public boolean matches(String name, Metric metric) {
+						return true;
+					}
+				}, TimeUnit.SECONDS, TimeUnit.SECONDS, engine);
+				reporter.start(1, TimeUnit.SECONDS);
+				this.reporter.put(key, reporter);
+			}
 			registry.put(key, reg);
-			this.reporter.put(key, reporter);
 		}
 		return reg;
 	}

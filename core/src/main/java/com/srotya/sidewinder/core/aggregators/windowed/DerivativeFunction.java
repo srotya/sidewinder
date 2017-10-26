@@ -17,11 +17,13 @@ package com.srotya.sidewinder.core.aggregators.windowed;
 
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = { "derivative", "dvdt" })
 public class DerivativeFunction extends ReducingWindowedAggregator {
 
 	@Override
