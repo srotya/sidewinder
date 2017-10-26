@@ -77,7 +77,6 @@ public class PersistentMeasurement implements Measurement {
 	private DBMetadata metadata;
 	private Map<String, String> conf;
 	private RandomAccessFile activeFile;
-	private List<ByteBuffer> bufTracker;
 	private int itr;
 	private int fileMapIncrement;
 	private int increment;
@@ -128,7 +127,6 @@ public class PersistentMeasurement implements Measurement {
 		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
 				StorageEngine.DEFAULT_COMPRESSION_CLASS);
 		this.measurementName = measurementName;
-		this.bufTracker = new ArrayList<>();
 		this.prBufPointers = new PrintWriter(new FileOutputStream(new File(getPtrPath()), true));
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
 		this.tagIndex = new MappedTagIndex(this.indexDirectory, measurementName);
@@ -318,7 +316,6 @@ public class PersistentMeasurement implements Measurement {
 				offset = 0;
 				logger.info("Creating new datafile for measurement:" + filename);
 				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, fileMapIncrement);
-				bufTracker.add(memoryMappedBuffer);
 				fcnt++;
 				if (enableMetricsCapture) {
 					metricsFileRotation.inc();
@@ -438,8 +435,11 @@ public class PersistentMeasurement implements Measurement {
 					fileSet.add(line.split("\t")[1]);
 					logger.fine("Rewriting line:" + line + " to ptr file for measurement:" + getMeasurementName());
 				} else {
-					logger.info("Removing line:" + line + " from ptr file due to garbage collection for measurement:"
+					logger.fine("Removing line:" + line + " from ptr file due to garbage collection for measurement:"
 							+ getMeasurementName());
+					if (enableMetricsCapture) {
+						metricsBufferCounter.dec();
+					}
 				}
 			}
 			// swap files
@@ -471,6 +471,9 @@ public class PersistentMeasurement implements Measurement {
 		for (File file : files) {
 			if (!fileSet.contains(file.getName())) {
 				logger.info("GC: Deleting data file:" + file.getName());
+				if (enableMetricsCapture) {
+					metricsFileRotation.dec();
+				}
 				file.delete();
 				deleteCounter++;
 			}

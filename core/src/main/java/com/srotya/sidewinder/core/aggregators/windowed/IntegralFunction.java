@@ -17,20 +17,21 @@ package com.srotya.sidewinder.core.aggregators.windowed;
 
 import java.util.List;
 
-import com.srotya.sidewinder.core.aggregators.FunctionTable;
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "integral")
 public class IntegralFunction extends ReducingWindowedAggregator {
 
 	@Override
 	public void init(Object[] args) throws Exception {
 		if (args.length > 1) {
-			args[1] = FunctionTable.SSUM;
+			args[1] = "ssum";
 		} else {
-			args = new Object[] { args[0], FunctionTable.SSUM };
+			args = new Object[] { args[0], "ssum" };
 		}
 		super.init(args);
 	}

@@ -17,20 +17,21 @@ package com.srotya.sidewinder.core.aggregators.windowed;
 
 import java.util.List;
 
-import com.srotya.sidewinder.core.aggregators.FunctionTable;
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "max")
 public class WindowedMax extends ReducingWindowedAggregator {
 
 	@Override
 	public void init(Object[] args) throws Exception {
 		if (args.length > 1) {
-			args[1] = FunctionTable.SMAX;
+			args[1] = "smax";
 		} else {
-			args = new Object[] { args[0], FunctionTable.SMAX };
+			args = new Object[] { args[0], "smax" };
 		}
 		super.init(args);
 	}

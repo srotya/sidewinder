@@ -17,14 +17,16 @@ package com.srotya.sidewinder.core.aggregators.single;
 
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.aggregators.SingleResultFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "sfirst")
 public class FirstFunction extends SingleResultFunction {
-	
+
 	@Override
 	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {
 		if (output.isFp()) {

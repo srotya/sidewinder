@@ -18,12 +18,14 @@ package com.srotya.sidewinder.core.aggregators.single;
 import java.util.Iterator;
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.aggregators.SingleResultFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "ssum")
 public class SumFunction extends SingleResultFunction {
 
 	@Override

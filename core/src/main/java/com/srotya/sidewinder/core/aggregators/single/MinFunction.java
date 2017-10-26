@@ -18,21 +18,23 @@ package com.srotya.sidewinder.core.aggregators.single;
 import java.util.Iterator;
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.aggregators.SingleResultFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "smin")
 public class MinFunction extends SingleResultFunction {
-	
+
 	@Override
 	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {
 		if (output.isFp()) {
 			double min = 0;
 			for (Iterator<DataPoint> iterator = dataPoints.iterator(); iterator.hasNext();) {
 				DataPoint dataPoint = iterator.next();
-				if(dataPoint.getValue()<min) {
+				if (dataPoint.getValue() < min) {
 					min = dataPoint.getValue();
 				}
 			}
@@ -41,7 +43,7 @@ public class MinFunction extends SingleResultFunction {
 			long min = 0;
 			for (Iterator<DataPoint> iterator = dataPoints.iterator(); iterator.hasNext();) {
 				DataPoint dataPoint = iterator.next();
-				if(dataPoint.getValue()<min) {
+				if (dataPoint.getValue() < min) {
 					min = dataPoint.getLongValue();
 				}
 			}

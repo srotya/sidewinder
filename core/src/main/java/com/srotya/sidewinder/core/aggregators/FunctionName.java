@@ -13,27 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.aggregators.single;
+package com.srotya.sidewinder.core.aggregators;
 
-import java.util.List;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-import com.srotya.sidewinder.core.aggregators.FunctionName;
-import com.srotya.sidewinder.core.storage.DataPoint;
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ ElementType.TYPE })
+public @interface FunctionName {
 
-/**
- * @author ambud
- */
-@FunctionName(alias = "smean")
-public class MeanFunction extends SumFunction {
-
-	@Override
-	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {
-		super.aggregateToSingle(dataPoints, output);
-		if (output.isFp()) {
-			output.setValue(output.getValue() / dataPoints.size());
-		} else {
-			output.setLongValue(output.getLongValue() / dataPoints.size());
-		}
-	}
+	String[] alias();
 
 }

@@ -40,7 +40,7 @@ public abstract class ReducingWindowedAggregator extends WindowedFunction {
 	@Override
 	public void init(Object[] args) throws Exception {
 		super.init(args);
-		String aggregatorName = FunctionTable.SMEAN;
+		String aggregatorName = "smean";
 		if (args.length > 1) {
 			aggregatorName = args[1].toString();
 		}

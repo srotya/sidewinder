@@ -19,12 +19,20 @@
     <module>archiver</module>
     <module>ambari</module>
     <module>rpc</module>
+    <module>ingesters</module>
   </modules>
   <properties>
+    <grpc.version>1.2.0</grpc.version>
+    <guava.version>20.0</guava.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>com.google.guava</groupId>
+        <artifactId>guava</artifactId>
+        <version>${guava.version}</version>
+      </dependency>
       <dependency>
         <groupId>com.google.protobuf</groupId>
         <artifactId>protobuf-java</artifactId>
@@ -33,17 +41,17 @@
       <dependency>
         <groupId>io.grpc</groupId>
         <artifactId>grpc-all</artifactId>
-        <version>1.2.0</version>
+        <version>${grpc.version}</version>
       </dependency>
       <dependency>
         <groupId>io.grpc</groupId>
         <artifactId>grpc-protobuf</artifactId>
-        <version>1.2.0</version>
+        <version>${grpc.version}</version>
       </dependency>
       <dependency>
         <groupId>io.grpc</groupId>
         <artifactId>grpc-stub</artifactId>
-        <version>1.2.0</version>
+        <version>${grpc.version}</version>
       </dependency>
       <dependency>
         <groupId>junit</groupId>
