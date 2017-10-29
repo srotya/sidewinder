@@ -185,7 +185,8 @@
   <build>
     <resources>
       <resource>
-        <directory>target/build/default/src/</directory>
+        <targetPath>web</targetPath>
+        <directory>target/build/default/</directory>
       </resource>
     </resources>
     <plugins>
