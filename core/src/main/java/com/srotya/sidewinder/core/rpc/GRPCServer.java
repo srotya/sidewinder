@@ -74,7 +74,7 @@ public class GRPCServer extends Ingester {
 				conf.getOrDefault(ConfigConstants.GRPC_EXECUTOR_COUNT, ConfigConstants.DEFAULT_GRPC_EXECUTOR_COUNT));
 		writer = new WriterServiceImpl(storageEngine, conf);
 		serverBuilder = NettyServerBuilder
-				.forPort(Integer.parseInt(conf.getOrDefault(ConfigConstants.GRPC_PORT, "9928")))
+				.forPort(Integer.parseInt(conf.getOrDefault(ConfigConstants.GRPC_PORT, ConfigConstants.DEFAULT_GRPC_PORT)))
 				.decompressorRegistry(DecompressorRegistry.getDefaultInstance());
 		// enable GRPC authentication
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {

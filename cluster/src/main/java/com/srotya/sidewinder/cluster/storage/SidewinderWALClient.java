@@ -54,6 +54,7 @@ public class SidewinderWALClient extends LocalWALClient {
 		try {
 			logger.finer("Reading data:" + data.size() + "\tCounter Before:" + counter.get());
 			for (byte[] d : data) {
+				// d = Snappy.uncompress(d);
 				BatchData points = BatchData.parseFrom(d);
 				for (Point point : points.getPointsList()) {
 					DataPoint dp = MiscUtils.pointToDataPoint(point);

@@ -37,7 +37,7 @@ import com.codahale.metrics.Meter;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.srotya.sidewinder.core.ResourceMonitor;
+import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.storage.DataPoint;

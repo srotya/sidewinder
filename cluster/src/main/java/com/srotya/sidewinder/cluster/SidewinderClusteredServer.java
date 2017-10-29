@@ -36,9 +36,9 @@ import com.srotya.minuteman.connectors.ClusterConnector;
 import com.srotya.minuteman.utils.FileUtils;
 import com.srotya.sidewinder.cluster.api.InfluxApi;
 import com.srotya.sidewinder.cluster.storage.SidewinderWALClient;
-import com.srotya.sidewinder.core.ResourceMonitor;
 import com.srotya.sidewinder.core.SidewinderDropwizardReporter;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
+import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 

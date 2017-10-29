@@ -29,10 +29,11 @@ import javax.ws.rs.Path;
 import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 
+import org.xerial.snappy.Snappy;
+
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.InvalidProtocolBufferException;
 import com.srotya.minuteman.cluster.Node;
 import com.srotya.minuteman.cluster.WALManager;
 import com.srotya.minuteman.rpc.DataRequest;
@@ -94,20 +95,24 @@ public class InfluxApi {
 					continue;
 				}
 			}
-			Node node = mgr.getNodeMap().get(replicaLeader);
-			ReplicationServiceBlockingStub stub = ReplicationServiceGrpc.newBlockingStub(node.getChannel());
-			byte[] ary = BatchData.newBuilder().setMessageId(System.nanoTime()).addAllPoints(entry.getValue()).build()
-					.toByteArray();
-			GenericResponse writeData = stub.writeData(
-					DataRequest.newBuilder().setData(ByteString.copyFrom(ary)).setRouteKey(entry.getKey()).build());
-			try {
-				BatchData.parseFrom(ary);
-			} catch (InvalidProtocolBufferException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			if (writeData.getResponseCode() != 200) {
-				System.out.println("Failed to write:" + writeData.getResponseString());
+			byte[] ary = BatchData.newBuilder().addAllPoints(entry.getValue()).build().toByteArray();
+			if (replicaLeader.equals(mgr.getThisNodeKey())) {
+				try {
+					byte[] compress = Snappy.compress(ary);
+					 mgr.getWAL(entry.getKey()).write(compress, false);
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			} else {
+				DataRequest dataRequest = DataRequest.newBuilder().setData(ByteString.copyFrom(ary))
+						.setRouteKey(entry.getKey()).build();
+				Node node = mgr.getNodeMap().get(replicaLeader);
+				ReplicationServiceBlockingStub rpc = ReplicationServiceGrpc.newBlockingStub(node.getChannel());
+				GenericResponse response = rpc.writeData(dataRequest);
+				if (response.getResponseCode() != 200) {
+					System.out.println("Error writing data");
+				}
 			}
 			// else {
 			// System.out.println("Wrote data:" + entry.getKey() + " to node:" +
@@ -120,7 +125,7 @@ public class InfluxApi {
 
 	private String requestRouteKey(WALManager mgr, String key) {
 		ReplicationServiceBlockingStub stub = ReplicationServiceGrpc.newBlockingStub(mgr.getCoordinator().getChannel());
-		RouteResponse route = stub.addRoute(RouteRequest.newBuilder().setRouteKey(key).setReplicationFactor(2).build());
+		RouteResponse route = stub.addRoute(RouteRequest.newBuilder().setRouteKey(key).setReplicationFactor(1).build());
 		if (route.getResponseCode() != 200) {
 			System.out.println("Route add failed:" + route.getResponseString() + " for key:" + key);
 			return null;

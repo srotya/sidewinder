@@ -1,0 +1,7 @@
+{
+  "name": "sidewinder",
+  "short_name": "sidewinder",
+  "description": "Sidewinder status page",
+  "start_url": "/",
+  "display": "standalone"
+}
