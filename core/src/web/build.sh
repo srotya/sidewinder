@@ -5,5 +5,6 @@ mkdir -p ./target
 cp -r $DIR target/web_temp/
 cd target/web_temp
 polymer install
-polymer build --add-service-worker --js-compile --js-minify --css-minify --html-minify --bundle
-mv build ../target/
+DIR=$(pwd)
+polymer build --add-service-worker --js-compile --js-minify --css-minify --html-minify --bundle --root $DIR
+mv build ../build 
