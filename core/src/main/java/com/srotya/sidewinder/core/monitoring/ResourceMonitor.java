@@ -13,20 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core;
+package com.srotya.sidewinder.core.monitoring;
 
 import java.io.IOException;
+import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -64,6 +65,8 @@ public class ResourceMonitor {
 	}
 
 	public void memAndCPUMonitor() {
+		monitorGc();
+
 		MemoryMXBean mem = ManagementFactory.getMemoryMXBean();
 		MemoryUsage heap = mem.getHeapMemoryUsage();
 		MemoryUsage nonheap = mem.getNonHeapMemoryUsage();
@@ -71,6 +74,30 @@ public class ResourceMonitor {
 		validateCPUUsage();
 		validateMemoryUsage("heap", heap, 10_485_760);
 		validateMemoryUsage("nonheap", nonheap, 1_073_741_824);
+	}
+
+	private void monitorGc() {
+		List<GarbageCollectorMXBean> garbageCollectorMXBeans = ManagementFactory.getGarbageCollectorMXBeans();
+		long count = 0;
+		long time = 0;
+		for (GarbageCollectorMXBean bean : garbageCollectorMXBeans) {
+			count += bean.getCollectionCount();
+			time += bean.getCollectionTime();
+		}
+		DataPoint dp = MiscUtils.buildDataPoint(DB, "gc", "count", Arrays.asList("local"), System.currentTimeMillis(),
+				count);
+		try {
+			storageEngine.writeDataPoint(dp);
+		} catch (IOException e) {
+			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
+		}
+		dp = MiscUtils.buildDataPoint(DB, "gc", "time", Arrays.asList("local"), System.currentTimeMillis(),
+				time);
+		try {
+			storageEngine.writeDataPoint(dp);
+		} catch (IOException e) {
+			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
+		}
 	}
 
 	private void validateCPUUsage() {

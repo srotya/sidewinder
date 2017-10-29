@@ -36,7 +36,8 @@ import com.srotya.sidewinder.core.api.MeasurementOpsApi;
 import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.external.Ingester;
-import com.srotya.sidewinder.core.health.RestAPIHealthCheck;
+import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
+import com.srotya.sidewinder.core.monitoring.RestAPIHealthCheck;
 import com.srotya.sidewinder.core.rpc.GRPCServer;
 import com.srotya.sidewinder.core.security.AllowAllAuthorizer;
 import com.srotya.sidewinder.core.security.BasicAuthenticator;
@@ -44,9 +45,11 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.dropwizard.Application;
+import io.dropwizard.assets.AssetsBundle;
 import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
+import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 
 /**
@@ -62,6 +65,11 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 	private static final Logger logger = Logger.getLogger(SidewinderServer.class.getName());
 	private StorageEngine storageEngine;
 	private static SidewinderServer sidewinderServer;
+	
+	@Override
+	public void initialize(Bootstrap<SidewinderConfig> bootstrap) {
+		bootstrap.addBundle(new AssetsBundle("/web", "/ui", "index.html"));
+	}
 
 	@Override
 	public void run(SidewinderConfig config, Environment env) throws Exception {
