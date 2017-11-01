@@ -26,7 +26,9 @@ public class SeriesQueryOutput {
 
 	private String measurementName;
 	private String valueFieldName;
+	private boolean isFp;
 	private List<String> tags;
+	private List<long[]> points;
 	private List<DataPoint> dataPoints;
 
 	public SeriesQueryOutput() {
@@ -108,6 +110,34 @@ public class SeriesQueryOutput {
 	 */
 	public void setDataPoints(List<DataPoint> dataPoints) {
 		this.dataPoints = dataPoints;
+	}
+
+	/**
+	 * @return the points
+	 */
+	public List<long[]> getPoints() {
+		return points;
+	}
+
+	/**
+	 * @param points the points to set
+	 */
+	public void setPoints(List<long[]> points) {
+		this.points = points;
+	}
+
+	/**
+	 * @return the isFp
+	 */
+	public boolean isFp() {
+		return isFp;
+	}
+
+	/**
+	 * @param isFp the isFp to set
+	 */
+	public void setFp(boolean isFp) {
+		this.isFp = isFp;
 	}
 
 	/*

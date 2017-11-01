@@ -66,13 +66,25 @@ public class GrafanaUtils {
 			throw new BadRequestException(e.getMessage());
 		}
 		for (SeriesQueryOutput entry : points) {
-			List<DataPoint> dataPoints = entry.getDataPoints();
 			Target tar = new Target(entry.toString());
-			for (DataPoint dataPoint : dataPoints) {
-				if (!dataPoint.isFp()) {
-					tar.getDatapoints().add(new Number[] { dataPoint.getLongValue(), dataPoint.getTimestamp() });
-				} else {
-					tar.getDatapoints().add(new Number[] { dataPoint.getValue(), dataPoint.getTimestamp() });
+			List<DataPoint> dps = entry.getDataPoints();
+			if (dps != null) {
+				for (DataPoint point : dps) {
+					if (!entry.isFp()) {
+						tar.getDatapoints().add(new Number[] { point.getLongValue(), point.getTimestamp() });
+					} else {
+						tar.getDatapoints().add(new Number[] { point.getValue(), point.getTimestamp() });
+					}
+				}
+			}
+			List<long[]> dataPoints = entry.getPoints();
+			if (dataPoints != null) {
+				for (long[] point : dataPoints) {
+					if (!entry.isFp()) {
+						tar.getDatapoints().add(new Number[] { point[1], point[0] });
+					} else {
+						tar.getDatapoints().add(new Number[] { Double.longBitsToDouble(point[1]), point[0] });
+					}
 				}
 			}
 			output.add(tar);

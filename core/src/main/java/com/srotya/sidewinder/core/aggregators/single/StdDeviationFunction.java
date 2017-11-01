@@ -54,4 +54,28 @@ public class StdDeviationFunction extends SingleResultFunction {
 		}
 	}
 
+	@Override
+	protected void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp) {
+		output[0] = dataPoints.get(0)[0];
+		if (!isFp) {
+			long[] ary = new long[dataPoints.size()];
+			for (int i = 0; i < dataPoints.size(); i++) {
+				long[] dataPoint = dataPoints.get(i);
+				ary[i] = dataPoint[1];
+			}
+			long avg = MathUtils.mean(ary);
+			long standardDeviation = MathUtils.standardDeviation(ary, avg);
+			output[1] = standardDeviation;
+		} else {
+			double[] ary = new double[dataPoints.size()];
+			for (int i = 0; i < dataPoints.size(); i++) {
+				long[] dataPoint = dataPoints.get(i);
+				ary[i] = Double.longBitsToDouble(dataPoint[1]);
+			}
+			double avg = MathUtils.mean(ary);
+			double standardDeviation = MathUtils.standardDeviation(ary, avg);
+			output[1] = Double.doubleToLongBits(standardDeviation);
+		}
+	}
+
 }

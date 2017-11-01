@@ -44,7 +44,7 @@ public class TestCalculusAggregators {
 		}
 		ReducingWindowedAggregator rwa = new DerivativeFunction();
 		rwa.init(new Object[] { 70, "smean" });
-		List<DataPoint> result = rwa.aggregate(dps);
+		List<DataPoint> result = rwa.aggregateDataPoints(dps);
 		// 1.65 and 3.85
 		assertEquals(1, result.size());
 		assertEquals(0.00003666666667 * 1000, result.get(0).getValue(), 0.01);
@@ -63,7 +63,7 @@ public class TestCalculusAggregators {
 		}
 		ReducingWindowedAggregator rwa = new DerivativeFunction();
 		rwa.init(new Object[] { 20, "smean" });
-		List<DataPoint> result = rwa.aggregate(dps);
+		List<DataPoint> result = rwa.aggregateDataPoints(dps);
 		assertEquals(1, result.size());
 		assertEquals(false, result.get(0).isFp());
 		assertEquals(0, result.get(0).getValue() * 1000, 0.01);

@@ -52,6 +52,7 @@ public class MemoryMeasurement implements Measurement {
 	private MemTagIndex tagIndex;
 	private List<ByteBuffer> bufTracker;
 	private String compressionClass;
+	private boolean useQueryPool;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName,
@@ -64,6 +65,7 @@ public class MemoryMeasurement implements Measurement {
 		this.bufTracker = new ArrayList<>();
 		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
 				StorageEngine.DEFAULT_COMPRESSION_CLASS);
+		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
 	}
 
 	@Override
@@ -161,5 +163,10 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public ReentrantLock getLock() {
 		return lock;
+	}
+
+	@Override
+	public boolean useQueryPool() {
+		return useQueryPool;
 	}
 }

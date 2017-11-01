@@ -36,4 +36,14 @@ public class MeanFunction extends SumFunction {
 		}
 	}
 
+	@Override
+	public void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp) {
+		super.aggregateToSinglePoint(dataPoints, output, isFp);
+		if (isFp) {
+			output[1] = Double.doubleToLongBits(Double.longBitsToDouble(output[1]) / dataPoints.size());
+		} else {
+			output[1] = (output[1] / dataPoints.size());
+		}
+	}
+
 }
