@@ -36,4 +36,9 @@ public class FirstFunction extends SingleResultFunction {
 		}
 	}
 
+	@Override
+	protected void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp) {
+		output[1] = dataPoints.get(0)[1];
+	}
+
 }

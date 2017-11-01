@@ -30,7 +30,7 @@ public abstract class SingleResultFunction implements AggregationFunction {
 	}
 
 	@Override
-	public List<DataPoint> aggregate(List<DataPoint> dataPoints) {
+	public List<DataPoint> aggregateDataPoints(List<DataPoint> dataPoints) {
 		if (dataPoints.size() > 0) {
 			DataPoint dp = new DataPoint();
 			dp.setTimestamp(0);
@@ -46,6 +46,19 @@ public abstract class SingleResultFunction implements AggregationFunction {
 			return Arrays.asList();
 		}
 	}
+	
+	@Override
+	public List<long[]> aggregatePoints(List<long[]> dataPoints, boolean isFp) {
+		if (dataPoints.size() > 0) {
+			long[] dp = new long[2];
+			aggregateToSinglePoint(dataPoints, dp, isFp);
+			return Arrays.asList(dp);
+		} else {
+			return Arrays.asList();
+		}
+	}
+	
+	protected abstract void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp);
 
 	protected abstract void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output);
 	

@@ -51,4 +51,27 @@ public class MaxFunction extends SingleResultFunction {
 		}
 	}
 
+	@Override
+	protected void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp) {
+		if (isFp) {
+			double max = 0;
+			for (Iterator<long[]> iterator = dataPoints.iterator(); iterator.hasNext();) {
+				long[] dataPoint = iterator.next();
+				if (dataPoint[1] > max) {
+					max = Double.longBitsToDouble(dataPoint[1]);
+				}
+			}
+			output[1] = Double.doubleToLongBits(max);
+		} else {
+			long max = 0;
+			for (Iterator<long[]> iterator = dataPoints.iterator(); iterator.hasNext();) {
+				long[] dataPoint = iterator.next();
+				if (dataPoint[1] > max) {
+					max = dataPoint[1];
+				}
+			}
+			output[1] = max;
+		}
+	}
+
 }

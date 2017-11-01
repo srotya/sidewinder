@@ -41,4 +41,9 @@ public class WindowedFirst extends ReducingWindowedAggregator {
 		return datapoints;
 	}
 
+	@Override
+	protected List<long[]> aggregatePointsAfterReduction(List<long[]> datapoints, boolean isFp) {
+		return datapoints;
+	}
+
 }

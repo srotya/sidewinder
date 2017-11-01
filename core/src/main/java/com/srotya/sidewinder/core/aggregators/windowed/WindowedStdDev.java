@@ -41,4 +41,9 @@ public class WindowedStdDev extends ReducingWindowedAggregator {
 		return datapoints;
 	}
 
+	@Override
+	protected List<long[]> aggregatePointsAfterReduction(List<long[]> reducedDataPoints, boolean isFp) {
+		return reducedDataPoints;
+	}
+
 }

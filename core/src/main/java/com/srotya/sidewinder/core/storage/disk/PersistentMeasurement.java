@@ -98,12 +98,17 @@ public class PersistentMeasurement implements Measurement {
 	private Counter metricsFileRotation;
 	private Counter metricsBufferCounter;
 	private Counter metricsTimeSeriesCounter;
+	private boolean useQueryPool;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String indexDirectory,
 			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
 		enableMetricsMonitoring(engine);
 		this.conf = conf;
+		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
+		if(useQueryPool) {
+			logger.info("Query Pool enabled, datapoint queries will be parallelized");
+		}
 		this.dataDirectory = dataDirectory + "/" + measurementName;
 		this.indexDirectory = indexDirectory + "/" + measurementName;
 		createMeasurementDirectory();
@@ -484,5 +489,10 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public ReentrantLock getLock() {
 		return lock;
+	}
+
+	@Override
+	public boolean useQueryPool() {
+		return useQueryPool;
 	}
 }

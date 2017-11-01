@@ -127,4 +127,9 @@ public class MockMeasurement implements Measurement {
 		return lock;
 	}
 
+	@Override
+	public boolean useQueryPool() {
+		return false;
+	}
+
 }

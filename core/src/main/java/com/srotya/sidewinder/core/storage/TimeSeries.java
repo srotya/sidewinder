@@ -249,6 +249,45 @@ public class TimeSeries {
 		return points;
 	}
 
+	public List<long[]> queryPoints(String appendFieldValueName, List<String> appendTags, long startTime, long endTime,
+			Predicate valuePredicate) throws IOException {
+		if (startTime > endTime) {
+			// swap start and end times if they are off
+			startTime = startTime ^ endTime;
+			endTime = endTime ^ startTime;
+			startTime = startTime ^ endTime;
+		}
+		List<Reader> readers = new ArrayList<>();
+		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
+		int tsStartBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;
+		String startTsBucket = Integer.toHexString(tsStartBucket);
+		if (startTime == 0) {
+			startTsBucket = bucketMap.firstKey();
+		}
+		int tsEndBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
+		String endTsBucket = Integer.toHexString(tsEndBucket);
+		if (endTime == Long.MAX_VALUE) {
+			endTsBucket = bucketMap.lastKey();
+		}
+		SortedMap<String, List<Writer>> series = null;
+		if (bucketMap.size() > 1) {
+			series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
+		} else {
+			series = bucketMap;
+		}
+		for (List<Writer> writers : series.values()) {
+			for (Writer writer : writers) {
+				readers.add(
+						getReader(writer, timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
+			}
+		}
+		List<long[]> points = new ArrayList<>();
+		for (Reader reader : readers) {
+			readerToPoints(points, reader);
+		}
+		return points;
+	}
+
 	/**
 	 * Get {@link Reader} with time and value filter predicates pushed-down to it.
 	 * Along with {@link DataPoint} enrichments pushed to it.
@@ -437,7 +476,7 @@ public class TimeSeries {
 		return points;
 	}
 
-	public static List<DataPoint> readerToDataPoints(List<DataPoint> points, Reader reader) throws IOException {
+	public static void readerToDataPoints(List<DataPoint> points, Reader reader) throws IOException {
 		DataPoint point = null;
 		while (true) {
 			try {
@@ -454,10 +493,29 @@ public class TimeSeries {
 			}
 		}
 		if (reader.getCounter() != reader.getPairCount() || points.size() < reader.getCounter()) {
-			// System.err.println("SDP:" + points.size() + "/" +
-			// reader.getCounter() + "/" + reader.getPairCount());
+			logger.finest("SDP:" + points.size() + "/" + reader.getCounter() + "/" + reader.getPairCount());
 		}
-		return points;
+	}
+
+	public static void readerToPoints(List<long[]> points, Reader reader) throws IOException {
+		long[] point = null;
+		while (true) {
+			try {
+				point = reader.read();
+				if (point != null) {
+					points.add(point);
+				}
+			} catch (IOException e) {
+				if (e instanceof RejectException) {
+				} else {
+					e.printStackTrace();
+				}
+				break;
+			}
+		}
+		if (reader.getCounter() != reader.getPairCount() || points.size() < reader.getCounter()) {
+			logger.finest("SDP:" + points.size() + "/" + reader.getCounter() + "/" + reader.getPairCount());
+		}
 	}
 
 	/**

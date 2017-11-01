@@ -51,4 +51,27 @@ public class MinFunction extends SingleResultFunction {
 		}
 	}
 
+	@Override
+	protected void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp) {
+		if (isFp) {
+			double min = 0;
+			for (Iterator<long[]> iterator = dataPoints.iterator(); iterator.hasNext();) {
+				long[] dataPoint = iterator.next();
+				if (dataPoint[1] < min) {
+					min = Double.longBitsToDouble(dataPoint[1]);
+				}
+			}
+			output[1] = Double.doubleToLongBits(min);
+		} else {
+			long min = 0;
+			for (Iterator<long[]> iterator = dataPoints.iterator(); iterator.hasNext();) {
+				long[] dataPoint = iterator.next();
+				if (dataPoint[1] < min) {
+					min = dataPoint[1];
+				}
+			}
+			output[1] = min;
+		}
+	}
+
 }
