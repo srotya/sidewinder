@@ -127,12 +127,13 @@ public class TimeSeries {
 	}
 
 	private Writer createNewTimeSeriesBucket(long timestamp, String tsBucket, List<Writer> list) throws IOException {
-		ByteBuffer buf = measurement.createNewBuffer(seriesId, tsBucket);
+		BufferObject bufPair = measurement.createNewBuffer(seriesId, tsBucket);
 		// writeStringToBuffer(seriesId, buf);
 		Writer writer;
 		writer = getWriterInstance();
-		writer.configure(conf, buf, true);
+		writer.configure(conf, bufPair.getBuf(), true);
 		writer.setHeaderTimestamp(timestamp);
+		writer.setBufferId(bufPair.getBufferId());
 		list.add(writer);
 		bucketCount++;
 		return writer;
@@ -153,11 +154,11 @@ public class TimeSeries {
 	 * @param bufferEntries
 	 * @throws IOException
 	 */
-	public void loadBucketMap(List<Entry<String, ByteBuffer>> bufferEntries) throws IOException {
+	public void loadBucketMap(List<Entry<String, BufferObject>> bufferEntries) throws IOException {
 		Map<String, String> cacheConf = new HashMap<>(conf);
 		logger.fine("Scanning buffer for:" + seriesId);
-		for (Entry<String, ByteBuffer> entry : bufferEntries) {
-			ByteBuffer duplicate = entry.getValue();
+		for (Entry<String, BufferObject> entry : bufferEntries) {
+			ByteBuffer duplicate = entry.getValue().getBuf();
 			duplicate.rewind();
 			// String series = getStringFromBuffer(duplicate);
 			// if (!series.equalsIgnoreCase(seriesId)) {
@@ -173,6 +174,7 @@ public class TimeSeries {
 			ByteBuffer slice = duplicate.slice();
 			Writer writer = getWriterInstance();
 			writer.configure(cacheConf, slice, false);
+			writer.setBufferId(entry.getValue().getBufferId());
 			list.add(writer);
 			logger.fine("Loading bucketmap:" + seriesId + "\t" + tsBucket);
 		}
@@ -228,7 +230,12 @@ public class TimeSeries {
 		if (endTime == Long.MAX_VALUE) {
 			endTsBucket = bucketMap.lastKey();
 		}
-		SortedMap<String, List<Writer>> series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
+		SortedMap<String, List<Writer>> series = null;
+		if (bucketMap.size() > 1) {
+			series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
+		} else {
+			series = bucketMap;
+		}
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
 				readers.add(
@@ -238,6 +245,45 @@ public class TimeSeries {
 		List<DataPoint> points = new ArrayList<>();
 		for (Reader reader : readers) {
 			readerToDataPoints(points, reader);
+		}
+		return points;
+	}
+
+	public List<long[]> queryPoints(String appendFieldValueName, List<String> appendTags, long startTime, long endTime,
+			Predicate valuePredicate) throws IOException {
+		if (startTime > endTime) {
+			// swap start and end times if they are off
+			startTime = startTime ^ endTime;
+			endTime = endTime ^ startTime;
+			startTime = startTime ^ endTime;
+		}
+		List<Reader> readers = new ArrayList<>();
+		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
+		int tsStartBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;
+		String startTsBucket = Integer.toHexString(tsStartBucket);
+		if (startTime == 0) {
+			startTsBucket = bucketMap.firstKey();
+		}
+		int tsEndBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
+		String endTsBucket = Integer.toHexString(tsEndBucket);
+		if (endTime == Long.MAX_VALUE) {
+			endTsBucket = bucketMap.lastKey();
+		}
+		SortedMap<String, List<Writer>> series = null;
+		if (bucketMap.size() > 1) {
+			series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
+		} else {
+			series = bucketMap;
+		}
+		for (List<Writer> writers : series.values()) {
+			for (Writer writer : writers) {
+				readers.add(
+						getReader(writer, timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
+			}
+		}
+		List<long[]> points = new ArrayList<>();
+		for (Reader reader : readers) {
+			readerToPoints(points, reader);
 		}
 		return points;
 	}
@@ -430,7 +476,7 @@ public class TimeSeries {
 		return points;
 	}
 
-	public static List<DataPoint> readerToDataPoints(List<DataPoint> points, Reader reader) throws IOException {
+	public static void readerToDataPoints(List<DataPoint> points, Reader reader) throws IOException {
 		DataPoint point = null;
 		while (true) {
 			try {
@@ -447,10 +493,29 @@ public class TimeSeries {
 			}
 		}
 		if (reader.getCounter() != reader.getPairCount() || points.size() < reader.getCounter()) {
-			// System.err.println("SDP:" + points.size() + "/" +
-			// reader.getCounter() + "/" + reader.getPairCount());
+			logger.finest("SDP:" + points.size() + "/" + reader.getCounter() + "/" + reader.getPairCount());
 		}
-		return points;
+	}
+
+	public static void readerToPoints(List<long[]> points, Reader reader) throws IOException {
+		long[] point = null;
+		while (true) {
+			try {
+				point = reader.read();
+				if (point != null) {
+					points.add(point);
+				}
+			} catch (IOException e) {
+				if (e instanceof RejectException) {
+				} else {
+					e.printStackTrace();
+				}
+				break;
+			}
+		}
+		if (reader.getCounter() != reader.getPairCount() || points.size() < reader.getCounter()) {
+			logger.finest("SDP:" + points.size() + "/" + reader.getCounter() + "/" + reader.getPairCount());
+		}
 	}
 
 	/**
@@ -468,11 +533,15 @@ public class TimeSeries {
 				// TODO close
 				// bucket.close();
 				gcedBuckets.add(bucket);
-				logger.log(Level.INFO,
+				logger.log(Level.FINEST,
 						"GC," + measurement.getMeasurementName() + ":" + seriesId + " removing bucket:" + key
 								+ ": as it passed retention period of:" + retentionBuckets.get() + ":old size:"
 								+ oldSize + ":newsize:" + bucketMap.size() + ":");
 			}
+		}
+		if (gcedBuckets.size() > 0) {
+			logger.fine("GC," + measurement.getMeasurementName() + " buckets:" + gcedBuckets.size() + " retention size:"
+					+ retentionBuckets);
 		}
 		return gcedBuckets;
 	}
@@ -483,10 +552,13 @@ public class TimeSeries {
 	 * @param retentionHours
 	 */
 	public void setRetentionHours(int retentionHours) {
-		if (retentionHours < 1) {
-			retentionHours = 2;
+		int val = (int) (((long) retentionHours * 3600) / timeBucketSize);
+		if (val < 1) {
+			logger.fine("Incorrect bucket(" + timeBucketSize + ") or retention(" + retentionHours
+					+ ") configuration; correcting to 1 bucket for measurement:" + measurement.getMeasurementName());
+			val = 1;
 		}
-		this.retentionBuckets.set((int) ((long) retentionHours * 3600) / timeBucketSize);
+		this.retentionBuckets.set(val);
 	}
 
 	/**

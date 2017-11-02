@@ -43,7 +43,7 @@ public class InfluxApi {
 
 	public InfluxApi(StorageEngine storageEngine) {
 		this.storageEngine = storageEngine;
-		MetricRegistry registry = MetricsRegistryService.getInstance(storageEngine).getInstance("requests");
+		MetricRegistry registry = MetricsRegistryService.getInstance().getInstance("requests");
 		meter = registry.meter("influx-writes");
 	}
 

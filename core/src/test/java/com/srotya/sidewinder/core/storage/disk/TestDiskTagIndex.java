@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.BeforeClass;
@@ -34,7 +35,6 @@ import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
-import com.srotya.sidewinder.core.storage.mem.MemTagIndex;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -44,16 +44,21 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 public class TestDiskTagIndex {
 
 	private static StorageEngine engine;
+	private static ScheduledExecutorService bgTasks;
 
 	@BeforeClass
 	public static void before() throws IOException {
 		engine = new MemStorageEngine();
+		bgTasks = Executors.newScheduledThreadPool(1);
 		engine.configure(new HashMap<>(), Executors.newScheduledThreadPool(1));
 	}
 
 	@Test
-	public void testDiskTagIndexBasic() {
-		MemTagIndex index = new MemTagIndex(MetricsRegistryService.getInstance(engine).getInstance("requests"));
+	public void testDiskTagIndexBasic() throws IOException {
+		MiscUtils.delete(new File("target/i1"));
+		String indexDir = "target/i1";
+		new File(indexDir).mkdirs();
+		DiskTagIndex index = new DiskTagIndex(indexDir, "i1");
 		for (int i = 0; i < 1000; i++) {
 			String idx = index.createEntry("tag" + (i + 1));
 			index.index(idx, "test212");
@@ -111,7 +116,7 @@ public class TestDiskTagIndex {
 	public void testTagIndexThreaded() throws InterruptedException, IOException {
 		String indexDir = "target/index";
 		new File(indexDir).mkdirs();
-		MetricsRegistryService.getInstance(engine).getInstance("requests");
+		MetricsRegistryService.getInstance(engine, bgTasks).getInstance("requests");
 		final DiskTagIndex index = new DiskTagIndex(indexDir, "m2");
 		ExecutorService es = Executors.newCachedThreadPool();
 		for (int k = 0; k < 10; k++) {

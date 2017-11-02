@@ -47,6 +47,7 @@ public class DodWriter implements Writer {
 	private boolean full;
 	private long prevValue = Long.MIN_VALUE;
 	private long prevXor;
+	private String bufferId;
 
 	public DodWriter() {
 	}
@@ -253,5 +254,15 @@ public class DodWriter implements Writer {
 	@Override
 	public long getHeaderTimestamp() {
 		return 0;
+	}
+
+	@Override
+	public void setBufferId(String key) {
+		this.bufferId = key;
+	}
+
+	@Override
+	public String getBufferId() {
+		return bufferId;
 	}
 }
