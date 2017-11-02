@@ -103,11 +103,13 @@ public class DiskStorageEngine implements StorageEngine {
 						Measurement value = measurementEntry.getValue();
 						try {
 							value.garbageCollector();
-						} catch (IOException e) {
+						} catch (Exception e) {
 							logger.log(Level.SEVERE,
 									"Failed collect garbage for measurement:" + value.getMeasurementName(), e);
 						}
+						logger.log(Level.FINE, "Completed Measuremenet GC:" + measurementEntry.getKey());
 					}
+					logger.log(Level.FINE, "Completed DB GC:" + measurementMap.getKey());
 				}
 			}, Integer.parseInt(conf.getOrDefault(GC_FREQUENCY, DEFAULT_GC_FREQUENCY)),
 					Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.MILLISECONDS);
@@ -118,7 +120,7 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	public void enableMetricsService() {
-		MetricsRegistryService reg = MetricsRegistryService.getInstance(this);
+		MetricsRegistryService reg = MetricsRegistryService.getInstance(this, bgTaskPool);
 		MetricRegistry metaops = reg.getInstance("metaops");
 		metricsDbCounter = metaops.counter("db-create");
 		metricsMeasurementCounter = metaops.counter("measurement-create");
@@ -130,7 +132,9 @@ public class DiskStorageEngine implements StorageEngine {
 			List<String> tags, int retentionHours) throws IOException {
 		TimeSeries series = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, defaultTimebucketSize,
 				true);
-		series.setRetentionHours(retentionHours);
+		if (series != null) {
+			series.setRetentionHours(retentionHours);
+		}
 	}
 
 	@Override

@@ -36,9 +36,9 @@ import com.srotya.minuteman.connectors.ClusterConnector;
 import com.srotya.minuteman.utils.FileUtils;
 import com.srotya.sidewinder.cluster.api.InfluxApi;
 import com.srotya.sidewinder.cluster.storage.SidewinderWALClient;
-import com.srotya.sidewinder.core.ResourceMonitor;
 import com.srotya.sidewinder.core.SidewinderDropwizardReporter;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
+import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
@@ -81,7 +81,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		ResourceMonitor rm = ResourceMonitor.getInstance();
 		rm.init(storageEngine, bgTasks);
 		
-		registerMetrics(registry, storageEngine);
+		registerMetrics(registry, storageEngine, bgTasks);
 		WALManager walManager = buildClusterAndWALManager(conf, bgTasks, registry, storageEngine);
 		System.out.println("WAL Manager:" + walManager.getAddress());
 
@@ -127,7 +127,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		}
 	}
 
-	private void registerMetrics(final MetricRegistry registry, StorageEngine storageEngine) {
+	private void registerMetrics(final MetricRegistry registry, StorageEngine storageEngine, ScheduledExecutorService es) {
 		@SuppressWarnings("resource")
 		SidewinderDropwizardReporter requestReporter = new SidewinderDropwizardReporter(registry, "request",
 				new MetricFilter() {
@@ -136,7 +136,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 					public boolean matches(String name, Metric metric) {
 						return true;
 					}
-				}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine);
+				}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine, es);
 		requestReporter.start(1, TimeUnit.SECONDS);
 	}
 

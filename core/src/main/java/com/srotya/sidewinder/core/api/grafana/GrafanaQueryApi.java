@@ -71,7 +71,7 @@ public class GrafanaQueryApi {
 	public GrafanaQueryApi(StorageEngine engine) throws SQLException {
 		this.engine = engine;
 		tz = TimeZone.getDefault();
-		MetricRegistry registry = MetricsRegistryService.getInstance(engine).getInstance("grafana");
+		MetricRegistry registry = MetricsRegistryService.getInstance().getInstance("grafana");
 		grafanaQueryCounter = registry.meter("queries");
 		grafanaQueryLatency = registry.timer("latency");
 	}
@@ -91,7 +91,7 @@ public class GrafanaQueryApi {
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
-	public String query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
+	public List<Target> query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		grafanaQueryCounter.mark();
 		Context time = grafanaQueryLatency.time();
 		logger.log(Level.FINE, "Grafana query:" + dbName + "\t" + query);
@@ -118,7 +118,7 @@ public class GrafanaQueryApi {
 		}
 		logger.log(Level.FINE, "Response:" + dbName + "\t" + gson.toJson(json) + "\t" + gson.toJson(output));
 		time.stop();
-		return gson.toJson(output);
+		return output;
 	}
 
 	@Path("/query/measurements")
@@ -225,7 +225,7 @@ public class GrafanaQueryApi {
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
-	public String rawQuery(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
+	public List<Target> rawQuery(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		grafanaQueryCounter.mark();
 		Context time = grafanaQueryLatency.time();
 		Gson gson = new GsonBuilder().create();
@@ -248,9 +248,8 @@ public class GrafanaQueryApi {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		String jsonOutput = gson.toJson(output);
 		time.stop();
-		return jsonOutput;
+		return output;
 	}
 
 }

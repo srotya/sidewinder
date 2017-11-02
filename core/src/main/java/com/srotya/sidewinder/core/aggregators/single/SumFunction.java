@@ -18,12 +18,14 @@ package com.srotya.sidewinder.core.aggregators.single;
 import java.util.Iterator;
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.aggregators.SingleResultFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "ssum")
 public class SumFunction extends SingleResultFunction {
 
 	@Override
@@ -45,6 +47,25 @@ public class SumFunction extends SingleResultFunction {
 				sum += dataPoint.getValue();
 			}
 			output.setValue(sum);
+		}
+	}
+
+	@Override
+	protected void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp) {
+		if (!isFp) {
+			long sum = 0;
+			for (Iterator<long[]> iterator = dataPoints.iterator(); iterator.hasNext();) {
+				long[] dataPoint = iterator.next();
+				sum += dataPoint[1];
+			}
+			output[1] = sum;
+		} else {
+			double sum = 0;
+			for (Iterator<long[]> iterator = dataPoints.iterator(); iterator.hasNext();) {
+				long[] dataPoint = iterator.next();
+				sum += Double.longBitsToDouble(dataPoint[1]);
+			}
+			output[1] = Double.doubleToLongBits(sum);
 		}
 	}
 

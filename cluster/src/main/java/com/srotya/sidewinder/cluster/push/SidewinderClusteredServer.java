@@ -35,12 +35,12 @@ import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
 import com.srotya.sidewinder.cluster.push.rpc.ClusteredWriteServiceImpl;
 import com.srotya.sidewinder.cluster.rpc.ClusterMetadataServiceImpl;
 import com.srotya.sidewinder.core.ConfigConstants;
-import com.srotya.sidewinder.core.ResourceMonitor;
 import com.srotya.sidewinder.core.SidewinderDropwizardReporter;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
-import com.srotya.sidewinder.core.health.RestAPIHealthCheck;
+import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
+import com.srotya.sidewinder.core.monitoring.RestAPIHealthCheck;
 import com.srotya.sidewinder.core.rpc.WriterServiceImpl;
 import com.srotya.sidewinder.core.security.AllowAllAuthorizer;
 import com.srotya.sidewinder.core.security.BasicAuthenticator;
@@ -120,7 +120,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 				.addService(new ClusterMetadataServiceImpl(router, conf))
 				.addService(new WriterServiceImpl(storageEngine, conf)).build().start();
 
-		registerMetrics(registry, storageEngine);
+		registerMetrics(registry, storageEngine, bgTasks);
 
 		Runtime.getRuntime().addShutdownHook(new Thread("shutdown-hook") {
 			@Override
@@ -157,7 +157,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		}
 	}
 
-	private void registerMetrics(final MetricRegistry registry, StorageEngine storageEngine) {
+	private void registerMetrics(final MetricRegistry registry, StorageEngine storageEngine, ScheduledExecutorService es) {
 		@SuppressWarnings("resource")
 		SidewinderDropwizardReporter requestReporter = new SidewinderDropwizardReporter(registry, "request",
 				new MetricFilter() {
@@ -166,7 +166,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 					public boolean matches(String name, Metric metric) {
 						return true;
 					}
-				}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine);
+				}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine, es);
 		requestReporter.start(1, TimeUnit.SECONDS);
 	}
 

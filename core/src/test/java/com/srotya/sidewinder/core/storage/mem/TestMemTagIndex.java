@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.BeforeClass;
@@ -36,16 +37,19 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 public class TestMemTagIndex {
 
 	private static StorageEngine engine;
+	private static ScheduledExecutorService bgTasks;
 
 	@BeforeClass
 	public static void before() throws IOException {
 		engine = new MemStorageEngine();
-		engine.configure(new HashMap<>(), Executors.newScheduledThreadPool(1));
+		bgTasks = Executors.newScheduledThreadPool(1);
+		engine.configure(new HashMap<>(), bgTasks);
 	}
 
 	@Test
 	public void testTagIndexBasic() {
-		MemTagIndex index = new MemTagIndex(MetricsRegistryService.getInstance(engine).getInstance("requests"));
+		MemTagIndex index = new MemTagIndex(
+				MetricsRegistryService.getInstance(engine, bgTasks).getInstance("requests"));
 		for (int i = 0; i < 1000; i++) {
 			String idx = index.createEntry("tag" + (i + 1));
 			index.index(idx, "test212");
@@ -89,7 +93,8 @@ public class TestMemTagIndex {
 
 	@Test
 	public void testTagIndexThreaded() throws InterruptedException {
-		MemTagIndex index = new MemTagIndex(MetricsRegistryService.getInstance(engine).getInstance("requests"));
+		MemTagIndex index = new MemTagIndex(
+				MetricsRegistryService.getInstance(engine, bgTasks).getInstance("requests"));
 		ExecutorService es = Executors.newCachedThreadPool();
 		for (int k = 0; k < 10; k++) {
 			es.submit(() -> {

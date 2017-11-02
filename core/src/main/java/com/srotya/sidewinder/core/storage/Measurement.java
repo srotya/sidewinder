@@ -16,7 +16,6 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,9 +28,11 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
@@ -44,11 +45,13 @@ import com.srotya.sidewinder.core.storage.compression.Writer;
  */
 public interface Measurement {
 
+	public static final String USE_QUERY_POOL = "use.query.pool";
 	public static final String FIELD_TAG_SEPARATOR = "#";
 	public static final String TAG_SEPARATOR = "_";
 
-	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String baseIndexDirectory,
-			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException;
+	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName,
+			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
+			throws IOException;
 
 	public Collection<TimeSeries> getTimeSeries();
 
@@ -60,7 +63,7 @@ public interface Measurement {
 
 	public void close() throws IOException;
 
-	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException;
+	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException;
 
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException;
@@ -176,21 +179,36 @@ public interface Measurement {
 	}
 
 	public default void garbageCollector() throws IOException {
-		for (Entry<String, TimeSeries> entry : getTimeSeriesMap().entrySet()) {
-			try {
-				List<Writer> garbage = entry.getValue().collectGarbage();
-				for (Writer timeSeriesBucket : garbage) {
-					// TODO delete
-					// timeSeriesBucket.delete();
-					getLogger().info("Collecting garbage for bucket:" + entry.getKey() + "\tOffset:"
-							+ timeSeriesBucket.currentOffset());
+		getLock().lock();
+		try {
+			Set<String> cleanupList = new HashSet<>();
+			for (Entry<String, TimeSeries> entry : getTimeSeriesMap().entrySet()) {
+				try {
+					List<Writer> garbage = entry.getValue().collectGarbage();
+					for (Writer timeSeriesBucket : garbage) {
+						// TODO delete
+						// timeSeriesBucket.delete();
+						cleanupList.add(timeSeriesBucket.getBufferId());
+						getLogger().fine("Collecting garbage for bucket:" + entry.getKey() + "\tOffset:"
+								+ timeSeriesBucket.currentOffset());
+					}
+					getLogger().fine("Collecting garbage for time series:" + entry.getKey());
+				} catch (IOException e) {
+					getLogger().log(Level.SEVERE, "Error collecing garbage", e);
 				}
-				getLogger().fine("Collecting garbage for time series:" + entry.getKey());
-			} catch (IOException e) {
-				getLogger().log(Level.SEVERE, "Error collecing garbage", e);
 			}
+			// cleanup these buffer ids
+			if (cleanupList.size() > 0) {
+				getLogger().info("For measurement:" + getMeasurementName() + " collected garbage for:"
+						+ cleanupList.size() + " buffers");
+			}
+			cleanupBufferIds(cleanupList);
+		} finally {
+			getLock().unlock();
 		}
 	}
+
+	public void cleanupBufferIds(Set<String> cleanupList) throws IOException;
 
 	public default TimeSeries getTimeSeries(String valueFieldName, List<String> tags) throws IOException {
 		Collections.sort(tags);
@@ -227,7 +245,7 @@ public interface Measurement {
 			List<String> tagList, Filter<List<String>> tagFilter, Predicate valuePredicate,
 			AggregationFunction aggregationFunction, Set<SeriesQueryOutput> resultMap) throws IOException {
 		Set<String> rowKeys = null;
-		Pattern p = null;
+		final Pattern p;
 		try {
 			p = Pattern.compile(valueFieldNamePattern);
 		} catch (Exception e) {
@@ -238,35 +256,114 @@ public interface Measurement {
 		} else {
 			rowKeys = getTagFilteredRowKeys(valueFieldNamePattern, tagFilter, tagList);
 		}
-		for (String entry : rowKeys) {
-			String[] keys = entry.split(FIELD_TAG_SEPARATOR);
-			if (!p.matcher(keys[0]).matches()) {
-				continue;
+		Stream<String> stream = rowKeys.stream();
+		if (useQueryPool()) {
+			stream = stream.parallel();
+		}
+		stream.forEach(entry -> {
+			try {
+				populateDataPoints(entry, startTime, endTime, aggregationFunction, valuePredicate, p, resultMap);
+			} catch (IOException e) {
+				getLogger().severe("Failed to query data points");
 			}
-			List<DataPoint> points = null;
-			List<String> seriesTags = null;
-			if (keys.length > 1) {
-				seriesTags = decodeStringToTags(getTagIndex(), keys[1]);
-			} else {
-				seriesTags = new ArrayList<>();
+		});
+	}
+
+	public default void populateDataPoints(String entry, long startTime, long endTime,
+			AggregationFunction aggregationFunction, Predicate valuePredicate, Pattern p,
+			Set<SeriesQueryOutput> resultMap) throws IOException {
+		String[] keys = entry.split(FIELD_TAG_SEPARATOR);
+		if (!p.matcher(keys[0]).matches()) {
+			return;
+		}
+		List<DataPoint> points = null;
+		List<String> seriesTags = null;
+		if (keys.length > 1) {
+			seriesTags = decodeStringToTags(getTagIndex(), keys[1]);
+		} else {
+			seriesTags = new ArrayList<>();
+		}
+		TimeSeries value = getTimeSeriesMap().get(entry);
+		if (value == null) {
+			getLogger().severe("Invalid time series value " + entry + "\t" + "\t" + "\n\n");
+			return;
+		}
+		points = value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate);
+		if (aggregationFunction != null) {
+			points = aggregationFunction.aggregateDataPoints(points);
+			// points = aggregationFunction.aggregatePoints(points, value.isFp());
+		}
+		if (points == null) {
+			points = new ArrayList<>();
+		}
+		if (points.size() > 0) {
+			SeriesQueryOutput seriesQueryOutput = new SeriesQueryOutput(getMeasurementName(), keys[0], seriesTags);
+			seriesQueryOutput.setFp(value.isFp());
+			seriesQueryOutput.setDataPoints(points);
+			resultMap.add(seriesQueryOutput);
+		}
+	}
+
+	public default void queryPoints(String valueFieldNamePattern, long startTime, long endTime, List<String> tagList,
+			Filter<List<String>> tagFilter, Predicate valuePredicate, AggregationFunction aggregationFunction,
+			Set<SeriesQueryOutput> resultMap) throws IOException {
+		Set<String> rowKeys = null;
+		Pattern fieldNamePattern;
+		try {
+			fieldNamePattern = Pattern.compile(valueFieldNamePattern);
+		} catch (Exception e) {
+			throw new IOException("Invalid regex for value field name:" + e.getMessage());
+		}
+		if (tagList == null || tagList.size() == 0) {
+			rowKeys = getTimeSeriesMap().keySet();
+		} else {
+			rowKeys = getTagFilteredRowKeys(valueFieldNamePattern, tagFilter, tagList);
+		}
+		Stream<String> stream = rowKeys.stream();
+		if (useQueryPool()) {
+			stream = stream.parallel();
+		}
+		stream.forEach(entry -> {
+			try {
+				populatePoints(entry, startTime, endTime, aggregationFunction, valuePredicate, fieldNamePattern,
+						resultMap);
+			} catch (IOException e) {
+				getLogger().severe("Failed to query data points");
 			}
-			TimeSeries value = getTimeSeriesMap().get(entry);
-			if (value == null) {
-				getLogger().severe("Invalid time series value " + entry + "\t" + rowKeys + "\t" + "\n\n");
-				continue;
-			}
-			points = value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate);
-			if (aggregationFunction != null) {
-				points = aggregationFunction.aggregate(points);
-			}
-			if (points == null) {
-				points = new ArrayList<>();
-			}
-			if (points.size() > 0) {
-				SeriesQueryOutput seriesQueryOutput = new SeriesQueryOutput(getMeasurementName(), keys[0], seriesTags);
-				seriesQueryOutput.setDataPoints(points);
-				resultMap.add(seriesQueryOutput);
-			}
+		});
+	}
+
+	public default void populatePoints(String entry, long startTime, long endTime,
+			AggregationFunction aggregationFunction, Predicate valuePredicate, Pattern p,
+			Set<SeriesQueryOutput> resultMap) throws IOException {
+		String[] keys = entry.split(FIELD_TAG_SEPARATOR);
+		if (!p.matcher(keys[0]).matches()) {
+			return;
+		}
+		List<long[]> points = null;
+		List<String> seriesTags = null;
+		if (keys.length > 1) {
+			seriesTags = decodeStringToTags(getTagIndex(), keys[1]);
+		} else {
+			seriesTags = new ArrayList<>();
+		}
+		TimeSeries value = getTimeSeriesMap().get(entry);
+		if (value == null) {
+			getLogger().severe("Invalid time series value " + entry + "\t" + "\t" + "\n\n");
+			return;
+		}
+		points = value.queryPoints(keys[0], seriesTags, startTime, endTime, valuePredicate);
+		if (aggregationFunction != null) {
+			points = aggregationFunction.aggregatePoints(points, value.isFp());
+		}
+		if (points == null) {
+			points = new ArrayList<>();
+		}
+		if (points.size() > 0) {
+			SeriesQueryOutput seriesQueryOutput = new SeriesQueryOutput(getMeasurementName(), keys[0], seriesTags);
+			seriesQueryOutput.setFp(value.isFp());
+			seriesQueryOutput.setPoints(points);
+			resultMap.add(seriesQueryOutput);
 		}
 	}
 
@@ -302,5 +399,9 @@ public interface Measurement {
 	public Logger getLogger();
 
 	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId);
+
+	public ReentrantLock getLock();
+
+	public boolean useQueryPool();
 
 }

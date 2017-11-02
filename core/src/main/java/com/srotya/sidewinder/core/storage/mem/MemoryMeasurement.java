@@ -22,13 +22,16 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -42,23 +45,27 @@ import com.srotya.sidewinder.core.storage.compression.Writer;
 public class MemoryMeasurement implements Measurement {
 
 	private static Logger logger = Logger.getLogger(MemoryMeasurement.class.getName());
+	private ReentrantLock lock = new ReentrantLock(false);
 	private String measurementName;
 	private DBMetadata metadata;
 	private Map<String, TimeSeries> seriesMap;
 	private MemTagIndex tagIndex;
 	private List<ByteBuffer> bufTracker;
 	private String compressionClass;
+	private boolean useQueryPool;
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String baseIndexDirectory,
-			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
+	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName,
+			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
+			throws IOException {
 		this.measurementName = measurementName;
 		this.metadata = metadata;
-		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine).getInstance("request"));
+		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("request"));
 		this.seriesMap = new ConcurrentHashMap<>();
 		this.bufTracker = new ArrayList<>();
 		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
 				StorageEngine.DEFAULT_COMPRESSION_CLASS);
+		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
 	}
 
 	@Override
@@ -85,12 +92,12 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException {
+	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
 		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(1024);
 		synchronized (bufTracker) {
 			bufTracker.add(allocateDirect);
 		}
-		return allocateDirect;
+		return new BufferObject(seriesId + "\t" + tsBucket, allocateDirect);
 	}
 
 	public List<ByteBuffer> getBufTracker() {
@@ -131,7 +138,9 @@ public class MemoryMeasurement implements Measurement {
 		return logger;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
@@ -145,5 +154,19 @@ public class MemoryMeasurement implements Measurement {
 	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId) {
 		return new ConcurrentSkipListMap<>();
 	}
-	
+
+	@Override
+	public void cleanupBufferIds(Set<String> cleanupList) {
+		// nothing much to do since this is an in-memory implementation
+	}
+
+	@Override
+	public ReentrantLock getLock() {
+		return lock;
+	}
+
+	@Override
+	public boolean useQueryPool() {
+		return useQueryPool;
+	}
 }

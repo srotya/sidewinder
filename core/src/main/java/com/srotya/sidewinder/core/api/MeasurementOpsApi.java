@@ -43,6 +43,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
+import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -144,11 +145,11 @@ public class MeasurementOpsApi {
 			return fieldsForMeasurement;
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e);
-		}  catch (Exception e) {
+		} catch (Exception e) {
 			throw new InternalServerErrorException(e);
 		}
 	}
-	
+
 	@Path("/fields/{" + VALUE + "}")
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -169,7 +170,7 @@ public class MeasurementOpsApi {
 			throw new InternalServerErrorException(e);
 		}
 	}
-	
+
 	@GET
 	@Produces({ MediaType.APPLICATION_JSON })
 	public String listMeasurements(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
@@ -183,7 +184,7 @@ public class MeasurementOpsApi {
 				fieldAry.add(field);
 			}
 			obj.add("fields", fieldAry);
-			
+
 			JsonArray tagAry = new JsonArray();
 			for (String tag : tagsForMeasurement) {
 				tagAry.add(tag);
@@ -192,15 +193,31 @@ public class MeasurementOpsApi {
 			return new Gson().toJson(obj);
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e);
-		}  catch (Exception e) {
+		} catch (Exception e) {
 			throw new InternalServerErrorException(e);
 		}
 	}
 
+	@Path("/series/count")
+	@GET
+	@Produces({ MediaType.APPLICATION_JSON })
+	public int countSeries(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
+			@PathParam(MEASUREMENT) String measurementName) {
+		try {
+			if (engine.checkIfExists(dbName, measurementName)) {
+				Measurement m = engine.getOrCreateMeasurement(dbName, measurementName);
+				return m.getTimeSeriesMap().size();
+			}
+		} catch (IOException e) {
+			throw new BadRequestException(e);
+		}
+		return 0;
+	}
+
 	public List<Number[]> getSeries(@PathParam(DatabaseOpsApi.DB_NAME) String dbName,
-			@PathParam(MEASUREMENT) String measurementName, @QueryParam("field") String valueFieldName, 
+			@PathParam(MEASUREMENT) String measurementName, @QueryParam("field") String valueFieldName,
 			@DefaultValue("now-1h") @QueryParam(START_TIME) String startTime, @QueryParam(END_TIME) String endTime) {
-		if(valueFieldName==null) {
+		if (valueFieldName == null) {
 			throw new BadRequestException("Must specify a value field");
 		}
 		try {
@@ -215,8 +232,8 @@ public class MeasurementOpsApi {
 				startTs = sdf.parse(startTime).getTime();
 				endTs = sdf.parse(endTime).getTime();
 			}
-			Set<SeriesQueryOutput> points = engine.queryDataPoints(dbName, measurementName, valueFieldName,
-					startTs, endTs, Arrays.asList(""), null);
+			Set<SeriesQueryOutput> points = engine.queryDataPoints(dbName, measurementName, valueFieldName, startTs,
+					endTs, Arrays.asList(""), null);
 			List<Number[]> response = new ArrayList<>();
 			for (SeriesQueryOutput entry : points) {
 				for (DataPoint dataPoint : entry.getDataPoints()) {
@@ -234,5 +251,5 @@ public class MeasurementOpsApi {
 			throw new InternalServerErrorException(e);
 		}
 	}
-	
+
 }

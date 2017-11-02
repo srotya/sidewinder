@@ -18,21 +18,23 @@ package com.srotya.sidewinder.core.aggregators.single;
 import java.util.Iterator;
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.aggregators.SingleResultFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "smax")
 public class MaxFunction extends SingleResultFunction {
-	
+
 	@Override
 	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {
 		if (output.isFp()) {
 			double max = 0;
 			for (Iterator<DataPoint> iterator = dataPoints.iterator(); iterator.hasNext();) {
 				DataPoint dataPoint = iterator.next();
-				if(dataPoint.getValue()>max) {
+				if (dataPoint.getValue() > max) {
 					max = dataPoint.getValue();
 				}
 			}
@@ -41,11 +43,34 @@ public class MaxFunction extends SingleResultFunction {
 			long max = 0;
 			for (Iterator<DataPoint> iterator = dataPoints.iterator(); iterator.hasNext();) {
 				DataPoint dataPoint = iterator.next();
-				if(dataPoint.getValue()>max) {
+				if (dataPoint.getValue() > max) {
 					max = dataPoint.getLongValue();
 				}
 			}
 			output.setLongValue(max);
+		}
+	}
+
+	@Override
+	protected void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp) {
+		if (isFp) {
+			double max = 0;
+			for (Iterator<long[]> iterator = dataPoints.iterator(); iterator.hasNext();) {
+				long[] dataPoint = iterator.next();
+				if (dataPoint[1] > max) {
+					max = Double.longBitsToDouble(dataPoint[1]);
+				}
+			}
+			output[1] = Double.doubleToLongBits(max);
+		} else {
+			long max = 0;
+			for (Iterator<long[]> iterator = dataPoints.iterator(); iterator.hasNext();) {
+				long[] dataPoint = iterator.next();
+				if (dataPoint[1] > max) {
+					max = dataPoint[1];
+				}
+			}
+			output[1] = max;
 		}
 	}
 

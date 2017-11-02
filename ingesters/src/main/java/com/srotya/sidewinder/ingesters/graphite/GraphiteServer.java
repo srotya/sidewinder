@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.graphite;
+package com.srotya.sidewinder.ingesters.graphite;
 
 import java.util.Map;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
+import com.srotya.sidewinder.core.external.Ingester;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
-import io.dropwizard.lifecycle.Managed;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
@@ -40,7 +40,7 @@ import io.netty.handler.logging.LoggingHandler;
 /**
  * @author ambud
  */
-public class GraphiteServer implements Managed {
+public class GraphiteServer extends Ingester {
 
 	private StorageEngine storageEngine;
 	private int serverPort;
@@ -51,15 +51,16 @@ public class GraphiteServer implements Managed {
 	private String bindAddress;
 	private Counter writeCounter;
 
-	public GraphiteServer(Map<String, String> conf, StorageEngine storageEngine) {
+	@Override
+	public void init(Map<String, String> conf, StorageEngine storageEngine) {
 		this.storageEngine = storageEngine;
 		this.serverPort = Integer.parseInt(conf.getOrDefault("server.graphite.port", "8772"));
 		this.bindAddress = conf.getOrDefault("server.graphite.bind", "localhost");
 		this.dbName = conf.getOrDefault("server.graphite.dbname", "graphite");
-		MetricRegistry registry = MetricsRegistryService.getInstance(storageEngine).getInstance("requests");
+		MetricRegistry registry = MetricsRegistryService.getInstance().getInstance("requests");
 		writeCounter = registry.counter("graphite-writes");
 	}
-
+	
 	@Override
 	public void start() throws Exception {
 		bossGroup = new NioEventLoopGroup(1);

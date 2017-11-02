@@ -98,11 +98,11 @@ public class TestDiskStorageEngine {
 
 	@Test
 	public void testUpdateTimeSeriesRetention() throws IOException {
-		MiscUtils.delete(new File("target/dst-2/data"));
+		MiscUtils.delete(new File("target/dst-2/"));
 		DiskStorageEngine engine = new DiskStorageEngine();
 		Map<String, String> conf = new HashMap<>();
 		conf.put("data.dir", "target/dst-2/data");
-		conf.put("data.dir", "target/dst-2/index");
+		conf.put("index.dir", "target/dst-2/index");
 		engine.configure(conf, bgTasks);
 		engine.getOrCreateMeasurement("db1", "m1");
 		engine.updateDefaultTimeSeriesRetentionPolicy("db1", 10);
@@ -118,11 +118,11 @@ public class TestDiskStorageEngine {
 
 	@Test
 	public void testMetadataOperations() throws Exception {
-		MiscUtils.delete(new File("target/dst-3/data"));
+		MiscUtils.delete(new File("target/dst-3/"));
 		StorageEngine engine = new DiskStorageEngine();
 		Map<String, String> conf = new HashMap<>();
 		conf.put("data.dir", "target/dst-3/data");
-		conf.put("data.dir", "target/dst-3/index");
+		conf.put("index.dir", "target/dst-3/index");
 		engine.configure(conf, bgTasks);
 		engine.getOrCreateTimeSeries("db1", "m1", "vf1", Arrays.asList("t1"), 4096, false);
 		assertEquals(1, engine.getAllMeasurementsForDb("db1").size());
@@ -404,19 +404,21 @@ public class TestDiskStorageEngine {
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		map.put(StorageEngine.DEFAULT_BUCKET_SIZE, "4096");
 		map.put(PersistentMeasurement.CONF_MEASUREMENT_INCREMENT_SIZE, "4096");
+		map.put(PersistentMeasurement.CONF_MEASUREMENT_FILE_INCREMENT, "10240");
+		map.put(PersistentMeasurement.CONF_MEASUREMENT_FILE_MAX, String.valueOf(1024 * 100));
 		map.put(StorageEngine.RETENTION_HOURS, "28");
 		engine.configure(map, bgTasks);
 		long base = 1497720452566L;
 		long ts = base;
-		for (int i = 32; i >= 0; i--) {
-			engine.writeDataPoint(
-					MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test"), base - (3600_000 * i), 2L));
+		for (int i = 320; i >= 0; i--) {
+			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu2", "value", Arrays.asList("test"),
+					base - (3600_000 * i), 2L));
 		}
 		Thread.sleep(1000);
 
-		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test", "cpu", "value", ts - (3600_000 * 32),
+		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test", "cpu2", "value", ts - (3600_000 * 320),
 				ts, null, null);
-		assertTrue(!engine.isMeasurementFieldFP("test", "cpu", "value"));
+		assertTrue(!engine.isMeasurementFieldFP("test", "cpu2", "value"));
 		assertEquals(27, queryDataPoints.iterator().next().getDataPoints().size());
 	}
 
@@ -593,7 +595,7 @@ public class TestDiskStorageEngine {
 		map.put("data.dir", "target/db8/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		engine.configure(map, bgTasks);
-		long curr = System.currentTimeMillis();
+		long curr = 1497720452566L;
 
 		String dbName = "test";
 		String measurementName = "cpu";
@@ -644,7 +646,7 @@ public class TestDiskStorageEngine {
 		map.put("data.dir", "target/db121/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		engine.configure(map, bgTasks);
-		long curr = System.currentTimeMillis();
+		long curr = 1497720452566L;
 		String dbName = "test";
 		String measurementName = "cpu";
 		String valueFieldName = "value";
@@ -690,7 +692,7 @@ public class TestDiskStorageEngine {
 		map.put("data.dir", "target/db5/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		engine.configure(map, bgTasks);
-		long curr = System.currentTimeMillis();
+		long curr = 1497720452566L;
 		String dbName = "test";
 		String measurementName = "cpu";
 		String valueFieldName = "value";
