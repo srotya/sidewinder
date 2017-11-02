@@ -595,7 +595,7 @@ public class TestDiskStorageEngine {
 		map.put("data.dir", "target/db8/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		engine.configure(map, bgTasks);
-		long curr = System.currentTimeMillis();
+		long curr = 1497720452566L;
 
 		String dbName = "test";
 		String measurementName = "cpu";
@@ -646,7 +646,7 @@ public class TestDiskStorageEngine {
 		map.put("data.dir", "target/db121/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		engine.configure(map, bgTasks);
-		long curr = System.currentTimeMillis();
+		long curr = 1497720452566L;
 		String dbName = "test";
 		String measurementName = "cpu";
 		String valueFieldName = "value";
@@ -692,7 +692,7 @@ public class TestDiskStorageEngine {
 		map.put("data.dir", "target/db5/data");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		engine.configure(map, bgTasks);
-		long curr = System.currentTimeMillis();
+		long curr = 1497720452566L;
 		String dbName = "test";
 		String measurementName = "cpu";
 		String valueFieldName = "value";

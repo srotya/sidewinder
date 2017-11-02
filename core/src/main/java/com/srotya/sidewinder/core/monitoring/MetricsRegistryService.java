@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.monitoring;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.codahale.metrics.Metric;
@@ -36,16 +37,18 @@ public class MetricsRegistryService {
 	private Map<String, MetricRegistry> registry;
 	private Map<String, SidewinderDropwizardReporter> reporter;
 	private StorageEngine engine;
+	private ScheduledExecutorService es;
 
-	private MetricsRegistryService(StorageEngine engine) {
+	private MetricsRegistryService(StorageEngine engine, ScheduledExecutorService es) {
 		this.engine = engine;
+		this.es = es;
 		registry = new HashMap<>();
 		reporter = new HashMap<>();
 	}
 
-	public static MetricsRegistryService getInstance(StorageEngine engine) {
+	public static MetricsRegistryService getInstance(StorageEngine engine, ScheduledExecutorService es) {
 		if (instance == null) {
-			instance = new MetricsRegistryService(engine);
+			instance = new MetricsRegistryService(engine, es);
 		}
 		return instance;
 	}
@@ -65,7 +68,8 @@ public class MetricsRegistryService {
 					public boolean matches(String name, Metric metric) {
 						return true;
 					}
-				}, TimeUnit.SECONDS, TimeUnit.SECONDS, engine);
+					
+				}, TimeUnit.SECONDS, TimeUnit.SECONDS, engine, es);
 				reporter.start(1, TimeUnit.SECONDS);
 				this.reporter.put(key, reporter);
 			}

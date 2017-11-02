@@ -60,7 +60,7 @@ public class MemoryMeasurement implements Measurement {
 			throws IOException {
 		this.measurementName = measurementName;
 		this.metadata = metadata;
-		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine).getInstance("request"));
+		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("request"));
 		this.seriesMap = new ConcurrentHashMap<>();
 		this.bufTracker = new ArrayList<>();
 		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,

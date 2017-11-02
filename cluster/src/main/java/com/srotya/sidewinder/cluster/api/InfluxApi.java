@@ -61,7 +61,7 @@ public class InfluxApi {
 
 	public InfluxApi(WALManager mgr, StorageEngine engine, Map<String, String> conf) {
 		this.mgr = mgr;
-		MetricRegistry registry = MetricsRegistryService.getInstance(engine).getInstance("requests");
+		MetricRegistry registry = MetricsRegistryService.getInstance().getInstance("requests");
 		meter = registry.meter("writes");
 	}
 

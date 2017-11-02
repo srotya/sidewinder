@@ -120,7 +120,7 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	public void enableMetricsService() {
-		MetricsRegistryService reg = MetricsRegistryService.getInstance(this);
+		MetricsRegistryService reg = MetricsRegistryService.getInstance(this, bgTaskPool);
 		MetricRegistry metaops = reg.getInstance("metaops");
 		metricsDbCounter = metaops.counter("db-create");
 		metricsMeasurementCounter = metaops.counter("measurement-create");

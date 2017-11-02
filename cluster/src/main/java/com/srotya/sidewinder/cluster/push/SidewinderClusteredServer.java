@@ -120,7 +120,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 				.addService(new ClusterMetadataServiceImpl(router, conf))
 				.addService(new WriterServiceImpl(storageEngine, conf)).build().start();
 
-		registerMetrics(registry, storageEngine);
+		registerMetrics(registry, storageEngine, bgTasks);
 
 		Runtime.getRuntime().addShutdownHook(new Thread("shutdown-hook") {
 			@Override
@@ -157,7 +157,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		}
 	}
 
-	private void registerMetrics(final MetricRegistry registry, StorageEngine storageEngine) {
+	private void registerMetrics(final MetricRegistry registry, StorageEngine storageEngine, ScheduledExecutorService es) {
 		@SuppressWarnings("resource")
 		SidewinderDropwizardReporter requestReporter = new SidewinderDropwizardReporter(registry, "request",
 				new MetricFilter() {
@@ -166,7 +166,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 					public boolean matches(String name, Metric metric) {
 						return true;
 					}
-				}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine);
+				}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine, es);
 		requestReporter.start(1, TimeUnit.SECONDS);
 	}
 

@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.BeforeClass;
@@ -43,10 +44,12 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 public class TestDiskTagIndex {
 
 	private static StorageEngine engine;
+	private static ScheduledExecutorService bgTasks;
 
 	@BeforeClass
 	public static void before() throws IOException {
 		engine = new MemStorageEngine();
+		bgTasks = Executors.newScheduledThreadPool(1);
 		engine.configure(new HashMap<>(), Executors.newScheduledThreadPool(1));
 	}
 
@@ -113,7 +116,7 @@ public class TestDiskTagIndex {
 	public void testTagIndexThreaded() throws InterruptedException, IOException {
 		String indexDir = "target/index";
 		new File(indexDir).mkdirs();
-		MetricsRegistryService.getInstance(engine).getInstance("requests");
+		MetricsRegistryService.getInstance(engine, bgTasks).getInstance("requests");
 		final DiskTagIndex index = new DiskTagIndex(indexDir, "m2");
 		ExecutorService es = Executors.newCachedThreadPool();
 		for (int k = 0; k < 10; k++) {

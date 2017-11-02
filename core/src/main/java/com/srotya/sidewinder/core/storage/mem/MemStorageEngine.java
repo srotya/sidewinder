@@ -114,7 +114,7 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	public void enableMetricsService() {
-		MetricsRegistryService reg = MetricsRegistryService.getInstance(this);
+		MetricsRegistryService reg = MetricsRegistryService.getInstance(this, bgTaskPool);
 		MetricRegistry metaops = reg.getInstance("metaops");
 		metricsDbCounter = metaops.counter("dbcreate");
 		metricsMeasurementCounter = metaops.counter("measurementcreate");
