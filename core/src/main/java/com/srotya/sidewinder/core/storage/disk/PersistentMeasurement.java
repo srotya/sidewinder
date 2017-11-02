@@ -103,7 +103,7 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String indexDirectory,
 			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
-		enableMetricsMonitoring(engine);
+		enableMetricsMonitoring(engine, bgTaskPool);
 		this.conf = conf;
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
 		if(useQueryPool) {
@@ -139,12 +139,12 @@ public class PersistentMeasurement implements Measurement {
 		// 2, 2, TimeUnit.SECONDS);
 	}
 
-	private void enableMetricsMonitoring(StorageEngine engine) {
+	private void enableMetricsMonitoring(StorageEngine engine, ScheduledExecutorService bgTaskPool) {
 		if (engine == null) {
 			enableMetricsCapture = false;
 			return;
 		}
-		MetricsRegistryService reg = MetricsRegistryService.getInstance(engine);
+		MetricsRegistryService reg = MetricsRegistryService.getInstance(engine, bgTaskPool);
 		MetricRegistry r = reg.getInstance("memoryops");
 		metricsBufferSize = r.counter("buffer-size");
 		metricsBufferResize = r.counter("buffer-resize");

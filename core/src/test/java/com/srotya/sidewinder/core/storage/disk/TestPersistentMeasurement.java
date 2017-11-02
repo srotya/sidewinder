@@ -246,7 +246,7 @@ public class TestPersistentMeasurement {
 	@Test
 	public void testTagEncodeDecode() throws IOException {
 		String indexDir = "target/test";
-		MetricsRegistryService.getInstance(engine).getInstance("requests");
+		MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("requests");
 		MiscUtils.delete(new File(indexDir));
 		new File(indexDir).mkdirs();
 		DiskTagIndex table = new DiskTagIndex(indexDir, "test2");

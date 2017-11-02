@@ -71,7 +71,7 @@ public class GrafanaQueryApi {
 	public GrafanaQueryApi(StorageEngine engine) throws SQLException {
 		this.engine = engine;
 		tz = TimeZone.getDefault();
-		MetricRegistry registry = MetricsRegistryService.getInstance(engine).getInstance("grafana");
+		MetricRegistry registry = MetricsRegistryService.getInstance().getInstance("grafana");
 		grafanaQueryCounter = registry.meter("queries");
 		grafanaQueryLatency = registry.timer("latency");
 	}

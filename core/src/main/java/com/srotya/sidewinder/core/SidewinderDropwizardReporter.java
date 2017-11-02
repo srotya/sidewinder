@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map.Entry;
 import java.util.SortedMap;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.codahale.metrics.Counter;
@@ -43,8 +44,8 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 	private String name;
 
 	public SidewinderDropwizardReporter(MetricRegistry registry, String name, MetricFilter filter, TimeUnit rateUnit,
-			TimeUnit durationUnit, StorageEngine engine) {
-		super(registry, name, filter, rateUnit, durationUnit);
+			TimeUnit durationUnit, StorageEngine engine, ScheduledExecutorService es) {
+		super(registry, name, filter, rateUnit, durationUnit, es);
 		this.name = name;
 		this.engine = engine;
 	}

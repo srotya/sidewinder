@@ -57,7 +57,7 @@ public class GraphiteServer extends Ingester {
 		this.serverPort = Integer.parseInt(conf.getOrDefault("server.graphite.port", "8772"));
 		this.bindAddress = conf.getOrDefault("server.graphite.bind", "localhost");
 		this.dbName = conf.getOrDefault("server.graphite.dbname", "graphite");
-		MetricRegistry registry = MetricsRegistryService.getInstance(storageEngine).getInstance("requests");
+		MetricRegistry registry = MetricsRegistryService.getInstance().getInstance("requests");
 		writeCounter = registry.counter("graphite-writes");
 	}
 	
