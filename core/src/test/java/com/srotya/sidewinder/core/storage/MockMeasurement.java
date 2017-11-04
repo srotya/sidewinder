@@ -67,13 +67,18 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public void garbageCollector() throws IOException {
+	public void collectGarbage() throws IOException {
 	}
 
 	@Override
 	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
+		return createNewBuffer(seriesId, tsBucket, bufSize);
+	}
+	
+	@Override
+	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
 		bufferRenewCounter++;
-		ByteBuffer allocate = ByteBuffer.allocate(bufSize);
+		ByteBuffer allocate = ByteBuffer.allocate(newSize);
 		BufferObject obj = new BufferObject(seriesId + "\t" + tsBucket, allocate);
 		list.add(new AbstractMap.SimpleEntry<>(tsBucket, obj));
 		return obj;

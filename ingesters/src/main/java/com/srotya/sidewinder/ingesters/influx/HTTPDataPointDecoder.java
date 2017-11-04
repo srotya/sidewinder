@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.utils;
+package com.srotya.sidewinder.ingesters.influx;
 
 import static io.netty.handler.codec.http.HttpHeaderNames.CONNECTION;
 import static io.netty.handler.codec.http.HttpHeaderNames.CONTENT_LENGTH;
@@ -24,24 +24,20 @@ import static io.netty.handler.codec.http.HttpResponseStatus.OK;
 import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.logging.Logger;
 
-import com.codahale.metrics.Meter;
+import com.codahale.metrics.Counter;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
-import com.srotya.sidewinder.core.rpc.Point;
-import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.InfluxDecoder;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -69,7 +65,6 @@ import io.netty.util.CharsetUtil;
  */
 public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 
-	private static final int LENGTH_OF_MILLISECOND_TS = 13;
 	private static final Logger logger = Logger.getLogger(HTTPDataPointDecoder.class.getName());
 	private StringBuilder responseString = new StringBuilder();
 	private HttpRequest request;
@@ -77,9 +72,9 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 	private String dbName;
 	private String path;
 	private StringBuilder requestBuffer = new StringBuilder();
-	private Meter meter;
+	private Counter meter;
 
-	public HTTPDataPointDecoder(StorageEngine engine, Meter meter) {
+	public HTTPDataPointDecoder(StorageEngine engine, Counter meter) {
 		this.engine = engine;
 		this.meter = meter;
 	}
@@ -137,8 +132,8 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 					} else {
 						String payload = requestBuffer.toString();
 						logger.fine("Request:" + payload);
-						List<DataPoint> dps = dataPointsFromString(dbName, payload);
-						meter.mark(dps.size());
+						List<DataPoint> dps = InfluxDecoder.dataPointsFromString(dbName, payload);
+						meter.inc(dps.size());
 						for (DataPoint dp : dps) {
 							try {
 								engine.writeDataPoint(dp);
@@ -162,130 +157,6 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
 		ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
-	}
-
-	public static List<DataPoint> dataPointsFromString(String dbName, String payload) {
-		List<DataPoint> dps = new ArrayList<>();
-		String[] splits = payload.split("[\\r\\n]+");
-		for (String split : splits) {
-			try {
-				String[] parts = split.split("\\s+");
-				if (parts.length < 2 || parts.length > 3) {
-					// invalid datapoint => drop
-					continue;
-				}
-				long timestamp = System.currentTimeMillis();
-				if (parts.length == 3) {
-					timestamp = Long.parseLong(parts[2]);
-					if (parts[2].length() > LENGTH_OF_MILLISECOND_TS) {
-						timestamp = timestamp / (1000 * 1000);
-					}
-				} else {
-					System.out.println("DB timestamp");
-				}
-				String[] key = parts[0].split(",");
-				String measurementName = key[0];
-				Set<String> tTags = new HashSet<>();
-				for (int i = 1; i < key.length; i++) {
-					tTags.add(key[i]);
-				}
-				List<String> tags = new ArrayList<>(tTags);
-				String[] fields = parts[1].split(",");
-				for (String field : fields) {
-					String[] fv = field.split("=");
-					String valueFieldName = fv[0];
-					if (!fv[1].endsWith("i")) {
-						double value = Double.parseDouble(fv[1]);
-						DataPoint dp = new DataPoint();
-						dp.setDbName(dbName);
-						dp.setMeasurementName(measurementName);
-						dp.setValueFieldName(valueFieldName);
-						dp.setValue(value);
-						dp.setTags(tags);
-						dp.setTimestamp(timestamp);
-						dp.setFp(true);
-						dps.add(dp);
-					} else {
-						fv[1] = fv[1].substring(0, fv[1].length() - 1);
-						long value = Long.parseLong(fv[1]);
-						DataPoint dp = new DataPoint();
-						dp.setDbName(dbName);
-						dp.setMeasurementName(measurementName);
-						dp.setValueFieldName(valueFieldName);
-						dp.setLongValue(value);
-						dp.setTags(tags);
-						dp.setTimestamp(timestamp);
-						dp.setFp(false);
-						dps.add(dp);
-					}
-				}
-			} catch (Exception e) {
-				logger.fine("Rejected:" + split);
-			}
-		}
-		return dps;
-	}
-
-	public static List<Point> pointsFromString(String dbName, String payload) {
-		List<Point> dps = new ArrayList<>();
-		String[] splits = payload.split("[\\r\\n]+");
-		for (String split : splits) {
-			try {
-				String[] parts = split.split("\\s+");
-				if (parts.length < 2 || parts.length > 3) {
-					// invalid datapoint => drop
-					continue;
-				}
-				long timestamp = System.currentTimeMillis();
-				if (parts.length == 3) {
-					timestamp = Long.parseLong(parts[2]);
-					if (parts[2].length() > LENGTH_OF_MILLISECOND_TS) {
-						timestamp = timestamp / (1000 * 1000);
-					}
-				} else {
-					System.out.println("DB timestamp");
-				}
-				String[] key = parts[0].split(",");
-				String measurementName = key[0];
-				Set<String> tTags = new HashSet<>();
-				for (int i = 1; i < key.length; i++) {
-					tTags.add(key[i]);
-				}
-				List<String> tags = new ArrayList<>(tTags);
-				String[] fields = parts[1].split(",");
-				for (String field : fields) {
-					String[] fv = field.split("=");
-					String valueFieldName = fv[0];
-					if (!fv[1].endsWith("i")) {
-						double value = Double.parseDouble(fv[1]);
-						Builder builder = Point.newBuilder();
-						builder.setDbName(dbName);
-						builder.setMeasurementName(measurementName);
-						builder.setValueFieldName(valueFieldName);
-						builder.setValue(Double.doubleToLongBits(value));
-						builder.addAllTags(tags);
-						builder.setTimestamp(timestamp);
-						builder.setFp(true);
-						dps.add(builder.build());
-					} else {
-						fv[1] = fv[1].substring(0, fv[1].length() - 1);
-						long value = Long.parseLong(fv[1]);
-						Builder builder = Point.newBuilder();
-						builder.setDbName(dbName);
-						builder.setMeasurementName(measurementName);
-						builder.setValueFieldName(valueFieldName);
-						builder.setValue(value);
-						builder.addAllTags(tags);
-						builder.setTimestamp(timestamp);
-						builder.setFp(false);
-						dps.add(builder.build());
-					}
-				}
-			} catch (Exception e) {
-				logger.fine("Rejected:" + split);
-			}
-		}
-		return dps;
 	}
 
 	private boolean writeResponse(HttpObject httpObject, ChannelHandlerContext ctx) {

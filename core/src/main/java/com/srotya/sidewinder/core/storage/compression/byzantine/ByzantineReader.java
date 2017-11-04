@@ -40,7 +40,8 @@ public class ByzantineReader implements Reader {
 	private ByteBuffer buf;
 	private long prevValue;
 
-	public ByzantineReader(ByteBuffer buf) {
+	public ByzantineReader(ByteBuffer buf, int startOffset) {
+		buf.position(startOffset);
 		this.buf = buf;
 		this.count = buf.getInt();
 		prevTs = buf.getLong();
@@ -80,7 +81,7 @@ public class ByzantineReader implements Reader {
 			throw EOS_EXCEPTION;
 		}
 	}
-	
+
 	@Override
 	public long[] read() throws IOException {
 		if (counter < count) {

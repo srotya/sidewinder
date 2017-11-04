@@ -96,25 +96,47 @@ public class DiskStorageEngine implements StorageEngine {
 				.parseInt(conf.getOrDefault(DEFAULT_BUCKET_SIZE, String.valueOf(DEFAULT_TIME_BUCKET_CONSTANT)));
 		logger.info("Configuring default time bucket:" + getDefaultTimebucketSize());
 		enableMetricsService();
-		if (Boolean.parseBoolean(conf.getOrDefault("gc.enabled", "true"))) {
-			bgTaskPool.scheduleAtFixedRate(() -> {
-				for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
-					for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
-						Measurement value = measurementEntry.getValue();
-						try {
-							value.garbageCollector();
-						} catch (Exception e) {
-							logger.log(Level.SEVERE,
-									"Failed collect garbage for measurement:" + value.getMeasurementName(), e);
+		if (bgTaskPool != null) {
+			if (Boolean.parseBoolean(conf.getOrDefault("gc.enabled", "true"))) {
+				bgTaskPool.scheduleAtFixedRate(() -> {
+					for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
+						for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
+							Measurement value = measurementEntry.getValue();
+							try {
+								value.collectGarbage();
+							} catch (Exception e) {
+								logger.log(Level.SEVERE,
+										"Failed collect garbage for measurement:" + value.getMeasurementName(), e);
+							}
+							logger.log(Level.FINE, "Completed Measuremenet GC:" + measurementEntry.getKey());
 						}
-						logger.log(Level.FINE, "Completed Measuremenet GC:" + measurementEntry.getKey());
+						logger.log(Level.FINE, "Completed DB GC:" + measurementMap.getKey());
 					}
-					logger.log(Level.FINE, "Completed DB GC:" + measurementMap.getKey());
-				}
-			}, Integer.parseInt(conf.getOrDefault(GC_FREQUENCY, DEFAULT_GC_FREQUENCY)),
-					Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.MILLISECONDS);
-		} else {
-			logger.info("WARNING: GC has been disabled, data retention policies will not be honored");
+				}, Integer.parseInt(conf.getOrDefault(GC_FREQUENCY, DEFAULT_GC_FREQUENCY)),
+						Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.MILLISECONDS);
+			} else {
+				logger.info("WARNING: GC has been disabled, data retention policies will not be honored");
+			}
+			if (Boolean.parseBoolean(conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, "false"))) {
+				logger.info("Compaction is enabled");
+				bgTaskPool.scheduleAtFixedRate(() -> {
+					for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
+						for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
+							Measurement value = measurementEntry.getValue();
+							try {
+								value.compact();
+							} catch (Exception e) {
+								logger.log(Level.SEVERE,
+										"Failed compaction for measurement:" + value.getMeasurementName(), e);
+							}
+						}
+					}
+				}, Integer.parseInt(conf.getOrDefault(COMPACTION_FREQUENCY, DEFAULT_COMPACTION_FREQUENCY)),
+						Integer.parseInt(conf.getOrDefault(COMPACTION_DELAY, DEFAULT_COMPACTION_DELAY)),
+						TimeUnit.MILLISECONDS);
+			}else {
+				logger.warning("Compaction is disabled");
+			}
 		}
 		loadDatabases();
 	}
