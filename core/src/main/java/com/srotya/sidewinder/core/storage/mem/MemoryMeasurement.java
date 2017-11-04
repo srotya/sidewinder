@@ -51,7 +51,8 @@ public class MemoryMeasurement implements Measurement {
 	private Map<String, TimeSeries> seriesMap;
 	private MemTagIndex tagIndex;
 	private List<ByteBuffer> bufTracker;
-	private String compressionClass;
+	private String compressionCodec;
+	private String compactionCodec;
 	private boolean useQueryPool;
 
 	@Override
@@ -63,8 +64,10 @@ public class MemoryMeasurement implements Measurement {
 		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("request"));
 		this.seriesMap = new ConcurrentHashMap<>();
 		this.bufTracker = new ArrayList<>();
-		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
-				StorageEngine.DEFAULT_COMPRESSION_CLASS);
+		this.compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
+				StorageEngine.DEFAULT_COMPRESSION_CODEC);
+		this.compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
+				StorageEngine.DEFAULT_COMPACTION_CODEC);
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
 	}
 
@@ -93,7 +96,12 @@ public class MemoryMeasurement implements Measurement {
 
 	@Override
 	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
-		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(1024);
+		return createNewBuffer(seriesId, tsBucket, 1024);
+	}
+
+	@Override
+	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
+		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(newSize);
 		synchronized (bufTracker) {
 			bufTracker.add(allocateDirect);
 		}
@@ -114,7 +122,8 @@ public class MemoryMeasurement implements Measurement {
 			synchronized (this) {
 				if ((timeSeries = getTimeSeries(rowKey)) == null) {
 					Measurement.indexRowKey(tagIndex, rowKey, tags);
-					timeSeries = new TimeSeries(this, compressionClass, rowKey, timeBucketSize, metadata, fp, conf);
+					timeSeries = new TimeSeries(this, compressionCodec, compactionCodec, rowKey, timeBucketSize,
+							metadata, fp, conf);
 					seriesMap.put(rowKey, timeSeries);
 					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
 							+ rowKey + "\t" + metadata);
@@ -147,7 +156,7 @@ public class MemoryMeasurement implements Measurement {
 	public String toString() {
 		return "MemoryMeasurement [measurementName=" + measurementName + ", metadata=" + metadata + ", seriesMap="
 				+ seriesMap + ", tagIndex=" + tagIndex + ", bufTracker=" + bufTracker + ", compressionClass="
-				+ compressionClass + "]";
+				+ compressionCodec + "]";
 	}
 
 	@Override

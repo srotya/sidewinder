@@ -414,8 +414,7 @@ public class TestDiskStorageEngine {
 			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu2", "value", Arrays.asList("test"),
 					base - (3600_000 * i), 2L));
 		}
-		Thread.sleep(1000);
-
+		engine.getMeasurementMap().get("test").get("cpu2").collectGarbage();
 		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test", "cpu2", "value", ts - (3600_000 * 320),
 				ts, null, null);
 		assertTrue(!engine.isMeasurementFieldFP("test", "cpu2", "value"));
@@ -460,7 +459,7 @@ public class TestDiskStorageEngine {
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		ByteBuffer buf = ByteBuffer.allocate(100);
 		Writer timeSeries = new ByzantineWriter();
-		timeSeries.configure(map, buf, true);
+		timeSeries.configure(map, buf, true, 1, false);
 		timeSeries.setHeaderTimestamp(headerTimestamp);
 		timeSeries.addValue(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, null, null, false);
@@ -821,22 +820,4 @@ public class TestDiskStorageEngine {
 		engine.disconnect();
 	}
 
-	/*
-	 * Test used for performance assessment of the old mechnism for data writes
-	 * using more parameters public void testWritePerformance() throws IOException,
-	 * InterruptedException { final MemStorageEngine engine = new
-	 * MemStorageEngine(); engine.configure(new HashMap<>()); long timeMillis =
-	 * System.currentTimeMillis(); int tcount = 8; ExecutorService es =
-	 * Executors.newFixedThreadPool(tcount); int count = 1000000; final
-	 * AtomicInteger rejects = new AtomicInteger(0); for (int k = 0; k < tcount;
-	 * k++) { final int j = k; es.submit(() -> { long ts =
-	 * System.currentTimeMillis(); for (int i = 0; i < count; i++) { try {
-	 * engine.writeDataPoint("test", new DataPoint("test", j + "cpu" + (i %
-	 * 1000000), "value", Arrays.asList("test", "test2"), ts + i, i * 1.1)); } catch
-	 * (IOException e) { rejects.incrementAndGet(); } } }); } es.shutdown();
-	 * es.awaitTermination(10, TimeUnit.SECONDS);
-	 * System.out.println("Write throughput object " + tcount + "x" + count + ":" +
-	 * (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get() +
-	 * " rejects using " + tcount); }
-	 */
 }

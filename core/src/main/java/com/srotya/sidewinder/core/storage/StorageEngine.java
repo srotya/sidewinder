@@ -46,8 +46,10 @@ public interface StorageEngine {
 	public static RejectException FP_MISMATCH_EXCEPTION = new RejectException("Floating point mismatch");
 	public static RejectException INVALID_DATAPOINT_EXCEPTION = new RejectException(
 			"Datapoint is missing required values");
-	public static final String DEFAULT_COMPRESSION_CLASS = "com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter";
-	public static final String COMPRESSION_CLASS = "compression.class";
+	public static final String DEFAULT_COMPRESSION_CODEC = "byzantine";
+	public static final String COMPRESSION_CODEC = "compression.codec";
+	public static final String COMPACTION_CODEC = "compaction.codec";
+	public static final String DEFAULT_COMPACTION_CODEC = "byzantine";
 	public static final int DEFAULT_TIME_BUCKET_CONSTANT = 32768;
 	public static final String DEFAULT_BUCKET_SIZE = "default.bucket.size";
 	public static final String RETENTION_HOURS = "default.series.retention.hours";
@@ -59,6 +61,12 @@ public interface StorageEngine {
 	public static final String GC_FREQUENCY = "gc.frequency";
 	public static final String DEFAULT_GC_FREQUENCY = "500000";
 	public static final String DEFAULT_GC_DELAY = "60000";
+	public static final String COMPACTION_ENABLED = "compaction.enabled";
+	public static final String DEFAULT_COMPACTION_ENABLED = "false";
+	public static final String COMPACTION_FREQUENCY = "compaction.frequency";
+	public static final String DEFAULT_COMPACTION_FREQUENCY = "1800";
+	public static final String COMPACTION_DELAY = "compaction.delay";
+	public static final String DEFAULT_COMPACTION_DELAY = "1800";
 
 	/**
 	 * @param conf

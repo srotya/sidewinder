@@ -72,7 +72,8 @@ public class PersistentMeasurement implements Measurement {
 	private ReentrantLock lock = new ReentrantLock(false);
 	private Map<String, TimeSeries> seriesMap;
 	private TagIndex tagIndex;
-	private String compressionClass;
+	private String compressionCodec;
+	private String compactionCodec;
 	private String dataDirectory;
 	private DBMetadata metadata;
 	private Map<String, String> conf;
@@ -81,7 +82,6 @@ public class PersistentMeasurement implements Measurement {
 	private int fileMapIncrement;
 	private int increment;
 	private int curr;
-	private int base;
 	private int fcnt;
 	private MappedByteBuffer memoryMappedBuffer;
 	private String measurementName;
@@ -106,8 +106,8 @@ public class PersistentMeasurement implements Measurement {
 		enableMetricsMonitoring(engine, bgTaskPool);
 		this.conf = conf;
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
-		if(useQueryPool) {
-			logger.info("Query Pool enabled, datapoint queries will be parallelized");
+		if (useQueryPool) {
+			logger.fine("Query Pool enabled, datapoint queries will be parallelized");
 		}
 		this.dataDirectory = dataDirectory + "/" + measurementName;
 		this.indexDirectory = indexDirectory + "/" + measurementName;
@@ -129,8 +129,10 @@ public class PersistentMeasurement implements Measurement {
 		}
 		this.metadata = metadata;
 		this.seriesMap = new ConcurrentHashMap<>(100_000);
-		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
-				StorageEngine.DEFAULT_COMPRESSION_CLASS);
+		this.compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
+				StorageEngine.DEFAULT_COMPRESSION_CODEC);
+		this.compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
+				StorageEngine.DEFAULT_COMPACTION_CODEC);
 		this.measurementName = measurementName;
 		this.prBufPointers = new PrintWriter(new FileOutputStream(new File(getPtrPath()), true));
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
@@ -173,7 +175,8 @@ public class PersistentMeasurement implements Measurement {
 			lock.lock();
 			if ((timeSeries = getTimeSeries(seriesId)) == null) {
 				Measurement.indexRowKey(tagIndex, seriesId, tags);
-				timeSeries = new TimeSeries(this, compressionClass, seriesId, timeBucketSize, metadata, fp, conf);
+				timeSeries = new TimeSeries(this, compressionCodec, compactionCodec, seriesId, timeBucketSize, metadata,
+						fp, conf);
 				seriesMap.put(seriesId, timeSeries);
 				appendTimeseriesToMeasurementMetadata(seriesId, fp, timeBucketSize);
 				logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
@@ -275,7 +278,7 @@ public class PersistentMeasurement implements Measurement {
 			try {
 				String timeBucketSize = split[2];
 				String isFp = split[1];
-				seriesMap.put(seriesId, new TimeSeries(this, compressionClass, seriesId,
+				seriesMap.put(seriesId, new TimeSeries(this, compressionCodec, compactionCodec, seriesId,
 						Integer.parseInt(timeBucketSize), metadata, Boolean.parseBoolean(isFp), conf));
 				logger.fine("Intialized Timeseries:" + seriesId);
 			} catch (NumberFormatException | IOException e) {
@@ -313,6 +316,11 @@ public class PersistentMeasurement implements Measurement {
 
 	@Override
 	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
+		return createNewBuffer(seriesId, tsBucket, increment);
+	}
+
+	@Override
+	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
 		if (activeFile == null) {
 			lock.lock();
 			if (activeFile == null) {
@@ -330,8 +338,8 @@ public class PersistentMeasurement implements Measurement {
 		}
 		lock.lock();
 		try {
-			if (curr + increment < 0 || curr + increment > memoryMappedBuffer.remaining() + 1) {
-				base = 0;
+			if (curr + newSize < 0 || curr + newSize > memoryMappedBuffer.remaining() + 1) {
+				curr = 0;
 				itr++;
 				offset = (((long) (fileMapIncrement)) * itr);
 				// close the current data file, increment the filename by 1 so
@@ -353,13 +361,12 @@ public class PersistentMeasurement implements Measurement {
 					metricsBufferSize.inc(fileMapIncrement);
 				}
 			}
-			curr = base * increment;
-			memoryMappedBuffer.position(curr);
 			String ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset);
-			base++;
 			TimeSeries.writeStringToBuffer(tsBucket, memoryMappedBuffer);
 			ByteBuffer buf = memoryMappedBuffer.slice();
-			buf.limit(increment);
+			buf.limit(newSize);
+			curr = curr + newSize;
+			memoryMappedBuffer.position(curr);
 			logger.fine("Position:" + buf.position() + "\t" + buf.limit() + "\t" + buf.capacity());
 			if (enableMetricsCapture) {
 				metricsBufferCounter.inc();

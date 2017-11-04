@@ -26,44 +26,63 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
-
-import net.jpountz.lz4.LZ4BlockOutputStream;
+import com.srotya.sidewinder.core.storage.compression.byzantine.NoLock;
 
 /**
  * @author ambud
  */
-public class ZipWriter implements Writer {
+public abstract class ZipWriter implements Writer {
 
 	private Lock read;
 	private Lock write;
 	private int count;
 	private OutputStream zip;
-	private ByteBuffer buf;
+	protected ByteBuffer buf;
 	private DataOutputStream dos;
 	private String bufferId;
+	private int startOffset;
+	private String tsBucket;
+	private int blockSize;
 
 	@Override
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException {
-		ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-		read = lock.readLock();
-		write = lock.writeLock();
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking) throws IOException {
+		this.startOffset = startOffset;
+		if (isLocking) {
+			ReentrantReadWriteLock lck = new ReentrantReadWriteLock();
+			read = lck.readLock();
+			write = lck.writeLock();
+		} else {
+			read = new NoLock();
+			write = new NoLock();
+		}
 		this.buf = buf;
-		buf.putInt(0);
-		zip = new LZ4BlockOutputStream(new ByteBufferOutputStream(buf), 2048);
-		dos = new DataOutputStream(zip);
+		this.blockSize = Integer.parseInt(conf.getOrDefault("zip.block.size", "128"));
+		buf.position(startOffset);
+		if (isNew) {
+			buf.putInt(0);
+			zip = getOutputStream(new ByteBufferOutputStream(buf), blockSize);
+			dos = new DataOutputStream(zip);
+		} else {
+			count = buf.getInt();
+		}
 	}
+
+	public abstract OutputStream getOutputStream(ByteBufferOutputStream stream, int blockSize) throws IOException;
 
 	@Override
 	public void addValue(long timestamp, long value) throws IOException {
 		write.lock();
-		dos.writeLong(timestamp);
-		dos.writeLong(value);
-		dos.flush();
-		count++;
-		buf.putInt(0, count);
-		write.unlock();
+		try {
+			dos.writeLong(timestamp);
+			dos.writeLong(value);
+			count++;
+			buf.putInt(startOffset, count);
+		} catch (Exception e) {
+			throw new IOException("Read only buffer, writes can't be accepted:" + count + "\t" + buf.capacity());
+		} finally {
+			write.unlock();
+		}
 	}
 
 	@Override
@@ -78,20 +97,18 @@ public class ZipWriter implements Writer {
 
 	@Override
 	public void write(List<DataPoint> dps) throws IOException {
-		for (DataPoint dp : dps) {
-			dos.writeLong(dp.getTimestamp());
-			dos.writeLong(dp.getLongValue());
+		write.lock();
+		try {
+			for (DataPoint dp : dps) {
+				dos.writeLong(dp.getTimestamp());
+				dos.writeLong(dp.getLongValue());
+			}
+			dos.flush();
+		} catch (Exception e) {
+			throw new IOException("Read only buffer, writes can't be accepted");
+		} finally {
+			write.unlock();
 		}
-		dos.flush();
-	}
-
-	@Override
-	public Reader getReader() throws IOException {
-		read.lock();
-		ByteBuffer readBuf = buf.duplicate();
-		dos.flush();
-		read.unlock();
-		return new ZipReader(readBuf);
 	}
 
 	@Override
@@ -120,7 +137,13 @@ public class ZipWriter implements Writer {
 	}
 
 	@Override
-	public void makeReadOnly() {
+	public void makeReadOnly() throws IOException {
+		try {
+			dos.flush();
+			dos.close();
+		} catch (Exception e) {
+			throw new IOException(e);
+		}
 	}
 
 	@Override
@@ -147,7 +170,7 @@ public class ZipWriter implements Writer {
 	public void setHeaderTimestamp(long timestamp) {
 	}
 
-	public class ByteBufferInputStream extends InputStream {
+	public static class ByteBufferInputStream extends InputStream {
 
 		private ByteBuffer buffer = null;
 
@@ -159,9 +182,10 @@ public class ZipWriter implements Writer {
 		public int read() throws IOException {
 			return (buffer.get() & 0xFF);
 		}
+
 	}
 
-	public class ByteBufferOutputStream extends OutputStream {
+	public static class ByteBufferOutputStream extends OutputStream {
 
 		private ByteBuffer buffer = null;
 
@@ -186,4 +210,34 @@ public class ZipWriter implements Writer {
 		return bufferId;
 	}
 
+	@Override
+	public void setTsBucket(String tsBucket) {
+		this.tsBucket = tsBucket;
+	}
+
+	@Override
+	public String getTsBucket() {
+		return tsBucket;
+	}
+
+	protected Lock getRead() {
+		return read;
+	}
+
+	protected Lock getWrite() {
+		return write;
+	}
+
+	protected int getStartOffset() {
+		return startOffset;
+	}
+
+	@Override
+	public int getPosition() {
+		return buf.position();
+	}
+
+	public int getBlockSize() {
+		return blockSize;
+	}
 }

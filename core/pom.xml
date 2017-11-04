@@ -112,12 +112,6 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>org.antlr</groupId>
-      <artifactId>antlr4</artifactId>
-      <version>4.6</version>
-      <classifier>complete</classifier>
-    </dependency>
-    <dependency>
       <groupId>org.apache.calcite</groupId>
       <artifactId>calcite-core</artifactId>
       <version>1.11.0</version>
@@ -139,6 +133,11 @@
           <artifactId>guava</artifactId>
         </exclusion>
       </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-compress</artifactId>
+      <version>1.8.1</version>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
@@ -170,6 +169,12 @@
     <dependency>
       <groupId>org.mockito</groupId>
       <artifactId>mockito-all</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.nd4j</groupId>
+      <artifactId>nd4j-api</artifactId>
+      <version>0.9.1</version>
     </dependency>
     <dependency>
       <groupId>org.reflections</groupId>
@@ -232,9 +237,7 @@
           <execution>
             <!-- Run our version calculation script -->
             <id>Version Calculation</id>
-            <goals>
-              <goal>exec</goal>
-            </goals>
+            <goals />
             <phase>generate-sources</phase>
             <configuration>
               <executable>${basedir}/src/web/build.sh</executable>
