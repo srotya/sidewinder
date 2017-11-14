@@ -138,6 +138,10 @@ public class GrafanaUtils {
 		if (name.equalsIgnoreCase("none")) {
 			return null;
 		}
+		int multipleFactor = 1;
+		if (obj.has("unit")) {
+			multipleFactor = toSeconds(obj.get("unit").getAsString());
+		}
 		Class<? extends AggregationFunction> lookupFunction = FunctionTable.get().lookupFunction(name);
 		if (lookupFunction != null) {
 			try {
@@ -156,10 +160,10 @@ public class GrafanaUtils {
 						args[index] = arg.get("value").getAsString();
 						break;
 					case "int":
-						args[index] = arg.get("value").getAsInt();
+						args[index] = arg.get("value").getAsInt() * multipleFactor;
 						break;
 					case "long":
-						args[index] = arg.get("value").getAsLong();
+						args[index] = arg.get("value").getAsLong() * multipleFactor;
 						break;
 					case "double":
 						args[index] = arg.get("value").getAsDouble();
@@ -223,6 +227,31 @@ public class GrafanaUtils {
 		} else {
 			return predicateStack.pop();
 		}
+	}
+
+	public static int toSeconds(String unit) {
+		int secs = 1;
+		switch (unit) {
+		case "mins":
+			secs = 60;
+			break;
+		case "hours":
+			secs = 60 * 60;
+			break;
+		case "days":
+			secs = 60 * 60 * 24;
+			break;
+		case "weeks":
+			secs = 60 * 60 * 24 * 7;
+			break;
+		case "months":
+			secs = 60 * 60 * 24 * 30;
+			break;
+		case "years":
+			secs = 60 * 60 * 24 * 365;
+			break;
+		}
+		return secs;
 	}
 
 }

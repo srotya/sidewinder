@@ -48,6 +48,8 @@ public class DodWriter implements Writer {
 	private long prevValue = Long.MIN_VALUE;
 	private long prevXor;
 	private String bufferId;
+	private int startOffset;
+	private String tsBucket;
 
 	public DodWriter() {
 	}
@@ -58,7 +60,9 @@ public class DodWriter implements Writer {
 	}
 
 	@Override
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException {
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking) throws IOException {
+		this.startOffset = startOffset;
+		buf.position(this.startOffset);
 		writer = new BitWriter(buf);
 	}
 
@@ -265,4 +269,20 @@ public class DodWriter implements Writer {
 	public String getBufferId() {
 		return bufferId;
 	}
+
+	@Override
+	public void setTsBucket(String tsBucket) {
+		this.tsBucket = tsBucket;
+	}
+
+	@Override
+	public String getTsBucket() {
+		return tsBucket;
+	}
+
+	@Override
+	public int getPosition() {
+		return -1;
+	}
+
 }

@@ -46,7 +46,7 @@ import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.rpc.BatchData;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.utils.HTTPDataPointDecoder;
+import com.srotya.sidewinder.core.utils.InfluxDecoder;
 
 /**
  * @author ambud
@@ -71,7 +71,7 @@ public class InfluxApi {
 		if (payload == null) {
 			throw new BadRequestException("Empty request no acceptable");
 		}
-		List<Point> dps = HTTPDataPointDecoder.pointsFromString(dbName, payload);
+		List<Point> dps = InfluxDecoder.pointsFromString(dbName, payload);
 		counter.addAndGet(dps.size());
 		if (dps.isEmpty()) {
 			throw new BadRequestException("Empty request no acceptable");

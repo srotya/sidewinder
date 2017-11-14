@@ -18,7 +18,10 @@ package com.srotya.sidewinder.core.storage;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -26,11 +29,13 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.RollOverException;
 import com.srotya.sidewinder.core.storage.compression.Writer;
@@ -49,20 +54,26 @@ import com.srotya.sidewinder.core.utils.TimeUtils;
  */
 public class TimeSeries {
 
+	private static final String COMPACTION_RATIO = "compaction.ratio";
 	private static final Logger logger = Logger.getLogger(TimeSeries.class.getName());
 	private SortedMap<String, List<Writer>> bucketMap;
 	private boolean fp;
 	private AtomicInteger retentionBuckets;
 	private String seriesId;
-	private String compressionFQCN;
+	private Class<Writer> compressionClass;
+	private Class<Writer> compactionClass;
 	private Map<String, String> conf;
 	private Measurement measurement;
 	private int timeBucketSize;
 	private int bucketCount;
+	private Map<String, List<Writer>> compactionSet;
+	private boolean compactionEnabled;
+	private double compactionRatio;
 
 	/**
 	 * @param measurement
-	 * @param compressionFQCN
+	 * @param compressionCodec
+	 * @param compactionCodec
 	 * @param seriesId
 	 * @param timeBucketSize
 	 * @param metadata
@@ -70,10 +81,11 @@ public class TimeSeries {
 	 * @param conf
 	 * @throws IOException
 	 */
-	public TimeSeries(Measurement measurement, String compressionFQCN, String seriesId, int timeBucketSize,
-			DBMetadata metadata, boolean fp, Map<String, String> conf) throws IOException {
+	public TimeSeries(Measurement measurement, String compressionCodec, String compactionCodec, String seriesId,
+			int timeBucketSize, DBMetadata metadata, boolean fp, Map<String, String> conf) throws IOException {
+		this.compressionClass = CompressionFactory.getClassByName(compressionCodec);
+		this.compactionClass = CompressionFactory.getClassByName(compactionCodec);
 		this.measurement = measurement;
-		this.compressionFQCN = compressionFQCN;
 		this.seriesId = seriesId;
 		this.timeBucketSize = timeBucketSize;
 		this.conf = new HashMap<>(conf);
@@ -81,6 +93,10 @@ public class TimeSeries {
 		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
 		bucketMap = measurement.createNewBucketMap(seriesId);
+		this.compactionSet = new HashMap<>();
+		compactionEnabled = Boolean.parseBoolean(
+				conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, StorageEngine.DEFAULT_COMPACTION_ENABLED));
+		compactionRatio = Double.parseDouble(conf.getOrDefault(COMPACTION_RATIO, "0.8"));
 	}
 
 	public Writer getOrCreateSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
@@ -89,7 +105,7 @@ public class TimeSeries {
 		if (list == null) {
 			synchronized (bucketMap) {
 				if ((list = bucketMap.get(tsBucket)) == null) {
-					list = new ArrayList<>();
+					list = Collections.synchronizedList(new ArrayList<>());
 					createNewTimeSeriesBucket(timestamp, tsBucket, list);
 					bucketMap.put(tsBucket, list);
 				}
@@ -103,12 +119,17 @@ public class TimeSeries {
 					logger.fine("Requesting new time series:" + seriesId + ",measurement:"
 							+ measurement.getMeasurementName() + "\t" + bucketCount);
 					ans = createNewTimeSeriesBucket(timestamp, tsBucket, list);
+					if (compactionEnabled) {
+						// add older bucket to compaction queue
+						compactionSet.put(tsBucket, list);
+					}
 				}
 			}
 			try {
 				// int idx = list.indexOf(ans);
 				// if (idx != (list.size() - 1)) {
-				// System.out.println("\n\nThread safety error\t" + idx + "\t" + list.size() +
+				// System.out.println("\n\nThread safety error\t" + idx + "\t" +
+				// list.size() +
 				// "\n\n");
 				// }
 				return ans;
@@ -129,9 +150,10 @@ public class TimeSeries {
 	private Writer createNewTimeSeriesBucket(long timestamp, String tsBucket, List<Writer> list) throws IOException {
 		BufferObject bufPair = measurement.createNewBuffer(seriesId, tsBucket);
 		// writeStringToBuffer(seriesId, buf);
+		bufPair.getBuf().put((byte) CompressionFactory.getIdByClass(compressionClass));
 		Writer writer;
-		writer = getWriterInstance();
-		writer.configure(conf, bufPair.getBuf(), true);
+		writer = getWriterInstance(compressionClass);
+		writer.configure(conf, bufPair.getBuf(), true, 1, true);
 		writer.setHeaderTimestamp(timestamp);
 		writer.setBufferId(bufPair.getBufferId());
 		list.add(writer);
@@ -139,11 +161,11 @@ public class TimeSeries {
 		return writer;
 	}
 
-	private Writer getWriterInstance() {
+	private Writer getWriterInstance(Class<Writer> compressionClass) {
 		try {
-			Writer writer = (Writer) Class.forName(compressionFQCN).newInstance();
+			Writer writer = compressionClass.newInstance();
 			return writer;
-		} catch (InstantiationException | IllegalAccessException | ClassNotFoundException e) {
+		} catch (InstantiationException | IllegalAccessException e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -167,13 +189,15 @@ public class TimeSeries {
 			String tsBucket = entry.getKey();
 			List<Writer> list = bucketMap.get(tsBucket);
 			if (list == null) {
-				list = new ArrayList<>();
+				list = Collections.synchronizedList(new ArrayList<>());
 				bucketMap.put(tsBucket, list);
 			}
 			// long bucketTimestamp = duplicate.getLong();
 			ByteBuffer slice = duplicate.slice();
-			Writer writer = getWriterInstance();
-			writer.configure(cacheConf, slice, false);
+			int codecId = (int) slice.get();
+			Class<Writer> classById = CompressionFactory.getClassById(codecId);
+			Writer writer = getWriterInstance(classById);
+			writer.configure(cacheConf, slice, false, 1, true);
 			writer.setBufferId(entry.getValue().getBufferId());
 			list.add(writer);
 			logger.fine("Loading bucketmap:" + seriesId + "\t" + tsBucket);
@@ -628,6 +652,83 @@ public class TimeSeries {
 		return timeBucketSize;
 	}
 
+	@SafeVarargs
+	public final List<Writer> compact(Consumer<List<Writer>>... functions) throws IOException {
+		List<Writer> compactedWriter = new ArrayList<>();
+		int id = CompressionFactory.getIdByClass(compactionClass);
+		Iterator<Entry<String, List<Writer>>> iterator = compactionSet.entrySet().iterator();
+		while (iterator.hasNext()) {
+			Entry<String, List<Writer>> entry = iterator.next();
+			List<Writer> list = entry.getValue();
+			synchronized (list) {
+				Writer writer = getWriterInstance(compactionClass);
+				int bytes = list.subList(0, list.size() - 1).stream().mapToInt(s -> s.getCount()).sum();
+				int total = list.subList(0, list.size() - 1).stream().mapToInt(s -> s.getPosition()).sum();
+				if (total == 0) {
+					logger.warning("Ignoring bucket for compaction, not enough bytes. THIS SHOULD BE INVESTIGATED");
+					continue;
+				}
+				int compactedPoints = 0;
+				logger.fine("Allocating buffer:" + total + " Vs. " + bytes * 16);
+				logger.fine("Getting sublist from:" + 0 + " to:" + (list.size() - 1));
+				ByteBuffer buf = ByteBuffer.allocate((int) (total * compactionRatio));
+				buf.put((byte) id);
+				writer.configure(conf, buf, true, 1, false);
+				Writer input = list.get(0);
+				// read the header timestamp
+				long timestamp = input.getHeaderTimestamp();
+				writer.setHeaderTimestamp(timestamp);
+				// read all but the last writer and insert into new temp writer
+				try {
+					for (int i = 0; i < list.size() - 1; i++) {
+						input = list.get(i);
+						Reader reader = input.getReader();
+						for (int k = 0; k < reader.getPairCount(); k++) {
+							long[] pair = reader.read();
+							writer.addValue(pair[0], pair[1]);
+							compactedPoints++;
+						}
+					}
+					writer.makeReadOnly();
+				} catch (Exception e) {
+					logger.warning("Buffer filled up; bad compression ratio; not compacting");
+					continue;
+				}
+				// get the raw compressed bytes
+				ByteBuffer rawBytes = writer.getRawBytes();
+				rawBytes.rewind();
+				// convert buffer length request to size of 2
+				int size = rawBytes.limit() + 1;
+				if (size % 2 != 0) {
+					size++;
+				}
+				// create buffer in measurement
+				BufferObject newBuf = measurement.createNewBuffer(seriesId, input.getTsBucket(), size);
+				String bufferId = newBuf.getBufferId();
+				buf = newBuf.getBuf();
+				writer = getWriterInstance(compactionClass);
+				buf.put(rawBytes);
+				writer.setBufferId(bufferId);
+				writer.configure(conf, buf, false, 1, false);
+				if (functions != null) {
+					for (Consumer<List<Writer>> function : functions) {
+						function.accept(list);
+					}
+				}
+				size = list.size();
+				for (int i = size - 2; i >= 0; i--) {
+					compactedWriter.add(list.remove(i));
+				}
+				list.add(0, writer);
+				logger.fine(
+						"Total points:" + compactedPoints + ", original pair count:" + writer.getReader().getPairCount()
+								+ " compression ratio:" + rawBytes.position() + " original:" + total);
+			}
+			iterator.remove();
+		}
+		return compactedWriter;
+	}
+
 	/**
 	 * FOR UNIT TESTING ONLY
 	 * 
@@ -635,6 +736,10 @@ public class TimeSeries {
 	 */
 	public int getBucketCount() {
 		return bucketCount;
+	}
+
+	public Collection<List<Writer>> getCompactionSet() {
+		return compactionSet.values();
 	}
 
 }

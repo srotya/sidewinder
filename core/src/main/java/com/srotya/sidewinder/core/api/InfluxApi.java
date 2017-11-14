@@ -30,7 +30,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.utils.HTTPDataPointDecoder;
+import com.srotya.sidewinder.core.utils.InfluxDecoder;
 
 /**
  * @author ambud
@@ -53,7 +53,7 @@ public class InfluxApi {
 		if (payload == null) {
 			throw new BadRequestException("Empty request no acceptable");
 		}
-		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString(dbName, payload);
+		List<DataPoint> dps = InfluxDecoder.dataPointsFromString(dbName, payload);
 		if (dps.isEmpty()) {
 			throw new BadRequestException("Empty request no acceptable");
 		}
