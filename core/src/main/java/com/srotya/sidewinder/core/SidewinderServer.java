@@ -65,10 +65,12 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 	private static final Logger logger = Logger.getLogger(SidewinderServer.class.getName());
 	private StorageEngine storageEngine;
 	private static SidewinderServer sidewinderServer;
-	
+
 	@Override
 	public void initialize(Bootstrap<SidewinderConfig> bootstrap) {
-		bootstrap.addBundle(new AssetsBundle("/web", "/ui", "index.html"));
+		if (!Boolean.parseBoolean(System.getProperty(ConfigConstants.UI_DISABLE, "true"))) {
+			bootstrap.addBundle(new AssetsBundle("/web", "/ui", "index.html"));
+		}
 	}
 
 	@Override
@@ -154,7 +156,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		env.jersey().register(new MeasurementOpsApi(storageEngine));
 		env.jersey().register(new DatabaseOpsApi(storageEngine));
 		env.jersey().register(new SqlApi(storageEngine));
-		if(Boolean.parseBoolean(conf.getOrDefault("jersey.influx", "true"))) {
+		if (Boolean.parseBoolean(conf.getOrDefault("jersey.influx", "true"))) {
 			env.jersey().register(new InfluxApi(storageEngine));
 		}
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());

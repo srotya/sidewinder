@@ -41,6 +41,6 @@ public class SidewinderConfig extends Configuration {
 	 */
 	public void setConfigPath(String configPath) {
 		this.configPath = configPath;
-	}	
+	}
 
 }
