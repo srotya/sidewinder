@@ -33,5 +33,6 @@ public interface ConfigConstants {
 	public static final String ENABLE_GRPC = "grpc.enabled";
 	public static final String BG_THREAD_COUNT = "bgthread.count";
 	public static final String EXTERNAL_FUNCTIONS = "function.package.names";
+	public static final String UI_DISABLE = "ui.disable";
 
 }
