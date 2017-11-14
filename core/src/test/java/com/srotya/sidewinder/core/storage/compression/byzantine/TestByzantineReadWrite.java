@@ -34,7 +34,6 @@ import org.junit.Test;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.storage.compression.dod.DodWriter;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -44,6 +43,8 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  * @author ambud
  */
 public class TestByzantineReadWrite {
+	
+	private int startOffset = 1;
 
 	@Test
 	public void testXorExtraction() {
@@ -62,7 +63,7 @@ public class TestByzantineReadWrite {
 	public void testByzantineReaderInit() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
 		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(new HashMap<>(), buf, false);
+		writer.configure(new HashMap<>(), buf, false, startOffset, true);
 		assertEquals(0, writer.getCount());
 		assertEquals(0, writer.getDelta());
 		assertEquals(0, writer.getPrevTs());
@@ -84,7 +85,7 @@ public class TestByzantineReadWrite {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
 		ByzantineWriter bwriter = new ByzantineWriter();
 		Writer writer = bwriter;
-		writer.configure(new HashMap<>(), buf, true);
+		writer.configure(new HashMap<>(), buf, true, startOffset, false);
 
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
@@ -96,6 +97,7 @@ public class TestByzantineReadWrite {
 		assertEquals(ts + 9, bwriter.getLastTs());
 		buf = bwriter.getBuf();
 		buf.flip();
+		buf.get();
 		assertEquals(10, buf.getInt());
 		assertEquals(ts, buf.getLong());
 	}
@@ -104,7 +106,7 @@ public class TestByzantineReadWrite {
 	public void testReadWriteDataPoints() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
 		Writer writer = new ByzantineWriter();
-		writer.configure(new HashMap<>(), buf, true);
+		writer.configure(new HashMap<>(), buf, true, startOffset, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
@@ -135,7 +137,7 @@ public class TestByzantineReadWrite {
 	public void testWriteRead() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 100);
 		Writer writer = new ByzantineWriter();
-		writer.configure(new HashMap<>(), buf, true);
+		writer.configure(new HashMap<>(), buf, true, startOffset, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		int LIMIT = 10000;
@@ -151,7 +153,7 @@ public class TestByzantineReadWrite {
 
 		buf.rewind();
 		writer = new ByzantineWriter();
-		writer.configure(new HashMap<>(), buf, true);
+		writer.configure(new HashMap<>(), buf, true, startOffset, true);
 		ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < LIMIT; i++) {
@@ -161,12 +163,12 @@ public class TestByzantineReadWrite {
 		for (int i = 0; i < LIMIT; i++) {
 			DataPoint dp = reader.readPair();
 			assertEquals(ts + i * 1000, dp.getTimestamp());
-			assertEquals(i * 1.1, dp.getValue(), 0);
+			assertEquals(i * 1.1, dp.getValue(), startOffset);
 		}
 
 		buf.rewind();
 		writer = new ByzantineWriter();
-		writer.configure(new HashMap<>(), buf, true);
+		writer.configure(new HashMap<>(), buf, true, startOffset, false);
 		ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < LIMIT; i++) {
@@ -182,7 +184,7 @@ public class TestByzantineReadWrite {
 
 		buf.rewind();
 		writer = new ByzantineWriter();
-		writer.configure(new HashMap<>(), buf, true);
+		writer.configure(new HashMap<>(), buf, true, startOffset, true);
 		ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		List<DataPoint> dps = new ArrayList<>();
@@ -204,7 +206,7 @@ public class TestByzantineReadWrite {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024);
 		Writer writer = new ByzantineWriter();
 		Map<String, String> conf = new HashMap<>();
-		writer.configure(conf, buf, true);
+		writer.configure(conf, buf, true, startOffset, true);
 		final long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 
@@ -241,8 +243,7 @@ public class TestByzantineReadWrite {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1000);
 		Writer writer = new ByzantineWriter();
 		Map<String, String> conf = new HashMap<>();
-		conf.put("lock.enabled", "false");
-		writer.configure(conf, buf, true);
+		writer.configure(conf, buf, true, startOffset, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		int LIMIT = 100000;
@@ -261,7 +262,7 @@ public class TestByzantineReadWrite {
 	public void testBootstrapDiskRecovery() throws IOException, InterruptedException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(new HashMap<>(), buf, true);
+		writer.configure(new HashMap<>(), buf, true, startOffset, true);
 		long ots = System.currentTimeMillis();
 		 writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
@@ -277,7 +278,7 @@ public class TestByzantineReadWrite {
 		ByteBuffer rawBytes = writer.getRawBytes();
 		try {
 			writer = new ByzantineWriter();
-			writer.configure(new HashMap<>(), buf, false);
+			writer.configure(new HashMap<>(), buf, false, startOffset, true);
 			writer.bootstrap(rawBytes);
 			reader = writer.getReader();
 			for (int i = 0; i < limit; i++) {
@@ -300,7 +301,7 @@ public class TestByzantineReadWrite {
 	public void testDiskRecovery() throws IOException, InterruptedException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(new HashMap<>(), buf, true);
+		writer.configure(new HashMap<>(), buf, true, startOffset, true);
 		long ots = System.currentTimeMillis();
 		 writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
@@ -325,7 +326,7 @@ public class TestByzantineReadWrite {
 		writer = new ByzantineWriter();
 		// writer.setSeriesId("test_byzantine_disk_writes" + 0);
 		buf.rewind();
-		writer.configure(new HashMap<>(), buf, false);
+		writer.configure(new HashMap<>(), buf, false, startOffset, true);
 		assertEquals(1000000, writer.getCount());
 		writer.addValue(ts + 10000, 1);
 		try {
@@ -357,7 +358,7 @@ public class TestByzantineReadWrite {
 	public void testDiskWrites() throws IOException, InterruptedException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(new HashMap<>(), buf, false);
+		writer.configure(new HashMap<>(), buf, false, startOffset, true);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		int limit = 1_000_000;
@@ -380,20 +381,6 @@ public class TestByzantineReadWrite {
 			System.err.println("EOF:" + i);
 			throw e;
 		}
-	}
-
-	@Test
-	public void testDoDWritePerformance() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocate(1024 * 1024 * 100);
-		DodWriter writer = new DodWriter();
-		writer.configure(new HashMap<>(), buf, true);
-		long ts = System.currentTimeMillis();
-		writer.setHeaderTimestamp(ts);
-		for (int i = 0; i < 1_000_000; i++) {
-			writer.addValue(ts + i * 1000, i);
-		}
-		ts = (System.currentTimeMillis() - ts);
-		System.out.println("DoD Write time:" + ts + " data size:" + writer.getWriter().getBuffer().position());
 	}
 
 }

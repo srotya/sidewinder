@@ -153,8 +153,10 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		env.jersey().register(new GrafanaQueryApi(storageEngine));
 		env.jersey().register(new MeasurementOpsApi(storageEngine));
 		env.jersey().register(new DatabaseOpsApi(storageEngine));
-		env.jersey().register(new InfluxApi(storageEngine));
 		env.jersey().register(new SqlApi(storageEngine));
+		if(Boolean.parseBoolean(conf.getOrDefault("jersey.influx", "true"))) {
+			env.jersey().register(new InfluxApi(storageEngine));
+		}
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
 
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {

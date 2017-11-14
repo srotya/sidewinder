@@ -109,7 +109,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 					request.getFp());
 			for (Bucket bucket : request.getBucketsList()) {
 				Writer writer = series.getOrCreateSeriesBucket(TimeUnit.MILLISECONDS, bucket.getHeaderTimestamp());
-				writer.configure(conf, null, false);
+				writer.configure(conf, null, false, 1, true);
 				writer.setCounter(bucket.getCount());
 				writer.bootstrap(bucket.getData().asReadOnlyByteBuffer());
 			}

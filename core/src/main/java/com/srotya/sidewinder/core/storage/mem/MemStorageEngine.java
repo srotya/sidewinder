@@ -100,7 +100,7 @@ public class MemStorageEngine implements StorageEngine {
 					for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
 						Measurement value = measurementEntry.getValue();
 						try {
-							value.garbageCollector();
+							value.collectGarbage();
 						} catch (IOException e) {
 							logger.log(Level.SEVERE,
 									"Failed collect garbage for measurement:" + value.getMeasurementName(), e);
@@ -109,6 +109,26 @@ public class MemStorageEngine implements StorageEngine {
 				}
 			}, Integer.parseInt(conf.getOrDefault(GC_FREQUENCY, DEFAULT_GC_FREQUENCY)),
 					Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.MILLISECONDS);
+			if (Boolean.parseBoolean(conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, "false"))) {
+				logger.info("Compaction is enabled");
+				bgTaskPool.scheduleAtFixedRate(() -> {
+					for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
+						for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
+							Measurement value = measurementEntry.getValue();
+							try {
+								value.compact();
+							} catch (Exception e) {
+								logger.log(Level.SEVERE,
+										"Failed compaction for measurement:" + value.getMeasurementName(), e);
+							}
+						}
+					}
+				}, Integer.parseInt(conf.getOrDefault(COMPACTION_FREQUENCY, DEFAULT_COMPACTION_FREQUENCY)),
+						Integer.parseInt(conf.getOrDefault(COMPACTION_DELAY, DEFAULT_COMPACTION_DELAY)),
+						TimeUnit.MILLISECONDS);
+			}else {
+				logger.warning("Compaction is disabled");
+			}
 		}
 		enableMetricsService();
 	}

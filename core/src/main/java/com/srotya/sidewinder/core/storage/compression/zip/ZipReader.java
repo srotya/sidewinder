@@ -21,14 +21,11 @@ import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.util.List;
 
-import com.fasterxml.jackson.databind.util.ByteBufferBackedInputStream;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
-import net.jpountz.lz4.LZ4BlockInputStream;
-
-public class ZipReader implements Reader {
+public abstract class ZipReader implements Reader {
 
 	private InputStream zip;
 	private DataInputStream dis;
@@ -40,12 +37,14 @@ public class ZipReader implements Reader {
 	private String fieldName;
 	private boolean fp;
 
-	public ZipReader(ByteBuffer readBuf) throws IOException {
-		readBuf.rewind();
+	public ZipReader(ByteBuffer readBuf, int startOffset, int blockSize) throws IOException {
+		readBuf.position(startOffset);
 		this.count = readBuf.getInt();
-		zip = new LZ4BlockInputStream(new ByteBufferBackedInputStream(readBuf));
+		zip = getInputStream(new ZipWriter.ByteBufferInputStream(readBuf), blockSize);
 		dis = new DataInputStream(zip);
 	}
+
+	public abstract InputStream getInputStream(InputStream stream, int blockSize) throws IOException;
 
 	@Override
 	public DataPoint readPair() throws IOException {
@@ -55,7 +54,7 @@ public class ZipReader implements Reader {
 				ts = dis.readLong();
 				value = dis.readLong();
 			} catch (IOException e) {
-				return null;
+				throw EOS_EXCEPTION;
 			}
 
 			if (timePredicate != null && !timePredicate.apply(ts)) {
@@ -74,6 +73,7 @@ public class ZipReader implements Reader {
 			if (fieldName != null) {
 				dp.setValueFieldName(fieldName);
 			}
+			// System.out.println("Reading:" + dp);
 			return dp;
 		} else {
 			zip.close();

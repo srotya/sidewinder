@@ -116,7 +116,6 @@ public class GrafanaQueryApi {
 				throw new InternalServerErrorException(e);
 			}
 		}
-		logger.log(Level.FINE, "Response:" + dbName + "\t" + gson.toJson(json) + "\t" + gson.toJson(output));
 		time.stop();
 		return output;
 	}
@@ -218,7 +217,7 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryTimeUnits() {
-		return new HashSet<>(Arrays.asList("secs", "mins", "hours", "days", "weeks", "years"));
+		return new HashSet<>(Arrays.asList("secs", "mins", "hours", "days", "weeks", "months", "years"));
 	}
 
 	@Path("/rawquery")

@@ -106,7 +106,8 @@ public class SeriesQueryOutput {
 	}
 
 	/**
-	 * @param dataPoints the dataPoints to set
+	 * @param dataPoints
+	 *            the dataPoints to set
 	 */
 	public void setDataPoints(List<DataPoint> dataPoints) {
 		this.dataPoints = dataPoints;
@@ -120,7 +121,15 @@ public class SeriesQueryOutput {
 	}
 
 	/**
-	 * @param points the points to set
+	 * @return array of points
+	 */
+	public long[][] getPointsAsArray() {
+		return points.toArray(new long[0][]);
+	}
+
+	/**
+	 * @param points
+	 *            the points to set
 	 */
 	public void setPoints(List<long[]> points) {
 		this.points = points;
@@ -134,7 +143,8 @@ public class SeriesQueryOutput {
 	}
 
 	/**
-	 * @param isFp the isFp to set
+	 * @param isFp
+	 *            the isFp to set
 	 */
 	public void setFp(boolean isFp) {
 		this.isFp = isFp;

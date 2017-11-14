@@ -43,7 +43,7 @@ public interface Writer {
 
 	public double getCompressionRatio();
 
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException;
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking) throws IOException;
 
 	public void bootstrap(ByteBuffer buf) throws IOException;
 
@@ -51,7 +51,7 @@ public interface Writer {
 	
 	public void setCounter(int counter);
 	
-	public void makeReadOnly();
+	public void makeReadOnly() throws IOException;
 	
 	public int currentOffset();
 	
@@ -66,5 +66,11 @@ public interface Writer {
 	public void setBufferId(String key);
 	
 	public String getBufferId();
+	
+	public void setTsBucket(String tsBucket);
+	
+	public String getTsBucket();
 
+	int getPosition();
+	
 }

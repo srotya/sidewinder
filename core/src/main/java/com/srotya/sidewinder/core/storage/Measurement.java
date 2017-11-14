@@ -29,6 +29,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
@@ -178,28 +179,46 @@ public interface Measurement {
 		return filteredSeries;
 	}
 
-	public default void garbageCollector() throws IOException {
+	public default void collectGarbage() throws IOException {
+		runOptimizationOperation("garbage collection", ts -> {
+			try {
+				return ts.collectGarbage();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		});
+	}
+	
+	public default void compact() throws IOException {
+		runOptimizationOperation("compacting", ts -> {
+			try {
+				return ts.compact();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
+		});
+	}
+
+	public default void runOptimizationOperation(String operation, Function<TimeSeries, List<Writer>> op)
+			throws IOException {
 		getLock().lock();
 		try {
 			Set<String> cleanupList = new HashSet<>();
 			for (Entry<String, TimeSeries> entry : getTimeSeriesMap().entrySet()) {
 				try {
-					List<Writer> garbage = entry.getValue().collectGarbage();
+					List<Writer> garbage = op.apply(entry.getValue());
 					for (Writer timeSeriesBucket : garbage) {
-						// TODO delete
-						// timeSeriesBucket.delete();
-						cleanupList.add(timeSeriesBucket.getBufferId());
-						getLogger().fine("Collecting garbage for bucket:" + entry.getKey() + "\tOffset:"
+						getLogger().fine("Buffers " + operation + " for bucket:" + entry.getKey() + "\tOffset:"
 								+ timeSeriesBucket.currentOffset());
 					}
-					getLogger().fine("Collecting garbage for time series:" + entry.getKey());
-				} catch (IOException e) {
-					getLogger().log(Level.SEVERE, "Error collecing garbage", e);
+					getLogger().fine("Buffers " + operation + " for time series:" + entry.getKey());
+				} catch (Exception e) {
+					getLogger().log(Level.SEVERE, "Error collecing " + operation, e);
 				}
 			}
 			// cleanup these buffer ids
 			if (cleanupList.size() > 0) {
-				getLogger().info("For measurement:" + getMeasurementName() + " collected garbage for:"
+				getLogger().info("For measurement:" + getMeasurementName() + " buffers compacted for:"
 						+ cleanupList.size() + " buffers");
 			}
 			cleanupBufferIds(cleanupList);
@@ -263,7 +282,8 @@ public interface Measurement {
 		stream.forEach(entry -> {
 			try {
 				populateDataPoints(entry, startTime, endTime, aggregationFunction, valuePredicate, p, resultMap);
-			} catch (IOException e) {
+			} catch (Exception e) {
+				e.printStackTrace();
 				getLogger().severe("Failed to query data points");
 			}
 		});
@@ -403,5 +423,7 @@ public interface Measurement {
 	public ReentrantLock getLock();
 
 	public boolean useQueryPool();
+
+	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException;
 
 }
