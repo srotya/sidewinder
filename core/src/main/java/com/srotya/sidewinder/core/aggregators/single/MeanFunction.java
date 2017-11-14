@@ -17,13 +17,15 @@ package com.srotya.sidewinder.core.aggregators.single;
 
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "smean")
 public class MeanFunction extends SumFunction {
-	
+
 	@Override
 	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {
 		super.aggregateToSingle(dataPoints, output);
@@ -31,6 +33,16 @@ public class MeanFunction extends SumFunction {
 			output.setValue(output.getValue() / dataPoints.size());
 		} else {
 			output.setLongValue(output.getLongValue() / dataPoints.size());
+		}
+	}
+
+	@Override
+	public void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp) {
+		super.aggregateToSinglePoint(dataPoints, output, isFp);
+		if (isFp) {
+			output[1] = Double.doubleToLongBits(Double.longBitsToDouble(output[1]) / dataPoints.size());
+		} else {
+			output[1] = (output[1] / dataPoints.size());
 		}
 	}
 

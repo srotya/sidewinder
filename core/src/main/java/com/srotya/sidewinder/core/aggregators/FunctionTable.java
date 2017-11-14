@@ -18,45 +18,18 @@ package com.srotya.sidewinder.core.aggregators;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
-import com.srotya.sidewinder.core.aggregators.single.FirstFunction;
-import com.srotya.sidewinder.core.aggregators.single.LastFunction;
-import com.srotya.sidewinder.core.aggregators.single.MaxFunction;
-import com.srotya.sidewinder.core.aggregators.single.MeanFunction;
-import com.srotya.sidewinder.core.aggregators.single.MinFunction;
-import com.srotya.sidewinder.core.aggregators.single.StdDeviationFunction;
-import com.srotya.sidewinder.core.aggregators.single.SumFunction;
-import com.srotya.sidewinder.core.aggregators.windowed.DerivativeFunction;
-import com.srotya.sidewinder.core.aggregators.windowed.IntegralFunction;
-import com.srotya.sidewinder.core.aggregators.windowed.WindowedFirst;
-import com.srotya.sidewinder.core.aggregators.windowed.WindowedLast;
-import com.srotya.sidewinder.core.aggregators.windowed.WindowedMax;
-import com.srotya.sidewinder.core.aggregators.windowed.WindowedMean;
-import com.srotya.sidewinder.core.aggregators.windowed.WindowedMin;
-import com.srotya.sidewinder.core.aggregators.windowed.WindowedStdDev;
+import org.reflections.Reflections;
 
 /**
  * @author ambud
  */
+@SuppressWarnings("unchecked")
 public class FunctionTable {
 
+	private static final Logger logger = Logger.getLogger(FunctionTable.class.getName());
 	public static final String NONE = "none";
-	public static final String DVDT = "derivative";
-	public static final String AVG = "average";
-	public static final String SMEAN = "smean";
-	public static final String INTEGRAL = "integral";
-	public static final String MEAN = "mean";
-	public static final String SSUM = "ssum";
-	public static final String STDDEV = "stddev";
-	public static final String SSTDDEV = "sstddev";
-	public static final String SMIN = "smin";
-	public static final String MIN = "min";
-	public static final String SMAX = "smax";
-	public static final String MAX = "max";
-	public static final String SFIRST = "sfirst";
-	public static final String FIRST = "first";
-	public static final String SLAST = "slast";
-	public static final String LAST = "last";
 	public static final FunctionTable table = new FunctionTable();
 	public Map<String, Class<? extends AggregationFunction>> functionMap;
 
@@ -65,23 +38,29 @@ public class FunctionTable {
 	}
 
 	static {
-		FunctionTable.get().register(SSUM, SumFunction.class);
-		FunctionTable.get().register(MEAN, WindowedMean.class);
-		FunctionTable.get().register(INTEGRAL, IntegralFunction.class);
-		FunctionTable.get().register(SMEAN, MeanFunction.class);
-		FunctionTable.get().register(AVG, WindowedMean.class);
-		FunctionTable.get().register(DVDT, DerivativeFunction.class);
-		FunctionTable.get().register(SSTDDEV, StdDeviationFunction.class);
-		FunctionTable.get().register(STDDEV, WindowedStdDev.class);
-		FunctionTable.get().register(SMIN, MinFunction.class);
-		FunctionTable.get().register(MIN, WindowedMin.class);
-		FunctionTable.get().register(SMAX, MaxFunction.class);
-		FunctionTable.get().register(MAX, WindowedMax.class);
-		FunctionTable.get().register(SFIRST, FirstFunction.class);
-		FunctionTable.get().register(FIRST, WindowedFirst.class);
-		FunctionTable.get().register(SLAST, LastFunction.class);
-		FunctionTable.get().register(LAST, WindowedLast.class);
+		String packageName = "com.srotya.sidewinder.core.aggregators";
+		findAndRegisterFunctionsWithPackageName(packageName);
 		FunctionTable.get().register(NONE, null);
+	}
+
+	public static void findAndRegisterFunctionsWithPackageName(String packageName) {
+		Reflections reflections = new Reflections(packageName.trim());
+		Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(FunctionName.class);
+		for (Class<?> annotatedClass : annotatedClasses) {
+			FunctionName function = annotatedClass.getAnnotation(FunctionName.class);
+			String[] aliases = function.alias();
+			if (aliases == null || aliases.length == 0) {
+				logger.warning("Ignoring aggregation function:" + annotatedClass.getName());
+				continue;
+			}
+			for (String alias : aliases) {
+				alias = alias.trim();
+				if (!alias.isEmpty()) {
+					FunctionTable.get().register(alias, (Class<? extends AggregationFunction>) annotatedClass);
+					logger.fine("Registering function with alias:" + alias);
+				}
+			}
+		}
 	}
 
 	public static FunctionTable get() {

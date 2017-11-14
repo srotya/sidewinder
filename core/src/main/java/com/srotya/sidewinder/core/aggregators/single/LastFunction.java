@@ -17,21 +17,28 @@ package com.srotya.sidewinder.core.aggregators.single;
 
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.aggregators.SingleResultFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "slast")
 public class LastFunction extends SingleResultFunction {
-	
+
 	@Override
 	protected void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output) {
 		if (output.isFp()) {
-			output.setValue(dataPoints.get(dataPoints.size()-1).getValue());
+			output.setValue(dataPoints.get(dataPoints.size() - 1).getValue());
 		} else {
-			output.setLongValue(dataPoints.get(dataPoints.size()-1).getLongValue());
+			output.setLongValue(dataPoints.get(dataPoints.size() - 1).getLongValue());
 		}
+	}
+
+	@Override
+	protected void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp) {
+		output[1] = dataPoints.get(dataPoints.size() - 1)[1];
 	}
 
 }

@@ -28,24 +28,33 @@ import java.util.logging.Logger;
 import io.dropwizard.auth.AuthenticationException;
 import io.dropwizard.auth.Authenticator;
 import io.dropwizard.auth.basic.BasicCredentials;
+import io.grpc.Metadata;
+import io.grpc.ServerCall;
+import io.grpc.ServerCallHandler;
+import io.grpc.ServerInterceptor;
+import io.grpc.Status;
 
 /**
  * @author ambud
  */
-public class BasicAuthenticator implements Authenticator<BasicCredentials, Principal> {
+public class BasicAuthenticator implements Authenticator<BasicCredentials, Principal>, ServerInterceptor {
 
 	private static final Logger logger = Logger.getLogger(BasicAuthenticator.class.getName());
+	private static final Metadata.Key<String> USERNAME_KEY = Metadata.Key.of("user.name",
+			Metadata.ASCII_STRING_MARSHALLER);
+	private static final Metadata.Key<String> PASSWORD_KEY = Metadata.Key.of("user.secret",
+			Metadata.ASCII_STRING_MARSHALLER);
 	private static Map<String, String> users = new HashMap<>();
 
 	public BasicAuthenticator(String usersFile) {
 		try {
-			if(usersFile==null || usersFile.isEmpty()) {
+			if (usersFile == null || usersFile.isEmpty()) {
 				users.put("admin", "admin");
 				return;
 			}
 			for (String creds : Files.readAllLines(new File(usersFile).toPath())) {
 				String[] split = creds.split(":");
-				if(split.length!=2) {
+				if (split.length != 2) {
 					continue;
 				}
 				users.put(split[0], split[1]);
@@ -60,10 +69,27 @@ public class BasicAuthenticator implements Authenticator<BasicCredentials, Princ
 		String username = credentials.getUsername();
 		String password = credentials.getPassword();
 		String pass = users.get(username);
-		if(pass!=null && pass.equals(password)) {
-			return Optional.of(new User(username)); 
+		if (pass != null && pass.equals(password)) {
+			return Optional.of(new User(username));
 		}
 		return Optional.empty();
+	}
+
+	@Override
+	public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call,
+			final Metadata requestHeaders, ServerCallHandler<ReqT, RespT> next) {
+		logger.info("Header received from client:" + requestHeaders);
+		String user = requestHeaders.get(USERNAME_KEY);
+		String password = requestHeaders.get(PASSWORD_KEY);
+		if (user != null && password != null) {
+			String pass = users.get(user);
+			if (pass != null && pass.equalsIgnoreCase(password)) {
+				return next.startCall(call, requestHeaders);
+			}
+		}
+		call.close(Status.FAILED_PRECONDITION, requestHeaders);
+		return null;
+
 	}
 
 }

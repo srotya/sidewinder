@@ -8,8 +8,9 @@ addons:
     - rpm
     - wget
     - unzip
+    - npm
 before_script:
-- DIR=$(pwd);mkdir /tmp/proto;cd /tmp/proto;wget https://github.com/google/protobuf/releases/download/v3.2.0/protoc-3.2.0-linux-x86_64.zip;unzip protoc-3.2.0-linux-x86_64.zip; ls -lh;cd $DIR
+- npm -g install polymer-cli;DIR=$(pwd);mkdir /tmp/proto;cd /tmp/proto;wget https://github.com/google/protobuf/releases/download/v3.2.0/protoc-3.2.0-linux-x86_64.zip;unzip protoc-3.2.0-linux-x86_64.zip; ls -lh;cd $DIR
 script: mvn -q -T2 clean test javadoc:javadoc
 after_success:
 - bash <(curl -s https://codecov.io/bash)

@@ -20,13 +20,18 @@ import java.util.List;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.RejectException;
 
 /**
  * @author ambud
  */
 public interface Reader {
+	
+	public static final RejectException EOS_EXCEPTION = new RejectException("End of stream reached");
 
 	public DataPoint readPair() throws IOException;
+	
+	public long[] read() throws IOException;
 	
 	public int getCounter();
 	

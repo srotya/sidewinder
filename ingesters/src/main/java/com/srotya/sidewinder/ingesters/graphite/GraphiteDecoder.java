@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.graphite;
+package com.srotya.sidewinder.ingesters.graphite;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
+import com.codahale.metrics.Counter;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 import io.netty.buffer.Unpooled;
@@ -38,10 +39,12 @@ public class GraphiteDecoder extends SimpleChannelInboundHandler<String> {
 	private static final Logger logger = Logger.getLogger(GraphiteDecoder.class.getName());
 	private StorageEngine storageEngine;
 	private String dbName;
+	private Counter writeCounter;
 
-	public GraphiteDecoder(String dbName, StorageEngine storageEngine) {
+	public GraphiteDecoder(String dbName, StorageEngine storageEngine, Counter writeCounter) {
 		this.dbName = dbName;
 		this.storageEngine = storageEngine;
+		this.writeCounter = writeCounter;
 	}
 
 	@Override
@@ -52,6 +55,9 @@ public class GraphiteDecoder extends SimpleChannelInboundHandler<String> {
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
 		logger.fine("Graphite input:" + msg);
+		if (writeCounter != null) {
+			writeCounter.inc();
+		}
 		parseAndInsertDataPoints(dbName, msg, storageEngine);
 	}
 
@@ -73,10 +79,9 @@ public class GraphiteDecoder extends SimpleChannelInboundHandler<String> {
 			logger.fine("Ignoring bad metric:" + line);
 			return;
 		default:
-			measurementName = key[1];
+			measurementName = key[key.length - 2];
 			valueFieldName = key[key.length - 1];
-			tags.add(key[0]);
-			for (int i = 2; i < key.length - 1; i++) {
+			for (int i = 0; i < key.length - 2; i++) {
 				tags.add(key[i]);
 			}
 			break;

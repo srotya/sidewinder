@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.graphite;
+package com.srotya.sidewinder.ingesters.graphite;
 
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -44,10 +44,10 @@ public class TestGraphiteDecoder {
 
 	@Test
 	public void testHandler() throws IOException {
-		EmbeddedChannel ch = new EmbeddedChannel(new StringDecoder(), new GraphiteDecoder("test", engine));
+		EmbeddedChannel ch = new EmbeddedChannel(new StringDecoder(), new GraphiteDecoder("test", engine, null));
 		ch.writeInbound(Unpooled.copiedBuffer("app1.server1.jvm.heap.max 233123 1497720452", Charset.defaultCharset()));
 		ch.readInbound();
-		verify(engine, times(1)).writeDataPoint("test", "server1", "max", Arrays.asList("app1", "jvm", "heap"),
+		verify(engine, times(1)).writeDataPoint("test", "heap", "max", Arrays.asList("app1", "server1", "jvm"),
 				((long) 1497720452) * 1000, 233123);
 		ch.close();
 	}
@@ -55,7 +55,7 @@ public class TestGraphiteDecoder {
 	@Test
 	public void testParseAndInsert() throws IOException {
 		GraphiteDecoder.parseAndInsertDataPoints("test", "app1.server1.jvm.heap.max 233123 1497720452", engine);
-		verify(engine, times(1)).writeDataPoint("test", "server1", "max", Arrays.asList("app1", "jvm", "heap"),
+		verify(engine, times(1)).writeDataPoint("test", "heap", "max", Arrays.asList("app1", "server1", "jvm"),
 				((long) 1497720452) * 1000, 233123);
 	}
 
@@ -66,11 +66,11 @@ public class TestGraphiteDecoder {
 
 		GraphiteDecoder.parseAndInsertDataPoints("test",
 				"app1.server1.jvm.heap.max233123 1497720452\n" + "app1.server2.jvm.heap.max 2331231497720452", engine);
-		verify(engine, times(0)).writeDataPoint("test", "server2", "max", Arrays.asList("app1", "jvm", "heap"),
+		verify(engine, times(0)).writeDataPoint("test", "heap", "max", Arrays.asList("app1", "server2", "jvm"),
 				((long) 1497720452) * 1000, 233123);
 
 		GraphiteDecoder.parseAndInsertDataPoints("test", "app1.server1.heap 233123 1497720452", engine);
-		verify(engine, times(0)).writeDataPoint("test", "server1", "max", Arrays.asList("app1"),
+		verify(engine, times(0)).writeDataPoint("test", "heap", "max", Arrays.asList("server2"),
 				((long) 1497720452) * 1000, 233123);
 	}
 }

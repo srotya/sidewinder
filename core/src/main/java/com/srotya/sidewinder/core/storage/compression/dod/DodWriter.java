@@ -45,6 +45,11 @@ public class DodWriter implements Writer {
 	private long lastTs;
 	private boolean readOnly;
 	private boolean full;
+	private long prevValue = Long.MIN_VALUE;
+	private long prevXor;
+	private String bufferId;
+	private int startOffset;
+	private String tsBucket;
 
 	public DodWriter() {
 	}
@@ -55,7 +60,9 @@ public class DodWriter implements Writer {
 	}
 
 	@Override
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException {
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking) throws IOException {
+		this.startOffset = startOffset;
+		buf.position(this.startOffset);
 		writer = new BitWriter(buf);
 	}
 
@@ -73,6 +80,7 @@ public class DodWriter implements Writer {
 
 	public void write(List<DataPoint> dps) {
 		try {
+			write.lock();
 			for (Iterator<DataPoint> itr = dps.iterator(); itr.hasNext();) {
 				DataPoint dp = itr.next();
 				writeDataPoint(dp.getTimestamp(), dp.getLongValue());
@@ -83,6 +91,16 @@ public class DodWriter implements Writer {
 	}
 
 	/**
+	 * 
+	 * @param dp
+	 */
+	private void writeDataPoint(long timestamp, long value) {
+		compressTimestamp(timestamp);
+		compressValue(value);
+		count++;
+	}
+
+	/**
 	 * (a) Calculate the delta of delta: D = (tn - tn1) - (tn1 - tn2) (b) If D is
 	 * zero, then store a single `0' bit (c) If D is between [-63, 64], store `10'
 	 * followed by the value (7 bits) (d) If D is between [-255, 256], store `110'
@@ -90,20 +108,69 @@ public class DodWriter implements Writer {
 	 * `1110' followed by the value (12 bits) (f) Otherwise store `1111' followed by
 	 * D using 32 bits
 	 * 
-	 * @param dp
+	 * @param timestamp
 	 */
-	private void writeDataPoint(long timestamp, long value) {
-		lastTs = timestamp;
-		long ts = timestamp;
-		long newDelta = (ts - prevTs);
-		int deltaOfDelta = (int) (newDelta - delta);
+	private void compressTimestamp(long timestamp) {
+		if (count == 0) {
+			prevTs = timestamp;
+			lastTs = timestamp;
+			writer.writeBits(timestamp, 64);
+		} else {
+			lastTs = timestamp;
+			long ts = timestamp;
+			long newDelta = (ts - prevTs);
+			int deltaOfDelta = (int) (newDelta - delta);
+			if (deltaOfDelta == 0) {
+				writer.writeBits(0, 1);
+			} else if (deltaOfDelta >= -63 && deltaOfDelta <= 64) {
+				writer.writeBits(2, 2);
+				writer.writeBits(deltaOfDelta, 7);
+			} else if (deltaOfDelta >= 255 && deltaOfDelta <= 256) {
+				writer.writeBits(6, 3);
+				writer.writeBits(deltaOfDelta, 9);
+			} else if (deltaOfDelta >= 255 && deltaOfDelta <= 256) {
+				writer.writeBits(14, 4);
+				writer.writeBits(deltaOfDelta, 12);
+			} else {
+				writer.writeBits(15, 4);
+				writer.writeBits(deltaOfDelta, 32);
+			}
+			prevTs = ts;
+			delta = newDelta;
+		}
+	}
 
-		writer.writeBits(deltaOfDelta, 32);
-		writer.writeBits(value, 64);
+	private void compressValue(long value) {
+		long xor = prevValue ^ value;
+		if (count == 0) {
+			writer.writeBits(value, 64);
+		} else {
+			if (xor == 0) {
+				writer.writeBits(0, 1);
+			} else {
+				writer.writeBits(1, 1);
+				int numberOfLeadingZeros = Long.numberOfLeadingZeros(xor);
+				int numberOfTrailingZeros = Long.numberOfTrailingZeros(xor);
 
-		count++;
-		prevTs = ts;
-		delta = newDelta;
+				int prevNumberOfLeadingZeros = Long.numberOfLeadingZeros(prevXor);
+				int prevNumberOfTrailingZeros = Long.numberOfTrailingZeros(prevXor);
+
+				if (numberOfLeadingZeros >= prevNumberOfLeadingZeros
+						&& numberOfTrailingZeros >= prevNumberOfTrailingZeros) {
+					writer.writeBits(0, 1);
+					writer.writeBits(xor >>> prevNumberOfTrailingZeros,
+							Long.SIZE - prevNumberOfLeadingZeros - prevNumberOfTrailingZeros);
+				} else {
+					writer.writeBits(1, 1);
+					writer.writeBits(numberOfLeadingZeros, 6);
+					writer.writeBits(Long.SIZE - numberOfLeadingZeros - numberOfTrailingZeros, 6);
+					writer.writeBits((xor >>> numberOfTrailingZeros),
+							Long.SIZE - numberOfLeadingZeros - numberOfTrailingZeros);
+				}
+			}
+		}
+		prevValue = value;
+		prevXor = xor;
 	}
 
 	@Override
@@ -132,13 +199,15 @@ public class DodWriter implements Writer {
 
 	@Override
 	public double getCompressionRatio() {
-		return 0.1;
+		double ratio = 0;
+		read.lock();
+		ratio = ((double) count * Long.BYTES * 2) / writer.getBuffer().position();
+		read.unlock();
+		return ratio;
 	}
 
 	@Override
 	public void setHeaderTimestamp(long timestamp) {
-		prevTs = timestamp;
-		writer.writeBits(timestamp, 64);
 	}
 
 	public BitWriter getWriter() {
@@ -190,4 +259,30 @@ public class DodWriter implements Writer {
 	public long getHeaderTimestamp() {
 		return 0;
 	}
+
+	@Override
+	public void setBufferId(String key) {
+		this.bufferId = key;
+	}
+
+	@Override
+	public String getBufferId() {
+		return bufferId;
+	}
+
+	@Override
+	public void setTsBucket(String tsBucket) {
+		this.tsBucket = tsBucket;
+	}
+
+	@Override
+	public String getTsBucket() {
+		return tsBucket;
+	}
+
+	@Override
+	public int getPosition() {
+		return -1;
+	}
+
 }

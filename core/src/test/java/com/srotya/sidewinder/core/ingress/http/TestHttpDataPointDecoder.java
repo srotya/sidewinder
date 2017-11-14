@@ -22,10 +22,10 @@ import java.util.List;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.utils.HTTPDataPointDecoder;
+import com.srotya.sidewinder.core.utils.InfluxDecoder;
 
 /**
- * Unit tests for {@link HTTPDataPointDecoder}
+ * Unit tests for {@link InfluxDecoder}
  * 
  * @author ambud
  */
@@ -34,7 +34,7 @@ public class TestHttpDataPointDecoder {
 	@Test
 	public void testIdenticalWriteSinglePoint() {
 		String testPoints = "cpu,host=server01,region=uswest value=1i 1434055562000000000";
-		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
+		List<DataPoint> dps = InfluxDecoder.dataPointsFromString("test", testPoints);
 		DataPoint dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
 		assertTrue(dp.getTags().contains("host=server01"));
@@ -46,7 +46,7 @@ public class TestHttpDataPointDecoder {
 	@Test
 	public void testIdenticalWriteMultipoints() {
 		String testPoints = "cpu,host=server01,region=uswest value=1i 1434055562000000000\ncpu,host=server01,region=uswest value=1i 1434055562000000000\ncpu,host=server01,region=uswest value=1i 1434055562000000000";
-		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
+		List<DataPoint> dps = InfluxDecoder.dataPointsFromString("test", testPoints);
 		for (DataPoint dp : dps) {
 			assertEquals("cpu", dp.getMeasurementName());
 			assertTrue(dp.getTags().contains("host=server01"));
@@ -59,7 +59,7 @@ public class TestHttpDataPointDecoder {
 	@Test
 	public void testDoublePointMeasurementValue() {
 		String testPoints = "cpu value=1i,value1=2i 1434055562000000000";
-		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
+		List<DataPoint> dps = InfluxDecoder.dataPointsFromString("test", testPoints);
 
 		assertEquals(2, dps.size());
 
@@ -79,7 +79,7 @@ public class TestHttpDataPointDecoder {
 	@Test
 	public void testSinglePointMeasurementValue() {
 		String testPoints = "cpu value=1i 1434055562000000000";
-		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
+		List<DataPoint> dps = InfluxDecoder.dataPointsFromString("test", testPoints);
 		assertEquals(1, dps.size());
 		DataPoint dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
@@ -91,7 +91,7 @@ public class TestHttpDataPointDecoder {
 	@Test
 	public void testSinglePointMeasurementValueWithoutTimestamp() {
 		String testPoints = "cpu value=1i";
-		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
+		List<DataPoint> dps = InfluxDecoder.dataPointsFromString("test", testPoints);
 		assertEquals(1, dps.size());
 		DataPoint dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
@@ -105,7 +105,7 @@ public class TestHttpDataPointDecoder {
 	@Test
 	public void testSinglePointWithIMeasurementValueWithoutTimestamp() {
 		String testPoints = "cpu value=1i\ncpu\ncpu mem test hello";
-		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
+		List<DataPoint> dps = InfluxDecoder.dataPointsFromString("test", testPoints);
 		assertEquals(1, dps.size());
 		DataPoint dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
@@ -118,7 +118,7 @@ public class TestHttpDataPointDecoder {
 	@Test
 	public void testFloatMeasurementValueWithoutTimestamp() {
 		String testPoints = "cpu value=1.2";
-		List<DataPoint> dps = HTTPDataPointDecoder.dataPointsFromString("test", testPoints);
+		List<DataPoint> dps = InfluxDecoder.dataPointsFromString("test", testPoints);
 		assertEquals(1, dps.size());
 		DataPoint dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());

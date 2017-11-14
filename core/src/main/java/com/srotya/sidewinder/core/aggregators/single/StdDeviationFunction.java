@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.aggregators.single;
 
 import java.util.List;
 
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.aggregators.SingleResultFunction;
 import com.srotya.sidewinder.core.analytics.MathUtils;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -24,6 +25,7 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 /**
  * @author ambud
  */
+@FunctionName(alias = "sstddev")
 public class StdDeviationFunction extends SingleResultFunction {
 
 	@Override
@@ -49,6 +51,30 @@ public class StdDeviationFunction extends SingleResultFunction {
 			double avg = MathUtils.mean(ary);
 			double standardDeviation = MathUtils.standardDeviation(ary, avg);
 			output.setValue(standardDeviation);
+		}
+	}
+
+	@Override
+	protected void aggregateToSinglePoint(List<long[]> dataPoints, long[] output, boolean isFp) {
+		output[0] = dataPoints.get(0)[0];
+		if (!isFp) {
+			long[] ary = new long[dataPoints.size()];
+			for (int i = 0; i < dataPoints.size(); i++) {
+				long[] dataPoint = dataPoints.get(i);
+				ary[i] = dataPoint[1];
+			}
+			long avg = MathUtils.mean(ary);
+			long standardDeviation = MathUtils.standardDeviation(ary, avg);
+			output[1] = standardDeviation;
+		} else {
+			double[] ary = new double[dataPoints.size()];
+			for (int i = 0; i < dataPoints.size(); i++) {
+				long[] dataPoint = dataPoints.get(i);
+				ary[i] = Double.longBitsToDouble(dataPoint[1]);
+			}
+			double avg = MathUtils.mean(ary);
+			double standardDeviation = MathUtils.standardDeviation(ary, avg);
+			output[1] = Double.doubleToLongBits(standardDeviation);
 		}
 	}
 

@@ -21,42 +21,36 @@ import java.io.IOException;
 import java.security.Principal;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.codahale.metrics.Metric;
-import com.codahale.metrics.MetricFilter;
-import com.codahale.metrics.MetricRegistry;
-import com.lmax.disruptor.TimeoutException;
+import com.srotya.sidewinder.core.aggregators.FunctionTable;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
 import com.srotya.sidewinder.core.api.InfluxApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
 import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
-import com.srotya.sidewinder.core.graphite.GraphiteServer;
-import com.srotya.sidewinder.core.health.RestAPIHealthCheck;
-import com.srotya.sidewinder.core.rpc.WriterServiceImpl;
+import com.srotya.sidewinder.core.external.Ingester;
+import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
+import com.srotya.sidewinder.core.monitoring.RestAPIHealthCheck;
+import com.srotya.sidewinder.core.rpc.GRPCServer;
 import com.srotya.sidewinder.core.security.AllowAllAuthorizer;
 import com.srotya.sidewinder.core.security.BasicAuthenticator;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.dropwizard.Application;
+import io.dropwizard.assets.AssetsBundle;
 import io.dropwizard.auth.AuthFilter;
 import io.dropwizard.auth.basic.BasicCredentialAuthFilter;
 import io.dropwizard.auth.basic.BasicCredentials;
+import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
-import io.grpc.DecompressorRegistry;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
 
 /**
  * Main driver class for single-node sidewinder. It will register the REST APIs,
@@ -71,13 +65,14 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 	private static final Logger logger = Logger.getLogger(SidewinderServer.class.getName());
 	private StorageEngine storageEngine;
 	private static SidewinderServer sidewinderServer;
-	private List<Runnable> shutdownTasks;
+	
+	@Override
+	public void initialize(Bootstrap<SidewinderConfig> bootstrap) {
+		bootstrap.addBundle(new AssetsBundle("/web", "/ui", "index.html"));
+	}
 
 	@Override
 	public void run(SidewinderConfig config, Environment env) throws Exception {
-		shutdownTasks = new ArrayList<>();
-		final MetricRegistry registry = new MetricRegistry();
-
 		Map<String, String> conf = new HashMap<>();
 		overloadProperties(config, conf);
 
@@ -85,54 +80,50 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 				Integer.parseInt(conf.getOrDefault(ConfigConstants.BG_THREAD_COUNT, "2")),
 				new BackgrounThreadFactory("sidewinderbg-tasks"));
 		initializeStorageEngine(conf, bgTasks);
-		enableMonitoring(registry, bgTasks);
-		registerWebAPIs(env, conf, registry, bgTasks);
-		checkAndEnableGRPC(conf);
-		checkAndEnableGraphite(conf);
-		registerShutdownHook(conf);
+		enableMonitoring(bgTasks);
+		registerWebAPIs(env, conf, bgTasks);
+		checkAndEnableIngesters(conf, env);
+		checkAndRegisterFunctions(conf);
 	}
 
-	private void registerShutdownHook(Map<String, String> conf) {
-		Runtime.getRuntime().addShutdownHook(new Thread("shutdown-hook") {
-			@Override
-			public void run() {
-				for (Runnable task : shutdownTasks) {
-					task.run();
-				}
+	private void checkAndRegisterFunctions(Map<String, String> conf) {
+		String packages = conf.get(ConfigConstants.EXTERNAL_FUNCTIONS);
+		if (packages != null) {
+			String[] splits = packages.split(",");
+			for (String packageName : splits) {
+				FunctionTable.findAndRegisterFunctionsWithPackageName(packageName);
+				logger.info("Registering functions from package name:" + packageName);
 			}
-		});
-	}
-
-	private void checkAndEnableGraphite(Map<String, String> conf) throws Exception {
-		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.GRAPHITE_ENABLED, ConfigConstants.FALSE))) {
-			final GraphiteServer server = new GraphiteServer(conf, storageEngine);
-			server.start();
-			shutdownTasks.add(new Runnable() {
-
-				@Override
-				public void run() {
-					try {
-						server.stop();
-					} catch (Exception e) {
-						logger.log(Level.SEVERE, "Failed to shutdown graphite server", e);
-					}
-				}
-			});
 		}
 	}
 
-	private void enableMonitoring(final MetricRegistry registry, ScheduledExecutorService bgTasks) {
-		ResourceMonitor.getInstance().init(storageEngine, bgTasks);
-		@SuppressWarnings("resource")
-		SidewinderDropwizardReporter reporter = new SidewinderDropwizardReporter(registry, "request",
-				new MetricFilter() {
+	private void checkAndEnableIngesters(Map<String, String> conf, Environment env) throws Exception {
+		String val = conf.get("ingesters");
+		ArrayList<String> list = new ArrayList<>();
+		if (val != null) {
+			list.addAll(Arrays.asList(val.split(",")));
+		}
+		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.ENABLE_GRPC, ConfigConstants.FALSE))) {
+			list.add(GRPCServer.class.getCanonicalName());
+		}
+		for (String split : list) {
+			String trim = split.trim();
+			if (trim.isEmpty()) {
+				continue;
+			}
+			Class<?> cls = Class.forName(trim);
+			if (Ingester.class.isAssignableFrom(cls)) {
+				final Ingester server = (Ingester) cls.newInstance();
+				server.init(conf, storageEngine);
+				env.lifecycle().manage(server);
+			} else {
+				logger.warning("Ignoring invalid ingester type:" + cls + "");
+			}
+		}
+	}
 
-					@Override
-					public boolean matches(String name, Metric metric) {
-						return true;
-					}
-				}, TimeUnit.SECONDS, TimeUnit.SECONDS, storageEngine);
-		reporter.start(1, TimeUnit.SECONDS);
+	private void enableMonitoring(ScheduledExecutorService bgTasks) {
+		ResourceMonitor.getInstance().init(storageEngine, bgTasks);
 	}
 
 	private void overloadProperties(SidewinderConfig config, Map<String, String> conf)
@@ -157,13 +148,15 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		storageEngine.connect();
 	}
 
-	private void registerWebAPIs(Environment env, Map<String, String> conf, final MetricRegistry registry,
-			ScheduledExecutorService bgTasks) throws SQLException, ClassNotFoundException {
-		env.jersey().register(new GrafanaQueryApi(storageEngine, registry));
-		env.jersey().register(new MeasurementOpsApi(storageEngine, registry));
-		env.jersey().register(new DatabaseOpsApi(storageEngine, registry));
-		env.jersey().register(new InfluxApi(storageEngine, registry));
+	private void registerWebAPIs(Environment env, Map<String, String> conf, ScheduledExecutorService bgTasks)
+			throws SQLException, ClassNotFoundException {
+		env.jersey().register(new GrafanaQueryApi(storageEngine));
+		env.jersey().register(new MeasurementOpsApi(storageEngine));
+		env.jersey().register(new DatabaseOpsApi(storageEngine));
 		env.jersey().register(new SqlApi(storageEngine));
+		if(Boolean.parseBoolean(conf.getOrDefault("jersey.influx", "true"))) {
+			env.jersey().register(new InfluxApi(storageEngine));
+		}
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
 
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {
@@ -172,41 +165,6 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 					.setAuthenticator(new BasicAuthenticator(conf.get(ConfigConstants.AUTH_BASIC_USERS)))
 					.setAuthorizer(new AllowAllAuthorizer()).setPrefix("Basic").buildAuthFilter();
 			env.jersey().register(basicCredentialAuthFilter);
-		}
-	}
-
-	private void checkAndEnableGRPC(Map<String, String> conf) throws IOException {
-		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.ENABLE_GRPC, ConfigConstants.FALSE))) {
-			final ExecutorService es = Executors
-					.newFixedThreadPool(
-							Integer.parseInt(conf.getOrDefault(ConfigConstants.GRPC_EXECUTOR_COUNT,
-									ConfigConstants.DEFAULT_GRPC_EXECUTOR_COUNT)),
-							new BackgrounThreadFactory("grpc-threads"));
-
-			final WriterServiceImpl writer = new WriterServiceImpl(storageEngine, conf);
-			final Server server = ServerBuilder
-					.forPort(Integer.parseInt(conf.getOrDefault(ConfigConstants.GRPC_PORT, "9928"))).executor(es)
-					.decompressorRegistry(DecompressorRegistry.getDefaultInstance()).addService(writer).build().start();
-			shutdownTasks.add(new Runnable() {
-
-				@Override
-				public void run() {
-					server.shutdown();
-					try {
-						server.awaitTermination(100, TimeUnit.SECONDS);
-					} catch (InterruptedException e) {
-						logger.log(Level.SEVERE, "Failed to terminate GRPC server", e);
-					}
-					es.shutdownNow();
-					try {
-						writer.getDisruptor().shutdown(100, TimeUnit.SECONDS);
-					} catch (TimeoutException e) {
-						logger.log(Level.SEVERE, "Failed to terminate GRPC disruptor", e);
-					}
-					writer.getEs().shutdownNow();
-				}
-			});
-
 		}
 	}
 

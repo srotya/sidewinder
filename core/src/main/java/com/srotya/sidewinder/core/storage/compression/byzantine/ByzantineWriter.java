@@ -24,6 +24,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
@@ -31,9 +32,9 @@ import com.srotya.sidewinder.core.storage.compression.Writer;
  * 
  * @author ambud
  */
+@Codec(id = 1, name = "byzantine")
 public class ByzantineWriter implements Writer {
 
-	private static final int BYTES_PER_DATAPOINT = 16;
 	private Lock read;
 	private Lock write;
 	private long prevTs;
@@ -44,6 +45,9 @@ public class ByzantineWriter implements Writer {
 	private long prevValue;
 	private boolean readOnly;
 	private volatile boolean full;
+	private String bufferId;
+	private int startOffset;
+	private String tsBucket;
 
 	public ByzantineWriter() {
 	}
@@ -64,8 +68,10 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew) throws IOException {
-		if (Boolean.parseBoolean(conf.getOrDefault("lock.enabled", "true"))) {
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
+			throws IOException {
+		this.startOffset = startOffset;
+		if (isLocking) {
 			ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 			read = lock.readLock();
 			write = lock.writeLock();
@@ -74,6 +80,7 @@ public class ByzantineWriter implements Writer {
 			write = new NoLock();
 		}
 		this.buf = buf;
+		this.buf.position(startOffset);
 		if (isNew) {
 			this.buf.putInt(0);
 		} else {
@@ -83,7 +90,7 @@ public class ByzantineWriter implements Writer {
 	}
 
 	private void forwardCursorToEnd() throws IOException {
-		ByzantineReader reader = new ByzantineReader(buf);
+		ByzantineReader reader = new ByzantineReader(buf, startOffset);
 		count = reader.getPairCount();
 		for (int i = 0; i < count; i++) {
 			reader.readPair();
@@ -170,10 +177,10 @@ public class ByzantineWriter implements Writer {
 			tBuf.put((byte) 1);
 			tBuf.put((byte) deltaOfDelta);
 		} else if (deltaOfDelta >= Short.MIN_VALUE && deltaOfDelta <= Short.MAX_VALUE) {
-			tBuf.put((byte) 10);
+			tBuf.put((byte) 2);
 			tBuf.putShort((short) deltaOfDelta);
 		} else {
-			tBuf.put((byte) 11);
+			tBuf.put((byte) 3);
 			tBuf.putInt(deltaOfDelta);
 		}
 		prevTs = ts;
@@ -186,7 +193,7 @@ public class ByzantineWriter implements Writer {
 	}
 
 	private void updateCount() {
-		buf.putInt(0, count);
+		buf.putInt(startOffset, count);
 	}
 
 	public ByzantineReader getReader() throws IOException {
@@ -194,7 +201,7 @@ public class ByzantineWriter implements Writer {
 		read.lock();
 		ByteBuffer rbuf = buf.duplicate();
 		rbuf.rewind();
-		reader = new ByzantineReader(rbuf);
+		reader = new ByzantineReader(rbuf, startOffset);
 		read.unlock();
 		return reader;
 	}
@@ -213,9 +220,14 @@ public class ByzantineWriter implements Writer {
 	public double getCompressionRatio() {
 		double ratio = 0;
 		read.lock();
-		ratio = ((double) count * BYTES_PER_DATAPOINT) / buf.position();
+		ratio = ((double) count * Long.BYTES * 2) / buf.position();
 		read.unlock();
 		return ratio;
+	}
+
+	@Override
+	public int getPosition() {
+		return buf.position();
 	}
 
 	@Override
@@ -225,10 +237,10 @@ public class ByzantineWriter implements Writer {
 			buf.putLong(timestamp);
 		}
 	}
-	
+
 	@Override
 	public long getHeaderTimestamp() {
-		return buf.getLong(4);
+		return buf.getLong(4 + startOffset);
 	}
 
 	/**
@@ -291,7 +303,6 @@ public class ByzantineWriter implements Writer {
 	public ByteBuffer getRawBytes() {
 		read.lock();
 		ByteBuffer b = buf.duplicate();
-		b.rewind();
 		read.unlock();
 		return b;
 	}
@@ -334,6 +345,26 @@ public class ByzantineWriter implements Writer {
 	@Override
 	public boolean isFull() {
 		return full;
+	}
+
+	@Override
+	public void setBufferId(String key) {
+		this.bufferId = key;
+	}
+
+	@Override
+	public String getBufferId() {
+		return bufferId;
+	}
+
+	@Override
+	public String getTsBucket() {
+		return tsBucket;
+	}
+
+	@Override
+	public void setTsBucket(String tsBucket) {
+		this.tsBucket = tsBucket;
 	}
 
 }

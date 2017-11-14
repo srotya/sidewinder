@@ -33,17 +33,21 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.filters.AnyFilter;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
+import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
+import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -54,13 +58,20 @@ public class TestPersistentMeasurement {
 
 	private Map<String, String> conf = new HashMap<>();
 	private DBMetadata metadata = new DBMetadata(28);
-	private ScheduledExecutorService bgTaskPool = Executors.newScheduledThreadPool(1);
+	private static ScheduledExecutorService bgTaskPool = Executors.newScheduledThreadPool(1);
+	private static StorageEngine engine = new MemStorageEngine();
+
+	@BeforeClass
+	public static void before() throws IOException {
+		engine.configure(new HashMap<>(), bgTaskPool);
+	}
 
 	@Test
 	public void testConfigure() throws IOException {
-		MiscUtils.delete(new File("target/pmeasurement1.idx"));
+		MiscUtils.delete(new File("target/pmeasurement1"));
 		Measurement measurement = new PersistentMeasurement();
-		measurement.configure(conf, "m1", "target/pmeasurement1.idx", "target/pmeasurement1", metadata, bgTaskPool);
+		measurement.configure(conf, engine, "m1", "target/pmeasurement1/idx", "target/pmeasurement1/data", metadata,
+				bgTaskPool);
 		assertTrue(measurement.getTagIndex() != null);
 		// TimeSeries series = measurement.getOrCreateTimeSeries("v1",
 		// Arrays.asList("test1"), 4096, false, conf);
@@ -77,12 +88,12 @@ public class TestPersistentMeasurement {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		map.put("measurement.file.max", String.valueOf(1024 * 1024));
 		try {
-			m.configure(map, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+			m.configure(map, engine, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 			fail("Must throw invalid file max size exception");
 		} catch (Exception e) {
 		}
 		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
-		m.configure(map, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+		m.configure(map, engine, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
 			TimeSeries t = m.getOrCreateTimeSeries("value", tags, 4096, false, map);
@@ -91,7 +102,7 @@ public class TestPersistentMeasurement {
 		m.close();
 
 		m = new PersistentMeasurement();
-		m.configure(map, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+		m.configure(map, engine, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		m.loadTimeseriesFromMeasurements();
 		Set<SeriesQueryOutput> resultMap = new HashSet<>();
 		m.queryDataPoints("value", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, null, resultMap);
@@ -105,7 +116,7 @@ public class TestPersistentMeasurement {
 		MiscUtils.delete(new File("target/db131/"));
 		List<String> tags = Arrays.asList("test1", "test2");
 		Measurement m = new PersistentMeasurement();
-		m.configure(conf, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
+		m.configure(conf, engine, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
 		TagIndex index = m.getTagIndex();
 		String encodeTagsToString = m.encodeTagsToString(index, tags);
 		String key = m.constructSeriesId("csd", tags, index);
@@ -116,8 +127,8 @@ public class TestPersistentMeasurement {
 	@Test
 	public void testMeasurementRecovery() throws IOException {
 		MiscUtils.delete(new File("target/db141/"));
-		Measurement m = new PersistentMeasurement();
-		m.configure(conf, "m1", "target/db141/index", "target/db141/data", metadata, bgTaskPool);
+		PersistentMeasurement m = new PersistentMeasurement();
+		m.configure(conf, engine, "m1", "target/db141/index", "target/db141/data", metadata, bgTaskPool);
 		TimeSeries ts = m.getOrCreateTimeSeries("vf1", Arrays.asList("t1", "t2"), 4096, false, conf);
 		long t = System.currentTimeMillis();
 		for (int i = 0; i < 100; i++) {
@@ -154,7 +165,7 @@ public class TestPersistentMeasurement {
 			MiscUtils.delete(new File("target/db134/"));
 			final long t1 = 1497720452566L;
 			Measurement m = new PersistentMeasurement();
-			m.configure(conf, "m1", "target/db134/index", "target/db134/data", metadata, bgTaskPool);
+			m.configure(conf, engine, "m1", "target/db134/index", "target/db134/data", metadata, bgTaskPool);
 			ExecutorService es = Executors.newFixedThreadPool(2, new BackgrounThreadFactory("tlinear"));
 			AtomicBoolean wait = new AtomicBoolean(false);
 			for (int i = 0; i < 2; i++) {
@@ -197,7 +208,7 @@ public class TestPersistentMeasurement {
 			MiscUtils.delete(new File("target/db135/"));
 			final long t1 = 1497720452566L;
 			Measurement m = new PersistentMeasurement();
-			m.configure(conf, "m1", "target/db135/index", "target/db135/data", metadata, bgTaskPool);
+			m.configure(conf, engine, "m1", "target/db135/index", "target/db135/data", metadata, bgTaskPool);
 			ExecutorService es = Executors.newFixedThreadPool(2, new BackgrounThreadFactory("tlinear2"));
 			AtomicBoolean wait = new AtomicBoolean(false);
 			for (int i = 0; i < 2; i++) {
@@ -235,6 +246,7 @@ public class TestPersistentMeasurement {
 	@Test
 	public void testTagEncodeDecode() throws IOException {
 		String indexDir = "target/test";
+		MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("requests");
 		MiscUtils.delete(new File(indexDir));
 		new File(indexDir).mkdirs();
 		DiskTagIndex table = new DiskTagIndex(indexDir, "test2");

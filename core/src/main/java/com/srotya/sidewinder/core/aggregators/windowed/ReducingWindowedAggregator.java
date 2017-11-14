@@ -40,7 +40,7 @@ public abstract class ReducingWindowedAggregator extends WindowedFunction {
 	@Override
 	public void init(Object[] args) throws Exception {
 		super.init(args);
-		String aggregatorName = FunctionTable.SMEAN;
+		String aggregatorName = "smean";
 		if (args.length > 1) {
 			aggregatorName = args[1].toString();
 		}
@@ -54,9 +54,43 @@ public abstract class ReducingWindowedAggregator extends WindowedFunction {
 		}
 		this.aggregator = (SingleResultFunction) tmp;
 	}
+	
+	@Override
+	public List<long[]> aggregatePoints(List<long[]> datapoints, boolean isFp) {
+		SortedMap<Long, List<long[]>> map = new TreeMap<>();
+		for (long[] dataPoint : datapoints) {
+			try {
+				long bucket = (dataPoint[0] / getTimeWindow()) * getTimeWindow();
+				List<long[]> list = map.get(bucket);
+				if (list == null) {
+					list = new ArrayList<>();
+					map.put(bucket, list);
+				}
+				list.add(dataPoint);
+			} catch (Exception e) {
+				System.err.println("Exception :" + getTimeWindow());
+			}
+		}
+		List<long[]> reducedDataPoints = new ArrayList<>();
+		for (Entry<Long, List<long[]>> entry : map.entrySet()) {
+			List<long[]> aggregate = aggregator.aggregatePoints(entry.getValue(), isFp);
+			if (!aggregate.isEmpty()) {
+				long[] dp = aggregate.get(0);
+				dp[0] = entry.getKey();
+				reducedDataPoints.add(dp);
+			}
+		}
+		if (reducedDataPoints.size() > 0) {
+			return aggregatePointsAfterReduction(reducedDataPoints, isFp);
+		} else {
+			return reducedDataPoints;
+		}
+	}
+
+	protected abstract List<long[]> aggregatePointsAfterReduction(List<long[]> datapoints, boolean isFp);
 
 	@Override
-	public final List<DataPoint> aggregate(List<DataPoint> datapoints) {
+	public final List<DataPoint> aggregateDataPoints(List<DataPoint> datapoints) {
 		SortedMap<Long, List<DataPoint>> map = new TreeMap<>();
 		for (DataPoint dataPoint : datapoints) {
 			try {
@@ -73,7 +107,7 @@ public abstract class ReducingWindowedAggregator extends WindowedFunction {
 		}
 		List<DataPoint> reducedDataPoints = new ArrayList<>();
 		for (Entry<Long, List<DataPoint>> entry : map.entrySet()) {
-			List<DataPoint> aggregate = aggregator.aggregate(entry.getValue());
+			List<DataPoint> aggregate = aggregator.aggregateDataPoints(entry.getValue());
 			if (!aggregate.isEmpty()) {
 				DataPoint dp = aggregate.get(0);
 				dp.setTimestamp(entry.getKey());

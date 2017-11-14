@@ -22,6 +22,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
 import net.jpountz.xxhash.XXHash32;
@@ -38,11 +40,15 @@ public class MemTagIndex implements TagIndex {
 	private Map<String, Set<String>> rowKeyIndex;
 	private XXHashFactory factory = XXHashFactory.fastestInstance();
 	private XXHash32 hash;
+	private Counter metricIndexTag;
+	private Counter metricIndexRow;
 
-	public MemTagIndex() {
+	public MemTagIndex(MetricRegistry registry) {
 		tagMap = new ConcurrentHashMap<>();
 		rowKeyIndex = new ConcurrentHashMap<>();
 		hash = factory.hash32();
+		metricIndexTag = registry.counter("index-tag");
+		metricIndexRow = registry.counter("index-row");
 	}
 
 	/**
@@ -57,6 +63,7 @@ public class MemTagIndex implements TagIndex {
 		if (val == null) {
 			tagMap.put(hash32, tag);
 		}
+		metricIndexTag.inc();
 		return Integer.toHexString(hash32);
 	}
 
@@ -86,6 +93,7 @@ public class MemTagIndex implements TagIndex {
 		}
 		if (!rowKeySet.contains(rowKey)) {
 			rowKeySet.add(rowKey);
+			metricIndexRow.inc();
 		}
 	}
 
