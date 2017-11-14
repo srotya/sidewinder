@@ -23,6 +23,7 @@ import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.ws.rs.BadRequestException;
 import javax.ws.rs.NotFoundException;
 
 import com.google.gson.JsonArray;
@@ -61,15 +62,29 @@ public class GrafanaUtils {
 					targetSeriesEntry.getTagFilter(), null, targetSeriesEntry.getAggregationFunction());
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
+		} catch (Exception e) {
+			throw new BadRequestException(e.getMessage());
 		}
 		for (SeriesQueryOutput entry : points) {
-			List<DataPoint> dataPoints = entry.getDataPoints();
 			Target tar = new Target(entry.toString());
-			for (DataPoint dataPoint : dataPoints) {
-				if (!dataPoint.isFp()) {
-					tar.getDatapoints().add(new Number[] { dataPoint.getLongValue(), dataPoint.getTimestamp() });
-				} else {
-					tar.getDatapoints().add(new Number[] { dataPoint.getValue(), dataPoint.getTimestamp() });
+			List<DataPoint> dps = entry.getDataPoints();
+			if (dps != null) {
+				for (DataPoint point : dps) {
+					if (!entry.isFp()) {
+						tar.getDatapoints().add(new Number[] { point.getLongValue(), point.getTimestamp() });
+					} else {
+						tar.getDatapoints().add(new Number[] { point.getValue(), point.getTimestamp() });
+					}
+				}
+			}
+			List<long[]> dataPoints = entry.getPoints();
+			if (dataPoints != null) {
+				for (long[] point : dataPoints) {
+					if (!entry.isFp()) {
+						tar.getDatapoints().add(new Number[] { point[1], point[0] });
+					} else {
+						tar.getDatapoints().add(new Number[] { Double.longBitsToDouble(point[1]), point[0] });
+					}
 				}
 			}
 			output.add(tar);
@@ -123,6 +138,10 @@ public class GrafanaUtils {
 		if (name.equalsIgnoreCase("none")) {
 			return null;
 		}
+		int multipleFactor = 1;
+		if (obj.has("unit")) {
+			multipleFactor = toSeconds(obj.get("unit").getAsString());
+		}
 		Class<? extends AggregationFunction> lookupFunction = FunctionTable.get().lookupFunction(name);
 		if (lookupFunction != null) {
 			try {
@@ -141,10 +160,10 @@ public class GrafanaUtils {
 						args[index] = arg.get("value").getAsString();
 						break;
 					case "int":
-						args[index] = arg.get("value").getAsInt();
+						args[index] = arg.get("value").getAsInt() * multipleFactor;
 						break;
 					case "long":
-						args[index] = arg.get("value").getAsLong();
+						args[index] = arg.get("value").getAsLong() * multipleFactor;
 						break;
 					case "double":
 						args[index] = arg.get("value").getAsDouble();
@@ -208,6 +227,31 @@ public class GrafanaUtils {
 		} else {
 			return predicateStack.pop();
 		}
+	}
+
+	public static int toSeconds(String unit) {
+		int secs = 1;
+		switch (unit) {
+		case "mins":
+			secs = 60;
+			break;
+		case "hours":
+			secs = 60 * 60;
+			break;
+		case "days":
+			secs = 60 * 60 * 24;
+			break;
+		case "weeks":
+			secs = 60 * 60 * 24 * 7;
+			break;
+		case "months":
+			secs = 60 * 60 * 24 * 30;
+			break;
+		case "years":
+			secs = 60 * 60 * 24 * 365;
+			break;
+		}
+		return secs;
 	}
 
 }

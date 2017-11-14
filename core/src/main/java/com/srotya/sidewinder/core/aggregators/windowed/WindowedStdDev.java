@@ -17,20 +17,21 @@ package com.srotya.sidewinder.core.aggregators.windowed;
 
 import java.util.List;
 
-import com.srotya.sidewinder.core.aggregators.FunctionTable;
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = "stddev")
 public class WindowedStdDev extends ReducingWindowedAggregator {
 
 	@Override
 	public void init(Object[] args) throws Exception {
 		if (args.length > 1) {
-			args[1] = FunctionTable.SSTDDEV;
+			args[1] = "stddev";
 		} else {
-			args = new Object[] { args[0], FunctionTable.SSTDDEV };
+			args = new Object[] { args[0], "stddev" };
 		}
 		super.init(args);
 	}
@@ -38,6 +39,11 @@ public class WindowedStdDev extends ReducingWindowedAggregator {
 	@Override
 	public List<DataPoint> aggregateAfterReduction(List<DataPoint> datapoints) {
 		return datapoints;
+	}
+
+	@Override
+	protected List<long[]> aggregatePointsAfterReduction(List<long[]> reducedDataPoints, boolean isFp) {
+		return reducedDataPoints;
 	}
 
 }

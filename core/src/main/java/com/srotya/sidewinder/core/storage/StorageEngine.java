@@ -16,15 +16,19 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Pattern;
 
+import com.codahale.metrics.Counter;
 import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.filters.Filter;
@@ -42,8 +46,10 @@ public interface StorageEngine {
 	public static RejectException FP_MISMATCH_EXCEPTION = new RejectException("Floating point mismatch");
 	public static RejectException INVALID_DATAPOINT_EXCEPTION = new RejectException(
 			"Datapoint is missing required values");
-	public static final String DEFAULT_COMPRESSION_CLASS = "com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter";
-	public static final String COMPRESSION_CLASS = "compression.class";
+	public static final String DEFAULT_COMPRESSION_CODEC = "byzantine";
+	public static final String COMPRESSION_CODEC = "compression.codec";
+	public static final String COMPACTION_CODEC = "compaction.codec";
+	public static final String DEFAULT_COMPACTION_CODEC = "byzantine";
 	public static final int DEFAULT_TIME_BUCKET_CONSTANT = 32768;
 	public static final String DEFAULT_BUCKET_SIZE = "default.bucket.size";
 	public static final String RETENTION_HOURS = "default.series.retention.hours";
@@ -55,6 +61,12 @@ public interface StorageEngine {
 	public static final String GC_FREQUENCY = "gc.frequency";
 	public static final String DEFAULT_GC_FREQUENCY = "500000";
 	public static final String DEFAULT_GC_DELAY = "60000";
+	public static final String COMPACTION_ENABLED = "compaction.enabled";
+	public static final String DEFAULT_COMPACTION_ENABLED = "false";
+	public static final String COMPACTION_FREQUENCY = "compaction.frequency";
+	public static final String DEFAULT_COMPACTION_FREQUENCY = "1800";
+	public static final String COMPACTION_DELAY = "compaction.delay";
+	public static final String DEFAULT_COMPACTION_DELAY = "1800";
 
 	/**
 	 * @param conf
@@ -97,7 +109,32 @@ public interface StorageEngine {
 		} else {
 			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getLongValue());
 		}
-		getCounter().incrementAndGet();
+		getCounter().inc();
+	}
+
+	public default void writeDataPoint(List<DataPoint> dps) throws IOException {
+		Map<TimeSeries, List<DataPoint>> dpMap = new HashMap<>();
+		for (DataPoint dp : dps) {
+			StorageEngine.validateDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
+					dp.getTags(), TimeUnit.MILLISECONDS);
+			TimeSeries timeSeries = getOrCreateTimeSeries(dp.getDbName(), dp.getMeasurementName(),
+					dp.getValueFieldName(), dp.getTags(), getDefaultTimebucketSize(), dp.isFp());
+			if (dp.isFp() != timeSeries.isFp()) {
+				// drop this datapoint, mixed series are not allowed
+				throw FP_MISMATCH_EXCEPTION;
+			}
+			List<DataPoint> dpx;
+			if (!dpMap.containsKey(timeSeries)) {
+				dpMap.put(timeSeries, dpx = new ArrayList<>());
+			} else {
+				dpx = dpMap.get(timeSeries);
+			}
+			dpx.add(dp);
+		}
+		for (Entry<TimeSeries, List<DataPoint>> entry : dpMap.entrySet()) {
+			entry.getKey().addDataPoints(TimeUnit.MILLISECONDS, entry.getValue());
+			getCounter().inc(entry.getValue().size());
+		}
 	}
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
@@ -110,9 +147,9 @@ public interface StorageEngine {
 			throw FP_MISMATCH_EXCEPTION;
 		}
 		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
-		getCounter().incrementAndGet();
+		getCounter().inc();
 	}
-	
+
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
 			long timestamp, double value) throws IOException {
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
@@ -123,7 +160,7 @@ public interface StorageEngine {
 			throw FP_MISMATCH_EXCEPTION;
 		}
 		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
-		getCounter().incrementAndGet();
+		getCounter().inc();
 	}
 
 	/**
@@ -153,8 +190,8 @@ public interface StorageEngine {
 	 * function does allow use of {@link AggregationFunction}.
 	 * 
 	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
+	 * @param measurementPattern
+	 * @param valueFieldPattern
 	 * @param startTime
 	 * @param endTime
 	 * @param tagList
@@ -164,15 +201,19 @@ public interface StorageEngine {
 	 * @return
 	 * @throws IOException
 	 */
-	public default Set<SeriesQueryOutput> queryDataPoints(String dbName, String measurementName, String valueFieldName,
-			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
-			Predicate valuePredicate, AggregationFunction aggregationFunction) throws IOException {
-		if (!checkIfExists(dbName, measurementName)) {
+	public default Set<SeriesQueryOutput> queryDataPoints(String dbName, String measurementPattern,
+			String valueFieldPattern, long startTime, long endTime, List<String> tagList,
+			Filter<List<String>> tagFilter, Predicate valuePredicate, AggregationFunction aggregationFunction)
+			throws IOException {
+		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
+		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementPattern);
 		Set<SeriesQueryOutput> resultMap = new HashSet<>();
-		getDatabaseMap().get(dbName).get(measurementName).queryDataPoints(valueFieldName, startTime, endTime, tagList,
-				tagFilter, valuePredicate, aggregationFunction, resultMap);
+		for (String measurement : measurementsLike) {
+			getDatabaseMap().get(dbName).get(measurement).queryDataPoints(valueFieldPattern, startTime, endTime,
+					tagList, tagFilter, valuePredicate, aggregationFunction, resultMap);
+		}
 		return resultMap;
 	}
 
@@ -182,9 +223,9 @@ public interface StorageEngine {
 	 * @param dbName
 	 * @param partialMeasurementName
 	 * @return measurements
-	 * @throws Exception
+	 * @throws IOException
 	 */
-	public default Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws Exception {
+	public default Set<String> getMeasurementsLike(String dbName, String partialMeasurementName) throws IOException {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -193,11 +234,20 @@ public interface StorageEngine {
 		if (partialMeasurementName.isEmpty()) {
 			return measurementMap.keySet();
 		} else {
+			Pattern p;
+			try {
+				p = Pattern.compile(partialMeasurementName);
+			} catch (Exception e) {
+				throw new IOException("Invalid regex for measurement name:" + e.getMessage());
+			}
 			Set<String> filteredSeries = new HashSet<>();
 			for (String measurementName : measurementMap.keySet()) {
-				if (measurementName.contains(partialMeasurementName)) {
+				if (p.matcher(measurementName).matches()) {
 					filteredSeries.add(measurementName);
 				}
+			}
+			if (filteredSeries.isEmpty()) {
+				throw NOT_FOUND_EXCEPTION;
 			}
 			return filteredSeries;
 		}
@@ -235,10 +285,15 @@ public interface StorageEngine {
 	 * @throws Exception
 	 */
 	public default Set<String> getTagsForMeasurement(String dbName, String measurementName) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
+		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		return getDatabaseMap().get(dbName).get(measurementName).getTags();
+		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
+		Set<String> results = new HashSet<>();
+		for (String m : measurementsLike) {
+			results.addAll(getDatabaseMap().get(dbName).get(m).getTags());
+		}
+		return results;
 	}
 
 	/**
@@ -253,7 +308,12 @@ public interface StorageEngine {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		return getDatabaseMap().get(dbName).get(measurementName).getTagsForMeasurement(valueFieldName);
+		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
+		List<List<String>> results = new ArrayList<>();
+		for (String m : measurementsLike) {
+			results.addAll(getDatabaseMap().get(dbName).get(m).getTagsForMeasurement(valueFieldName));
+		}
+		return results;
 	}
 
 	/**
@@ -309,15 +369,35 @@ public interface StorageEngine {
 	 * Get all fields for a measurement
 	 * 
 	 * @param dbName
-	 * @param measurementName
+	 * @param measurementNameRegex
 	 * @return
 	 * @throws Exception
 	 */
-	public default Set<String> getFieldsForMeasurement(String dbName, String measurementName) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
+	public default Set<String> getFieldsForMeasurement(String dbName, String measurementNameRegex) throws Exception {
+		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		return getDatabaseMap().get(dbName).get(measurementName).getFieldsForMeasurement();
+		Set<String> filterdMeasurements = new HashSet<>();
+		findMeasurementsLike(dbName, measurementNameRegex, filterdMeasurements);
+		Set<String> superSet = new HashSet<>();
+		if (filterdMeasurements.isEmpty()) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		for (String name : filterdMeasurements) {
+			superSet.addAll(getDatabaseMap().get(dbName).get(name).getFieldsForMeasurement());
+		}
+		return superSet;
+	}
+
+	public default void findMeasurementsLike(String dbName, String measurementNameRegex,
+			Set<String> filterdMeasurements) {
+		Pattern p = Pattern.compile(measurementNameRegex);
+		Set<String> measurementNames = getDatabaseMap().get(dbName).keySet();
+		for (String name : measurementNames) {
+			if (p.matcher(name).matches()) {
+				filterdMeasurements.add(name);
+			}
+		}
 	}
 
 	// retention policy update methods
@@ -530,6 +610,6 @@ public interface StorageEngine {
 
 	public int getDefaultTimebucketSize();
 
-	public AtomicInteger getCounter();
+	public Counter getCounter();
 
 }

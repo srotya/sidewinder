@@ -38,7 +38,6 @@ import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.srotya.sidewinder.core.storage.ArchiveException;
 import com.srotya.sidewinder.core.storage.Archiver;
-import com.srotya.sidewinder.core.storage.mem.archival.DiskArchiver;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
@@ -76,7 +75,7 @@ public class S3Archiver implements Archiver {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 			DataOutputStream os = new DataOutputStream(bytes);
-			DiskArchiver.serializeToStream(os, new TimeSeriesArchivalObject(object.getDb(), object.getMeasurement(),
+			Archiver.serializeToStream(os, new TimeSeriesArchivalObject(object.getDb(), object.getMeasurement(),
 					object.getKey(), object.getBucket()));
 			os.close();
 			bytes.close();
@@ -98,7 +97,7 @@ public class S3Archiver implements Archiver {
 			S3Object object = s3.getObject(bucketName, summary.getKey());
 			DataInputStream dis = new DataInputStream(object.getObjectContent());
 			try {
-				list.add(DiskArchiver.deserializeFromStream(dis));
+				list.add(Archiver.deserializeFromStream(dis));
 			} catch (IOException e) {
 				throw new ArchiveException(e);
 			}

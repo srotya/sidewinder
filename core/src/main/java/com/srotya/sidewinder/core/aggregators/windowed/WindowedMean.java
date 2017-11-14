@@ -17,26 +17,32 @@ package com.srotya.sidewinder.core.aggregators.windowed;
 
 import java.util.List;
 
-import com.srotya.sidewinder.core.aggregators.FunctionTable;
+import com.srotya.sidewinder.core.aggregators.FunctionName;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
  * @author ambud
  */
+@FunctionName(alias = { "mean", "average" })
 public class WindowedMean extends ReducingWindowedAggregator {
 
 	@Override
 	public void init(Object[] args) throws Exception {
 		if (args.length > 1) {
-			args[1] = FunctionTable.SMEAN;
+			args[1] = "smean";
 		} else {
-			args = new Object[] { args[0], FunctionTable.SMEAN };
+			args = new Object[] { args[0], "smean" };
 		}
 		super.init(args);
 	}
 
 	@Override
 	public List<DataPoint> aggregateAfterReduction(List<DataPoint> datapoints) {
+		return datapoints;
+	}
+
+	@Override
+	protected List<long[]> aggregatePointsAfterReduction(List<long[]> datapoints, boolean isFp) {
 		return datapoints;
 	}
 

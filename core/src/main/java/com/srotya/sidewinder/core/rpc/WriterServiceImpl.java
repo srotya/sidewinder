@@ -58,7 +58,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			throw new IllegalArgumentException("Disruptor buffers must always be power of 2");
 		}
 		handlerCount = Integer.parseInt(conf.getOrDefault("grpc.disruptor.handler.count", "2"));
-		es = Executors.newFixedThreadPool(handlerCount + 1, new BackgrounThreadFactory("grpc-writers"));
+		es = Executors.newFixedThreadPool(handlerCount + 2, new BackgrounThreadFactory("grpc-writers"));
 		disruptor = new Disruptor<>(new DPWrapperFactory(), bufferSize, es);
 		@SuppressWarnings("rawtypes")
 		EventHandler[] handlers = new EventHandler[handlerCount];
@@ -66,20 +66,22 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			handlers[i] = new WriteHandler(engine, handlerCount, i);
 		}
 		disruptor.handleEventsWith(new HashHandler()).then(handlers);
+		buffer = disruptor.start();
 	}
 
 	@Override
 	public void writeSingleDataPoint(SingleData request, StreamObserver<Ack> responseObserver) {
 		Point point = request.getPoint();
+		Ack ack = null;
 		try {
-			DataPoint dp = MiscUtils.pointToDataPoint(point);
-			engine.writeDataPoint(dp);
-			Ack ack = Ack.newBuilder().setMessageId(request.getMessageId()).build();
-			responseObserver.onNext(ack);
-			responseObserver.onCompleted();
-		} catch (IOException e) {
-			responseObserver.onError(e);
+			// buffer.publishEvent(translator, point, point.getTimestamp(), null);
+			engine.writeDataPoint(MiscUtils.pointToDataPoint(point));
+			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
+		} catch (Exception e) {
+			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(500).build();
 		}
+		responseObserver.onNext(ack);
+		responseObserver.onCompleted();
 	}
 
 	@Override
@@ -87,12 +89,11 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		Ack ack = null;
 		try {
 			for (Point point : request.getPointsList()) {
-				DataPoint dp = MiscUtils.pointToDataPoint(point);
-				engine.writeDataPoint(dp);
+				// buffer.publishEvent(translator, point, point.getTimestamp(), null);
+				engine.writeDataPoint(MiscUtils.pointToDataPoint(point));
 			}
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
 		} catch (Exception e) {
-			e.printStackTrace();
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(500).build();
 		}
 		responseObserver.onNext(ack);
@@ -108,7 +109,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 					request.getFp());
 			for (Bucket bucket : request.getBucketsList()) {
 				Writer writer = series.getOrCreateSeriesBucket(TimeUnit.MILLISECONDS, bucket.getHeaderTimestamp());
-				writer.configure(conf, null, false);
+				writer.configure(conf, null, false, 1, true);
 				writer.setCounter(bucket.getCount());
 				writer.bootstrap(bucket.getData().asReadOnlyByteBuffer());
 			}
@@ -238,18 +239,19 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		@Override
 		public void onEvent(DPWrapper event, long sequence, boolean endOfBatch) throws Exception {
 			if (event.getHashValue() % handlerCount == handlerIndex) {
+				Ack ack = null;
 				try {
 					engine.writeDataPoint(event.getDp());
-					event.getResponseObserver()
-							.onNext(Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(200).build());
+					ack = Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(200).build();
 				} catch (IOException e) {
-					event.getResponseObserver()
-							.onNext(Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(400).build());
+					ack = Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(400).build();
 				} catch (Exception e) {
-					event.getResponseObserver()
-							.onNext(Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(500).build());
+					ack = Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(500).build();
 				}
-				event.getResponseObserver().onCompleted();
+				if (event.getResponseObserver() != null) {
+					event.getResponseObserver().onNext(ack);
+					event.getResponseObserver().onCompleted();
+				}
 			}
 		}
 

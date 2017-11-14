@@ -31,10 +31,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.SortedMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.AfterClass;
@@ -57,6 +59,7 @@ import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
@@ -71,7 +74,7 @@ public class TestMemStorageEngine {
 
 	@BeforeClass
 	public static void before() {
-		bgTasks = Executors.newScheduledThreadPool(1);
+		bgTasks = Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("bgt"));
 	}
 
 	@AfterClass
@@ -274,10 +277,10 @@ public class TestMemStorageEngine {
 		Set<String> result = engine.getMeasurementsLike("test", " ");
 		assertEquals(3, result.size());
 
-		result = engine.getMeasurementsLike("test", "c");
+		result = engine.getMeasurementsLike("test", "c.*");
 		assertEquals(1, result.size());
 
-		result = engine.getMeasurementsLike("test", "m");
+		result = engine.getMeasurementsLike("test", ".*m.*");
 		assertEquals(2, result.size());
 	}
 
@@ -287,7 +290,7 @@ public class TestMemStorageEngine {
 		long headerTimestamp = System.currentTimeMillis();
 		ByteBuffer buf = ByteBuffer.allocate(1024);
 		Writer timeSeries = new ByzantineWriter();
-		timeSeries.configure(conf, buf, true);
+		timeSeries.configure(conf, buf, true, 1, false);
 		timeSeries.setHeaderTimestamp(headerTimestamp);
 		timeSeries.addValue(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test"), points, timeSeries, null, null, false);
@@ -473,7 +476,7 @@ public class TestMemStorageEngine {
 		System.out.println(engine.getTagsForMeasurement(dbName, measurementName));
 		tagFilterTree = new AndFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("1"),
 				new ContainsFilter<String, List<String>>("8")));
-		series = engine.getTagFilteredRowKeys(dbName, measurementName, valueFieldName, tagFilterTree,
+		series = engine.getTagFilteredRowKeys(dbName, measurementName, valueFieldName + "$", tagFilterTree,
 				Arrays.asList("1", "8"));
 		System.out.println("Series::" + series);
 		assertEquals(1, series.size());
@@ -599,24 +602,145 @@ public class TestMemStorageEngine {
 			fail("This measurement should not exist");
 		} catch (Exception e) {
 		}
+
+		assertEquals(1, engine.getFieldsForMeasurement(dbName, "c.*").size());
+		assertEquals(1, engine.getFieldsForMeasurement(dbName, ".*").size());
+		try {
+			engine.getFieldsForMeasurement(dbName, "d.*");
+			fail("This measurement should not exist");
+		} catch (Exception e) {
+		}
 	}
 
-	/*
-	 * Test used for performance assessment of the old mechnism for data writes
-	 * using more parameters public void testWritePerformance() throws IOException,
-	 * InterruptedException { final MemStorageEngine engine = new
-	 * MemStorageEngine(); engine.configure(new HashMap<>()); long timeMillis =
-	 * System.currentTimeMillis(); int tcount = 8; ExecutorService es =
-	 * Executors.newFixedThreadPool(tcount); int count = 1000000; final
-	 * AtomicInteger rejects = new AtomicInteger(0); for (int k = 0; k < tcount;
-	 * k++) { final int j = k; es.submit(() -> { long ts =
-	 * System.currentTimeMillis(); for (int i = 0; i < count; i++) { try {
-	 * engine.writeDataPoint("test", MiscUtils.buildDataPoint("test", j + "cpu" + (i
-	 * % 1000000), "value", Arrays.asList("test", "test2"), ts + i, i * 1.1)); }
-	 * catch (IOException e) { rejects.incrementAndGet(); } } }); } es.shutdown();
-	 * es.awaitTermination(10, TimeUnit.SECONDS);
-	 * System.out.println("Write throughput object " + tcount + "x" + count + ":" +
-	 * (System.currentTimeMillis() - timeMillis) + "ms with " + rejects.get() +
-	 * " rejects using " + tcount); }
-	 */
+	@Test
+	public void testCompaction() throws IOException, InterruptedException {
+		MemStorageEngine engine = new MemStorageEngine();
+		HashMap<String, String> conf2 = new HashMap<>();
+		conf2.put("default.bucket.size", "409600");
+		conf2.put("compaction.enabled", "true");
+		conf2.put("use.query.pool", "false");
+		conf2.put("compaction.codec", "gzip");
+		conf2.put("compaction.delay", "10");
+		engine.configure(conf2, bgTasks);
+		final long curr = 1497720652566L;
+
+		String dbName = "test";
+		String measurementName = "cpu";
+		String valueFieldName = "value";
+		String tag = "host123123";
+		List<String> tags = Arrays.asList(tag);
+		for (int i = 1; i <= 10000; i++) {
+			engine.writeDataPoint(
+					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, curr + i * 1000, i * 1.1));
+		}
+
+		long ts = System.nanoTime();
+		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName,
+				curr - 1000, curr + 10000 * 1000 + 1, tags, null);
+		ts = System.nanoTime() - ts;
+		System.out.println("Before compaction:" + ts / 1000 + "us");
+		assertEquals(1, queryDataPoints.size());
+		assertEquals(10000, queryDataPoints.iterator().next().getDataPoints().size());
+		List<DataPoint> dataPoints = queryDataPoints.iterator().next().getDataPoints();
+		for (int i = 1; i <= 10000; i++) {
+			DataPoint dp = dataPoints.get(i - 1);
+			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
+			assertEquals(dp.getValue(), i * 1.1, 0.001);
+		}
+		TimeSeries series = engine.getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, 409600, false);
+		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		assertEquals(1, bucketRawMap.size());
+		int size = bucketRawMap.values().iterator().next().size();
+		assertTrue(series.getCompactionSet().size() < size);
+		assertTrue(size > 2);
+		Thread.sleep(2000);
+		ts = System.nanoTime();
+		queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr - 1,
+				curr + 20000 * 1000 + 1, tags, null);
+		ts = System.nanoTime() - ts;
+		System.out.println("After compaction:" + ts / 1000 + "us");
+		bucketRawMap = series.getBucketRawMap();
+		assertEquals(2, bucketRawMap.values().iterator().next().size());
+		assertEquals(10000, queryDataPoints.iterator().next().getDataPoints().size());
+		dataPoints = queryDataPoints.iterator().next().getDataPoints();
+		for (int i = 1; i <= 10000; i++) {
+			DataPoint dp = dataPoints.get(i - 1);
+			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
+			assertEquals(dp.getValue(), i * 1.1, 0.001);
+		}
+	}
+
+	@Test
+	public void testCompactionThreadSafety() throws IOException, InterruptedException {
+		MemStorageEngine engine = new MemStorageEngine();
+		HashMap<String, String> conf2 = new HashMap<>();
+		conf2.put("default.bucket.size", "409600");
+		conf2.put("compaction.enabled", "true");
+		conf2.put("use.query.pool", "false");
+		engine.configure(conf2, bgTasks);
+		final long curr = 1497720652566L;
+
+		String dbName = "test";
+		String measurementName = "cpu";
+		String valueFieldName = "value";
+		String tag = "host123123";
+		List<String> tags = Arrays.asList(tag);
+		for (int i = 1; i <= 10000; i++) {
+			engine.writeDataPoint(
+					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, curr + i * 1000, i * 1.1));
+		}
+
+		long ts = System.nanoTime();
+		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName,
+				curr - 1000, curr + 10000 * 1000 + 1, tags, null);
+		ts = System.nanoTime() - ts;
+		System.out.println("Before compaction:" + ts / 1000 + "us");
+		assertEquals(1, queryDataPoints.size());
+		assertEquals(10000, queryDataPoints.iterator().next().getDataPoints().size());
+		List<DataPoint> dataPoints = queryDataPoints.iterator().next().getDataPoints();
+		for (int i = 1; i <= 10000; i++) {
+			DataPoint dp = dataPoints.get(i - 1);
+			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
+			assertEquals(dp.getValue(), i * 1.1, 0.001);
+		}
+		final TimeSeries series = engine.getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, 409600,
+				false);
+		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		assertEquals(1, bucketRawMap.size());
+		int size = bucketRawMap.values().iterator().next().size();
+		assertTrue(series.getCompactionSet().size() < size);
+		assertTrue(size > 2);
+		final AtomicBoolean bool = new AtomicBoolean(false);
+		bgTasks.execute(() -> {
+			while (!bool.get()) {
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
+					break;
+				}
+			}
+			try {
+				series.addDataPoint(TimeUnit.MILLISECONDS, curr + 1000 * 10001, 1.11);
+				bool.set(false);
+			} catch (IOException e) {
+				e.printStackTrace();
+				return;
+			}
+		});
+		series.compact(l -> {
+			bool.set(true);
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			if (!bool.get()) {
+				throw new RuntimeException("Synchronized block failed");
+			}
+		});
+		Thread.sleep(100);
+		assertTrue(!bool.get());
+	}
+
 }

@@ -25,11 +25,13 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
+import java.nio.file.Files;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -38,10 +40,14 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -55,7 +61,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class PersistentMeasurement implements Measurement {
 
-	private static final AtomicLong BUF_COUNTER = new AtomicLong();
+	// 100MB default buffer increment size
 	private static final int DEFAULT_BUF_INCREMENT = 1048576;
 	private static final int DEFAULT_MAX_FILE_SIZE = Integer.MAX_VALUE;
 	private static final int DEFAULT_INCREMENT_SIZE = 32768;
@@ -63,19 +69,19 @@ public class PersistentMeasurement implements Measurement {
 	public static final String CONF_MEASUREMENT_INCREMENT_SIZE = "measurement.buf.increment";
 	public static final String CONF_MEASUREMENT_FILE_INCREMENT = "measurement.file.increment";
 	private static final Logger logger = Logger.getLogger(PersistentMeasurement.class.getName());
+	private ReentrantLock lock = new ReentrantLock(false);
 	private Map<String, TimeSeries> seriesMap;
 	private TagIndex tagIndex;
-	private String compressionClass;
+	private String compressionCodec;
+	private String compactionCodec;
 	private String dataDirectory;
 	private DBMetadata metadata;
 	private Map<String, String> conf;
 	private RandomAccessFile activeFile;
-	private List<ByteBuffer> bufTracker;
 	private int itr;
 	private int fileMapIncrement;
 	private int increment;
 	private int curr;
-	private int base;
 	private int fcnt;
 	private MappedByteBuffer memoryMappedBuffer;
 	private String measurementName;
@@ -85,11 +91,24 @@ public class PersistentMeasurement implements Measurement {
 	private PrintWriter prMetadata;
 	private String indexDirectory;
 	private long offset;
+	// metrics
+	private boolean enableMetricsCapture;
+	private Counter metricsBufferSize;
+	private Counter metricsBufferResize;
+	private Counter metricsFileRotation;
+	private Counter metricsBufferCounter;
+	private Counter metricsTimeSeriesCounter;
+	private boolean useQueryPool;
 
 	@Override
-	public void configure(Map<String, String> conf, String measurementName, String indexDirectory, String dataDirectory,
-			DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
+	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String indexDirectory,
+			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
+		enableMetricsMonitoring(engine, bgTaskPool);
 		this.conf = conf;
+		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
+		if (useQueryPool) {
+			logger.fine("Query Pool enabled, datapoint queries will be parallelized");
+		}
 		this.dataDirectory = dataDirectory + "/" + measurementName;
 		this.indexDirectory = indexDirectory + "/" + measurementName;
 		createMeasurementDirectory();
@@ -109,16 +128,33 @@ public class PersistentMeasurement implements Measurement {
 			throw new IllegalArgumentException("File increment can't be greater than or equal to file size");
 		}
 		this.metadata = metadata;
-		this.seriesMap = new ConcurrentHashMap<>(10000);
-		this.compressionClass = conf.getOrDefault(StorageEngine.COMPRESSION_CLASS,
-				StorageEngine.DEFAULT_COMPRESSION_CLASS);
+		this.seriesMap = new ConcurrentHashMap<>(100_000);
+		this.compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
+				StorageEngine.DEFAULT_COMPRESSION_CODEC);
+		this.compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
+				StorageEngine.DEFAULT_COMPACTION_CODEC);
 		this.measurementName = measurementName;
-		this.bufTracker = new ArrayList<>();
 		this.prBufPointers = new PrintWriter(new FileOutputStream(new File(getPtrPath()), true));
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
-		this.tagIndex = new DiskTagIndex(this.indexDirectory, measurementName);
+		this.tagIndex = new MappedTagIndex(this.indexDirectory, measurementName);
 		// bgTaskPool.scheduleAtFixedRate(()->System.out.println("Buffers:"+BUF_COUNTER.get()),
 		// 2, 2, TimeUnit.SECONDS);
+	}
+
+	private void enableMetricsMonitoring(StorageEngine engine, ScheduledExecutorService bgTaskPool) {
+		if (engine == null) {
+			enableMetricsCapture = false;
+			return;
+		}
+		MetricsRegistryService reg = MetricsRegistryService.getInstance(engine, bgTaskPool);
+		MetricRegistry r = reg.getInstance("memoryops");
+		metricsBufferSize = r.counter("buffer-size");
+		metricsBufferResize = r.counter("buffer-resize");
+		metricsFileRotation = r.counter("file-rotation");
+		metricsBufferCounter = r.counter("buffer-counter");
+		MetricRegistry metaops = reg.getInstance("metaops");
+		metricsTimeSeriesCounter = metaops.counter("timeseries-counter");
+		enableMetricsCapture = true;
 	}
 
 	private String getPtrPath() {
@@ -136,16 +172,20 @@ public class PersistentMeasurement implements Measurement {
 		String seriesId = constructSeriesId(valueFieldName, tags, tagIndex);
 		TimeSeries timeSeries = getTimeSeries(seriesId);
 		if (timeSeries == null) {
-			synchronized (seriesMap) {
-				if ((timeSeries = getTimeSeries(seriesId)) == null) {
-					Measurement.indexRowKey(tagIndex, seriesId, tags);
-					timeSeries = new TimeSeries(this, compressionClass, seriesId, timeBucketSize, metadata, fp, conf);
-					seriesMap.put(seriesId, timeSeries);
-					appendTimeseriesToMeasurementMetadata(seriesId, fp, timeBucketSize);
-					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
-							+ seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesMap.size());
+			lock.lock();
+			if ((timeSeries = getTimeSeries(seriesId)) == null) {
+				Measurement.indexRowKey(tagIndex, seriesId, tags);
+				timeSeries = new TimeSeries(this, compressionCodec, compactionCodec, seriesId, timeBucketSize, metadata,
+						fp, conf);
+				seriesMap.put(seriesId, timeSeries);
+				appendTimeseriesToMeasurementMetadata(seriesId, fp, timeBucketSize);
+				logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
+						+ seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesMap.size());
+				if (enableMetricsCapture) {
+					metricsTimeSeriesCounter.inc();
 				}
 			}
+			lock.unlock();
 		}
 		return timeSeries;
 	}
@@ -179,7 +219,7 @@ public class PersistentMeasurement implements Measurement {
 		DiskStorageEngine.appendLineToFile(seriesId + "\t" + fp + "\t" + timeBucketSize, prMetadata);
 	}
 
-	private Map<String, List<Entry<String, ByteBuffer>>> seriesBufferMap() throws FileNotFoundException, IOException {
+	private Map<String, List<Entry<String, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException {
 		Map<String, MappedByteBuffer> bufferMap = new ConcurrentHashMap<>();
 		File[] listFiles = new File(dataDirectory).listFiles(new FilenameFilter() {
 
@@ -193,7 +233,7 @@ public class PersistentMeasurement implements Measurement {
 			try {
 				RandomAccessFile raf = new RandomAccessFile(dataFile, "r");
 				MappedByteBuffer map = raf.getChannel().map(MapMode.READ_ONLY, 0, dataFile.length());
-				bufferMap.put(dataDirectory + "/" + dataFile.getName(), map);
+				bufferMap.put(dataFile.getName(), map);
 				logger.info("Recovering data file:" + dataDirectory + "/" + dataFile.getName());
 				raf.close();
 			} catch (Exception e) {
@@ -201,13 +241,13 @@ public class PersistentMeasurement implements Measurement {
 			}
 		}
 		fcnt = listFiles.length;
-		Map<String, List<Entry<String, ByteBuffer>>> seriesBuffers = new HashMap<>();
+		Map<String, List<Entry<String, BufferObject>>> seriesBuffers = new HashMap<>();
 		sliceMappedBuffersForBuckets(bufferMap, seriesBuffers);
 		return seriesBuffers;
 	}
 
 	private void sliceMappedBuffersForBuckets(Map<String, MappedByteBuffer> bufferMap,
-			Map<String, List<Entry<String, ByteBuffer>>> seriesBuffers) throws IOException {
+			Map<String, List<Entry<String, BufferObject>>> seriesBuffers) throws IOException {
 		List<String> lines = MiscUtils.readAllLines(new File(getPtrPath()));
 		for (String line : lines) {
 			String[] splits = line.split("\\s+");
@@ -221,12 +261,12 @@ public class PersistentMeasurement implements Measurement {
 			String tsBucket = TimeSeries.getStringFromBuffer(buf);
 			ByteBuffer slice = buf.slice();
 			slice.limit(increment);
-			List<Entry<String, ByteBuffer>> list = seriesBuffers.get(seriesId);
+			List<Entry<String, BufferObject>> list = seriesBuffers.get(seriesId);
 			if (list == null) {
 				list = new ArrayList<>();
 				seriesBuffers.put(seriesId, list);
 			}
-			list.add(new AbstractMap.SimpleEntry<>(tsBucket, slice));
+			list.add(new AbstractMap.SimpleEntry<>(tsBucket, new BufferObject(line, slice)));
 		}
 	}
 
@@ -238,7 +278,7 @@ public class PersistentMeasurement implements Measurement {
 			try {
 				String timeBucketSize = split[2];
 				String isFp = split[1];
-				seriesMap.put(seriesId, new TimeSeries(this, compressionClass, seriesId,
+				seriesMap.put(seriesId, new TimeSeries(this, compressionCodec, compactionCodec, seriesId,
 						Integer.parseInt(timeBucketSize), metadata, Boolean.parseBoolean(isFp), conf));
 				logger.fine("Intialized Timeseries:" + seriesId);
 			} catch (NumberFormatException | IOException e) {
@@ -260,10 +300,10 @@ public class PersistentMeasurement implements Measurement {
 		List<String> seriesEntries = MiscUtils.readAllLines(file);
 		loadSeriesEntries(seriesEntries);
 
-		Map<String, List<Entry<String, ByteBuffer>>> seriesBuffers = seriesBufferMap();
+		Map<String, List<Entry<String, BufferObject>>> seriesBuffers = seriesBufferMap();
 		for (String series : seriesMap.keySet()) {
 			TimeSeries ts = seriesMap.get(series);
-			List<Entry<String, ByteBuffer>> list = seriesBuffers.get(series);
+			List<Entry<String, BufferObject>> list = seriesBuffers.get(series);
 			if (list != null) {
 				try {
 					ts.loadBucketMap(list);
@@ -275,23 +315,31 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public ByteBuffer createNewBuffer(String seriesId, String tsBucket) throws IOException {
+	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
+		return createNewBuffer(seriesId, tsBucket, increment);
+	}
+
+	@Override
+	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
 		if (activeFile == null) {
-			synchronized (seriesMap) {
-				if (activeFile == null) {
-					filename = dataDirectory + "/data-" + String.format("%03d", fcnt) + ".dat";
-					activeFile = new RandomAccessFile(filename, "rwd");
-					offset = 0;
-					logger.info("Creating new datafile for measurement:" + filename);
-					memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, fileMapIncrement);
-					bufTracker.add(memoryMappedBuffer);
-					fcnt++;
+			lock.lock();
+			if (activeFile == null) {
+				filename = dataDirectory + "/data-" + String.format("%012d", fcnt) + ".dat";
+				activeFile = new RandomAccessFile(filename, "rwd");
+				offset = 0;
+				logger.info("Creating new datafile for measurement:" + filename);
+				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, 0, fileMapIncrement);
+				fcnt++;
+				if (enableMetricsCapture) {
+					metricsFileRotation.inc();
 				}
 			}
+			lock.unlock();
 		}
-		synchronized (seriesMap) {
-			if (curr + increment < 0 || curr + increment > memoryMappedBuffer.remaining() + 1) {
-				base = 0;
+		lock.lock();
+		try {
+			if (curr + newSize < 0 || curr + newSize > memoryMappedBuffer.remaining() + 1) {
+				curr = 0;
 				itr++;
 				offset = (((long) (fileMapIncrement)) * itr);
 				// close the current data file, increment the filename by 1 so
@@ -308,25 +356,34 @@ public class PersistentMeasurement implements Measurement {
 				}
 				memoryMappedBuffer = activeFile.getChannel().map(MapMode.READ_WRITE, offset, fileMapIncrement);
 				logger.fine("Buffer expansion:" + offset + "\t\t" + curr);
-				// bufTracker.add(memoryMappedBuffer);
+				if (enableMetricsCapture) {
+					metricsBufferResize.inc();
+					metricsBufferSize.inc(fileMapIncrement);
+				}
 			}
-			curr = base * increment;
-			memoryMappedBuffer.position(curr);
-			appendBufferPointersToDisk(seriesId, filename, curr, offset);
-			base++;
+			String ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset);
 			TimeSeries.writeStringToBuffer(tsBucket, memoryMappedBuffer);
 			ByteBuffer buf = memoryMappedBuffer.slice();
-			buf.limit(increment);
-			// System.out.println("Position:" + buf.position() + "\t" + buf.limit() + "\t" +
-			// buf.capacity());
-			BUF_COUNTER.incrementAndGet();
-			return buf;
+			buf.limit(newSize);
+			curr = curr + newSize;
+			memoryMappedBuffer.position(curr);
+			logger.fine("Position:" + buf.position() + "\t" + buf.limit() + "\t" + buf.capacity());
+			if (enableMetricsCapture) {
+				metricsBufferCounter.inc();
+			}
+			return new BufferObject(ptrKey, buf);
+		} finally {
+			lock.unlock();
 		}
+
 	}
 
-	protected void appendBufferPointersToDisk(String seriesId, String filename, int curr, long offset)
+	protected String appendBufferPointersToDisk(String seriesId, String filename, int curr, long offset)
 			throws IOException {
-		DiskStorageEngine.appendLineToFile(seriesId + "\t" + filename + "\t" + curr + "\t" + offset, prBufPointers);
+		String[] split = filename.split("/");
+		String line = seriesId + "\t" + split[split.length - 1] + "\t" + curr + "\t" + offset;
+		DiskStorageEngine.appendLineToFile(line, prBufPointers);
+		return line;
 	}
 
 	@Override
@@ -346,6 +403,7 @@ public class PersistentMeasurement implements Measurement {
 
 	@Override
 	public void close() throws IOException {
+		lock.lock();
 		if (activeFile != null) {
 			activeFile.close();
 		}
@@ -356,6 +414,7 @@ public class PersistentMeasurement implements Measurement {
 		prBufPointers.close();
 		prMetadata.close();
 		logger.info("Closing measurement:" + measurementName);
+		lock.unlock();
 	}
 
 	/*
@@ -373,4 +432,74 @@ public class PersistentMeasurement implements Measurement {
 		return new ConcurrentSkipListMap<>();
 	}
 
+	@Override
+	public void cleanupBufferIds(Set<String> cleanupList) throws IOException {
+		lock.lock();
+		try {
+			File file = new File(getPtrPath());
+			Set<String> fileSet = new HashSet<>();
+			List<String> lines = Files.readAllLines(file.toPath());
+			file = new File(getPtrPath() + ".tmp");
+			PrintWriter prTemp = new PrintWriter(new FileOutputStream(file, false));
+			for (String line : lines) {
+				if (!cleanupList.contains(line)) {
+					prTemp.println(line);
+					fileSet.add(line.split("\t")[1]);
+					logger.fine("Rewriting line:" + line + " to ptr file for measurement:" + getMeasurementName());
+				} else {
+					logger.fine("Removing line:" + line + " from ptr file due to garbage collection for measurement:"
+							+ getMeasurementName());
+					if (enableMetricsCapture) {
+						metricsBufferCounter.dec();
+					}
+				}
+			}
+			// swap files
+			prTemp.flush();
+			prTemp.close();
+			this.prBufPointers.close();
+			logger.fine("Renaming tmp ptr file to main for measurement:" + getMeasurementName());
+			file.renameTo(new File(getPtrPath()));
+			file = new File(getPtrPath());
+			this.prBufPointers = new PrintWriter(new FileOutputStream(file, true));
+			logger.fine("Re-initializer ptr file writer measurement:" + getMeasurementName());
+			// check and delete data files
+			deleteFilesExcept(fileSet);
+		} finally {
+			lock.unlock();
+		}
+	}
+
+	private void deleteFilesExcept(Set<String> fileSet) throws IOException {
+		File[] files = new File(dataDirectory).listFiles(new FilenameFilter() {
+
+			@Override
+			public boolean accept(File dir, String name) {
+				return name.endsWith(".dat");
+			}
+		});
+		logger.fine("GC: Currently there are:" + files.length + " data files");
+		int deleteCounter = 0;
+		for (File file : files) {
+			if (!fileSet.contains(file.getName())) {
+				logger.info("GC: Deleting data file:" + file.getName());
+				if (enableMetricsCapture) {
+					metricsFileRotation.dec();
+				}
+				file.delete();
+				deleteCounter++;
+			}
+		}
+		logger.fine("GC: Remaining files:" + fileSet.size() + "; deleted:" + deleteCounter + " files");
+	}
+
+	@Override
+	public ReentrantLock getLock() {
+		return lock;
+	}
+
+	@Override
+	public boolean useQueryPool() {
+		return useQueryPool;
+	}
 }

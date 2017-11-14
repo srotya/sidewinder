@@ -41,11 +41,14 @@ import javax.ws.rs.core.MediaType;
 
 import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
+import com.codahale.metrics.Timer.Context;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.aggregators.FunctionTable;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -63,11 +66,14 @@ public class GrafanaQueryApi {
 	private StorageEngine engine;
 	private TimeZone tz;
 	private Meter grafanaQueryCounter;
+	private Timer grafanaQueryLatency;
 
-	public GrafanaQueryApi(StorageEngine engine, MetricRegistry registry) throws SQLException {
+	public GrafanaQueryApi(StorageEngine engine) throws SQLException {
 		this.engine = engine;
 		tz = TimeZone.getDefault();
+		MetricRegistry registry = MetricsRegistryService.getInstance().getInstance("grafana");
 		grafanaQueryCounter = registry.meter("queries");
+		grafanaQueryLatency = registry.timer("latency");
 	}
 
 	@Path("/hc")
@@ -85,8 +91,9 @@ public class GrafanaQueryApi {
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
-	public String query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
+	public List<Target> query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		grafanaQueryCounter.mark();
+		Context time = grafanaQueryLatency.time();
 		logger.log(Level.FINE, "Grafana query:" + dbName + "\t" + query);
 		Gson gson = new GsonBuilder().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
@@ -109,8 +116,8 @@ public class GrafanaQueryApi {
 				throw new InternalServerErrorException(e);
 			}
 		}
-		logger.log(Level.FINE, "Response:" + dbName + "\t" + gson.toJson(json) + "\t" + gson.toJson(output));
-		return gson.toJson(output);
+		time.stop();
+		return output;
 	}
 
 	@Path("/query/measurements")
@@ -129,7 +136,7 @@ public class GrafanaQueryApi {
 					} else if (target.contains("field:")) {
 						return engine.getFieldsForMeasurement(dbName, target.replace("field:", ""));
 					} else {
-						return engine.getMeasurementsLike(dbName, "");
+						return engine.getMeasurementsLike(dbName, target);
 					}
 				}
 			}
@@ -137,6 +144,7 @@ public class GrafanaQueryApi {
 		} catch (RejectException e) {
 			throw new BadRequestException(e);
 		} catch (Exception e) {
+			e.printStackTrace();
 			throw new InternalServerErrorException(e.getMessage());
 		}
 	}
@@ -209,15 +217,16 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryTimeUnits() {
-		return new HashSet<>(Arrays.asList("secs", "mins", "hours", "days", "weeks", "years"));
+		return new HashSet<>(Arrays.asList("secs", "mins", "hours", "days", "weeks", "months", "years"));
 	}
 
 	@Path("/rawquery")
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
-	public String rawQuery(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
+	public List<Target> rawQuery(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		grafanaQueryCounter.mark();
+		Context time = grafanaQueryLatency.time();
 		Gson gson = new GsonBuilder().create();
 		JsonObject json = gson.fromJson(query, JsonObject.class);
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
@@ -238,7 +247,8 @@ public class GrafanaQueryApi {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return gson.toJson(output);
+		time.stop();
+		return output;
 	}
 
 }

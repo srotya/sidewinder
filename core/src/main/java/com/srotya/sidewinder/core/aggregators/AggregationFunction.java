@@ -24,7 +24,9 @@ import com.srotya.sidewinder.core.storage.DataPoint;
  */
 public interface AggregationFunction {
 	
-	public List<DataPoint> aggregate(List<DataPoint> datapoints);
+	public List<DataPoint> aggregateDataPoints(List<DataPoint> datapoints);
+	
+	public List<long[]> aggregatePoints(List<long[]> datapoints, boolean isFp);
 	
 	public void init(Object[] args) throws Exception;
 	

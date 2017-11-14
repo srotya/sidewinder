@@ -23,10 +23,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -50,9 +52,9 @@ import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
  * </li>
  * </ul>
  * 
- * {@link Writer} is uses compressed in-memory representation of the
- * actual data. Periodic checks against size ensure that Sidewinder server
- * doesn't run out of memory. <br>
+ * {@link Writer} is uses compressed in-memory representation of the actual
+ * data. Periodic checks against size ensure that Sidewinder server doesn't run
+ * out of memory. <br>
  * <br>
  * 
  * @author ambud
@@ -61,13 +63,17 @@ public class MemStorageEngine implements StorageEngine {
 
 	private static final Logger logger = Logger.getLogger(MemStorageEngine.class.getName());
 	private Map<String, Map<String, Measurement>> databaseMap;
-	private AtomicInteger counter = new AtomicInteger(0);
 	private Map<String, DBMetadata> dbMetadataMap;
 	private int defaultRetentionHours;
 	private int defaultTimebucketSize;
 	private Archiver archiver;
 	private Map<String, String> conf;
 	private ScheduledExecutorService bgTaskPool;
+
+	// monitoring metrics
+	private Counter metricsDbCounter;
+	private Counter metricsMeasurementCounter;
+	private Counter metricsWriteCounter;
 
 	@Override
 	public void configure(Map<String, String> conf, ScheduledExecutorService bgTaskPool) throws IOException {
@@ -94,7 +100,7 @@ public class MemStorageEngine implements StorageEngine {
 					for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
 						Measurement value = measurementEntry.getValue();
 						try {
-							value.garbageCollector();
+							value.collectGarbage();
 						} catch (IOException e) {
 							logger.log(Level.SEVERE,
 									"Failed collect garbage for measurement:" + value.getMeasurementName(), e);
@@ -103,7 +109,36 @@ public class MemStorageEngine implements StorageEngine {
 				}
 			}, Integer.parseInt(conf.getOrDefault(GC_FREQUENCY, DEFAULT_GC_FREQUENCY)),
 					Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.MILLISECONDS);
+			if (Boolean.parseBoolean(conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, "false"))) {
+				logger.info("Compaction is enabled");
+				bgTaskPool.scheduleAtFixedRate(() -> {
+					for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
+						for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
+							Measurement value = measurementEntry.getValue();
+							try {
+								value.compact();
+							} catch (Exception e) {
+								logger.log(Level.SEVERE,
+										"Failed compaction for measurement:" + value.getMeasurementName(), e);
+							}
+						}
+					}
+				}, Integer.parseInt(conf.getOrDefault(COMPACTION_FREQUENCY, DEFAULT_COMPACTION_FREQUENCY)),
+						Integer.parseInt(conf.getOrDefault(COMPACTION_DELAY, DEFAULT_COMPACTION_DELAY)),
+						TimeUnit.MILLISECONDS);
+			}else {
+				logger.warning("Compaction is disabled");
+			}
 		}
+		enableMetricsService();
+	}
+
+	public void enableMetricsService() {
+		MetricsRegistryService reg = MetricsRegistryService.getInstance(this, bgTaskPool);
+		MetricRegistry metaops = reg.getInstance("metaops");
+		metricsDbCounter = metaops.counter("dbcreate");
+		metricsMeasurementCounter = metaops.counter("measurementcreate");
+		metricsWriteCounter = reg.getInstance("ops").counter("writecounter");
 	}
 
 	@Override
@@ -155,6 +190,7 @@ public class MemStorageEngine implements StorageEngine {
 					dbMetadataMap.put(dbName, metadata);
 					logger.info("Created new database:" + dbName + "\t with retention period:" + defaultRetentionHours
 							+ " hours");
+					metricsDbCounter.inc();
 				}
 			}
 		}
@@ -182,9 +218,10 @@ public class MemStorageEngine implements StorageEngine {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					// TODO create measurement
 					measurement = new MemoryMeasurement();
-					measurement.configure(conf, measurementName, "", "", dbMetadataMap.get(dbName), bgTaskPool);
+					measurement.configure(conf, this, measurementName, "", "", dbMetadataMap.get(dbName), bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
+					metricsMeasurementCounter.inc();
 				}
 			}
 		}
@@ -238,11 +275,13 @@ public class MemStorageEngine implements StorageEngine {
 	@Override
 	public void dropDatabase(String dbName) throws Exception {
 		databaseMap.remove(dbName);
+		metricsDbCounter.dec();
 	}
 
 	@Override
 	public void dropMeasurement(String dbName, String measurementName) throws Exception {
 		databaseMap.get(dbName).remove(measurementName);
+		metricsMeasurementCounter.dec();
 	}
 
 	/**
@@ -284,7 +323,8 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public AtomicInteger getCounter() {
-		return counter;
+	public Counter getCounter() {
+		return metricsWriteCounter;
 	}
+
 }

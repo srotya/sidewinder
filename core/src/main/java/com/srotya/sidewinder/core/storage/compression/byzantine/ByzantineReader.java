@@ -21,7 +21,6 @@ import java.util.List;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
 /**
@@ -29,7 +28,6 @@ import com.srotya.sidewinder.core.storage.compression.Reader;
  */
 public class ByzantineReader implements Reader {
 
-	private static final RejectException EOS_EXCEPTION = new RejectException("End of stream reached");
 	private long prevTs;
 	private long delta;
 	private int counter;
@@ -42,7 +40,8 @@ public class ByzantineReader implements Reader {
 	private ByteBuffer buf;
 	private long prevValue;
 
-	public ByzantineReader(ByteBuffer buf) {
+	public ByzantineReader(ByteBuffer buf, int startOffset) {
+		buf.position(startOffset);
 		this.buf = buf;
 		this.count = buf.getInt();
 		prevTs = buf.getLong();
@@ -83,6 +82,27 @@ public class ByzantineReader implements Reader {
 		}
 	}
 
+	@Override
+	public long[] read() throws IOException {
+		if (counter < count) {
+			long[] dp = new long[2];
+			uncompressAndReadTimestamp();
+			uncompressAndReadValue();
+			counter++;
+			if (timePredicate != null && !timePredicate.apply(prevTs)) {
+				return null;
+			}
+			if (valuePredicate != null && !valuePredicate.apply(prevValue)) {
+				return null;
+			}
+			dp[0] = prevTs;
+			dp[1] = prevValue;
+			return dp;
+		} else {
+			throw EOS_EXCEPTION;
+		}
+	}
+
 	public void uncompressAndReadValue() {
 		byte flag = buf.get();
 		if (flag == (byte) 0) {
@@ -105,7 +125,7 @@ public class ByzantineReader implements Reader {
 			deltaOfDelta = 0;
 		} else if (b == (byte) 1) {
 			deltaOfDelta = buf.get();
-		} else if (b == (byte) 10) {
+		} else if (b == (byte) 2) {
 			deltaOfDelta = buf.getShort();
 		} else {
 			deltaOfDelta = buf.getInt();
