@@ -57,10 +57,11 @@ public interface StorageEngine {
 			.ceil((((double) DEFAULT_TIME_BUCKET_CONSTANT) * 24 / 60) / 60);
 	public static final String PERSISTENCE_DISK = "persistence.disk";
 	public static final String ARCHIVER_CLASS = "archiver.class";
+	public static final String GC_ENABLED = "gc.enabled";
 	public static final String GC_DELAY = "gc.delay";
 	public static final String GC_FREQUENCY = "gc.frequency";
-	public static final String DEFAULT_GC_FREQUENCY = "500000";
-	public static final String DEFAULT_GC_DELAY = "60000";
+	public static final String DEFAULT_GC_FREQUENCY = "60";
+	public static final String DEFAULT_GC_DELAY = "60";
 	public static final String COMPACTION_ENABLED = "compaction.enabled";
 	public static final String DEFAULT_COMPACTION_ENABLED = "false";
 	public static final String COMPACTION_FREQUENCY = "compaction.frequency";

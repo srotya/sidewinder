@@ -21,35 +21,154 @@ limitations under the License.
     <display-name>Storage Engine</display-name>
     <value>com.srotya.sidewinder.core.storage.disk.DiskStorageEngine</value>
     <description>Storage engine to be used. </description>
+    <value-attributes>
+      <type>value-list</type>
+      <entries>
+        <entry>
+          <value>com.srotya.sidewinder.core.storage.disk.DiskStorageEngine</value>
+          <label>Disk</label>
+        </entry>
+        <entry>
+          <value>com.srotya.sidewinder.core.storage.mem.MemStorageEngine</value>
+          <label>Memory</label>
+        </entry>
+      </entries>
+      <selection-cardinality>1</selection-cardinality>
+    </value-attributes>
   </property>
   <property require-input="true">
     <name>data.dir</name>
     <display-name>Data Directories</display-name>
-    <value>/tmp/sidewinder/data</value>
+    <value></value>
     <description>Data directories used by Sidewinder.</description>
+    <depends-on>
+      <property>
+        <type>sidewinder-props</type>
+        <name>storage.engine</name>
+      </property>
+    </depends-on>
   </property>
   <property require-input="true">
     <name>index.dir</name>
     <display-name>Index Directory</display-name>
-    <value>/tmp/sidewinder/index</value>
+    <value></value>
     <description>Directory used by Sidewinder to index metadata.</description>
+    <depends-on>
+      <property>
+        <type>sidewinder-props</type>
+        <name>storage.engine</name>
+      </property>
+    </depends-on>
   </property>
-  <property require-input="false">
+  <property require-input="true">
     <name>default.retention.hours</name>
     <display-name>Default retention hours</display-name>
     <value>28</value>
     <description>Default number of hours data will be retained before being archieved/deleted</description>
+    <value-attributes>
+      <type>int</type>
+      <minimum>1</minimum>
+      <maximum>87600</maximum>
+      <unit>hours</unit>
+      <increment-step>1</increment-step>
+    </value-attributes>
   </property>
   <property require-input="false">
     <name>auth.enabled</name>
     <display-name>Enabled Authentication</display-name>
     <value>false</value>
     <description>Enable basic authentication</description>
+    <value-attributes>
+      <type>value-list</type>
+      <entries>
+        <entry>
+          <value>true</value>
+          <label>True</label>
+        </entry>
+        <entry>
+          <value>false</value>
+          <label>False</label>
+        </entry>
+      </entries>
+      <selection-cardinality>1</selection-cardinality>
+    </value-attributes>
   </property>
-  <property require-input="false">
-    <name>max.open.files</name>
-    <display-name>Max Open Files</display-name>
-    <value>100000</value>
-    <description>Maximum number of open files</description>
+  <property require-input="true">
+    <name>gc.enabled</name>
+    <display-name>Enable GC</display-name>
+    <value>true</value>
+    <description>Enabled disabled Time Series garbage collection</description>
+    <value-attributes>
+      <type>value-list</type>
+      <entries>
+        <entry>
+          <value>true</value>
+          <label>True</label>
+        </entry>
+        <entry>
+          <value>false</value>
+          <label>False</label>
+        </entry>
+      </entries>
+      <selection-cardinality>1</selection-cardinality>
+    </value-attributes>
+  </property>
+  <property require-input="true">
+    <name>gc.delay</name>
+    <display-name>GC Delay</display-name>
+    <value>300</value>
+    <description>Initial delay (in seconds) before GC starts after server is running</description>
+    <value-attributes>
+      <type>int</type>
+      <minimum>10</minimum>
+      <maximum>3600</maximum>
+      <unit>seconds</unit>
+      <increment-step>1</increment-step>
+    </value-attributes>
+    <depends-on>
+      <property>
+        <type>sidewinder-props</type>
+        <name>gc.enabled</name>
+      </property>
+    </depends-on>
+  </property>
+  <property require-input="true">
+    <name>gc.frequency</name>
+    <display-name>GC Frequency</display-name>
+    <value>60</value>
+    <description>How frequently (in seconds) should GC run</description>
+    <value-attributes>
+      <type>int</type>
+      <minimum>10</minimum>
+      <maximum>3600</maximum>
+      <unit>seconds</unit>
+      <increment-step>1</increment-step>
+    </value-attributes>
+    <depends-on>
+      <property>
+        <type>sidewinder-props</type>
+        <name>gc.enabled</name>
+      </property>
+    </depends-on>
+  </property>
+  <property require-input="true">
+    <name>cluster.enabled</name>
+    <display-name>Cluster</display-name>
+    <value>false</value>
+    <description>Run as a cluster</description>
+    <value-attributes>
+      <type>value-list</type>
+      <entries>
+        <entry>
+          <value>true</value>
+          <label>True</label>
+        </entry>
+        <entry>
+          <value>false</value>
+          <label>False</label>
+        </entry>
+      </entries>
+      <selection-cardinality>1</selection-cardinality>
+    </value-attributes>
   </property>
 </configuration>
