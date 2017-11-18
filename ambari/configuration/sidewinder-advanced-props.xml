@@ -17,45 +17,150 @@ limitations under the License.
 <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
 <configuration>
   <property require-input="false">
-    <name>auth_basic_users</name>
+    <name>auth.basic.users</name>
     <display-name>Auth File</display-name>
     <value>/etc/sidewinder/auth</value>
     <description>List of user credentials used for basic authentication</description>
   </property>
   <property require-input="false">
-    <name>default_bucket_size</name>
+    <name>default.bucket.size</name>
     <display-name>Default bucket size</display-name>
     <value>32768</value>
     <description>Default time bucket size in seconds</description>
+    <value-attributes>
+      <type>int</type>
+      <minimum>60</minimum>
+      <maximum>31536000</maximum>
+      <unit>seconds</unit>
+      <increment-step>1</increment-step>
+    </value-attributes>
+  </property>
+  <property require-input="true">
+    <name>compression.codec</name>
+    <display-name>Compression Codec</display-name>
+    <value>byzantine</value>
+    <description>Compression codec used to compress time series data</description>
+    <value-attributes>
+      <type>value-list</type>
+      <entries>
+        <entry>
+          <value>byzantine</value>
+          <label>Byzantine</label>
+        </entry>
+        <entry>
+          <value>gzip</value>
+          <label>GZip</label>
+        </entry>
+        <entry>
+          <value>bzip</value>
+          <label>BZip</label>
+        </entry>
+      </entries>
+      <selection-cardinality>1</selection-cardinality>
+    </value-attributes>
   </property>
   <property require-input="false">
-    <name>compression_class</name>
-    <display-name>Compression Engine</display-name>
-    <value>com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter</value>
-    <description>Compression engine used to store data</description>
+    <name>compaction.enabled</name>
+    <display-name>Enable Compaction</display-name>
+    <value>false</value>
+    <description>Compaction provides automated data consolidation to free up storage and improve performance</description>
+    <value-attributes>
+      <type>value-list</type>
+      <entries>
+        <entry>
+          <value>true</value>
+          <label>True</label>
+        </entry>
+        <entry>
+          <value>false</value>
+          <label>False</label>
+        </entry>
+      </entries>
+      <selection-cardinality>1</selection-cardinality>
+    </value-attributes>
+  </property>
+  <property require-input="true">
+    <name>compaction.codec</name>
+    <display-name>Compaction Codec</display-name>
+    <value>byzantine</value>
+    <description>Compression codec used to compact time series data</description>
+    <value-attributes>
+      <type>value-list</type>
+      <entries>
+        <entry>
+          <value>byzantine</value>
+          <label>Byzantine</label>
+        </entry>
+        <entry>
+          <value>gzip</value>
+          <label>GZip</label>
+        </entry>
+        <entry>
+          <value>bzip</value>
+          <label>BZip</label>
+        </entry>
+      </entries>
+      <selection-cardinality>1</selection-cardinality>
+    </value-attributes>
+    <depends-on>
+      <property>
+        <type>sidewinder-advanced-props</type>
+        <name>compaction.enabled</name>
+      </property>
+    </depends-on>
+  </property>
+  <property require-input="true">
+    <name>compaction.frequency</name>
+    <display-name>Compaction Frequency</display-name>
+    <value>1800</value>
+    <description>How frequently (in seconds) should compaction thread run</description>
+    <depends-on>
+      <property>
+        <type>sidewinder-advanced-props</type>
+        <name>compaction.enabled</name>
+      </property>
+    </depends-on>
+  </property>
+  <property require-input="true">
+    <name>compaction.delay</name>
+    <display-name>Compaction Delay</display-name>
+    <value>1800</value>
+    <description>Initial delay (in seconds) before compaction starts after server is running</description>
+    <depends-on>
+      <property>
+        <type>sidewinder-advanced-props</type>
+        <name>compaction.enabled</name>
+      </property>
+    </depends-on>
   </property>
   <property require-input="false">
-    <name>netty_binary_enabled</name>
+    <name>netty.binary.enabled</name>
     <display-name>Enable Binary Server</display-name>
     <value>false</value>
     <description>Enable binary protocol server</description>
   </property>
   <property require-input="false">
-    <name>netty_binary_port</name>
+    <name>netty.binary.port</name>
     <display-name>Binary Server Port</display-name>
     <value>9927</value>
     <description>Port number of Netty based Binary protocol server</description>
   </property>
   <property require-input="false">
-    <name>netty_http_enabled</name>
+    <name>netty.http.enabled</name>
     <display-name>Enable Netty HTTP Server</display-name>
     <value>false</value>
     <description>Enable netty HTTP protocol server</description>
   </property>
   <property require-input="false">
-    <name>netty_http_port</name>
+    <name>netty.http.port</name>
     <display-name>HTTP Server Port</display-name>
     <value>9928</value>
     <description>Port number of Netty based Binary protocol server</description>
+  </property>
+  <property require-input="false">
+    <name>max.open.files</name>
+    <display-name>Max Open Files</display-name>
+    <value>100000</value>
+    <description>Maximum number of open files</description>
   </property>
 </configuration>
