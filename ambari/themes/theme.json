@@ -1,0 +1,240 @@
+{
+  "name": "default",
+  "description": "Default theme for SIDEWINDER service",
+  "configuration": {
+    "layouts": [
+      {
+        "name": "default",
+        "tabs": [
+          {
+            "name": "settings",
+            "display-name": "Settings",
+            "layout": {
+              "tab-rows": 3,
+              "tab-columns": 3,
+              "sections": [
+                 {
+                  "name": "storage-engine",
+                  "display-name": "Storage Engine",
+                  "row-index": "0",
+                  "column-index": "0",
+                  "row-span": "1",
+                  "column-span": "1",
+                  "section-columns": "3",
+                  "section-rows": "1",
+                  "subsections": [
+                    {
+                      "name": "storage-engine-row0-col0",
+                      "row-index": "0",
+                      "column-index": "0",
+                      "row-span": "1",
+                      "column-span": "1"
+                    },
+                    {
+                      "name": "storage-engine-row0-col1",
+                      "row-index": "0",
+                      "column-index": "1",
+                      "row-span": "1",
+                      "column-span": "1"
+                    },
+                    {
+                      "name": "storage-engine-row0-col2",
+                      "row-index": "0",
+                      "column-index": "2",
+                      "row-span": "1",
+                      "column-span": "1"
+                    }
+                  ]
+                },
+                {
+                  "name": "gc-config",
+                  "display-name": "Garbage Collector",
+                  "row-index": "1",
+                  "column-index": "0",
+                  "row-span": "1",
+                  "column-span": "1",
+                  "section-columns": "3",
+                  "section-rows": "1",
+                  "subsections": [
+                    {
+                      "name": "gc-config-row0-col0",
+                      "row-index": "0",
+                      "column-index": "0",
+                      "row-span": "1",
+                      "column-span": "1"
+                    },
+                    {
+                      "name": "gc-config-row0-col1",
+                      "row-index": "0",
+                      "column-index": "1",
+                      "row-span": "1",
+                      "column-span": "1"
+                    },
+                    {
+                      "name": "gc-config-row0-col2",
+                      "row-index": "0",
+                      "column-index": "2",
+                      "row-span": "1",
+                      "column-span": "1"
+                    }
+                  ]
+                },
+                {
+                  "name": "misc-config",
+                  "display-name": "Miscellaneous",
+                  "row-index": "2",
+                  "column-index": "0",
+                  "row-span": "1",
+                  "column-span": "1",
+                  "section-columns": "3",
+                  "section-rows": "1",
+                  "subsections": [
+                    {
+                      "name": "misc-config-row0-col0",
+                      "row-index": "0",
+                      "column-index": "0",
+                      "row-span": "1",
+                      "column-span": "1"
+                    },
+                    {
+                      "name": "misc-config-row0-col1",
+                      "row-index": "0",
+                      "column-index": "1",
+                      "row-span": "1",
+                      "column-span": "1"
+                    },
+                    {
+                      "name": "misc-config-row0-col2",
+                      "row-index": "0",
+                      "column-index": "2",
+                      "row-span": "1",
+                      "column-span": "1"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "placement": {
+      "configuration-layout": "default",
+      "configs": [
+      	{
+          "config": "sidewinder-props/storage.engine",
+          "subsection-name": "storage-engine-row0-col0"
+        },
+        {
+          "config": "sidewinder-props/data.dir",
+          "subsection-name": "storage-engine-row0-col1"
+        },
+        {
+          "config": "sidewinder-props/index.dir",
+          "subsection-name": "storage-engine-row0-col2"
+        },
+        {
+          "config": "sidewinder-props/gc.enabled",
+          "subsection-name": "gc-config-row0-col0"
+        },
+        {
+          "config": "sidewinder-props/gc.delay",
+          "subsection-name": "gc-config-row0-col1"
+        },
+        {
+          "config": "sidewinder-props/gc.frequency",
+          "subsection-name": "gc-config-row0-col2"
+        },
+        {
+          "config": "sidewinder-props/default.retention.hours",
+          "subsection-name": "misc-config-row0-col0"
+        },
+        {
+          "config": "sidewinder-props/auth.enabled",
+          "subsection-name": "misc-config-row0-col1"
+        },
+        {
+          "config": "sidewinder-props/cluster.enabled",
+          "subsection-name": "misc-config-row0-col2"
+        }
+      ]
+    },
+    "widgets": [
+      {
+        "config": "sidewinder-props/storage.engine",
+        "widget": {
+          "type": "combo"
+        }
+      },
+      {
+        "config": "sidewinder-props/data.dir",
+        "widget": {
+          "type": "text-field"
+        }
+      },
+      {
+        "config": "sidewinder-props/index.dir",
+        "widget": {
+          "type": "text-field"
+        }
+      },
+      {
+        "config": "sidewinder-props/gc.enabled",
+        "widget": {
+          "type": "toggle"
+        }
+      },
+      {
+        "config": "sidewinder-props/gc.enabled",
+        "widget": {
+          "type": "toggle"
+        }
+      },
+      {
+        "config": "sidewinder-props/gc.delay",
+        "widget": {
+          "type": "slider",
+          "units": [
+            {
+              "unit-name": "Seconds"
+            }
+          ]
+        }
+      },
+      {
+        "config": "sidewinder-props/gc.frequency",
+        "widget": {
+          "type": "slider",
+          "units": [
+            {
+              "unit-name": "Seconds"
+            }
+          ]
+        }
+      },
+      {
+        "config": "sidewinder-props/default.retention.hours",
+        "widget": {
+          "type": "slider",
+          "units": [
+            {
+              "unit-name": "Hours"
+            }
+          ]
+        }
+      },
+      {
+        "config": "sidewinder-props/auth.enabled",
+        "widget": {
+          "type": "toggle"
+        }
+      },
+      {
+        "config": "sidewinder-props/cluster.enabled",
+        "widget": {
+          "type": "toggle"
+        }
+      }
+    ]
+  }
+}

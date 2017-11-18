@@ -53,4 +53,5 @@ http_port = config['configurations']['sidewinder-yaml']['http_port']
 # Basic properties
 data_dir = config['configurations']['sidewinder-props']['data.dir']
 index_dir = config['configurations']['sidewinder-props']['index.dir']
-max_open_files = config['configurations']['sidewinder-props']['max_open_files']
+max_open_files = config['configurations']['sidewinder-advanced-props']['max.open.files']
+cluster = config['configurations']['sidewinder-props']['cluster.enabled']

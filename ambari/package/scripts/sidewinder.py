@@ -20,7 +20,9 @@ sidewinder service params
 """
 
 from resource_management import *
+from resource_management.core.resources.system import Directory, Execute, File, Link
 import sys
+import os, errno
 from copy import deepcopy
 
 def sidewinder():
@@ -33,6 +35,9 @@ def sidewinder():
 
     directories = [params.pid_dir, params.conf_dir, params.index_dir]
     directories = directories+data_path;
+    
+    for d in directories:
+    	     mkdir_p(d)
 
     Directory(directories,
               owner=params.sidewinder_user,
@@ -43,11 +48,14 @@ def sidewinder():
           owner=params.sidewinder_user,
           content=InlineTemplate(params.sidewinder_env_sh_template)
      )
+     
+    if params.cluster!=True: 
+    		cmd_launch = "sed -i 's/com.srotya.sidewinder.cluster.SidewinderClusteredServer/com.srotya.sidewinder.core.SidewinderServer/g' /usr/sidewinder/bin/sidewinder.sh"
+    		Execute(cmd_launch)
+    		
 
     props = mutable_config_dict(config['configurations']['sidewinder-props'])
     props = add_configs(props, config['configurations']['sidewinder-advanced-props'])
-
-    print(props)
 
     PropertiesFile("sidewinder.properties",
                       dir=params.conf_dir,
@@ -65,7 +73,6 @@ def sidewinder():
        group=params.sidewinder_user
     )
 
-
 def add_configs(server_config, sidewinder_config):
     for key, value in sidewinder_config.iteritems():
         server_config[key] = value
@@ -76,3 +83,12 @@ def mutable_config_dict(sidewinder_config):
     for key, value in sidewinder_config.iteritems():
         server_config[key] = value
     return server_config
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise

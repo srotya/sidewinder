@@ -46,9 +46,9 @@ class Sidewinder(Script):
         import params
         env.set_params(params)
         print 'Install the Sidewinder'
-        stop_cmd = format("wget -O /tmp/sidewinder.rpm http://search.maven.org/remotecontent?filepath=com/srotya/sidewinder/sidewinder-core/${project.version}/sidewinder-core-${project.version}.rpm; rpm -ivf /tmp/sidewinder.rpm")
+        install_cmd = format("wget -O /tmp/sidewinder.rpm http://search.maven.org/remotecontent?filepath=com/srotya/sidewinder/sidewinder-cluster-dist/${project.version}/sidewinder-cluster-dist-${project.version}.rpm; rpm -ivf /tmp/sidewinder.rpm")
 #        stop_cmd = format("rpm -ivf /tmp/sidewinder.rpm")
-        Execute(stop_cmd)
+        Execute(install_cmd)
         self.install_packages(env)
     def configure(self, env):
         import params
