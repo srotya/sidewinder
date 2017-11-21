@@ -317,7 +317,7 @@ public class TestDiskStorageEngine {
 			engine.writeDataPoint(
 					MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
 			Measurement measurement = engine.getOrCreateMeasurement("test3", "cpu");
-			assertEquals(1, measurement.getTimeSeriesMap().size());
+			assertEquals(1, measurement.getSeriesKeys().size());
 			MiscUtils.ls(file);
 			engine = new DiskStorageEngine();
 			engine.configure(map, bgTasks);
@@ -340,7 +340,8 @@ public class TestDiskStorageEngine {
 				e.printStackTrace();
 				fail("Database delete must succeed");
 			}
-			assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
+			assertTrue(!new File("target/db201/data/test3").exists());
+			assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getSeriesKeys().size());
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw e;
@@ -364,7 +365,7 @@ public class TestDiskStorageEngine {
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
 				MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
-		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
+		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").getSeriesKeys().size());
 		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000),
 				null, null);
 		try {
@@ -388,7 +389,7 @@ public class TestDiskStorageEngine {
 			engine.dropDatabase("test3");
 		} catch (Exception e) {
 		}
-		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getTimeSeriesMap().size());
+		assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getSeriesKeys().size());
 		engine.disconnect();
 	}
 
@@ -399,8 +400,8 @@ public class TestDiskStorageEngine {
 		HashMap<String, String> map = new HashMap<>();
 		map.put("index.dir", "target/dbgc/index");
 		map.put("data.dir", "target/dbgc/data");
-		map.put(StorageEngine.GC_DELAY, "10");
-		map.put(StorageEngine.GC_FREQUENCY, "100");
+		map.put(StorageEngine.GC_DELAY, "1");
+		map.put(StorageEngine.GC_FREQUENCY, "10");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		map.put(StorageEngine.DEFAULT_BUCKET_SIZE, "4096");
 		map.put(PersistentMeasurement.CONF_MEASUREMENT_INCREMENT_SIZE, "4096");
@@ -493,7 +494,6 @@ public class TestDiskStorageEngine {
 			engine.writeDataPoint(
 					MiscUtils.buildDataPoint(dbName, measurementName, "value", tags, ts + (i * 60000), 2.2));
 		}
-		System.out.println("Buckets:" + engine.getSeriesMap(dbName, measurementName).size());
 		long endTs = ts + 99 * 60000;
 
 		// validate all points are returned with a full range query

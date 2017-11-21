@@ -245,7 +245,7 @@ public class TestMemStorageEngine {
 		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test"), ts, 1));
 		engine.writeDataPoint(
 				MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
-		assertEquals(1, engine.getOrCreateMeasurement("test", "cpu").getTimeSeriesMap().size());
+		assertEquals(1, engine.getOrCreateMeasurement("test", "cpu").getSeriesKeys().size());
 		Set<SeriesQueryOutput> queryDataPoints = engine.queryDataPoints("test", "cpu", "value", ts, ts + (400 * 60000),
 				null, null);
 		assertTrue(!engine.isMeasurementFieldFP("test", "cpu", "value"));
@@ -620,7 +620,8 @@ public class TestMemStorageEngine {
 		conf2.put("compaction.enabled", "true");
 		conf2.put("use.query.pool", "false");
 		conf2.put("compaction.codec", "gzip");
-		conf2.put("compaction.delay", "10");
+		conf2.put("compaction.delay", "1");
+		conf2.put("compaction.frequency", "1");
 		engine.configure(conf2, bgTasks);
 		final long curr = 1497720652566L;
 

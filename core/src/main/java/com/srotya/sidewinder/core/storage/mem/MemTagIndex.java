@@ -54,20 +54,20 @@ public class MemTagIndex implements TagIndex {
 	/**
 	 * Hashes the tag to UI
 	 * 
-	 * @param tag
+	 * @param tagKey
 	 * @return uid
 	 */
-	public String createEntry(String tag) {
-		int hash32 = hash.hash(tag.getBytes(), 0, tag.length(), 57);
+	public String mapTag(String tagKey) {
+		int hash32 = hash.hash(tagKey.getBytes(), 0, tagKey.length(), 57);
 		String val = tagMap.get(hash32);
 		if (val == null) {
-			tagMap.put(hash32, tag);
+			tagMap.put(hash32, tagKey);
 		}
 		metricIndexTag.inc();
 		return Integer.toHexString(hash32);
 	}
 
-	public String getEntry(String hexString) {
+	public String getTagMapping(String hexString) {
 		return tagMap.get(Integer.parseUnsignedInt(hexString, 16));
 	}
 
@@ -78,16 +78,16 @@ public class MemTagIndex implements TagIndex {
 	/**
 	 * Indexes tag in the row key, creating an adjacency list
 	 * 
-	 * @param tag
+	 * @param tagKey
 	 * @param rowKey
 	 */
-	public void index(String tag, String rowKey) {
-		Set<String> rowKeySet = rowKeyIndex.get(tag);
+	public void index(String tagKey, String rowKey) {
+		Set<String> rowKeySet = rowKeyIndex.get(tagKey);
 		if (rowKeySet == null) {
 			synchronized (rowKeyIndex) {
-				if ((rowKeySet = rowKeyIndex.get(tag)) == null) {
+				if ((rowKeySet = rowKeyIndex.get(tagKey)) == null) {
 					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
-					rowKeyIndex.put(tag, rowKeySet);
+					rowKeyIndex.put(tagKey, rowKeySet);
 				}
 			}
 		}
@@ -97,8 +97,8 @@ public class MemTagIndex implements TagIndex {
 		}
 	}
 
-	public Set<String> searchRowKeysForTag(String tag) {
-		return rowKeyIndex.get(tag);
+	public Set<String> searchRowKeysForTag(String tagKey) {
+		return rowKeyIndex.get(tagKey);
 	}
 
 	@Override

@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -32,44 +33,30 @@ import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
-import net.jpountz.xxhash.XXHash32;
-import net.jpountz.xxhash.XXHashFactory;
-
 /**
  * Tag hash lookup table + Tag inverted index
  * 
  * @author ambud
  */
-public class MappedTagIndex implements TagIndex {
+public class MappedBitmapTagIndex implements TagIndex {
 
-	private static final Logger logger = Logger.getLogger(MappedTagIndex.class.getName());
+	private static final Logger logger = Logger.getLogger(MappedBitmapTagIndex.class.getName());
 	private static final int INCREMENT_SIZE = 1024 * 1024 * 1;
-	private Map<Integer, String> tagMap;
 	private Map<String, Set<String>> rowKeyIndex;
-	private XXHashFactory factory = XXHashFactory.fastestInstance();
 	private String indexPath;
-	private XXHash32 hash;
-	private File fwdIndex;
 	private File revIndex;
-	private Counter metricIndexTag;
 	private Counter metricIndexRow;
 	private boolean enableMetrics;
-	private RandomAccessFile fwdRaf;
 	private RandomAccessFile revRaf;
-	private MappedByteBuffer fwd;
 	private MappedByteBuffer rev;
 
-	public MappedTagIndex(String indexDir, String measurementName) throws IOException {
+	public MappedBitmapTagIndex(String indexDir, String measurementName) throws IOException {
 		this.indexPath = indexDir + "/" + measurementName;
-		tagMap = new ConcurrentHashMap<>(10000);
 		rowKeyIndex = new ConcurrentHashMap<>(10000);
-		fwdIndex = new File(indexPath + ".fwd");
 		revIndex = new File(indexPath + ".rev");
-		hash = factory.hash32();
 		MetricsRegistryService instance = MetricsRegistryService.getInstance();
 		if (instance != null) {
 			MetricRegistry registry = instance.getInstance("requests");
-			metricIndexTag = registry.counter("index-tag");
 			metricIndexRow = registry.counter("index-row");
 			enableMetrics = true;
 		}
@@ -77,35 +64,18 @@ public class MappedTagIndex implements TagIndex {
 	}
 
 	protected void loadTagIndex() throws IOException {
-		if (!fwdIndex.exists() || !revIndex.exists()) {
-			fwdRaf = new RandomAccessFile(fwdIndex, "rwd");
+		if (!revIndex.exists()) {
 			revRaf = new RandomAccessFile(revIndex, "rwd");
-			fwd = fwdRaf.getChannel().map(MapMode.READ_WRITE, 0, INCREMENT_SIZE);
 			rev = revRaf.getChannel().map(MapMode.READ_WRITE, 0, INCREMENT_SIZE);
-			fwd.putInt(0);
 			rev.putInt(0);
-			logger.info("Tag index is missing; initializing new index");
+			logger.fine("Tag index is missing; initializing new index");
 		} else {
-			fwdRaf = new RandomAccessFile(fwdIndex, "rwd");
 			revRaf = new RandomAccessFile(revIndex, "rwd");
-			logger.info("Tag index is present; loading:" + fwdIndex.getAbsolutePath());
-			fwd = fwdRaf.getChannel().map(MapMode.READ_WRITE, 0, fwdIndex.length());
+			logger.info("Tag index is present; loading:" + revIndex.getAbsolutePath());
 			rev = revRaf.getChannel().map(MapMode.READ_WRITE, 0, revIndex.length());
-			// load forward lookup
-			int offsetLimit = fwd.getInt();
-			while (fwd.position() < offsetLimit) {
-				int length = fwd.getInt();
-				byte[] b = new byte[length];
-				fwd.get(b);
-				String tag = new String(b);
-				String[] split = tag.split("\t");
-				String hash32 = split[0];
-				tag = split[1];
-				tagMap.put(Integer.parseInt(hash32), tag);
-			}
 
 			// load reverse lookup
-			offsetLimit = rev.getInt();
+			int offsetLimit = rev.getInt();
 			while (rev.position() < offsetLimit) {
 				int length = rev.getInt();
 				byte[] b = new byte[length];
@@ -126,49 +96,27 @@ public class MappedTagIndex implements TagIndex {
 
 	@Override
 	public String mapTag(String tagKey) throws IOException {
-		int hash32 = hash.hash(tagKey.getBytes(), 0, tagKey.length(), 57);
-		String val = tagMap.get(hash32);
-		if (val == null) {
-			synchronized (tagMap) {
-				String out = tagMap.put(hash32, tagKey);
-				if (out == null) {
-					byte[] str = (hash32 + "\t" + tagKey).getBytes();
-					if (fwd.remaining() < str.length + Integer.BYTES) {
-						// resize buffer
-						int temp = fwd.position();
-						fwd = fwdRaf.getChannel().map(MapMode.READ_WRITE, 0, fwd.capacity() + INCREMENT_SIZE);
-						fwd.position(temp);
-					}
-					fwd.putInt(str.length);
-					fwd.put(str);
-					fwd.putInt(0, fwd.position());
-				}
-			}
-		}
-		if (enableMetrics) {
-			metricIndexTag.inc();
-		}
-		return Integer.toHexString(hash32);
+		return tagKey;
 	}
 
 	@Override
 	public String getTagMapping(String hexString) {
-		return tagMap.get(Integer.parseUnsignedInt(hexString, 16));
+		return hexString;
 	}
 
 	@Override
 	public Set<String> getTags() {
-		return new HashSet<>(tagMap.values());
+		return new HashSet<>(rowKeyIndex.keySet());
 	}
 
 	@Override
-	public void index(String tag, String rowKey) throws IOException {
-		Set<String> rowKeySet = rowKeyIndex.get(tag);
+	public void index(String tagKey, String rowKey) throws IOException {
+		Set<String> rowKeySet = rowKeyIndex.get(tagKey);
 		if (rowKeySet == null) {
 			synchronized (rowKeyIndex) {
-				if ((rowKeySet = rowKeyIndex.get(tag)) == null) {
+				if ((rowKeySet = rowKeyIndex.get(tagKey)) == null) {
 					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
-					rowKeyIndex.put(tag, rowKeySet);
+					rowKeyIndex.put(tagKey, rowKeySet);
 				}
 			}
 		}
@@ -178,8 +126,8 @@ public class MappedTagIndex implements TagIndex {
 				if (enableMetrics) {
 					metricIndexRow.inc();
 				}
-				synchronized (tagMap) {
-					byte[] str = (tag + "\t" + rowKey).getBytes();
+				synchronized (rowKeyIndex) {
+					byte[] str = (tagKey + "\t" + rowKey).getBytes();
 					if (rev.remaining() < str.length + Integer.BYTES) {
 						// resize buffer
 						int temp = rev.position();
@@ -195,15 +143,13 @@ public class MappedTagIndex implements TagIndex {
 	}
 
 	@Override
-	public Set<String> searchRowKeysForTag(String tag) {
-		return rowKeyIndex.get(tag);
+	public Collection<String> searchRowKeysForTag(String tagKey) {
+		return rowKeyIndex.get(tagKey);
 	}
 
 	@Override
 	public void close() throws IOException {
-		fwd.force();
 		rev.force();
-		fwdRaf.close();
 		revRaf.close();
 	}
 

@@ -75,7 +75,7 @@ public class LuceneTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String createEntry(String tag) throws IOException {
+	public String mapTag(String tag) throws IOException {
 		String hash32 = Integer.toHexString(hash.hash(tag.getBytes(), 0, tag.length(), 57));
 		addDoc(indexWriter, tag, hash32);
 		return hash32;
@@ -89,7 +89,7 @@ public class LuceneTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String getEntry(String hexString) throws IOException {
+	public String getTagMapping(String hexString) throws IOException {
 		DirectoryReader reader = DirectoryReader.open(indexWriter);
 		IndexSearcher searcher = new IndexSearcher(reader);
 		Query query = new QueryBuilder(analyzer).createPhraseQuery(ID, hexString);

@@ -88,12 +88,12 @@ public class TestPersistentMeasurement {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		map.put("measurement.file.max", String.valueOf(1024 * 1024));
 		try {
-			m.configure(map, engine, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+			m.configure(map, null, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 			fail("Must throw invalid file max size exception");
 		} catch (Exception e) {
 		}
 		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
-		m.configure(map, engine, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+		m.configure(map, null, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
 			TimeSeries t = m.getOrCreateTimeSeries("value", tags, 4096, false, map);
@@ -102,8 +102,7 @@ public class TestPersistentMeasurement {
 		m.close();
 
 		m = new PersistentMeasurement();
-		m.configure(map, engine, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
-		m.loadTimeseriesFromMeasurements();
+		m.configure(map, null, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		Set<SeriesQueryOutput> resultMap = new HashSet<>();
 		m.queryDataPoints("value", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, null, resultMap);
 		Iterator<SeriesQueryOutput> iterator = resultMap.iterator();
@@ -249,7 +248,7 @@ public class TestPersistentMeasurement {
 		MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("requests");
 		MiscUtils.delete(new File(indexDir));
 		new File(indexDir).mkdirs();
-		DiskTagIndex table = new DiskTagIndex(indexDir, "test2");
+		MappedTagIndex table = new MappedTagIndex(indexDir, "test2");
 		Measurement measurement = new PersistentMeasurement();
 		String encodedStr = measurement.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
 		List<String> decodedStr = Measurement.decodeStringToTags(table, encodedStr);

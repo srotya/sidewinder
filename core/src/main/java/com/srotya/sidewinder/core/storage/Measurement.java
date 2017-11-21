@@ -24,7 +24,6 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -56,7 +55,10 @@ public interface Measurement {
 
 	public Collection<TimeSeries> getTimeSeries();
 
-	public Map<String, TimeSeries> getTimeSeriesMap();
+	public Set<String> getSeriesKeys();
+	// public Map<String, TimeSeries> getTimeSeriesMap();
+
+	public TimeSeries getSeriesFromKey(String key);
 
 	public TagIndex getTagIndex();
 
@@ -77,11 +79,11 @@ public interface Measurement {
 
 	public default String encodeTagsToString(TagIndex tagIndex, List<String> tags) throws IOException {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);
-		builder.append(tagIndex.createEntry(tags.get(0)));
+		builder.append(tagIndex.mapTag(tags.get(0)));
 		for (int i = 1; i < tags.size(); i++) {
 			String tag = tags.get(i);
 			builder.append(TAG_SEPARATOR);
-			builder.append(tagIndex.createEntry(tag));
+			builder.append(tagIndex.mapTag(tag));
 		}
 		return builder.toString();
 	}
@@ -102,7 +104,7 @@ public interface Measurement {
 			return tagList;
 		}
 		for (String tag : tagString.split(TAG_SEPARATOR)) {
-			tagList.add(tagLookupTable.getEntry(tag));
+			tagList.add(tagLookupTable.getTagMapping(tag));
 		}
 		return tagList;
 	}
@@ -122,9 +124,9 @@ public interface Measurement {
 		} catch (Exception e) {
 			throw new IOException("Invalid regex pattern for value field name:" + e.getMessage());
 		}
-		for (Entry<String, TimeSeries> entry : getTimeSeriesMap().entrySet()) {
-			if (p.matcher(entry.getKey()).matches()) {
-				keySet.add(entry.getKey());
+		for (String entry : getSeriesKeys()) {
+			if (p.matcher(entry).matches()) {
+				keySet.add(entry);
 			}
 		}
 		try {
@@ -188,7 +190,7 @@ public interface Measurement {
 			}
 		});
 	}
-	
+
 	public default void compact() throws IOException {
 		runOptimizationOperation("compacting", ts -> {
 			try {
@@ -204,14 +206,14 @@ public interface Measurement {
 		getLock().lock();
 		try {
 			Set<String> cleanupList = new HashSet<>();
-			for (Entry<String, TimeSeries> entry : getTimeSeriesMap().entrySet()) {
+			for (TimeSeries entry : getTimeSeries()) {
 				try {
-					List<Writer> garbage = op.apply(entry.getValue());
+					List<Writer> garbage = op.apply(entry);
 					for (Writer timeSeriesBucket : garbage) {
-						getLogger().fine("Buffers " + operation + " for bucket:" + entry.getKey() + "\tOffset:"
+						getLogger().fine("Buffers " + operation + " for bucket:" + entry.getSeriesId() + "\tOffset:"
 								+ timeSeriesBucket.currentOffset());
 					}
-					getLogger().fine("Buffers " + operation + " for time series:" + entry.getKey());
+					getLogger().fine("Buffers " + operation + " for time series:" + entry.getSeriesId());
 				} catch (Exception e) {
 					getLogger().log(Level.SEVERE, "Error collecing " + operation, e);
 				}
@@ -233,13 +235,13 @@ public interface Measurement {
 		Collections.sort(tags);
 		String rowKey = constructSeriesId(valueFieldName, tags, getTagIndex());
 		// check and create timeseries
-		TimeSeries timeSeries = getTimeSeriesMap().get(rowKey);
+		TimeSeries timeSeries = getSeriesFromKey(rowKey);
 		return timeSeries;
 	}
 
 	public default Set<String> getFieldsForMeasurement() {
 		Set<String> results = new HashSet<>();
-		Set<String> keySet = getTimeSeriesMap().keySet();
+		Set<String> keySet = getSeriesKeys();
 		for (String key : keySet) {
 			String[] splits = key.split(FIELD_TAG_SEPARATOR);
 			if (splits.length == 2) {
@@ -252,7 +254,7 @@ public interface Measurement {
 	public default Set<String> getSeriesIdsWhereTags(List<String> tags) throws IOException {
 		Set<String> series = new HashSet<>();
 		for (String tag : tags) {
-			Set<String> keys = getTagIndex().searchRowKeysForTag(tag);
+			Collection<String> keys = getTagIndex().searchRowKeysForTag(tag);
 			if (keys != null) {
 				series.addAll(keys);
 			}
@@ -271,7 +273,7 @@ public interface Measurement {
 			throw new IOException("Invalid regex for value field name:" + e.getMessage());
 		}
 		if (tagList == null || tagList.size() == 0) {
-			rowKeys = getTimeSeriesMap().keySet();
+			rowKeys = getSeriesKeys();
 		} else {
 			rowKeys = getTagFilteredRowKeys(valueFieldNamePattern, tagFilter, tagList);
 		}
@@ -303,7 +305,7 @@ public interface Measurement {
 		} else {
 			seriesTags = new ArrayList<>();
 		}
-		TimeSeries value = getTimeSeriesMap().get(entry);
+		TimeSeries value = getSeriesFromKey(entry);
 		if (value == null) {
 			getLogger().severe("Invalid time series value " + entry + "\t" + "\t" + "\n\n");
 			return;
@@ -335,7 +337,7 @@ public interface Measurement {
 			throw new IOException("Invalid regex for value field name:" + e.getMessage());
 		}
 		if (tagList == null || tagList.size() == 0) {
-			rowKeys = getTimeSeriesMap().keySet();
+			rowKeys = getSeriesKeys();
 		} else {
 			rowKeys = getTagFilteredRowKeys(valueFieldNamePattern, tagFilter, tagList);
 		}
@@ -367,7 +369,7 @@ public interface Measurement {
 		} else {
 			seriesTags = new ArrayList<>();
 		}
-		TimeSeries value = getTimeSeriesMap().get(entry);
+		TimeSeries value = getSeriesFromKey(entry);
 		if (value == null) {
 			getLogger().severe("Invalid time series value " + entry + "\t" + "\t" + "\n\n");
 			return;
@@ -389,8 +391,8 @@ public interface Measurement {
 
 	public default void queryReaders(String valueFieldName, long startTime, long endTime,
 			LinkedHashMap<Reader, Boolean> readers) throws IOException {
-		for (String entry : getTimeSeriesMap().keySet()) {
-			TimeSeries series = getTimeSeriesMap().get(entry);
+		for (String entry : getSeriesKeys()) {
+			TimeSeries series = getSeriesFromKey(entry);
 			String[] keys = entry.split(FIELD_TAG_SEPARATOR);
 			if (keys.length != 2) {
 				getLogger().log(Level.SEVERE, "Invalid situation, series ingested without tag");
@@ -412,7 +414,7 @@ public interface Measurement {
 		}
 	}
 
-	public default Set<String> getTags() throws IOException {
+	public default Collection<String> getTags() throws IOException {
 		return getTagIndex().getTags();
 	}
 
