@@ -77,11 +77,6 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public Map<String, TimeSeries> getTimeSeriesMap() {
-		return seriesMap;
-	}
-
-	@Override
 	public TagIndex getTagIndex() {
 		return tagIndex;
 	}
@@ -117,10 +112,10 @@ public class MemoryMeasurement implements Measurement {
 			Map<String, String> conf) throws IOException {
 		Collections.sort(tags);
 		String rowKey = constructSeriesId(valueFieldName, tags, tagIndex);
-		TimeSeries timeSeries = getTimeSeries(rowKey);
+		TimeSeries timeSeries = getSeriesFromKey(rowKey);
 		if (timeSeries == null) {
 			synchronized (this) {
-				if ((timeSeries = getTimeSeries(rowKey)) == null) {
+				if ((timeSeries = getSeriesFromKey(rowKey)) == null) {
 					Measurement.indexRowKey(tagIndex, rowKey, tags);
 					timeSeries = new TimeSeries(this, compressionCodec, compactionCodec, rowKey, timeBucketSize,
 							metadata, fp, conf);
@@ -131,10 +126,6 @@ public class MemoryMeasurement implements Measurement {
 			}
 		}
 		return timeSeries;
-	}
-
-	private TimeSeries getTimeSeries(String rowKey) {
-		return getTimeSeriesMap().get(rowKey);
 	}
 
 	@Override
@@ -177,5 +168,15 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public boolean useQueryPool() {
 		return useQueryPool;
+	}
+
+	@Override
+	public Set<String> getSeriesKeys() {
+		return seriesMap.keySet();
+	}
+
+	@Override
+	public TimeSeries getSeriesFromKey(String key) {
+		return seriesMap.get(key);
 	}
 }

@@ -57,7 +57,7 @@ public class MapDBTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String createEntry(String tag) throws IOException {
+	public String mapTag(String tag) throws IOException {
 		int hash32 = hash.hash(tag.getBytes(), 0, tag.length(), 57);
 		String val = tagMap.get(hash32);
 		if (val == null) {
@@ -69,7 +69,7 @@ public class MapDBTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String getEntry(String hexString) {
+	public String getTagMapping(String hexString) {
 		return tagMap.get(Integer.parseUnsignedInt(hexString, 16));
 	}
 

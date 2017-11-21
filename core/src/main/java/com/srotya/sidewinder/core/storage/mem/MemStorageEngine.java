@@ -108,7 +108,7 @@ public class MemStorageEngine implements StorageEngine {
 					}
 				}
 			}, Integer.parseInt(conf.getOrDefault(GC_FREQUENCY, DEFAULT_GC_FREQUENCY)),
-					Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.MILLISECONDS);
+					Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.SECONDS);
 			if (Boolean.parseBoolean(conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, "false"))) {
 				logger.info("Compaction is enabled");
 				bgTaskPool.scheduleAtFixedRate(() -> {
@@ -125,7 +125,7 @@ public class MemStorageEngine implements StorageEngine {
 					}
 				}, Integer.parseInt(conf.getOrDefault(COMPACTION_FREQUENCY, DEFAULT_COMPACTION_FREQUENCY)),
 						Integer.parseInt(conf.getOrDefault(COMPACTION_DELAY, DEFAULT_COMPACTION_DELAY)),
-						TimeUnit.MILLISECONDS);
+						TimeUnit.SECONDS);
 			}else {
 				logger.warning("Compaction is disabled");
 			}
@@ -156,7 +156,7 @@ public class MemStorageEngine implements StorageEngine {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		Measurement measurement = databaseMap.get(dbName).get(measurementName);
-		for (TimeSeries series : measurement.getTimeSeriesMap().values()) {
+		for (TimeSeries series : measurement.getTimeSeries()) {
 			series.setRetentionHours(retentionHours);
 		}
 	}
@@ -248,9 +248,9 @@ public class MemStorageEngine implements StorageEngine {
 
 		// check and create measurement map
 		Measurement measurement = getOrCreateMeasurement(dbMap, dbName, measurementName);
-		for (Entry<String, TimeSeries> entry : measurement.getTimeSeriesMap().entrySet()) {
-			if (entry.getKey().startsWith(valueFieldName)) {
-				return entry.getValue().isFp();
+		for (String entry : measurement.getSeriesKeys()) {
+			if (entry.startsWith(valueFieldName)) {
+				return measurement.getSeriesFromKey(entry).isFp();
 			}
 		}
 		throw NOT_FOUND_EXCEPTION;

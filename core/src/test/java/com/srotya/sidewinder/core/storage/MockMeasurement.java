@@ -53,11 +53,6 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public Map<String, TimeSeries> getTimeSeriesMap() {
-		return null;
-	}
-
-	@Override
 	public TagIndex getTagIndex() {
 		return null;
 	}
@@ -135,6 +130,18 @@ public class MockMeasurement implements Measurement {
 	@Override
 	public boolean useQueryPool() {
 		return false;
+	}
+
+	@Override
+	public Set<String> getSeriesKeys() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public TimeSeries getSeriesFromKey(String key) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

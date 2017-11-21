@@ -118,28 +118,33 @@ public class MiscUtils {
 		}
 	}
 
-	public static void delete(File file) throws IOException {
+	public static boolean delete(File file) throws IOException {
 		if (file.isDirectory()) {
 			// directory is empty, then delete it
 			if (file.list().length == 0) {
-				file.delete();
+				return file.delete();
 			} else {
 				// list all the directory contents
 				String files[] = file.list();
+				boolean result = false;
 				for (String temp : files) {
 					// construct the file structure
 					File fileDelete = new File(file, temp);
 					// recursive delete
-					delete(fileDelete);
+					result = delete(fileDelete);
+					if(!result) {
+						return false;
+					}
 				}
 				// check the directory again, if empty then delete it
 				if (file.list().length == 0) {
 					file.delete();
 				}
+				return result;
 			}
 		} else {
 			// if file, then delete it
-			file.delete();
+			return file.delete();
 		}
 	}
 
