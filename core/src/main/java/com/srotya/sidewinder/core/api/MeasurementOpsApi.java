@@ -206,7 +206,7 @@ public class MeasurementOpsApi {
 		try {
 			if (engine.checkIfExists(dbName, measurementName)) {
 				Measurement m = engine.getOrCreateMeasurement(dbName, measurementName);
-				return m.getTimeSeriesMap().size();
+				return m.getSeriesKeys().size();
 			}
 		} catch (IOException e) {
 			throw new BadRequestException(e);

@@ -77,7 +77,7 @@ public class TestLucenetagIndex {
 		assertEquals("db1", next.getKey());
 		Entry<String, Measurement> itr = next.getValue().entrySet().iterator().next();
 		assertEquals("m1", itr.getKey());
-		DiskTagIndex value = (DiskTagIndex) itr.getValue().getTagIndex();
+		LuceneTagIndex value = (LuceneTagIndex) itr.getValue().getTagIndex();
 		assertEquals(20000 + 10 + 1500, value.getTags().size());
 	}
 
@@ -91,7 +91,7 @@ public class TestLucenetagIndex {
 			es.submit(() -> {
 				try {
 					for (int i = 0; i < 1000; i++) {
-						String idx = index.createEntry("tag" + (i + 1));
+						String idx = index.mapTag("tag" + (i + 1));
 						index.index(idx, "test212");
 					}
 				} catch (Exception e) {
@@ -102,8 +102,8 @@ public class TestLucenetagIndex {
 		es.shutdown();
 		es.awaitTermination(10, TimeUnit.SECONDS);
 		for (int i = 0; i < 1000; i++) {
-			String entry = index.createEntry("tag" + (i + 1));
-			assertEquals("tag" + (i + 1), index.getEntry(entry));
+			String entry = index.mapTag("tag" + (i + 1));
+			assertEquals("tag" + (i + 1), index.getTagMapping(entry));
 			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
 	}

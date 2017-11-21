@@ -97,7 +97,7 @@ public class DiskStorageEngine implements StorageEngine {
 		logger.info("Configuring default time bucket:" + getDefaultTimebucketSize());
 		enableMetricsService();
 		if (bgTaskPool != null) {
-			if (Boolean.parseBoolean(conf.getOrDefault("gc.enabled", "true"))) {
+			if (Boolean.parseBoolean(conf.getOrDefault(GC_ENABLED, "true"))) {
 				bgTaskPool.scheduleAtFixedRate(() -> {
 					for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
 						for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
@@ -113,7 +113,7 @@ public class DiskStorageEngine implements StorageEngine {
 						logger.log(Level.FINE, "Completed DB GC:" + measurementMap.getKey());
 					}
 				}, Integer.parseInt(conf.getOrDefault(GC_FREQUENCY, DEFAULT_GC_FREQUENCY)),
-						Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.MILLISECONDS);
+						Integer.parseInt(conf.getOrDefault(GC_DELAY, DEFAULT_GC_DELAY)), TimeUnit.SECONDS);
 			} else {
 				logger.info("WARNING: GC has been disabled, data retention policies will not be honored");
 			}
@@ -133,8 +133,8 @@ public class DiskStorageEngine implements StorageEngine {
 					}
 				}, Integer.parseInt(conf.getOrDefault(COMPACTION_FREQUENCY, DEFAULT_COMPACTION_FREQUENCY)),
 						Integer.parseInt(conf.getOrDefault(COMPACTION_DELAY, DEFAULT_COMPACTION_DELAY)),
-						TimeUnit.MILLISECONDS);
-			}else {
+						TimeUnit.SECONDS);
+			} else {
 				logger.warning("Compaction is disabled");
 			}
 		}
@@ -326,13 +326,12 @@ public class DiskStorageEngine implements StorageEngine {
 			}
 			String measurementName = measurementMdFile.getName();
 			Measurement measurement = new PersistentMeasurement();
-			measurement.configure(conf, this, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName), metadata,
-					bgTaskPool);
 			measurementMap.put(measurementName, measurement);
 			logger.info("Loading measurements:" + measurementName);
 			futures.add(bgTaskPool.submit(() -> {
 				try {
-					measurement.loadTimeseriesFromMeasurements();
+					measurement.configure(conf, this, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName),
+							metadata, bgTaskPool);
 				} catch (IOException e) {
 					logger.log(Level.SEVERE, "Error recovering measurement:" + measurementName, e);
 				}
@@ -380,10 +379,10 @@ public class DiskStorageEngine implements StorageEngine {
 		}
 		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
 		// check and create measurement map
-		Measurement measurementMap = getOrCreateMeasurement(dbMap, measurementName, dbName);
-		for (Entry<String, TimeSeries> entry : measurementMap.getTimeSeriesMap().entrySet()) {
-			if (entry.getKey().startsWith(valueFieldName)) {
-				return entry.getValue().isFp();
+		Measurement measurement = getOrCreateMeasurement(dbMap, measurementName, dbName);
+		for (String entry : measurement.getSeriesKeys()) {
+			if (entry.startsWith(valueFieldName)) {
+				return measurement.getSeriesFromKey(entry).isFp();
 			}
 		}
 		throw NOT_FOUND_EXCEPTION;
@@ -412,9 +411,16 @@ public class DiskStorageEngine implements StorageEngine {
 			for (Measurement measurement : remove.values()) {
 				measurement.close();
 			}
-			MiscUtils.delete(new File(dbDirectoryPath(dbName)));
-			MiscUtils.delete(new File(dbIndexPath(dbName)));
+			boolean result = MiscUtils.delete(new File(dbDirectoryPath(dbName)));
+			if(!result) {
+				throw new Exception("Database("+dbName+") deletion(data) failed due file deletion issues");
+			}
+			result = MiscUtils.delete(new File(dbIndexPath(dbName)));
+			if(!result) {
+				throw new Exception("Database("+dbName+") deletion(index) failed due file deletion issues");
+			}
 			metricsDbCounter.dec();
+			logger.info("Database(" + dbName + ") deleted");
 		}
 	}
 
@@ -427,17 +433,6 @@ public class DiskStorageEngine implements StorageEngine {
 		}
 	}
 
-	/**
-	 * Function for unit testing
-	 * 
-	 * @param dbName
-	 * @param measurementName
-	 * @return
-	 */
-	protected Map<String, TimeSeries> getSeriesMap(String dbName, String measurementName) {
-		return databaseMap.get(dbName).get(measurementName).getTimeSeriesMap();
-	}
-
 	@Override
 	public void connect() throws IOException {
 	}
@@ -446,8 +441,8 @@ public class DiskStorageEngine implements StorageEngine {
 	public void disconnect() throws IOException {
 		for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
 			for (Entry<String, Measurement> seriesMap : measurementMap.getValue().entrySet()) {
-				for (Entry<String, TimeSeries> series : seriesMap.getValue().getTimeSeriesMap().entrySet()) {
-					series.getValue().close();
+				for (TimeSeries series : seriesMap.getValue().getTimeSeries()) {
+					series.close();
 				}
 			}
 		}
