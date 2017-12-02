@@ -35,7 +35,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
-import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.InfluxDecoder;
 
@@ -132,9 +132,9 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 					} else {
 						String payload = requestBuffer.toString();
 						logger.fine("Request:" + payload);
-						List<DataPoint> dps = InfluxDecoder.dataPointsFromString(dbName, payload);
+						List<Point> dps = InfluxDecoder.pointsFromString(dbName, payload);
 						meter.inc(dps.size());
-						for (DataPoint dp : dps) {
+						for (Point dp : dps) {
 							try {
 								engine.writeDataPoint(dp);
 								logger.fine("Accepted:" + dp + "\t" + new Date(dp.getTimestamp()));

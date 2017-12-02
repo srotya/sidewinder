@@ -27,6 +27,7 @@ import com.srotya.sidewinder.cluster.push.routing.LocalEndpointService;
 import com.srotya.sidewinder.cluster.push.routing.Node;
 import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
 import com.srotya.sidewinder.cluster.push.routing.RoutingStrategy;
+import com.srotya.sidewinder.cluster.rpc.Query;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -57,6 +58,16 @@ public class ScalingRoutingEngine extends RoutingEngine {
 			throw new IllegalArgumentException(e);
 		}
 		connector.initializeRouterHooks(this);
+	}
+	
+	@Override
+	public List<Node> routeQuery(Query query) throws IOException {
+		List<Node> list = strategy.getNodes(getRoutingKey(query.getDbName(), query.getMeasurementName()), 3);
+		return list;
+	}
+	
+	public static String getRoutingKey(String dbName, String measurementName) {
+		return dbName + "@" + measurementName;
 	}
 
 	@Override

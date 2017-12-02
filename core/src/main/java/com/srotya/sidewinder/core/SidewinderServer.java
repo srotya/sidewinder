@@ -29,13 +29,13 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Logger;
 
-import com.srotya.sidewinder.core.aggregators.FunctionTable;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
 import com.srotya.sidewinder.core.api.InfluxApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
 import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.external.Ingester;
+import com.srotya.sidewinder.core.functions.FunctionTable;
 import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
 import com.srotya.sidewinder.core.monitoring.RestAPIHealthCheck;
 import com.srotya.sidewinder.core.rpc.GRPCServer;

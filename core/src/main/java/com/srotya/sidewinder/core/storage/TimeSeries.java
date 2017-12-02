@@ -108,6 +108,8 @@ public class TimeSeries {
 					list = Collections.synchronizedList(new ArrayList<>());
 					createNewTimeSeriesBucket(timestamp, tsBucket, list);
 					bucketMap.put(tsBucket, list);
+					logger.fine("Creating new time series bucket:" + seriesId + ",measurement:"
+							+ measurement.getMeasurementName());
 				}
 			}
 		}
@@ -262,8 +264,7 @@ public class TimeSeries {
 		}
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
-				readers.add(
-						getReader(writer, timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
+				readers.add(getReader(writer, timeRangePredicate, valuePredicate));
 			}
 		}
 		List<DataPoint> points = new ArrayList<>();
@@ -301,8 +302,7 @@ public class TimeSeries {
 		}
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
-				readers.add(
-						getReader(writer, timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
+				readers.add(getReader(writer, timeRangePredicate, valuePredicate));
 			}
 		}
 		List<long[]> points = new ArrayList<>();
@@ -310,29 +310,6 @@ public class TimeSeries {
 			readerToPoints(points, reader);
 		}
 		return points;
-	}
-
-	/**
-	 * Get {@link Reader} with time and value filter predicates pushed-down to it.
-	 * Along with {@link DataPoint} enrichments pushed to it.
-	 * 
-	 * @param timePredicate
-	 * @param valuePredicate
-	 * @param isFp
-	 * @param appendFieldValueName
-	 * @param appendTags
-	 * @return point in time instance of reader
-	 * @throws IOException
-	 */
-	public static Reader getReader(Writer writer, Predicate timePredicate, Predicate valuePredicate, boolean isFp,
-			String appendFieldValueName, List<String> appendTags) throws IOException {
-		Reader reader = writer.getReader();
-		reader.setTimePredicate(timePredicate);
-		reader.setValuePredicate(valuePredicate);
-		reader.setFieldName(appendFieldValueName);
-		reader.setIsFP(isFp);
-		reader.setTags(appendTags);
-		return reader;
 	}
 
 	/**
@@ -386,8 +363,7 @@ public class TimeSeries {
 		SortedMap<String, List<Writer>> series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
-				readers.add(
-						getReader(writer, timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
+				readers.add(getReader(writer, timeRangePredicate, valuePredicate));
 			}
 		}
 		return readers;
@@ -477,7 +453,7 @@ public class TimeSeries {
 	public static List<DataPoint> seriesToDataPoints(String appendFieldValueName, List<String> appendTags,
 			List<DataPoint> points, Writer writer, Predicate timePredicate, Predicate valuePredicate, boolean isFp)
 			throws IOException {
-		Reader reader = getReader(writer, timePredicate, valuePredicate, isFp, appendFieldValueName, appendTags);
+		Reader reader = getReader(writer, timePredicate, valuePredicate);
 		DataPoint point = null;
 		while (true) {
 			try {
@@ -492,10 +468,6 @@ public class TimeSeries {
 				}
 				break;
 			}
-		}
-		if (reader.getCounter() != reader.getPairCount() || points.size() < reader.getCounter()) {
-			// System.err.println("SDP:" + points.size() + "/" +
-			// reader.getCounter() + "/" + reader.getPairCount());
 		}
 		return points;
 	}

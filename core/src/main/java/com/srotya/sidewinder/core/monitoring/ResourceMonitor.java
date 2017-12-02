@@ -28,9 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
@@ -84,17 +82,15 @@ public class ResourceMonitor {
 			count += bean.getCollectionCount();
 			time += bean.getCollectionTime();
 		}
-		DataPoint dp = MiscUtils.buildDataPoint(DB, "gc", "count", Arrays.asList("local"), System.currentTimeMillis(),
-				count);
 		try {
-			storageEngine.writeDataPoint(dp);
+			storageEngine.writeDataPoint(DB, "gc", "count", Arrays.asList("local"), System.currentTimeMillis(),
+					count);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
-		dp = MiscUtils.buildDataPoint(DB, "gc", "time", Arrays.asList("local"), System.currentTimeMillis(),
-				time);
 		try {
-			storageEngine.writeDataPoint(dp);
+			storageEngine.writeDataPoint(DB, "gc", "time", Arrays.asList("local"), System.currentTimeMillis(),
+					time);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
@@ -102,10 +98,9 @@ public class ResourceMonitor {
 
 	private void validateCPUUsage() {
 		double systemLoadAverage = ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage();
-		DataPoint dp = MiscUtils.buildDataPoint(DB, "cpu", "load", Arrays.asList("local"), System.currentTimeMillis(),
-				systemLoadAverage);
 		try {
-			storageEngine.writeDataPoint(dp);
+			storageEngine.writeDataPoint(DB, "cpu", "load", Arrays.asList("local"), System.currentTimeMillis(),
+					systemLoadAverage);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
@@ -117,17 +112,15 @@ public class ResourceMonitor {
 			max = Integer.MAX_VALUE;
 		}
 		long used = mem.getUsed();
-		DataPoint dp = MiscUtils.buildDataPoint(DB, "memory", "used", Arrays.asList(type), System.currentTimeMillis(),
-				used);
 		try {
-			storageEngine.writeDataPoint(dp);
+			storageEngine.writeDataPoint(DB, "memory", "used", Arrays.asList(type), System.currentTimeMillis(),
+					used);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
 
-		dp = MiscUtils.buildDataPoint(DB, "memory", "max", Arrays.asList(type), System.currentTimeMillis(), used);
 		try {
-			storageEngine.writeDataPoint(dp);
+			storageEngine.writeDataPoint(DB, "memory", "max", Arrays.asList(type), System.currentTimeMillis(), used);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}

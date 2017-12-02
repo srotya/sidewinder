@@ -207,6 +207,10 @@
         <os>
           <family>!windows</family>
         </os>
+        <property>
+          <name>web</name>
+          <value>true</value>
+        </property>
       </activation>
       <build>
         <plugins>

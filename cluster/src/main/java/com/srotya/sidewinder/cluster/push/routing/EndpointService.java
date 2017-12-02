@@ -16,7 +16,10 @@
 package com.srotya.sidewinder.cluster.push.routing;
 
 import java.io.IOException;
+import java.util.List;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.srotya.sidewinder.core.rpc.Ack;
 import com.srotya.sidewinder.core.rpc.Point;
 
 /**
@@ -32,6 +35,14 @@ import com.srotya.sidewinder.core.rpc.Point;
 public interface EndpointService {
 
 	public void write(Point point) throws IOException;
+	
+	public ListenableFuture<Ack> writeAsync(Point point) throws InterruptedException, IOException;
+	
+	public ListenableFuture<Ack> writeAsync(List<Point> point) throws InterruptedException, IOException;
+	
+	public ListenableFuture<Ack> writeAsync(long messageId, List<Point> points) throws InterruptedException, IOException;
+	
+	public ListenableFuture<Ack> writeAsync(long messageId, Point point) throws InterruptedException, IOException;
 	
 	public void requestRouteEntry(Point point) throws IOException;
 

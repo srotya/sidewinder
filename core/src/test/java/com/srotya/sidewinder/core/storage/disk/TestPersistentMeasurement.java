@@ -15,18 +15,19 @@
  */
 package com.srotya.sidewinder.core.storage.disk;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,7 +42,7 @@ import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
@@ -103,9 +104,9 @@ public class TestPersistentMeasurement {
 
 		m = new PersistentMeasurement();
 		m.configure(map, null, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
-		Set<SeriesQueryOutput> resultMap = new HashSet<>();
-		m.queryDataPoints("value", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, null, resultMap);
-		Iterator<SeriesQueryOutput> iterator = resultMap.iterator();
+		List<Series> resultMap = new ArrayList<>();
+		m.queryDataPoints("value", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, resultMap);
+		Iterator<Series> iterator = resultMap.iterator();
 		assertEquals(LIMIT, iterator.next().getDataPoints().size());
 		m.close();
 	}
@@ -140,11 +141,10 @@ public class TestPersistentMeasurement {
 			assertEquals(t + i * 1000, dp.getTimestamp());
 			assertEquals(i, dp.getLongValue());
 		}
-		Set<SeriesQueryOutput> resultMap = new HashSet<>();
-		m.queryDataPoints("vf1", t, t + 1000 * 100, Arrays.asList("t1", "t2"), new AnyFilter<>(), null, null,
-				resultMap);
+		List<Series> resultMap = new ArrayList<>();
+		m.queryDataPoints("vf1", t, t + 1000 * 100, Arrays.asList("t1", "t2"), new AnyFilter<>(), null, resultMap);
 		assertEquals(1, resultMap.size());
-		SeriesQueryOutput next = resultMap.iterator().next();
+		Series next = resultMap.iterator().next();
 		for (int i = 0; i < next.getDataPoints().size(); i++) {
 			DataPoint dp = next.getDataPoints().get(i);
 			assertEquals(t + i * 1000, dp.getTimestamp());
