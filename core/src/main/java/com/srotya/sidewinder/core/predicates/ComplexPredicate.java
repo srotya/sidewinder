@@ -15,8 +15,9 @@
  */
 package com.srotya.sidewinder.core.predicates;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.function.BinaryOperator;
+import java.util.function.LongPredicate;
 
 /**
  * An abstract {@link Predicate} implementation for predicates that take one or
@@ -26,43 +27,19 @@ import java.util.List;
  */
 public abstract class ComplexPredicate implements Predicate {
 
-	private List<Predicate> predicates;
+	private LongPredicate predicate;
 
-	public ComplexPredicate(List<Predicate> predicates) {
-		if (predicates == null) {
-			this.predicates = new ArrayList<>();
-		} else {
-			this.predicates = predicates;
-		}
+	public ComplexPredicate(List<LongPredicate> predicates, BinaryOperator<LongPredicate> logic) {
+		predicate = predicates.stream().reduce(logic).get();
 	}
 
 	@Override
-	public boolean apply(long value) {
-		boolean result = predicates.get(0).apply(value);
-		for (int i = 1; i < predicates.size(); i++) {
-			boolean temp = result;
-			result = predicate(result, predicates.get(i), value);
-			if (shortCircuit(temp, result)) {
-				break;
-			}
-		}
-		return result;
+	public boolean test(long value) {
+		return predicate.test(value);
 	}
 
-	public abstract boolean shortCircuit(boolean prev, boolean current);
-
-	public abstract boolean predicate(boolean prev, Predicate next, long value);
-
-	public void addPredicate(Predicate predicate) {
-		predicates.add(predicate);
-	}
-
-	public void addPredicates(List<Predicate> operators) {
-		predicates.addAll(operators);
-	}
-
-	public List<Predicate> getPredicates() {
-		return predicates;
+	public LongPredicate getPredicate() {
+		return predicate;
 	}
 
 }

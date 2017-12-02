@@ -31,7 +31,7 @@ public class GreaterThanPredicate implements Predicate {
 	}
 
 	@Override
-	public boolean apply(long value) {
+	public boolean test(long value) {
 		return value > rhs;
 	}
 

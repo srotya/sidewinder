@@ -16,7 +16,6 @@
 package com.srotya.sidewinder.core.storage.compression;
 
 import java.io.IOException;
-import java.util.List;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -37,12 +36,6 @@ public interface Reader {
 	
 	public int getPairCount();
 	
-	public void setIsFP(boolean fp);
-	
-	public void setFieldName(String fieldName);
-	
-	public void setTags(List<String> tags);
-
 	public void setTimePredicate(Predicate timePredicate);
 
 	public void setValuePredicate(Predicate valuePredicate);

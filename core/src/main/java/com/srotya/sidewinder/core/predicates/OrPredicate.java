@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.predicates;
 
 import java.util.List;
+import java.util.function.LongPredicate;
 
 /**
  * {@link Predicate} implementing inclusive OR.
@@ -24,22 +25,12 @@ import java.util.List;
  */
 public class OrPredicate extends ComplexPredicate {
 
-	public OrPredicate(List<Predicate> predicates) {
-		super(predicates);
-	}
-
-	@Override
-	public boolean shortCircuit(boolean prev, boolean current) {
-		return prev || current;
-	}
-
-	@Override
-	public boolean predicate(boolean prev, Predicate next, long value) {
-		return prev || next.apply(value);
+	public OrPredicate(List<LongPredicate> predicates) {
+		super(predicates, (x, y) -> x.or(y));
 	}
 
 	@Override
 	public String toString() {
-		return "OrOperator " + getPredicates() + "";
+		return "OrOperator " + getPredicate() + "";
 	}
 }

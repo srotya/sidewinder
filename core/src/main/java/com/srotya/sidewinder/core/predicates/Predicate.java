@@ -15,6 +15,8 @@
  */
 package com.srotya.sidewinder.core.predicates;
 
+import java.util.function.LongPredicate;
+
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
@@ -28,8 +30,8 @@ import com.srotya.sidewinder.core.storage.DataPoint;
  * 
  * @author ambud
  */
-public interface Predicate {
+public interface Predicate extends LongPredicate {
 
-	boolean apply(long value);
+	boolean test(long value);
 
 }

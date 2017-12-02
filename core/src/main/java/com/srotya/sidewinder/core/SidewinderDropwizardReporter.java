@@ -30,9 +30,7 @@ import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.ScheduledReporter;
 import com.codahale.metrics.Timer;
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
@@ -51,14 +49,14 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 	}
 
 	@Override
-	public void report(@SuppressWarnings("rawtypes") SortedMap<String, Gauge> gauges, SortedMap<String, Counter> counters,
-			SortedMap<String, Histogram> histograms, SortedMap<String, Meter> meters, SortedMap<String, Timer> timers) {
+	public void report(@SuppressWarnings("rawtypes") SortedMap<String, Gauge> gauges,
+			SortedMap<String, Counter> counters, SortedMap<String, Histogram> histograms,
+			SortedMap<String, Meter> meters, SortedMap<String, Timer> timers) {
 		if (counters != null) {
 			for (Entry<String, Counter> entry : counters.entrySet()) {
-				DataPoint dp = MiscUtils.buildDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
-						System.currentTimeMillis(), entry.getValue().getCount());
 				try {
-					engine.writeDataPoint(dp);
+					engine.writeDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
+							System.currentTimeMillis(), entry.getValue().getCount());
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -66,10 +64,9 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 		}
 		if (meters != null) {
 			for (Entry<String, Meter> entry : meters.entrySet()) {
-				DataPoint dp = MiscUtils.buildDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
-						System.currentTimeMillis(), entry.getValue().getCount());
 				try {
-					engine.writeDataPoint(dp);
+					engine.writeDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
+							System.currentTimeMillis(), entry.getValue().getCount());
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -77,10 +74,9 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 		}
 		if (timers != null) {
 			for (Entry<String, Timer> entry : timers.entrySet()) {
-				DataPoint dp = MiscUtils.buildDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
-						System.currentTimeMillis(), entry.getValue().getSnapshot().getMean());
 				try {
-					engine.writeDataPoint(dp);
+					engine.writeDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
+							System.currentTimeMillis(), entry.getValue().getSnapshot().getMean());
 				} catch (IOException e) {
 					e.printStackTrace();
 				}

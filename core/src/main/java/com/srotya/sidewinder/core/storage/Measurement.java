@@ -28,13 +28,11 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.compression.Reader;
@@ -56,7 +54,6 @@ public interface Measurement {
 	public Collection<TimeSeries> getTimeSeries();
 
 	public Set<String> getSeriesKeys();
-	// public Map<String, TimeSeries> getTimeSeriesMap();
 
 	public TimeSeries getSeriesFromKey(String key);
 
@@ -174,7 +171,7 @@ public interface Measurement {
 			} else {
 				seriesTags = new ArrayList<>();
 			}
-			if (!tagFilterTree.isRetain(seriesTags)) {
+			if (tagFilterTree != null && !tagFilterTree.isRetain(seriesTags)) {
 				iterator.remove();
 			}
 		}
@@ -201,8 +198,8 @@ public interface Measurement {
 		});
 	}
 
-	public default void runOptimizationOperation(String operation, Function<TimeSeries, List<Writer>> op)
-			throws IOException {
+	public default void runOptimizationOperation(String operation,
+			java.util.function.Function<TimeSeries, List<Writer>> op) throws IOException {
 		getLock().lock();
 		try {
 			Set<String> cleanupList = new HashSet<>();
@@ -263,8 +260,8 @@ public interface Measurement {
 	}
 
 	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime,
-			List<String> tagList, Filter<List<String>> tagFilter, Predicate valuePredicate,
-			AggregationFunction aggregationFunction, Set<SeriesQueryOutput> resultMap) throws IOException {
+			List<String> tagList, Filter<List<String>> tagFilter, Predicate valuePredicate, List<Series> resultMap)
+			throws IOException {
 		Set<String> rowKeys = null;
 		final Pattern p;
 		try {
@@ -283,17 +280,15 @@ public interface Measurement {
 		}
 		stream.forEach(entry -> {
 			try {
-				populateDataPoints(entry, startTime, endTime, aggregationFunction, valuePredicate, p, resultMap);
+				populateDataPoints(entry, startTime, endTime, valuePredicate, p, resultMap);
 			} catch (Exception e) {
-				e.printStackTrace();
-				getLogger().severe("Failed to query data points");
+				getLogger().log(Level.SEVERE, "Failed to query data points", e);
 			}
 		});
 	}
 
-	public default void populateDataPoints(String entry, long startTime, long endTime,
-			AggregationFunction aggregationFunction, Predicate valuePredicate, Pattern p,
-			Set<SeriesQueryOutput> resultMap) throws IOException {
+	public default void populateDataPoints(String entry, long startTime, long endTime, Predicate valuePredicate,
+			Pattern p, List<Series> resultMap) throws IOException {
 		String[] keys = entry.split(FIELD_TAG_SEPARATOR);
 		if (!p.matcher(keys[0]).matches()) {
 			return;
@@ -311,80 +306,10 @@ public interface Measurement {
 			return;
 		}
 		points = value.queryDataPoints(keys[0], seriesTags, startTime, endTime, valuePredicate);
-		if (aggregationFunction != null) {
-			points = aggregationFunction.aggregateDataPoints(points);
-			// points = aggregationFunction.aggregatePoints(points, value.isFp());
-		}
-		if (points == null) {
-			points = new ArrayList<>();
-		}
-		if (points.size() > 0) {
-			SeriesQueryOutput seriesQueryOutput = new SeriesQueryOutput(getMeasurementName(), keys[0], seriesTags);
+		if (points != null && points.size() > 0) {
+			Series seriesQueryOutput = new Series(getMeasurementName(), keys[0], seriesTags);
 			seriesQueryOutput.setFp(value.isFp());
 			seriesQueryOutput.setDataPoints(points);
-			resultMap.add(seriesQueryOutput);
-		}
-	}
-
-	public default void queryPoints(String valueFieldNamePattern, long startTime, long endTime, List<String> tagList,
-			Filter<List<String>> tagFilter, Predicate valuePredicate, AggregationFunction aggregationFunction,
-			Set<SeriesQueryOutput> resultMap) throws IOException {
-		Set<String> rowKeys = null;
-		Pattern fieldNamePattern;
-		try {
-			fieldNamePattern = Pattern.compile(valueFieldNamePattern);
-		} catch (Exception e) {
-			throw new IOException("Invalid regex for value field name:" + e.getMessage());
-		}
-		if (tagList == null || tagList.size() == 0) {
-			rowKeys = getSeriesKeys();
-		} else {
-			rowKeys = getTagFilteredRowKeys(valueFieldNamePattern, tagFilter, tagList);
-		}
-		Stream<String> stream = rowKeys.stream();
-		if (useQueryPool()) {
-			stream = stream.parallel();
-		}
-		stream.forEach(entry -> {
-			try {
-				populatePoints(entry, startTime, endTime, aggregationFunction, valuePredicate, fieldNamePattern,
-						resultMap);
-			} catch (IOException e) {
-				getLogger().severe("Failed to query data points");
-			}
-		});
-	}
-
-	public default void populatePoints(String entry, long startTime, long endTime,
-			AggregationFunction aggregationFunction, Predicate valuePredicate, Pattern p,
-			Set<SeriesQueryOutput> resultMap) throws IOException {
-		String[] keys = entry.split(FIELD_TAG_SEPARATOR);
-		if (!p.matcher(keys[0]).matches()) {
-			return;
-		}
-		List<long[]> points = null;
-		List<String> seriesTags = null;
-		if (keys.length > 1) {
-			seriesTags = decodeStringToTags(getTagIndex(), keys[1]);
-		} else {
-			seriesTags = new ArrayList<>();
-		}
-		TimeSeries value = getSeriesFromKey(entry);
-		if (value == null) {
-			getLogger().severe("Invalid time series value " + entry + "\t" + "\t" + "\n\n");
-			return;
-		}
-		points = value.queryPoints(keys[0], seriesTags, startTime, endTime, valuePredicate);
-		if (aggregationFunction != null) {
-			points = aggregationFunction.aggregatePoints(points, value.isFp());
-		}
-		if (points == null) {
-			points = new ArrayList<>();
-		}
-		if (points.size() > 0) {
-			SeriesQueryOutput seriesQueryOutput = new SeriesQueryOutput(getMeasurementName(), keys[0], seriesTags);
-			seriesQueryOutput.setFp(value.isFp());
-			seriesQueryOutput.setPoints(points);
 			resultMap.add(seriesQueryOutput);
 		}
 	}

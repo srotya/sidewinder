@@ -25,7 +25,8 @@ import org.junit.Test;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
-import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.rpc.Point;
+import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 
 /**
@@ -39,15 +40,15 @@ public class TestDatabaseOpsApi {
 		engine.configure(new HashMap<>(), null);
 		engine.connect();
 
-		DataPoint dp = new DataPoint();
+		Builder dp = Point.newBuilder();
 		dp.setDbName("test1");
 		dp.setFp(false);
-		dp.setLongValue(1L);
+		dp.setValue(1L);
 		dp.setMeasurementName("cpu");
 		dp.setTimestamp(System.currentTimeMillis());
-		dp.setTags(Arrays.asList("host=1", "vm1"));
+		dp.addAllTags(Arrays.asList("host=1", "vm1"));
 		dp.setValueFieldName("value");
-		engine.writeDataPoint(dp);
+		engine.writeDataPoint(dp.build());
 
 		DatabaseOpsApi api = new DatabaseOpsApi(engine);
 		String querySeries = api.querySeries("test1",
