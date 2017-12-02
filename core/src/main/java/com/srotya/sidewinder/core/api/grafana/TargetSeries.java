@@ -17,8 +17,8 @@ package com.srotya.sidewinder.core.api.grafana;
 
 import java.util.List;
 
-import com.srotya.sidewinder.core.aggregators.AggregationFunction;
 import com.srotya.sidewinder.core.filters.Filter;
+import com.srotya.sidewinder.core.functions.Function;
 
 public class TargetSeries {
 
@@ -27,14 +27,15 @@ public class TargetSeries {
 	private List<String> tagList;
 	private boolean autoCorrelate;
 	private Filter<List<String>> tagFilter;
-	private AggregationFunction aggregationFunction;
+	private Function function;
 
-	public TargetSeries(String measurementName, String fieldName, List<String> tagList, Filter<List<String>> tagFilter, AggregationFunction aggregationFunction, boolean autoCorrelate) {
+	public TargetSeries(String measurementName, String fieldName, List<String> tagList, Filter<List<String>> tagFilter,
+			Function function, boolean autoCorrelate) {
 		this.measurementName = measurementName;
 		this.fieldName = fieldName;
 		this.tagList = tagList;
 		this.tagFilter = tagFilter;
-		this.aggregationFunction = aggregationFunction;
+		this.function = function;
 		this.autoCorrelate = autoCorrelate;
 	}
 
@@ -90,7 +91,8 @@ public class TargetSeries {
 	}
 
 	/**
-	 * @param autoCorrelate the autoCorrelate to set
+	 * @param autoCorrelate
+	 *            the autoCorrelate to set
 	 */
 	public void setAutoCorrelate(boolean autoCorrelate) {
 		this.autoCorrelate = autoCorrelate;
@@ -99,7 +101,7 @@ public class TargetSeries {
 	/**
 	 * @return the aggregationFunction
 	 */
-	public AggregationFunction getAggregationFunction() {
-		return aggregationFunction;
+	public Function getAggregationFunction() {
+		return function;
 	}
 }
