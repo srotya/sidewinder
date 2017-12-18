@@ -13,27 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.single;
-
-import java.util.List;
+package com.srotya.sidewinder.core.functions.transform;
 
 import com.srotya.sidewinder.core.functions.FunctionName;
-import com.srotya.sidewinder.core.functions.ReduceFunction;
-import com.srotya.sidewinder.core.storage.DataPoint;
 
-/**
- * @author ambud
- */
-@FunctionName(alias = "slast")
-public class LastFunction extends ReduceFunction {
+@FunctionName(alias = "floor")
+public class FloorFunction extends TransformFunction {
 
 	@Override
-	public void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output, boolean isFp) {
-		if (isFp) {
-			output.setValue(dataPoints.get(dataPoints.size() - 1).getValue());
-		} else {
-			output.setLongValue(dataPoints.get(dataPoints.size() - 1).getLongValue());
-		}
+	public long transform(long value) {
+		return (long) Math.floor(value);
 	}
+
+	@Override
+	public double transform(double value) {
+		return Math.floor(value);
+	}
+
 
 }

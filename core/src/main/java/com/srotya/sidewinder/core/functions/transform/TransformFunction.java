@@ -13,32 +13,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.windowed;
+package com.srotya.sidewinder.core.functions.transform;
 
 import java.util.List;
 
-import com.srotya.sidewinder.core.functions.FunctionName;
+import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.Series;
 
-/**
- * @author ambud
- */
-@FunctionName(alias = "stddev")
-public class WindowedStdDev extends ReducingWindowedAggregator {
+public abstract class TransformFunction implements Function {
+
+	@Override
+	public List<Series> apply(List<Series> t) {
+		for (Series s : t) {
+			List<DataPoint> dps = s.getDataPoints();
+			for (DataPoint dp : dps) {
+				if (s.isFp()) {
+					transform(dp.getValue());
+				} else {
+					transform(dp.getLongValue());
+				}
+			}
+		}
+		return t;
+	}
+
+	public abstract long transform(long value);
+
+	public abstract double transform(double value);
 
 	@Override
 	public void init(Object[] args) throws Exception {
-		if (args.length > 1) {
-			args[1] = "stddev";
-		} else {
-			args = new Object[] { args[0], "stddev" };
-		}
-		super.init(args);
 	}
 
 	@Override
-	public List<DataPoint> aggregateAfterReduction(List<DataPoint> datapoints, boolean isFp) {
-		return datapoints;
+	public int getNumberOfArgs() {
+		return 0;
 	}
 
 }
