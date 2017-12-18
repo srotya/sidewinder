@@ -29,9 +29,9 @@ public abstract class TransformFunction implements Function {
 			List<DataPoint> dps = s.getDataPoints();
 			for (DataPoint dp : dps) {
 				if (s.isFp()) {
-					transform(dp.getValue());
+					dp.setValue(transform(dp.getValue()));
 				} else {
-					transform(dp.getLongValue());
+					dp.setLongValue(transform(dp.getLongValue()));
 				}
 			}
 		}
