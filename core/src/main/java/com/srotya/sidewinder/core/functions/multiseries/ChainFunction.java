@@ -13,24 +13,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.windowed;
+package com.srotya.sidewinder.core.functions.multiseries;
 
-import com.srotya.sidewinder.core.functions.FunctionName;
+import java.util.ArrayList;
+import java.util.List;
+
+import com.srotya.sidewinder.core.functions.Function;
+import com.srotya.sidewinder.core.storage.Series;
 
 /**
  * @author ambud
  */
-@FunctionName(alias = "first")
-public class WindowedFirst extends ReducingWindowedAggregator {
+public class ChainFunction implements Function {
+
+	private List<Function> chain;
+
+	@Override
+	public List<Series> apply(List<Series> t) {
+		List<Series> output = t;
+		for(Function f:chain) {
+			output = f.apply(output);
+		}
+		return output;
+	}
 
 	@Override
 	public void init(Object[] args) throws Exception {
-		if (args.length > 1) {
-			args[1] = "sfirst";
-		} else {
-			args = new Object[] { args[0], "sfirst" };
+		chain = new ArrayList<>();
+		for (int i = 0; i < args.length; i++) {
+			Object object = args[i];
+			chain.add((Function) object);
 		}
-		super.init(args);
+	}
+
+	@Override
+	public int getNumberOfArgs() {
+		return -1;
 	}
 
 }

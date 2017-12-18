@@ -13,24 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.windowed;
+package com.srotya.sidewinder.core.functions.transform;
 
 import com.srotya.sidewinder.core.functions.FunctionName;
 
-/**
- * @author ambud
- */
-@FunctionName(alias = "max")
-public class WindowedMax extends ReducingWindowedAggregator {
+@FunctionName(alias = "ceil")
+public class CeilFunction extends TransformFunction {
 
 	@Override
-	public void init(Object[] args) throws Exception {
-		if (args.length > 1) {
-			args[1] = "smax";
-		} else {
-			args = new Object[] { args[0], "smax" };
-		}
-		super.init(args);
+	public long transform(long value) {
+		return (long) Math.ceil(value);
+	}
+
+	@Override
+	public double transform(double value) {
+		return Math.ceil(value);
 	}
 
 }

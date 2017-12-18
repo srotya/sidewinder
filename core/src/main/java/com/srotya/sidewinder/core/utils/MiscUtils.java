@@ -36,6 +36,7 @@ import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.filters.OrFilter;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.functions.FunctionTable;
+import com.srotya.sidewinder.core.functions.multiseries.ChainFunction;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -179,33 +180,39 @@ public class MiscUtils {
 		}
 	}
 
-	public static Function createAggregateFunction(String[] parts)
+	public static Function createFunctionChain(String[] parts, int startIndex)
 			throws InstantiationException, IllegalAccessException, Exception {
-		String[] args = parts[1].split(",");
-		Class<? extends Function> lookupFunction = FunctionTable.get().lookupFunction(args[0]);
-		if (lookupFunction == null) {
-			throw new BadRequestException("Bad aggregation function:" + args[0]);
-		}
-		Function instance = (Function) lookupFunction.newInstance();
-		if (args.length - 1 < instance.getNumberOfArgs()) {
-			throw new BadRequestException("Insufficient arguments for aggregation function, needed:"
-					+ instance.getNumberOfArgs() + ", found:" + (args.length - 1));
-		}
-		Object[] ary = new Object[args.length - 1];
-		for (int i = 1; i < args.length; i++) {
-			Matcher matcher = NUMBER.matcher(args[i]);
-			if (matcher.matches()) {
-				if (matcher.group(1) != null) {
-					ary[i - 1] = Double.parseDouble(args[i]);
-				} else {
-					ary[i - 1] = Integer.parseInt(args[i]);
-				}
-			} else {
-				ary[i - 1] = args[i];
+		Function[] arguments = new Function[parts.length - startIndex];
+		for (int k = startIndex, p = 0; k < parts.length; k++, p++) {
+			String[] args = parts[k].split(",");
+			Class<? extends Function> lookupFunction = FunctionTable.get().lookupFunction(args[0]);
+			if (lookupFunction == null) {
+				throw new BadRequestException("Unknown function:" + args[0]);
 			}
+			Function instance = (Function) lookupFunction.newInstance();
+			if (args.length - 1 < instance.getNumberOfArgs()) {
+				throw new BadRequestException("Insufficient arguments for aggregation function, needed:"
+						+ instance.getNumberOfArgs() + ", found:" + (args.length - 1));
+			}
+			Object[] ary = new Object[args.length - 1];
+			for (int i = 1; i < args.length; i++) {
+				Matcher matcher = NUMBER.matcher(args[i]);
+				if (matcher.matches()) {
+					if (matcher.group(1) != null) {
+						ary[i - 1] = Double.parseDouble(args[i]);
+					} else {
+						ary[i - 1] = Integer.parseInt(args[i]);
+					}
+				} else {
+					ary[i - 1] = args[i];
+				}
+			}
+			instance.init(ary);
+			arguments[p] = instance;
 		}
-		instance.init(ary);
-		return instance;
+		ChainFunction function = new ChainFunction();
+		function.init(arguments);
+		return function;
 	}
 
 	public static TargetSeries extractTargetFromQuery(String query) {
@@ -240,7 +247,7 @@ public class MiscUtils {
 		Function aggregationFunction = null;
 		if (parts.length > 1) {
 			try {
-				aggregationFunction = createAggregateFunction(parts);
+				aggregationFunction = createFunctionChain(parts, 1);
 			} catch (Exception e) {
 				throw new BadRequestException(e);
 			}

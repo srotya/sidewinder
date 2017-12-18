@@ -13,24 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.windowed;
+package com.srotya.sidewinder.core.functions.transform;
 
 import com.srotya.sidewinder.core.functions.FunctionName;
 
-/**
- * @author ambud
- */
-@FunctionName(alias = "integral")
-public class IntegralFunction extends ReducingWindowedAggregator {
+@FunctionName(alias = "abs")
+public class AbsoluteFunction extends TransformFunction {
 
 	@Override
-	public void init(Object[] args) throws Exception {
-		if (args.length > 1) {
-			args[1] = "ssum";
-		} else {
-			args = new Object[] { args[0], "ssum" };
-		}
-		super.init(args);
+	public double transform(double value) {
+		return Math.abs(value);
+	}
+	
+	@Override
+	public long transform(long value) {
+		return Math.abs(value);
 	}
 
 }

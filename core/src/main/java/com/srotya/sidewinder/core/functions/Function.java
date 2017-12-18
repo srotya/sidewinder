@@ -22,7 +22,7 @@ import com.srotya.sidewinder.core.storage.Series;
 public interface Function extends java.util.function.Function<List<Series>, List<Series>> {
 
 	public void init(Object[] args) throws Exception;
-
+	
 	public int getNumberOfArgs(); 
 	
 }

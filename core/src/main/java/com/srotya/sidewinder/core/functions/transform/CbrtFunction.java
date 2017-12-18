@@ -13,27 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.single;
-
-import java.util.List;
+package com.srotya.sidewinder.core.functions.transform;
 
 import com.srotya.sidewinder.core.functions.FunctionName;
-import com.srotya.sidewinder.core.storage.DataPoint;
 
-/**
- * @author ambud
- */
-@FunctionName(alias = "smean")
-public class MeanFunction extends SumFunction {
+@FunctionName(alias = "cbrt")
+public class CbrtFunction extends TransformFunction {
 
 	@Override
-	public void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output, boolean isFp) {
-		super.aggregateToSingle(dataPoints, output, isFp);
-		if (isFp) {
-			output.setValue(output.getValue() / dataPoints.size());
-		} else {
-			output.setLongValue(output.getLongValue() / dataPoints.size());
-		}
+	public long transform(long value) {
+		return (long) Math.cbrt(value);
+	}
+
+	@Override
+	public double transform(double value) {
+		return Math.cbrt(value);
 	}
 
 }
