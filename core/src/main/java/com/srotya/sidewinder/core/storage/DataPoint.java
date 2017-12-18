@@ -28,6 +28,14 @@ public class DataPoint implements Serializable {
 	private static final long serialVersionUID = 1L;
 	private long timestamp;
 	private long value;
+	
+	public DataPoint() {
+	}
+	
+	public DataPoint(long timestamp, long value) {
+		this.timestamp = timestamp;
+		this.value = value;
+	}
 
 	/**
 	 * @return the timestamp

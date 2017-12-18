@@ -23,12 +23,7 @@ import java.util.List;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.functions.ReduceFunction;
-import com.srotya.sidewinder.core.functions.single.FirstFunction;
-import com.srotya.sidewinder.core.functions.single.LastFunction;
-import com.srotya.sidewinder.core.functions.single.MaxFunction;
-import com.srotya.sidewinder.core.functions.single.MeanFunction;
-import com.srotya.sidewinder.core.functions.single.MinFunction;
-import com.srotya.sidewinder.core.functions.single.SumFunction;
+import com.srotya.sidewinder.core.functions.single.BasicSingleFunctions.*;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.utils.MiscUtils;

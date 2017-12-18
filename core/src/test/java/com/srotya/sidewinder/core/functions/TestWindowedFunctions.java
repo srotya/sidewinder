@@ -22,14 +22,8 @@ import java.util.List;
 
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.functions.windowed.DerivativeFunction;
-import com.srotya.sidewinder.core.functions.windowed.IntegralFunction;
 import com.srotya.sidewinder.core.functions.windowed.ReducingWindowedAggregator;
-import com.srotya.sidewinder.core.functions.windowed.WindowedFirst;
-import com.srotya.sidewinder.core.functions.windowed.WindowedLast;
-import com.srotya.sidewinder.core.functions.windowed.WindowedMax;
-import com.srotya.sidewinder.core.functions.windowed.WindowedMean;
-import com.srotya.sidewinder.core.functions.windowed.WindowedMin;
+import com.srotya.sidewinder.core.functions.windowed.BasicWindowedFunctions.*;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.utils.MiscUtils;
