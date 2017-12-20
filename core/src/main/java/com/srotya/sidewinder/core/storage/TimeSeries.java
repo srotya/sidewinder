@@ -66,7 +66,7 @@ public class TimeSeries {
 	private Measurement measurement;
 	private int timeBucketSize;
 	private int bucketCount;
-	private Map<String, List<Writer>> compactionSet;
+	private Map<String, List<Writer>> compactionCandidateSet;
 	private boolean compactionEnabled;
 	private double compactionRatio;
 
@@ -93,7 +93,7 @@ public class TimeSeries {
 		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
 		bucketMap = measurement.createNewBucketMap(seriesId);
-		this.compactionSet = new HashMap<>();
+		this.compactionCandidateSet = new HashMap<>();
 		compactionEnabled = Boolean.parseBoolean(
 				conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, StorageEngine.DEFAULT_COMPACTION_ENABLED));
 		compactionRatio = Double.parseDouble(conf.getOrDefault(COMPACTION_RATIO, "0.8"));
@@ -123,23 +123,25 @@ public class TimeSeries {
 					ans = createNewTimeSeriesBucket(timestamp, tsBucket, list);
 					if (compactionEnabled) {
 						// add older bucket to compaction queue
-						compactionSet.put(tsBucket, list);
+						compactionCandidateSet.put(tsBucket, list);
 					}
 				}
 			}
-			try {
-				// int idx = list.indexOf(ans);
-				// if (idx != (list.size() - 1)) {
-				// System.out.println("\n\nThread safety error\t" + idx + "\t" +
-				// list.size() +
-				// "\n\n");
-				// }
-				return ans;
-			} catch (Exception e) {
-				logger.log(Level.SEVERE, "Create new:" + "\tList:" + list + "\tbucket:" + tsBucket + "\t" + bucketMap,
-						e);
-				throw e;
-			}
+			return ans;
+			// Old code used for thread safety checks
+			// try {
+			// int idx = list.indexOf(ans);
+			// if (idx != (list.size() - 1)) {
+			// System.out.println("\n\nThread safety error\t" + idx + "\t" +
+			// list.size() +
+			// "\n\n");
+			// }
+			// } catch (Exception e) {
+			// logger.log(Level.SEVERE, "Create new:" + "\tList:" + list + "\tbucket:" +
+			// tsBucket + "\t" + bucketMap,
+			// e);
+			// throw e;
+			// }
 		}
 	}
 
@@ -168,6 +170,7 @@ public class TimeSeries {
 			Writer writer = compressionClass.newInstance();
 			return writer;
 		} catch (InstantiationException | IllegalAccessException e) {
+			// should never happen unless the constructors are hidden
 			throw new RuntimeException(e);
 		}
 	}
@@ -628,7 +631,7 @@ public class TimeSeries {
 	public final List<Writer> compact(Consumer<List<Writer>>... functions) throws IOException {
 		List<Writer> compactedWriter = new ArrayList<>();
 		int id = CompressionFactory.getIdByClass(compactionClass);
-		Iterator<Entry<String, List<Writer>>> iterator = compactionSet.entrySet().iterator();
+		Iterator<Entry<String, List<Writer>>> iterator = compactionCandidateSet.entrySet().iterator();
 		while (iterator.hasNext()) {
 			Entry<String, List<Writer>> entry = iterator.next();
 			List<Writer> list = entry.getValue();
@@ -711,7 +714,7 @@ public class TimeSeries {
 	}
 
 	public Collection<List<Writer>> getCompactionSet() {
-		return compactionSet.values();
+		return compactionCandidateSet.values();
 	}
 
 }

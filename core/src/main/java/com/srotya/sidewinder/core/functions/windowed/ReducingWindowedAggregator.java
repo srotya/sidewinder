@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.SortedMap;
-import java.util.TreeMap;
 
 import com.srotya.sidewinder.core.functions.FunctionTable;
 import com.srotya.sidewinder.core.functions.ReduceFunction;
@@ -58,21 +57,7 @@ public abstract class ReducingWindowedAggregator extends WindowedFunction {
 	}
 	
 	@Override
-	public final List<DataPoint> apply(List<DataPoint> datapoints, boolean isFp) {
-		SortedMap<Long, List<DataPoint>> map = new TreeMap<>();
-		for (DataPoint dataPoint : datapoints) {
-			try {
-				long bucket = (dataPoint.getTimestamp() / getTimeWindow()) * getTimeWindow();
-				List<DataPoint> list = map.get(bucket);
-				if (list == null) {
-					list = new ArrayList<>();
-					map.put(bucket, list);
-				}
-				list.add(dataPoint);
-			} catch (Exception e) {
-				System.err.println("Exception :" + getTimeWindow());
-			}
-		}
+	public final List<DataPoint> apply(SortedMap<Long, List<DataPoint>> map, boolean isFp) {
 		List<DataPoint> reducedDataPoints = new ArrayList<>();
 		for (Entry<Long, List<DataPoint>> entry : map.entrySet()) {
 			DataPoint aggregate = new DataPoint();

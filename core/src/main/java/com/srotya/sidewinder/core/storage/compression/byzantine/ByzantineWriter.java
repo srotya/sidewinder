@@ -85,7 +85,6 @@ public class ByzantineWriter implements Writer {
 			this.buf.putInt(0);
 		} else {
 			forwardCursorToEnd();
-			readOnly = true;
 		}
 	}
 
@@ -102,9 +101,6 @@ public class ByzantineWriter implements Writer {
 
 	@Override
 	public void write(DataPoint dp) throws IOException {
-		if (readOnly) {
-			throw WRITE_REJECT_EXCEPTION;
-		}
 		try {
 			write.lock();
 			writeDataPoint(dp.getTimestamp(), dp.getLongValue());
@@ -132,6 +128,9 @@ public class ByzantineWriter implements Writer {
 	 * @throws IOException
 	 */
 	private void writeDataPoint(long timestamp, long value) throws IOException {
+		if (readOnly) {
+			throw WRITE_REJECT_EXCEPTION;
+		}
 		lastTs = timestamp;
 		checkAndExpandBuffer();
 		compressAndWriteTimestamp(buf, timestamp);

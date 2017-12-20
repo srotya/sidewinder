@@ -36,6 +36,11 @@ public class DataPoint implements Serializable {
 		this.timestamp = timestamp;
 		this.value = value;
 	}
+	
+	public DataPoint(long timestamp, double value) {
+		this.timestamp = timestamp;
+		setValue(value);
+	}
 
 	/**
 	 * @return the timestamp

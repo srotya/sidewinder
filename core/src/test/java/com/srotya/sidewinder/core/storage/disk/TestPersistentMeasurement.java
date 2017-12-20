@@ -80,6 +80,50 @@ public class TestPersistentMeasurement {
 	}
 
 	@Test
+	public void testDataPointsQuery() throws Exception {
+		long ts = System.currentTimeMillis();
+		MiscUtils.delete(new File("target/db41/"));
+		List<String> tags = Arrays.asList("test1", "test2");
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> map = new HashMap<>();
+		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
+		m.configure(map, null, "m1", "target/db41/index", "target/db41/data", metadata, bgTaskPool);
+		int LIMIT = 1000;
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 4096, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
+		}
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value2", tags, 4096, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
+		}
+		List<Series> resultMap = new ArrayList<>();
+		m.queryDataPoints("value.*$", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, resultMap);
+		assertEquals(2, resultMap.size());
+		for (Series s : resultMap) {
+			for (int i = 0; i < s.getDataPoints().size(); i++) {
+				DataPoint dataPoint = s.getDataPoints().get(i);
+				assertEquals(ts + i * 1000, dataPoint.getTimestamp());
+				assertEquals(1L, dataPoint.getLongValue());
+			}
+		}
+
+		List<List<String>> tagsResult = m.getTagsForMeasurement("value.*$");
+		for (List<String> list : tagsResult) {
+			assertEquals(tags, list);
+		}
+
+		try {
+			tagsResult = m.getTagsForMeasurement("value.*(");
+			fail("Bad rejex must fail");
+		} catch (IOException e) {
+		}
+
+		m.close();
+	}
+
+	@Test
 	public void testDataPointsRecovery() throws Exception {
 		long ts = System.currentTimeMillis();
 		MiscUtils.delete(new File("target/db132/"));
@@ -109,6 +153,27 @@ public class TestPersistentMeasurement {
 		Iterator<Series> iterator = resultMap.iterator();
 		assertEquals(LIMIT, iterator.next().getDataPoints().size());
 		m.close();
+	}
+
+	@Test
+	public void testOptimizationsLambdaInvoke() throws IOException {
+		long ts = System.currentTimeMillis();
+		MiscUtils.delete(new File("target/db42/"));
+		List<String> tags = Arrays.asList("test1", "test2");
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> map = new HashMap<>();
+		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
+		m.configure(map, null, "m1", "target/db42/index", "target/db42/data", metadata, bgTaskPool);
+		int LIMIT = 1000;
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 4096, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
+		}
+		m.runCleanupOperation("print", s -> {
+			// don't cleanup anything
+			return new ArrayList<>();
+		});
 	}
 
 	@Test

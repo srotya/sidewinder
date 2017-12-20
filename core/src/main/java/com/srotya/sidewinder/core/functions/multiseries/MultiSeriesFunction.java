@@ -37,7 +37,7 @@ public abstract class MultiSeriesFunction implements Function {
 		int size = t.get(0).getDataPoints().size();
 		for (int i = 0; i < t.size(); i++) {
 			Series ts = t.get(i);
-			if(size!=ts.getDataPoints().size()) {
+			if (size != ts.getDataPoints().size()) {
 				throw new IllegalArgumentException("Non-uniform series length");
 			}
 			intermediate.add(ts.getDataPoints());
@@ -53,7 +53,7 @@ public abstract class MultiSeriesFunction implements Function {
 	}
 
 	public abstract List<DataPoint> compute(List<List<DataPoint>> list, boolean isFp);
-	
+
 	public abstract String name();
 
 	@Override
@@ -65,7 +65,7 @@ public abstract class MultiSeriesFunction implements Function {
 		return 0;
 	}
 
-	@FunctionName(alias="ms-division")
+	@FunctionName(alias = "ms-division", description = "Divides first series by the rest of the series (multi-series function)")
 	public static class Division extends MultiSeriesFunction {
 
 		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFp) {
@@ -88,7 +88,7 @@ public abstract class MultiSeriesFunction implements Function {
 			}
 			return output;
 		}
-		
+
 		@Override
 		public String name() {
 			return "division";
@@ -96,7 +96,7 @@ public abstract class MultiSeriesFunction implements Function {
 
 	}
 
-	@FunctionName(alias="ms-multiplication")
+	@FunctionName(alias = "ms-multiplication", description = "Multiplies values of all series (multi-series function)")
 	public static class Multiplication extends MultiSeriesFunction {
 
 		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
@@ -120,7 +120,7 @@ public abstract class MultiSeriesFunction implements Function {
 			}
 			return output;
 		}
-		
+
 		@Override
 		public String name() {
 			return "multiplication";
@@ -128,7 +128,7 @@ public abstract class MultiSeriesFunction implements Function {
 
 	}
 
-	@FunctionName(alias="ms-substraction")
+	@FunctionName(alias = "ms-substraction", description = "Adds values of all series (multi-series function)")
 	public static class Substraction extends MultiSeriesFunction {
 
 		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
@@ -158,7 +158,7 @@ public abstract class MultiSeriesFunction implements Function {
 		}
 	}
 
-	@FunctionName(alias="ms-addition")
+	@FunctionName(alias = "ms-addition", description = "Subtracts first series by the rest of the series (multi-series function)")
 	public static class Addition extends MultiSeriesFunction {
 
 		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
@@ -181,7 +181,7 @@ public abstract class MultiSeriesFunction implements Function {
 			}
 			return output;
 		}
-		
+
 		@Override
 		public String name() {
 			return "addition";
@@ -189,7 +189,7 @@ public abstract class MultiSeriesFunction implements Function {
 
 	}
 
-	@FunctionName(alias="ms-average")
+	@FunctionName(alias = "ms-average", description = "Averages all series (multi-series function)")
 	public static class Average extends MultiSeriesFunction {
 
 		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
@@ -213,7 +213,7 @@ public abstract class MultiSeriesFunction implements Function {
 			}
 			return output;
 		}
-		
+
 		@Override
 		public String name() {
 			return "average";

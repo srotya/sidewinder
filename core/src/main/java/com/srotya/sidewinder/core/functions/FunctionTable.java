@@ -49,6 +49,7 @@ public class FunctionTable {
 		for (Class<?> annotatedClass : annotatedClasses) {
 			FunctionName function = annotatedClass.getAnnotation(FunctionName.class);
 			String[] aliases = function.alias();
+			String description = function.description();
 			if (aliases == null || aliases.length == 0) {
 				logger.warning("Ignoring aggregation function:" + annotatedClass.getName());
 				continue;
@@ -57,7 +58,7 @@ public class FunctionTable {
 				alias = alias.trim();
 				if (!alias.isEmpty()) {
 					FunctionTable.get().register(alias, (Class<? extends Function>) annotatedClass);
-					logger.fine("Registering function with alias:" + alias);
+					logger.fine("alias:" + alias + " name:" + annotatedClass.getSimpleName() + " description:" + description);
 				}
 			}
 		}
