@@ -25,5 +25,7 @@ import java.lang.annotation.Target;
 public @interface FunctionName {
 
 	String[] alias();
+	
+	String description();
 
 }

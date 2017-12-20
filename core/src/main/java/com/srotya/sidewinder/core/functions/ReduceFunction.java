@@ -29,20 +29,16 @@ public abstract class ReduceFunction extends SingleSeriesFunction {
 
 	@Override
 	public Series apply(Series dataPoints) {
-		Series output = new Series(dataPoints.getMeasurementName(),
-				dataPoints.getValueFieldName(), dataPoints.getTags());
+		Series output = new Series(dataPoints.getMeasurementName(), dataPoints.getValueFieldName(),
+				dataPoints.getTags());
 		output.setFp(dataPoints.isFp());
 		DataPoint single = new DataPoint();
+		single.setTimestamp(dataPoints.getDataPoints().get(0).getTimestamp());
 		aggregateToSingle(dataPoints.getDataPoints(), single, dataPoints.isFp());
 		output.setDataPoints(Arrays.asList(single));
 		return output;
 	}
 
 	public abstract void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output, boolean isFp);
-
-	@Override
-	public int getNumberOfArgs() {
-		return 0;
-	}
 
 }

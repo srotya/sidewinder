@@ -188,9 +188,9 @@ public class GrafanaUtils {
 						andFilter.addFilter(pop);
 						predicateStack.push(andFilter);
 					} else if (val.equalsIgnoreCase("or")) {
-						OrFilter<List<String>> andFilter = new OrFilter<>();
-						andFilter.addFilter(pop);
-						predicateStack.push(andFilter);
+						OrFilter<List<String>> orFilter = new OrFilter<>();
+						orFilter.addFilter(pop);
+						predicateStack.push(orFilter);
 					} else {
 						// error
 						System.err.println("Error stack is not empty");
