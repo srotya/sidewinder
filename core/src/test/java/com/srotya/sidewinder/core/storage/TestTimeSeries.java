@@ -107,14 +107,14 @@ public class TestTimeSeries {
 		} catch (IOException e) {
 		}
 
-		List<DataPoint> values = series.queryDataPoints("value", Arrays.asList("test"), curr, curr + 3, null);
+		List<DataPoint> values = series.queryDataPoints("value", Arrays.asList("test"), curr + 3, curr, null);
 		assertEquals(3, values.size());
 		for (int i = 1; i <= 3; i++) {
 			DataPoint dp = values.get(i - 1);
 			assertEquals("Value mismatch:" + dp.getValue() + "\t" + (2.2 * i) + "\t" + i, dp.getValue(), 2.2 * i, 0.01);
 		}
 
-		List<Reader> queryReaders = series.queryReader("value", Arrays.asList("test"), curr, curr + 3, null);
+		List<Reader> queryReaders = series.queryReader("value", Arrays.asList("test"), curr + 3, curr, null);
 		assertEquals(1, queryReaders.size());
 		reader = queryReaders.get(0);
 		for (int i = 1; i <= 3; i++) {

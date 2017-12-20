@@ -15,7 +15,10 @@
  */
 package com.srotya.sidewinder.core.functions;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
@@ -42,11 +45,25 @@ public abstract class WindowedFunction extends SingleSeriesFunction {
 	public Series apply(Series t) {
 		Series output = new Series(t.getMeasurementName(), t.getValueFieldName(), t.getTags());
 		output.setFp(t.isFp());
-		output.setDataPoints(apply(t.getDataPoints(), t.isFp()));
+		SortedMap<Long, List<DataPoint>> map = new TreeMap<>();
+		for (DataPoint dataPoint : t.getDataPoints()) {
+			try {
+				long bucket = (dataPoint.getTimestamp() / getTimeWindow()) * getTimeWindow();
+				List<DataPoint> list = map.get(bucket);
+				if (list == null) {
+					list = new ArrayList<>();
+					map.put(bucket, list);
+				}
+				list.add(dataPoint);
+			} catch (Exception e) {
+				System.err.println("Exception :" + getTimeWindow());
+			}
+		}
+		output.setDataPoints(apply(map, t.isFp()));
 		return output;
 	}
 	
-	public abstract List<DataPoint> apply(List<DataPoint> datapoints, boolean isFp);
+	public abstract List<DataPoint> apply(SortedMap<Long, List<DataPoint>> map, boolean isFp);
 
 	/**
 	 * @return time window for this aggregation

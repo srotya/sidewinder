@@ -24,8 +24,8 @@ import com.srotya.sidewinder.core.storage.Series;
 public abstract class TransformFunction implements Function {
 
 	@Override
-	public List<Series> apply(List<Series> t) {
-		for (Series s : t) {
+	public List<Series> apply(List<Series> series) {
+		for (Series s : series) {
 			List<DataPoint> dps = s.getDataPoints();
 			for (DataPoint dp : dps) {
 				if (s.isFp()) {
@@ -35,7 +35,7 @@ public abstract class TransformFunction implements Function {
 				}
 			}
 		}
-		return t;
+		return series;
 	}
 
 	public abstract long transform(long value);

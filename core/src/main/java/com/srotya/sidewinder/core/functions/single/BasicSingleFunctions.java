@@ -24,8 +24,8 @@ import com.srotya.sidewinder.core.functions.ReduceFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 public class BasicSingleFunctions {
-	
-	@FunctionName(alias = "sfirst")
+
+	@FunctionName(alias = "sfirst", description = "Returns the first value in the series (single result function)")
 	public static class FirstFunction extends ReduceFunction {
 
 		@Override
@@ -38,8 +38,8 @@ public class BasicSingleFunctions {
 		}
 
 	}
-	
-	@FunctionName(alias = "slast")
+
+	@FunctionName(alias = "slast", description = "Returns the last value in the series (single result function)")
 	public static class LastFunction extends ReduceFunction {
 
 		@Override
@@ -52,8 +52,8 @@ public class BasicSingleFunctions {
 		}
 
 	}
-	
-	@FunctionName(alias = "smax")
+
+	@FunctionName(alias = "smax", description = "Returns the largest value in the series (single result function)")
 	public static class MaxFunction extends ReduceFunction {
 
 		@Override
@@ -80,8 +80,8 @@ public class BasicSingleFunctions {
 		}
 
 	}
-	
-	@FunctionName(alias = "smean")
+
+	@FunctionName(alias = "smean", description = "Returns the average value of the series (single result function)")
 	public static class MeanFunction extends SumFunction {
 
 		@Override
@@ -95,13 +95,13 @@ public class BasicSingleFunctions {
 		}
 
 	}
-	
-	@FunctionName(alias = "smin")
+
+	@FunctionName(alias = "smin", description = "Returns the smallest value in the series (single result function)")
 	public static class MinFunction extends ReduceFunction {
 
 		@Override
 		public void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output, boolean isFp) {
-			if(dataPoints.isEmpty()) {
+			if (dataPoints.isEmpty()) {
 				return;
 			}
 			if (isFp) {
@@ -126,13 +126,12 @@ public class BasicSingleFunctions {
 		}
 
 	}
-	
-	@FunctionName(alias = "sstddev")
+
+	@FunctionName(alias = "sstddev", description = "Returns the standard deviation value of the series (single result function)")
 	public static class StdDeviationFunction extends ReduceFunction {
 
 		@Override
 		public void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output, boolean isFp) {
-			output.setTimestamp(dataPoints.get(0).getTimestamp());
 			if (!isFp) {
 				long[] ary = new long[dataPoints.size()];
 				for (int i = 0; i < dataPoints.size(); i++) {
@@ -155,13 +154,12 @@ public class BasicSingleFunctions {
 		}
 
 	}
-	
-	@FunctionName(alias = "ssum")
+
+	@FunctionName(alias = "ssum", description = "Returns the sum of all value in the series (single result function)")
 	public static class SumFunction extends ReduceFunction {
 
 		@Override
 		public void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output, boolean isFp) {
-			output.setTimestamp(dataPoints.get(0).getTimestamp());
 			if (!isFp) {
 				long sum = 0;
 				for (Iterator<DataPoint> iterator = dataPoints.iterator(); iterator.hasNext();) {
@@ -176,6 +174,28 @@ public class BasicSingleFunctions {
 					sum += dataPoint.getValue();
 				}
 				output.setValue(sum);
+			}
+		}
+
+	}
+
+	@FunctionName(alias = "srms", description = "Returns the Root Mean Squared value of the series (single result function)")
+	public static class SRMSFunction extends ReduceFunction {
+
+		@Override
+		public void aggregateToSingle(List<DataPoint> dataPoints, DataPoint output, boolean isFp) {
+			if (isFp) {
+				double squaresSum = 0;
+				for (DataPoint dp : dataPoints) {
+					squaresSum += dp.getValue() * dp.getValue();
+				}
+				output.setValue(Math.sqrt(squaresSum));
+			} else {
+				long squaresSum = 0;
+				for (DataPoint dp : dataPoints) {
+					squaresSum += dp.getLongValue() * dp.getLongValue();
+				}
+				output.setValue((long) Math.sqrt(squaresSum));
 			}
 		}
 

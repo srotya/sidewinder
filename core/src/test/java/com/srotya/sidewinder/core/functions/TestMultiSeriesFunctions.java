@@ -13,21 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.transform;
+package com.srotya.sidewinder.core.functions;
 
-import com.srotya.sidewinder.core.functions.FunctionName;
-
-@FunctionName(alias = "abs")
-public class AbsoluteFunction extends TransformFunction {
-
-	@Override
-	public double transform(double value) {
-		return Math.abs(value);
-	}
-	
-	@Override
-	public long transform(long value) {
-		return Math.abs(value);
-	}
+public class TestMultiSeriesFunctions {
 
 }

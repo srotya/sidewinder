@@ -114,6 +114,7 @@ public interface Measurement {
 		if (valueFieldPattern.endsWith("$")) {
 			valueFieldPattern = valueFieldPattern.substring(0, valueFieldPattern.length() - 1);
 		}
+		// get all tags that contain this info
 		Pattern p = null;
 		try {
 			valueFieldPattern += ".*";
@@ -179,7 +180,7 @@ public interface Measurement {
 	}
 
 	public default void collectGarbage() throws IOException {
-		runOptimizationOperation("garbage collection", ts -> {
+		runCleanupOperation("garbage collection", ts -> {
 			try {
 				return ts.collectGarbage();
 			} catch (IOException e) {
@@ -189,7 +190,7 @@ public interface Measurement {
 	}
 
 	public default void compact() throws IOException {
-		runOptimizationOperation("compacting", ts -> {
+		runCleanupOperation("compacting", ts -> {
 			try {
 				return ts.compact();
 			} catch (IOException e) {
@@ -198,15 +199,15 @@ public interface Measurement {
 		});
 	}
 
-	public default void runOptimizationOperation(String operation,
+	public default void runCleanupOperation(String operation,
 			java.util.function.Function<TimeSeries, List<Writer>> op) throws IOException {
 		getLock().lock();
 		try {
 			Set<String> cleanupList = new HashSet<>();
 			for (TimeSeries entry : getTimeSeries()) {
 				try {
-					List<Writer> garbage = op.apply(entry);
-					for (Writer timeSeriesBucket : garbage) {
+					List<Writer> list = op.apply(entry);
+					for (Writer timeSeriesBucket : list) {
 						getLogger().fine("Buffers " + operation + " for bucket:" + entry.getSeriesId() + "\tOffset:"
 								+ timeSeriesBucket.currentOffset());
 					}
