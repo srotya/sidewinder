@@ -80,6 +80,7 @@ public class HDFSArchiver implements Archiver {
 		fsPermission = new FsPermission(FsAction.ALL, FsAction.ALL, FsAction.ALL);
 		fs.mkdirs(archiveDirectory, fsPermission);
 		currentFile = new Path(archiveDirectory, new Path("archive." + System.currentTimeMillis() + ".bin"));
+		fs.setVerifyChecksum(false); 
 		os = new DataOutputStream(new BufferedOutputStream(FileSystem.create(fs, currentFile, fsPermission)));
 	}
 
@@ -91,8 +92,7 @@ public class HDFSArchiver implements Archiver {
 				currentFile = new Path(archiveDirectory, "archive." + System.currentTimeMillis() + ".bin");
 				os = new DataOutputStream(new BufferedOutputStream(FileSystem.create(fs, currentFile, fsPermission)));
 			}
-			Archiver.serializeToStream(os, new TimeSeriesArchivalObject(object.getDb(), object.getMeasurement(),
-					object.getKey(), object.getBucket()));
+			Archiver.serializeToStream(os, object);
 		} catch (IOException e) {
 			throw new ArchiveException(e);
 		}

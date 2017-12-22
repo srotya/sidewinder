@@ -16,7 +16,7 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
-import java.util.Set;
+import java.util.Collection;
 
 /**
  * @author ambud
@@ -24,15 +24,15 @@ import java.util.Set;
 public interface TagIndex {
 	
 	/**
-	 * @param tag
+	 * @param tagKey
 	 * @return uid
 	 * @throws IOException
 	 */
-	public String createEntry(String tag) throws IOException;
+	public String mapTag(String tagKey) throws IOException;
 	
-	public String getEntry(String hexString) throws IOException;
+	public String getTagMapping(String tagUid) throws IOException;
 	
-	public Set<String> getTags() throws IOException;
+	public Collection<String> getTags() throws IOException;
 	
 	/**
 	 * Indexes tag in the row key, creating an adjacency list
@@ -44,11 +44,11 @@ public interface TagIndex {
 	public void index(String tag, String rowKey) throws IOException;
 
 	/**
-	 * @param tag
+	 * @param tagKey
 	 * @return
-	 * @throws IOException 
+	 * @throws IOException
 	 */
-	public Set<String> searchRowKeysForTag(String tag) throws IOException;
+	public Collection<String> searchRowKeysForTag(String tagKey) throws IOException;
 
 	public void close() throws IOException;
 

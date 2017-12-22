@@ -15,8 +15,6 @@
  */
 package com.srotya.sidewinder.core.storage.mem.archival;
 
-import com.srotya.sidewinder.core.storage.compression.Writer;
-
 /**
  * @author ambud
  */
@@ -24,17 +22,19 @@ public class TimeSeriesArchivalObject {
 
 	private String db;
 	private String measurement;
-	private String key;
-	private Writer bucket;
+	private String seriesKey;
+	private String tsBucket;
+	private byte[] data;
 	
 	public TimeSeriesArchivalObject() {
 	}
 
-	public TimeSeriesArchivalObject(String db, String measurement, String key, Writer bucket) {
+	public TimeSeriesArchivalObject(String db, String measurement, String seriesKey, String tsBucket, byte[] data) {
 		this.db = db;
 		this.measurement = measurement;
-		this.key = key;
-		this.bucket = bucket;
+		this.seriesKey = seriesKey;
+		this.tsBucket = tsBucket;
+		this.data = data;
 	}
 
 	/**
@@ -68,33 +68,45 @@ public class TimeSeriesArchivalObject {
 	}
 
 	/**
-	 * @return the key
+	 * @return the seriesKey
 	 */
-	public String getKey() {
-		return key;
+	public String getSeriesKey() {
+		return seriesKey;
 	}
 
 	/**
-	 * @param key
-	 *            the key to set
+	 * @param seriesKey the seriesKey to set
 	 */
-	public void setKey(String key) {
-		this.key = key;
+	public void setSeriesKey(String seriesKey) {
+		this.seriesKey = seriesKey;
 	}
 
 	/**
-	 * @return the bucket
+	 * @return the data
 	 */
-	public Writer getBucket() {
-		return bucket;
+	public byte[] getData() {
+		return data;
 	}
 
 	/**
-	 * @param bucket the bucket to set
+	 * @param data the data to set
 	 */
-	public void setBucket(Writer bucket) {
-		this.bucket = bucket;
+	public void setData(byte[] data) {
+		this.data = data;
 	}
 
+	/**
+	 * @return the tsBucket
+	 */
+	public String getTsBucket() {
+		return tsBucket;
+	}
+
+	/**
+	 * @param tsBucket the tsBucket to set
+	 */
+	public void setTsBucket(String tsBucket) {
+		this.tsBucket = tsBucket;
+	}
 
 }

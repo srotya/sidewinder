@@ -24,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import com.google.protobuf.ByteString;
 import com.srotya.sidewinder.cluster.push.connectors.ClusterConnector;
+import com.srotya.sidewinder.cluster.rpc.Query;
 import com.srotya.sidewinder.core.rpc.Bucket;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.RawTimeSeriesBucket;
@@ -58,6 +59,8 @@ public abstract class RoutingEngine {
 	}
 
 	public abstract List<Node> routeData(Point point) throws IOException, InterruptedException;
+	
+	public abstract List<Node> routeQuery(Query query) throws IOException;
 
 	public abstract void addRoutableKey(Point point, int replicationFactor);
 

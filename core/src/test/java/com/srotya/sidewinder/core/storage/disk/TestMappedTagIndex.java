@@ -60,12 +60,12 @@ public class TestMappedTagIndex {
 		new File(indexDir).mkdirs();
 		MappedTagIndex index = new MappedTagIndex(indexDir, "i2");
 		for (int i = 0; i < 1000; i++) {
-			String idx = index.createEntry("tag" + (i + 1));
+			String idx = index.mapTag("tag" + (i + 1));
 			index.index(idx, "test212");
 		}
 		for (int i = 0; i < 1000; i++) {
-			String entry = index.createEntry("tag" + (i + 1));
-			assertEquals("tag" + (i + 1), index.getEntry(entry));
+			String entry = index.mapTag("tag" + (i + 1));
+			assertEquals("tag" + (i + 1), index.getTagMapping(entry));
 			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
 	}
@@ -123,7 +123,7 @@ public class TestMappedTagIndex {
 			es.submit(() -> {
 				try {
 					for (int i = 0; i < 1000; i++) {
-						String idx = index.createEntry("tag" + (i + 1));
+						String idx = index.mapTag("tag" + (i + 1));
 						index.index(idx, "test212");
 					}
 				} catch (Exception e) {
@@ -134,15 +134,15 @@ public class TestMappedTagIndex {
 		es.shutdown();
 		es.awaitTermination(10, TimeUnit.SECONDS);
 		for (int i = 0; i < 1000; i++) {
-			String entry = index.createEntry("tag" + (i + 1));
-			assertEquals("tag" + (i + 1), index.getEntry(entry));
+			String entry = index.mapTag("tag" + (i + 1));
+			assertEquals("tag" + (i + 1), index.getTagMapping(entry));
 			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
 
 		MappedTagIndex index2 = new MappedTagIndex(indexDir, "m2");
 		for (int i = 0; i < 1000; i++) {
-			String entry = index2.createEntry("tag" + (i + 1));
-			assertEquals("tag" + (i + 1), index2.getEntry(entry));
+			String entry = index2.mapTag("tag" + (i + 1));
+			assertEquals("tag" + (i + 1), index2.getTagMapping(entry));
 			assertEquals("test212", index2.searchRowKeysForTag(entry).iterator().next());
 		}
 	}

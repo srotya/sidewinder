@@ -15,18 +15,19 @@
  */
 package com.srotya.sidewinder.core.storage.disk;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -41,7 +42,7 @@ import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
@@ -60,6 +61,7 @@ public class TestPersistentMeasurement {
 	private DBMetadata metadata = new DBMetadata(28);
 	private static ScheduledExecutorService bgTaskPool = Executors.newScheduledThreadPool(1);
 	private static StorageEngine engine = new MemStorageEngine();
+	private static String DBNAME = "test";
 
 	@BeforeClass
 	public static void before() throws IOException {
@@ -70,12 +72,56 @@ public class TestPersistentMeasurement {
 	public void testConfigure() throws IOException {
 		MiscUtils.delete(new File("target/pmeasurement1"));
 		Measurement measurement = new PersistentMeasurement();
-		measurement.configure(conf, engine, "m1", "target/pmeasurement1/idx", "target/pmeasurement1/data", metadata,
+		measurement.configure(conf, engine, DBNAME, "m1", "target/pmeasurement1/idx", "target/pmeasurement1/data", metadata,
 				bgTaskPool);
 		assertTrue(measurement.getTagIndex() != null);
 		// TimeSeries series = measurement.getOrCreateTimeSeries("v1",
 		// Arrays.asList("test1"), 4096, false, conf);
 		measurement.close();
+	}
+
+	@Test
+	public void testDataPointsQuery() throws Exception {
+		long ts = System.currentTimeMillis();
+		MiscUtils.delete(new File("target/db41/"));
+		List<String> tags = Arrays.asList("test1", "test2");
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> map = new HashMap<>();
+		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
+		m.configure(map, null, DBNAME, "m1", "target/db41/index", "target/db41/data", metadata, bgTaskPool);
+		int LIMIT = 1000;
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 4096, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
+		}
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value2", tags, 4096, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
+		}
+		List<Series> resultMap = new ArrayList<>();
+		m.queryDataPoints("value.*$", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, resultMap);
+		assertEquals(2, resultMap.size());
+		for (Series s : resultMap) {
+			for (int i = 0; i < s.getDataPoints().size(); i++) {
+				DataPoint dataPoint = s.getDataPoints().get(i);
+				assertEquals(ts + i * 1000, dataPoint.getTimestamp());
+				assertEquals(1L, dataPoint.getLongValue());
+			}
+		}
+
+		List<List<String>> tagsResult = m.getTagsForMeasurement("value.*$");
+		for (List<String> list : tagsResult) {
+			assertEquals(tags, list);
+		}
+
+		try {
+			tagsResult = m.getTagsForMeasurement("value.*(");
+			fail("Bad rejex must fail");
+		} catch (IOException e) {
+		}
+
+		m.close();
 	}
 
 	@Test
@@ -88,12 +134,12 @@ public class TestPersistentMeasurement {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		map.put("measurement.file.max", String.valueOf(1024 * 1024));
 		try {
-			m.configure(map, engine, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+			m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 			fail("Must throw invalid file max size exception");
 		} catch (Exception e) {
 		}
 		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
-		m.configure(map, engine, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+		m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
 			TimeSeries t = m.getOrCreateTimeSeries("value", tags, 4096, false, map);
@@ -102,13 +148,33 @@ public class TestPersistentMeasurement {
 		m.close();
 
 		m = new PersistentMeasurement();
-		m.configure(map, engine, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
-		m.loadTimeseriesFromMeasurements();
-		Set<SeriesQueryOutput> resultMap = new HashSet<>();
-		m.queryDataPoints("value", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, null, resultMap);
-		Iterator<SeriesQueryOutput> iterator = resultMap.iterator();
+		m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+		List<Series> resultMap = new ArrayList<>();
+		m.queryDataPoints("value", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, resultMap);
+		Iterator<Series> iterator = resultMap.iterator();
 		assertEquals(LIMIT, iterator.next().getDataPoints().size());
 		m.close();
+	}
+
+	@Test
+	public void testOptimizationsLambdaInvoke() throws IOException {
+		long ts = System.currentTimeMillis();
+		MiscUtils.delete(new File("target/db42/"));
+		List<String> tags = Arrays.asList("test1", "test2");
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> map = new HashMap<>();
+		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
+		m.configure(map, null, DBNAME, "m1", "target/db42/index", "target/db42/data", metadata, bgTaskPool);
+		int LIMIT = 1000;
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 4096, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
+		}
+		m.runCleanupOperation("print", s -> {
+			// don't cleanup anything
+			return new ArrayList<>();
+		});
 	}
 
 	@Test
@@ -116,7 +182,7 @@ public class TestPersistentMeasurement {
 		MiscUtils.delete(new File("target/db131/"));
 		List<String> tags = Arrays.asList("test1", "test2");
 		Measurement m = new PersistentMeasurement();
-		m.configure(conf, engine, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
+		m.configure(conf, engine, DBNAME, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
 		TagIndex index = m.getTagIndex();
 		String encodeTagsToString = m.encodeTagsToString(index, tags);
 		String key = m.constructSeriesId("csd", tags, index);
@@ -128,7 +194,7 @@ public class TestPersistentMeasurement {
 	public void testMeasurementRecovery() throws IOException {
 		MiscUtils.delete(new File("target/db141/"));
 		PersistentMeasurement m = new PersistentMeasurement();
-		m.configure(conf, engine, "m1", "target/db141/index", "target/db141/data", metadata, bgTaskPool);
+		m.configure(conf, engine, DBNAME, "m1", "target/db141/index", "target/db141/data", metadata, bgTaskPool);
 		TimeSeries ts = m.getOrCreateTimeSeries("vf1", Arrays.asList("t1", "t2"), 4096, false, conf);
 		long t = System.currentTimeMillis();
 		for (int i = 0; i < 100; i++) {
@@ -141,11 +207,10 @@ public class TestPersistentMeasurement {
 			assertEquals(t + i * 1000, dp.getTimestamp());
 			assertEquals(i, dp.getLongValue());
 		}
-		Set<SeriesQueryOutput> resultMap = new HashSet<>();
-		m.queryDataPoints("vf1", t, t + 1000 * 100, Arrays.asList("t1", "t2"), new AnyFilter<>(), null, null,
-				resultMap);
+		List<Series> resultMap = new ArrayList<>();
+		m.queryDataPoints("vf1", t, t + 1000 * 100, Arrays.asList("t1", "t2"), new AnyFilter<>(), null, resultMap);
 		assertEquals(1, resultMap.size());
-		SeriesQueryOutput next = resultMap.iterator().next();
+		Series next = resultMap.iterator().next();
 		for (int i = 0; i < next.getDataPoints().size(); i++) {
 			DataPoint dp = next.getDataPoints().get(i);
 			assertEquals(t + i * 1000, dp.getTimestamp());
@@ -165,7 +230,7 @@ public class TestPersistentMeasurement {
 			MiscUtils.delete(new File("target/db134/"));
 			final long t1 = 1497720452566L;
 			Measurement m = new PersistentMeasurement();
-			m.configure(conf, engine, "m1", "target/db134/index", "target/db134/data", metadata, bgTaskPool);
+			m.configure(conf, engine, DBNAME, "m1", "target/db134/index", "target/db134/data", metadata, bgTaskPool);
 			ExecutorService es = Executors.newFixedThreadPool(2, new BackgrounThreadFactory("tlinear"));
 			AtomicBoolean wait = new AtomicBoolean(false);
 			for (int i = 0; i < 2; i++) {
@@ -208,7 +273,7 @@ public class TestPersistentMeasurement {
 			MiscUtils.delete(new File("target/db135/"));
 			final long t1 = 1497720452566L;
 			Measurement m = new PersistentMeasurement();
-			m.configure(conf, engine, "m1", "target/db135/index", "target/db135/data", metadata, bgTaskPool);
+			m.configure(conf, engine, DBNAME, "m1", "target/db135/index", "target/db135/data", metadata, bgTaskPool);
 			ExecutorService es = Executors.newFixedThreadPool(2, new BackgrounThreadFactory("tlinear2"));
 			AtomicBoolean wait = new AtomicBoolean(false);
 			for (int i = 0; i < 2; i++) {
@@ -249,7 +314,7 @@ public class TestPersistentMeasurement {
 		MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("requests");
 		MiscUtils.delete(new File(indexDir));
 		new File(indexDir).mkdirs();
-		DiskTagIndex table = new DiskTagIndex(indexDir, "test2");
+		MappedTagIndex table = new MappedTagIndex(indexDir, "test2");
 		Measurement measurement = new PersistentMeasurement();
 		String encodedStr = measurement.encodeTagsToString(table, Arrays.asList("host", "value", "test"));
 		List<String> decodedStr = Measurement.decodeStringToTags(table, encodedStr);

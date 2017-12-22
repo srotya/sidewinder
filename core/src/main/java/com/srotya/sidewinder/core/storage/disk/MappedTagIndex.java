@@ -125,14 +125,14 @@ public class MappedTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String createEntry(String tag) throws IOException {
-		int hash32 = hash.hash(tag.getBytes(), 0, tag.length(), 57);
+	public String mapTag(String tagKey) throws IOException {
+		int hash32 = hash.hash(tagKey.getBytes(), 0, tagKey.length(), 57);
 		String val = tagMap.get(hash32);
 		if (val == null) {
 			synchronized (tagMap) {
-				String out = tagMap.put(hash32, tag);
+				String out = tagMap.put(hash32, tagKey);
 				if (out == null) {
-					byte[] str = (hash32 + "\t" + tag).getBytes();
+					byte[] str = (hash32 + "\t" + tagKey).getBytes();
 					if (fwd.remaining() < str.length + Integer.BYTES) {
 						// resize buffer
 						int temp = fwd.position();
@@ -152,7 +152,7 @@ public class MappedTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String getEntry(String hexString) {
+	public String getTagMapping(String hexString) {
 		return tagMap.get(Integer.parseUnsignedInt(hexString, 16));
 	}
 
