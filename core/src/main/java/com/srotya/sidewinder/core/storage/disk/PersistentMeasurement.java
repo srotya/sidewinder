@@ -104,10 +104,12 @@ public class PersistentMeasurement implements Measurement {
 	private RandomAccessFile rafPtr;
 	private File ptrFile;
 	private int ptrCounter;
+	private String dbName;
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName, String indexDirectory,
+	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName, String indexDirectory,
 			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
+		this.dbName = dbName;
 		enableMetricsMonitoring(engine, bgTaskPool);
 		this.conf = conf;
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
@@ -551,5 +553,10 @@ public class PersistentMeasurement implements Measurement {
 		} else {
 			return seriesList.get(index);
 		}
+	}
+	
+	@Override
+	public String getDbName() {
+		return dbName;
 	}
 }

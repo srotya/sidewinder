@@ -103,7 +103,7 @@ public class DiskStorageEngine implements StorageEngine {
 						for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
 							Measurement value = measurementEntry.getValue();
 							try {
-								value.collectGarbage();
+								value.collectGarbage(archiver);
 							} catch (Exception e) {
 								logger.log(Level.SEVERE,
 										"Failed collect garbage for measurement:" + value.getMeasurementName(), e);
@@ -286,7 +286,7 @@ public class DiskStorageEngine implements StorageEngine {
 			synchronized (databaseMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					measurement = new PersistentMeasurement();
-					measurement.configure(conf, this, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName),
+					measurement.configure(conf, this, dbName, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName),
 							dbMetadataMap.get(dbName), bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
@@ -330,7 +330,7 @@ public class DiskStorageEngine implements StorageEngine {
 			logger.info("Loading measurements:" + measurementName);
 			futures.add(bgTaskPool.submit(() -> {
 				try {
-					measurement.configure(conf, this, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName),
+					measurement.configure(conf, this, dbName, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName),
 							metadata, bgTaskPool);
 				} catch (IOException e) {
 					logger.log(Level.SEVERE, "Error recovering measurement:" + measurementName, e);

@@ -45,7 +45,6 @@ public class ByzantineWriter implements Writer {
 	private long prevValue;
 	private boolean readOnly;
 	private volatile boolean full;
-	private String bufferId;
 	private int startOffset;
 	private String tsBucket;
 
@@ -344,16 +343,6 @@ public class ByzantineWriter implements Writer {
 	@Override
 	public boolean isFull() {
 		return full;
-	}
-
-	@Override
-	public void setBufferId(String key) {
-		this.bufferId = key;
-	}
-
-	@Override
-	public String getBufferId() {
-		return bufferId;
 	}
 
 	@Override

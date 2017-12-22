@@ -153,13 +153,11 @@ public class TimeSeries {
 
 	private Writer createNewTimeSeriesBucket(long timestamp, String tsBucket, List<Writer> list) throws IOException {
 		BufferObject bufPair = measurement.createNewBuffer(seriesId, tsBucket);
-		// writeStringToBuffer(seriesId, buf);
 		bufPair.getBuf().put((byte) CompressionFactory.getIdByClass(compressionClass));
 		Writer writer;
 		writer = getWriterInstance(compressionClass);
 		writer.configure(conf, bufPair.getBuf(), true, 1, true);
 		writer.setHeaderTimestamp(timestamp);
-		writer.setBufferId(bufPair.getBufferId());
 		list.add(writer);
 		bucketCount++;
 		return writer;
@@ -197,13 +195,11 @@ public class TimeSeries {
 				list = Collections.synchronizedList(new ArrayList<>());
 				bucketMap.put(tsBucket, list);
 			}
-			// long bucketTimestamp = duplicate.getLong();
 			ByteBuffer slice = duplicate.slice();
 			int codecId = (int) slice.get();
 			Class<Writer> classById = CompressionFactory.getClassById(codecId);
 			Writer writer = getWriterInstance(classById);
 			writer.configure(cacheConf, slice, false, 1, true);
-			writer.setBufferId(entry.getValue().getBufferId());
 			list.add(writer);
 			logger.fine("Loading bucketmap:" + seriesId + "\t" + tsBucket);
 		}
@@ -679,11 +675,11 @@ public class TimeSeries {
 				}
 				// create buffer in measurement
 				BufferObject newBuf = measurement.createNewBuffer(seriesId, input.getTsBucket(), size);
-				String bufferId = newBuf.getBufferId();
+				// String bufferId = newBuf.getBufferId();
 				buf = newBuf.getBuf();
 				writer = getWriterInstance(compactionClass);
 				buf.put(rawBytes);
-				writer.setBufferId(bufferId);
+				// writer.setBufferId(bufferId);
 				writer.configure(conf, buf, false, 1, false);
 				if (functions != null) {
 					for (Consumer<List<Writer>> function : functions) {

@@ -370,8 +370,6 @@ public class TestByzantineReadWrite {
 		ByzantineWriter writer = new ByzantineWriter();
 		writer.setTsBucket("asdasdasd");
 		assertEquals("asdasdasd", writer.getTsBucket());
-		writer.setBufferId("3eweeqw");
-		assertEquals("3eweeqw", writer.getBufferId());
 		writer.configure(new HashMap<>(), buf, true, startOffset, true);
 		long ots = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ots);

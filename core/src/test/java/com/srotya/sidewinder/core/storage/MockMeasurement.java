@@ -62,7 +62,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public void collectGarbage() throws IOException {
+	public void collectGarbage(Archiver archiver) throws IOException {
 	}
 
 	@Override
@@ -98,7 +98,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName,
+	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
 			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
 			throws IOException {
 	}
@@ -140,6 +140,12 @@ public class MockMeasurement implements Measurement {
 
 	@Override
 	public TimeSeries getSeriesFromKey(String key) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public String getDbName() {
 		// TODO Auto-generated method stub
 		return null;
 	}
