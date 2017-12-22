@@ -40,7 +40,6 @@ public abstract class ZipWriter implements Writer {
 	private OutputStream zip;
 	protected ByteBuffer buf;
 	private DataOutputStream dos;
-	private String bufferId;
 	private int startOffset;
 	private String tsBucket;
 	private int blockSize;
@@ -198,16 +197,6 @@ public abstract class ZipWriter implements Writer {
 			buffer.put((byte) (b & 0xFF));
 		}
 
-	}
-
-	@Override
-	public void setBufferId(String key) {
-		this.bufferId = key;
-	}
-
-	@Override
-	public String getBufferId() {
-		return bufferId;
 	}
 
 	@Override

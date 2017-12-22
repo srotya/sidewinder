@@ -143,7 +143,7 @@ public interface StorageEngine {
 	 * @param tagList
 	 * @param tagFilter
 	 * @param valuePredicate
-	 * @param seriesFunction
+	 * @param function
 	 * @return
 	 * @throws IOException
 	 */

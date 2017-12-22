@@ -54,11 +54,13 @@ public class MemoryMeasurement implements Measurement {
 	private String compressionCodec;
 	private String compactionCodec;
 	private boolean useQueryPool;
+	private String dbName;
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName,
+	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
 			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
 			throws IOException {
+		this.dbName = dbName;
 		this.measurementName = measurementName;
 		this.metadata = metadata;
 		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("request"));
@@ -178,5 +180,10 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public TimeSeries getSeriesFromKey(String key) {
 		return seriesMap.get(key);
+	}
+	
+	@Override
+	public String getDbName() {
+		return dbName;
 	}
 }

@@ -18,9 +18,11 @@ package com.srotya.sidewinder.core.storage;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
@@ -37,13 +39,10 @@ public interface Archiver {
 	public static void serializeToStream(DataOutputStream bos, TimeSeriesArchivalObject blob) throws IOException {
 		bos.writeUTF(blob.getDb());
 		bos.writeUTF(blob.getMeasurement());
-		bos.writeUTF(blob.getKey());
-		// bos.writeLong(blob.getBucket().getHeaderTimestamp());
-		// bos.writeInt(blob.getBucket().getCount());
-		// Reader reader = blob.getBucket().getReader(null, null);
-		// byte[] buf = reader.toByteArray();
-		// bos.writeInt(buf.length);
-		// bos.write(buf);
+		bos.writeUTF(blob.getSeriesKey());
+		bos.writeUTF(blob.getTsBucket());
+		bos.writeInt(blob.getData().length);
+		bos.write(blob.getData());
 		bos.flush();
 	}
 
@@ -51,18 +50,19 @@ public interface Archiver {
 		TimeSeriesArchivalObject bucketWraper = new TimeSeriesArchivalObject();
 		bucketWraper.setDb(bis.readUTF());
 		bucketWraper.setMeasurement(bis.readUTF());
-		bucketWraper.setKey(bis.readUTF());
-		// long headerTs = bis.readLong();
-		// int count = bis.readInt();
-		// int bufSize = bis.readInt();
-		// ByteBuffer buf = ByteBuffer.allocateDirect(bufSize);
-		// byte[] tempAry = new byte[bufSize];
-		// bis.read(tempAry);
-		// buf.put(tempAry);
-		// TimeSeriesBucket bucket = new TimeSeriesBucket(headerTs, count, new
-		// ByteBufferBitOutput(buf));
-		// bucketWraper.setBucket(bucket);
+		bucketWraper.setSeriesKey(bis.readUTF());
+		bucketWraper.setTsBucket(bis.readUTF());
+		byte[] buf = new byte[bis.readInt()];
+		bis.read(buf);
+		bucketWraper.setData(buf);
 		return bucketWraper;
 	}
 
+	public static byte[] writerToByteArray(Writer writer) {
+		ByteBuffer rawBytes = writer.getRawBytes();
+		int limit = rawBytes.remaining();
+		byte[] buf = new byte[limit];
+		rawBytes.get(buf);
+		return buf;
+	}
 }

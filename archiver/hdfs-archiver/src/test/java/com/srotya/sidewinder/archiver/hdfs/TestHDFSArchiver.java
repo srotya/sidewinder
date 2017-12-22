@@ -18,20 +18,20 @@ package com.srotya.sidewinder.archiver.hdfs;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hdfs.MiniDFSCluster;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.ArchiveException;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.compression.Reader;
-import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
@@ -39,38 +39,36 @@ import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
  */
 public class TestHDFSArchiver {
 
-	private static MiniDFSCluster cluster;
-
 	@BeforeClass
 	public static void beforeClass() throws IOException {
-		Configuration conf = new Configuration();
-		cluster = new MiniDFSCluster.Builder(conf).build();
-	}
-	
-	@AfterClass
-	public static void afterClass() {
-		cluster.shutdown();
 	}
 
-//	@Test
+	@AfterClass
+	public static void afterClass() {
+	}
+
+	@Test
 	public void testHDFSArchive() throws IOException, ArchiveException {
 		Archiver archiver = new HDFSArchiver();
 		Map<String, String> conf = new HashMap<>();
 		conf.put(HDFSArchiver.HDFS_ARCHIVE_DIRECTORY, "target/test-hdfs-" + System.currentTimeMillis());
 		archiver.init(conf);
 		long ts = System.currentTimeMillis();
-		//TODO fix unit tests for HDFS Archiver
-		Writer bucket = null;
+		ByzantineWriter writer = new ByzantineWriter();
+		writer.configure(conf, ByteBuffer.allocate(1024 * 1024 * 2), true, 4, true);
+		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 1000; i++) {
-			bucket.addValue(ts + i * 1000, i);
+			writer.addValue(ts + i * 1000, i * 1L);
 		}
-		Reader reader = bucket.getReader();
+		Reader reader = writer.getReader();
 		for (int i = 0; i < 1000; i++) {
 			DataPoint pair = reader.readPair();
 			assertEquals(ts + i * 1000, pair.getTimestamp());
 		}
-		archiver.archive(new TimeSeriesArchivalObject("test", "cpu", "2", bucket));
-		archiver.archive(new TimeSeriesArchivalObject("test", "cpu", "3", bucket));
+		archiver.archive(
+				new TimeSeriesArchivalObject("test", "cpu", "2", "asdsasd", Archiver.writerToByteArray(writer)));
+		archiver.archive(
+				new TimeSeriesArchivalObject("test", "cpu", "3", "asdsadas", Archiver.writerToByteArray(writer)));
 		List<TimeSeriesArchivalObject> unarchive = archiver.unarchive();
 		assertEquals(2, unarchive.size());
 	}

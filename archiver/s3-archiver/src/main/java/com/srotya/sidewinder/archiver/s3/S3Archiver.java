@@ -75,8 +75,7 @@ public class S3Archiver implements Archiver {
 		try {
 			ByteArrayOutputStream bytes = new ByteArrayOutputStream();
 			DataOutputStream os = new DataOutputStream(bytes);
-			Archiver.serializeToStream(os, new TimeSeriesArchivalObject(object.getDb(), object.getMeasurement(),
-					object.getKey(), object.getBucket()));
+			Archiver.serializeToStream(os, object);
 			os.close();
 			bytes.close();
 			ByteArrayInputStream input = new ByteArrayInputStream(bytes.toByteArray());
