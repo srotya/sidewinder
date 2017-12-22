@@ -61,6 +61,7 @@ public class TestPersistentMeasurement {
 	private DBMetadata metadata = new DBMetadata(28);
 	private static ScheduledExecutorService bgTaskPool = Executors.newScheduledThreadPool(1);
 	private static StorageEngine engine = new MemStorageEngine();
+	private static String DBNAME = "test";
 
 	@BeforeClass
 	public static void before() throws IOException {
@@ -71,7 +72,7 @@ public class TestPersistentMeasurement {
 	public void testConfigure() throws IOException {
 		MiscUtils.delete(new File("target/pmeasurement1"));
 		Measurement measurement = new PersistentMeasurement();
-		measurement.configure(conf, engine, "m1", "target/pmeasurement1/idx", "target/pmeasurement1/data", metadata,
+		measurement.configure(conf, engine, DBNAME, "m1", "target/pmeasurement1/idx", "target/pmeasurement1/data", metadata,
 				bgTaskPool);
 		assertTrue(measurement.getTagIndex() != null);
 		// TimeSeries series = measurement.getOrCreateTimeSeries("v1",
@@ -88,7 +89,7 @@ public class TestPersistentMeasurement {
 		Map<String, String> map = new HashMap<>();
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
-		m.configure(map, null, "m1", "target/db41/index", "target/db41/data", metadata, bgTaskPool);
+		m.configure(map, null, DBNAME, "m1", "target/db41/index", "target/db41/data", metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
 			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 4096, false, map);
@@ -133,12 +134,12 @@ public class TestPersistentMeasurement {
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		map.put("measurement.file.max", String.valueOf(1024 * 1024));
 		try {
-			m.configure(map, null, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+			m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 			fail("Must throw invalid file max size exception");
 		} catch (Exception e) {
 		}
 		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
-		m.configure(map, null, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+		m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
 			TimeSeries t = m.getOrCreateTimeSeries("value", tags, 4096, false, map);
@@ -147,7 +148,7 @@ public class TestPersistentMeasurement {
 		m.close();
 
 		m = new PersistentMeasurement();
-		m.configure(map, null, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
+		m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		List<Series> resultMap = new ArrayList<>();
 		m.queryDataPoints("value", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, resultMap);
 		Iterator<Series> iterator = resultMap.iterator();
@@ -164,7 +165,7 @@ public class TestPersistentMeasurement {
 		Map<String, String> map = new HashMap<>();
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
-		m.configure(map, null, "m1", "target/db42/index", "target/db42/data", metadata, bgTaskPool);
+		m.configure(map, null, DBNAME, "m1", "target/db42/index", "target/db42/data", metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
 			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 4096, false, map);
@@ -181,7 +182,7 @@ public class TestPersistentMeasurement {
 		MiscUtils.delete(new File("target/db131/"));
 		List<String> tags = Arrays.asList("test1", "test2");
 		Measurement m = new PersistentMeasurement();
-		m.configure(conf, engine, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
+		m.configure(conf, engine, DBNAME, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
 		TagIndex index = m.getTagIndex();
 		String encodeTagsToString = m.encodeTagsToString(index, tags);
 		String key = m.constructSeriesId("csd", tags, index);
@@ -193,7 +194,7 @@ public class TestPersistentMeasurement {
 	public void testMeasurementRecovery() throws IOException {
 		MiscUtils.delete(new File("target/db141/"));
 		PersistentMeasurement m = new PersistentMeasurement();
-		m.configure(conf, engine, "m1", "target/db141/index", "target/db141/data", metadata, bgTaskPool);
+		m.configure(conf, engine, DBNAME, "m1", "target/db141/index", "target/db141/data", metadata, bgTaskPool);
 		TimeSeries ts = m.getOrCreateTimeSeries("vf1", Arrays.asList("t1", "t2"), 4096, false, conf);
 		long t = System.currentTimeMillis();
 		for (int i = 0; i < 100; i++) {
@@ -229,7 +230,7 @@ public class TestPersistentMeasurement {
 			MiscUtils.delete(new File("target/db134/"));
 			final long t1 = 1497720452566L;
 			Measurement m = new PersistentMeasurement();
-			m.configure(conf, engine, "m1", "target/db134/index", "target/db134/data", metadata, bgTaskPool);
+			m.configure(conf, engine, DBNAME, "m1", "target/db134/index", "target/db134/data", metadata, bgTaskPool);
 			ExecutorService es = Executors.newFixedThreadPool(2, new BackgrounThreadFactory("tlinear"));
 			AtomicBoolean wait = new AtomicBoolean(false);
 			for (int i = 0; i < 2; i++) {
@@ -272,7 +273,7 @@ public class TestPersistentMeasurement {
 			MiscUtils.delete(new File("target/db135/"));
 			final long t1 = 1497720452566L;
 			Measurement m = new PersistentMeasurement();
-			m.configure(conf, engine, "m1", "target/db135/index", "target/db135/data", metadata, bgTaskPool);
+			m.configure(conf, engine, DBNAME, "m1", "target/db135/index", "target/db135/data", metadata, bgTaskPool);
 			ExecutorService es = Executors.newFixedThreadPool(2, new BackgrounThreadFactory("tlinear2"));
 			AtomicBoolean wait = new AtomicBoolean(false);
 			for (int i = 0; i < 2; i++) {

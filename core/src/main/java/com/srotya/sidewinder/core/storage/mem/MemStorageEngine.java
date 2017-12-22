@@ -100,7 +100,7 @@ public class MemStorageEngine implements StorageEngine {
 					for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
 						Measurement value = measurementEntry.getValue();
 						try {
-							value.collectGarbage();
+							value.collectGarbage(archiver);
 						} catch (IOException e) {
 							logger.log(Level.SEVERE,
 									"Failed collect garbage for measurement:" + value.getMeasurementName(), e);
@@ -218,7 +218,7 @@ public class MemStorageEngine implements StorageEngine {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					// TODO create measurement
 					measurement = new MemoryMeasurement();
-					measurement.configure(conf, this, measurementName, "", "", dbMetadataMap.get(dbName), bgTaskPool);
+					measurement.configure(conf, this, dbName, measurementName, "", "", dbMetadataMap.get(dbName), bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
 					metricsMeasurementCounter.inc();

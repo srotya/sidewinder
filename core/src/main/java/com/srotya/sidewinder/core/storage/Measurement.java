@@ -37,6 +37,7 @@ import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
  * @author ambud
@@ -47,7 +48,7 @@ public interface Measurement {
 	public static final String FIELD_TAG_SEPARATOR = "#";
 	public static final String TAG_SEPARATOR = "_";
 
-	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName,
+	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
 			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
 			throws IOException;
 
@@ -179,10 +180,24 @@ public interface Measurement {
 		return filteredSeries;
 	}
 
-	public default void collectGarbage() throws IOException {
+	public default void collectGarbage(Archiver archiver) throws IOException {
 		runCleanupOperation("garbage collection", ts -> {
 			try {
-				return ts.collectGarbage();
+				List<Writer> collectedGarbage = ts.collectGarbage();
+				if (archiver != null) {
+					for (Writer writer : collectedGarbage) {
+						byte[] buf = Archiver.writerToByteArray(writer);
+						TimeSeriesArchivalObject archivalObject = new TimeSeriesArchivalObject(getDbName(),
+								getMeasurementName(), ts.getSeriesId(), writer.getTsBucket(), buf);
+						try {
+							archiver.archive(archivalObject);
+						} catch (ArchiveException e) {
+							getLogger().log(Level.SEVERE, "Series failed to archive, series:" + ts.getSeriesId()
+									+ " db:" + getDbName() + " m:" + getMeasurementName(), e);
+						}
+					}
+				}
+				return collectedGarbage;
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
@@ -199,8 +214,8 @@ public interface Measurement {
 		});
 	}
 
-	public default void runCleanupOperation(String operation,
-			java.util.function.Function<TimeSeries, List<Writer>> op) throws IOException {
+	public default void runCleanupOperation(String operation, java.util.function.Function<TimeSeries, List<Writer>> op)
+			throws IOException {
 		getLock().lock();
 		try {
 			Set<String> cleanupList = new HashSet<>();
@@ -353,5 +368,7 @@ public interface Measurement {
 	public boolean useQueryPool();
 
 	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException;
+
+	public String getDbName();
 
 }

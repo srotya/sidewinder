@@ -416,7 +416,7 @@ public class TestDiskStorageEngine {
 			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu2", "value", Arrays.asList("test"),
 					base - (3600_000 * i), 2L));
 		}
-		engine.getMeasurementMap().get("test").get("cpu2").collectGarbage();
+		engine.getMeasurementMap().get("test").get("cpu2").collectGarbage(null);
 		List<Series> queryDataPoints = engine.queryDataPoints("test", "cpu2", "value", ts - (3600_000 * 320),
 				ts, null, null);
 		assertTrue(!engine.isMeasurementFieldFP("test", "cpu2", "value"));
