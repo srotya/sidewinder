@@ -34,6 +34,7 @@ import com.srotya.sidewinder.cluster.push.connectors.ClusterConnector;
 import com.srotya.sidewinder.cluster.push.routing.EndpointService;
 import com.srotya.sidewinder.cluster.push.routing.Node;
 import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
+import com.srotya.sidewinder.cluster.rpc.Query;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -87,9 +88,21 @@ public class LocalityAwareRoutingEngine extends RoutingEngine {
 		return list;
 	}
 
+	@Override
+	public List<Node> routeQuery(Query query) throws IOException {
+		read.lock();
+		List<Node> list = routingTable.get(getRoutingKey(query.getDbName(), query.getMeasurementName()));
+		read.unlock();
+		return list;
+	}
+	
+	public static String getRoutingKey(String dbName, String measurementName) {
+		return dbName + "@" + measurementName;
+	}
+
 	private List<Node> getRoutedNodes(Point point) {
 		read.lock();
-		List<Node> list = routingTable.get(getRoutingKey(point));
+		List<Node> list = routingTable.get(getRoutingKey(point.getDbName(), point.getMeasurementName()));
 		read.unlock();
 		return list;
 	}
@@ -99,7 +112,7 @@ public class LocalityAwareRoutingEngine extends RoutingEngine {
 		if (!connector.isLeader()) {
 			throw new UnsupportedOperationException("This is not a leader node, can't perform route modifications");
 		}
-		String routingKey = getRoutingKey(point);
+		String routingKey = getRoutingKey(point.getDbName(), point.getMeasurementName());
 		if (replicationFactor < nodes.size()) {
 			throw new IllegalArgumentException("Fewer nodes in the cluster than requested replication factor");
 		}
@@ -123,10 +136,6 @@ public class LocalityAwareRoutingEngine extends RoutingEngine {
 			}
 			write.unlock();
 		}
-	}
-
-	public static String getRoutingKey(Point point) {
-		return point.getDbName() + "@" + point.getMeasurementName();
 	}
 
 	@Override

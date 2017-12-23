@@ -44,7 +44,7 @@ import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -161,8 +161,8 @@ public class MeasurementOpsApi {
 		}
 		Gson gson = new Gson();
 		try {
-			Set<SeriesQueryOutput> output = engine.queryDataPoints(dbName, measurementName, valueField, startTime,
-					endTime, null, null);
+			List<Series> output = engine.queryDataPoints(dbName, measurementName, valueField, startTime,
+					endTime, null, null, null, null);
 			return gson.toJson(output);
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
@@ -206,7 +206,7 @@ public class MeasurementOpsApi {
 		try {
 			if (engine.checkIfExists(dbName, measurementName)) {
 				Measurement m = engine.getOrCreateMeasurement(dbName, measurementName);
-				return m.getTimeSeriesMap().size();
+				return m.getSeriesKeys().size();
 			}
 		} catch (IOException e) {
 			throw new BadRequestException(e);
@@ -232,12 +232,12 @@ public class MeasurementOpsApi {
 				startTs = sdf.parse(startTime).getTime();
 				endTs = sdf.parse(endTime).getTime();
 			}
-			Set<SeriesQueryOutput> points = engine.queryDataPoints(dbName, measurementName, valueFieldName, startTs,
+			List<Series> points = engine.queryDataPoints(dbName, measurementName, valueFieldName, startTs,
 					endTs, Arrays.asList(""), null);
 			List<Number[]> response = new ArrayList<>();
-			for (SeriesQueryOutput entry : points) {
+			for (Series entry : points) {
 				for (DataPoint dataPoint : entry.getDataPoints()) {
-					if (!dataPoint.isFp()) {
+					if (entry.isFp()) {
 						response.add(new Number[] { dataPoint.getLongValue(), dataPoint.getTimestamp() });
 					} else {
 						response.add(new Number[] { dataPoint.getValue(), dataPoint.getTimestamp() });

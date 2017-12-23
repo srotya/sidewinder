@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.cluster.push.routing.impl;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -26,6 +27,7 @@ import java.util.logging.Logger;
 import com.srotya.sidewinder.cluster.push.connectors.ClusterConnector;
 import com.srotya.sidewinder.cluster.push.routing.Node;
 import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
+import com.srotya.sidewinder.cluster.rpc.Query;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -100,6 +102,15 @@ public class MasterSlaveRoutingEngine extends RoutingEngine {
 			}
 		}
 		write.unlock();
+	}
+	
+	@Override
+	public List<Node> routeQuery(Query query) throws IOException {
+		return nodeSet;
+	}
+	
+	public static String getRoutingKey(String dbName, String measurementName) {
+		return dbName + "@" + measurementName;
 	}
 
 	@Override

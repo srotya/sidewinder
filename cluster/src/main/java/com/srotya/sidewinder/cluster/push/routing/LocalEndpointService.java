@@ -17,9 +17,11 @@ package com.srotya.sidewinder.cluster.push.routing;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.srotya.sidewinder.core.rpc.Ack;
 import com.srotya.sidewinder.core.rpc.Point;
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -37,16 +39,13 @@ public class LocalEndpointService implements EndpointService {
 
 	@Override
 	public void write(Point point) throws IOException {
-		DataPoint dp = new DataPoint();
-		dp.setDbName(point.getDbName());
-		dp.setFp(point.getFp());
-		dp.setLongValue(point.getValue());
-		dp.setMeasurementName(point.getMeasurementName());
-		dp.setTags(new ArrayList<>(point.getTagsList()));
-		dp.setTimestamp(point.getTimestamp());
-		dp.setValueFieldName(point.getValueFieldName());
-//		System.err.println("Writing dp:" + dp);
-		storageEngine.writeDataPoint(dp);
+		if (point.getFp()) {
+			storageEngine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
+					new ArrayList<>(point.getTagsList()), point.getTimestamp(), Double.longBitsToDouble(point.getValue()));
+		} else {
+			storageEngine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
+					new ArrayList<>(point.getTagsList()), point.getTimestamp(), point.getValue());
+		}
 	}
 
 	@Override
@@ -57,6 +56,35 @@ public class LocalEndpointService implements EndpointService {
 	@Override
 	public void requestRouteEntry(Point point) throws IOException {
 		engine.addRoutableKey(point, 3);
+	}
+
+	@Override
+	public ListenableFuture<Ack> writeAsync(Point point) throws InterruptedException, IOException {
+		storageEngine.writeDataPoint(point);
+		return null;
+	}
+
+	@Override
+	public ListenableFuture<Ack> writeAsync(List<Point> points) throws InterruptedException, IOException {
+		for (Point point : points) {
+			storageEngine.writeDataPoint(point);
+		}
+		return null;
+	}
+
+	@Override
+	public ListenableFuture<Ack> writeAsync(long messageId, List<Point> points)
+			throws InterruptedException, IOException {
+		for (Point point : points) {
+			storageEngine.writeDataPoint(point);
+		}
+		return null;
+	}
+
+	@Override
+	public ListenableFuture<Ack> writeAsync(long messageId, Point point) throws InterruptedException, IOException {
+		storageEngine.writeDataPoint(point);
+		return null;
 	}
 
 }

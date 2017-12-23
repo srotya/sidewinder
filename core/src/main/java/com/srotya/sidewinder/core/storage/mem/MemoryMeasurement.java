@@ -54,11 +54,13 @@ public class MemoryMeasurement implements Measurement {
 	private String compressionCodec;
 	private String compactionCodec;
 	private boolean useQueryPool;
+	private String dbName;
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, String measurementName,
+	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
 			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
 			throws IOException {
+		this.dbName = dbName;
 		this.measurementName = measurementName;
 		this.metadata = metadata;
 		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("request"));
@@ -74,11 +76,6 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public Collection<TimeSeries> getTimeSeries() {
 		return seriesMap.values();
-	}
-
-	@Override
-	public Map<String, TimeSeries> getTimeSeriesMap() {
-		return seriesMap;
 	}
 
 	@Override
@@ -117,10 +114,10 @@ public class MemoryMeasurement implements Measurement {
 			Map<String, String> conf) throws IOException {
 		Collections.sort(tags);
 		String rowKey = constructSeriesId(valueFieldName, tags, tagIndex);
-		TimeSeries timeSeries = getTimeSeries(rowKey);
+		TimeSeries timeSeries = getSeriesFromKey(rowKey);
 		if (timeSeries == null) {
 			synchronized (this) {
-				if ((timeSeries = getTimeSeries(rowKey)) == null) {
+				if ((timeSeries = getSeriesFromKey(rowKey)) == null) {
 					Measurement.indexRowKey(tagIndex, rowKey, tags);
 					timeSeries = new TimeSeries(this, compressionCodec, compactionCodec, rowKey, timeBucketSize,
 							metadata, fp, conf);
@@ -131,10 +128,6 @@ public class MemoryMeasurement implements Measurement {
 			}
 		}
 		return timeSeries;
-	}
-
-	private TimeSeries getTimeSeries(String rowKey) {
-		return getTimeSeriesMap().get(rowKey);
 	}
 
 	@Override
@@ -177,5 +170,20 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public boolean useQueryPool() {
 		return useQueryPool;
+	}
+
+	@Override
+	public Set<String> getSeriesKeys() {
+		return seriesMap.keySet();
+	}
+
+	@Override
+	public TimeSeries getSeriesFromKey(String key) {
+		return seriesMap.get(key);
+	}
+	
+	@Override
+	public String getDbName() {
+		return dbName;
 	}
 }

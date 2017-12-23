@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -29,6 +30,7 @@ import org.junit.Test;
 import com.srotya.sidewinder.cluster.push.connectors.ConfigConnector;
 import com.srotya.sidewinder.cluster.push.routing.Node;
 import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
+import com.srotya.sidewinder.cluster.rpc.Query;
 import com.srotya.sidewinder.core.rpc.Point;
 
 /**
@@ -100,6 +102,12 @@ public class TestConfigConnector {
 			public void updateLocalRouteTable(Object routingTable) {
 				// TODO Auto-generated method stub
 
+			}
+
+			@Override
+			public List<Node> routeQuery(Query query) throws IOException {
+				// TODO Auto-generated method stub
+				return null;
 			}
 
 		});

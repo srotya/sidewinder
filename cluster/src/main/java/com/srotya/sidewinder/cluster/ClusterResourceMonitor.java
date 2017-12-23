@@ -23,27 +23,26 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.cluster.push.connectors.ClusterConnector;
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
  * @author ambud
  */
 public class ClusterResourceMonitor {
-	
+
 	private static final String DB = "_internal";
 	private static Logger logger = Logger.getLogger(ClusterResourceMonitor.class.getName());
 	private static final ClusterResourceMonitor INSTANCE = new ClusterResourceMonitor();
 	private StorageEngine storageEngine;
 	private ClusterConnector connector;
-	
+
 	private ClusterResourceMonitor() {
 	}
-	
+
 	public static ClusterResourceMonitor getInstance() {
 		return INSTANCE;
 	}
-	
+
 	public void init(StorageEngine storageEngine, ClusterConnector connector, ScheduledExecutorService bgTasks) {
 		this.storageEngine = storageEngine;
 		this.connector = connector;
@@ -59,15 +58,8 @@ public class ClusterResourceMonitor {
 
 	private void clusterMonitor() {
 		try {
-			DataPoint dp = new DataPoint();
-			dp.setDbName(DB);
-			dp.setMeasurementName("cluster");
-			dp.setFp(false);
-			dp.setLongValue(connector.getClusterSize());
-			dp.setTimestamp(System.currentTimeMillis());
-			dp.setValueFieldName("size");
-			dp.setTags(Arrays.asList("controller"));
-			storageEngine.writeDataPoint(dp);
+			storageEngine.writeDataPoint(DB, "cluster", "size", Arrays.asList("controller"), System.currentTimeMillis(),
+					connector.getClusterSize());
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Failed to monitor cluster", e);
 		}

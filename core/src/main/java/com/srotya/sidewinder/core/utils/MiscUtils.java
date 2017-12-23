@@ -28,15 +28,17 @@ import java.util.regex.Pattern;
 
 import javax.ws.rs.BadRequestException;
 
-import com.srotya.sidewinder.core.aggregators.AggregationFunction;
-import com.srotya.sidewinder.core.aggregators.FunctionTable;
 import com.srotya.sidewinder.core.api.grafana.TargetSeries;
 import com.srotya.sidewinder.core.filters.AndFilter;
 import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.filters.ContainsFilter;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.filters.OrFilter;
+import com.srotya.sidewinder.core.functions.Function;
+import com.srotya.sidewinder.core.functions.FunctionTable;
+import com.srotya.sidewinder.core.functions.multiseries.ChainFunction;
 import com.srotya.sidewinder.core.rpc.Point;
+import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
@@ -66,37 +68,10 @@ public class MiscUtils {
 		return lines;
 	}
 
-	public static DataPoint buildDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, long timestamp, long value) {
-		DataPoint dp = new DataPoint();
-		dp.setDbName(dbName);
-		dp.setFp(false);
-		dp.setLongValue(value);
-		dp.setMeasurementName(measurementName);
-		dp.setTags(tags);
-		dp.setTimestamp(timestamp);
-		dp.setValueFieldName(valueFieldName);
-		return dp;
-	}
-
-	public static DataPoint buildDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, long timestamp, double value) {
-		DataPoint dp = new DataPoint();
-		dp.setDbName(dbName);
-		dp.setFp(true);
-		dp.setValue(value);
-		dp.setMeasurementName(measurementName);
-		dp.setTags(tags);
-		dp.setTimestamp(timestamp);
-		dp.setValueFieldName(valueFieldName);
-		return dp;
-	}
-
 	public static DataPoint buildDataPoint(long timestamp, long value) {
 		DataPoint dp = new DataPoint();
 		dp.setTimestamp(timestamp);
 		dp.setLongValue(value);
-		dp.setFp(false);
 		return dp;
 	}
 
@@ -104,7 +79,6 @@ public class MiscUtils {
 		DataPoint dp = new DataPoint();
 		dp.setTimestamp(timestamp);
 		dp.setValue(value);
-		dp.setFp(true);
 		return dp;
 	}
 
@@ -118,28 +92,33 @@ public class MiscUtils {
 		}
 	}
 
-	public static void delete(File file) throws IOException {
+	public static boolean delete(File file) throws IOException {
 		if (file.isDirectory()) {
 			// directory is empty, then delete it
 			if (file.list().length == 0) {
-				file.delete();
+				return file.delete();
 			} else {
 				// list all the directory contents
 				String files[] = file.list();
+				boolean result = false;
 				for (String temp : files) {
 					// construct the file structure
 					File fileDelete = new File(file, temp);
 					// recursive delete
-					delete(fileDelete);
+					result = delete(fileDelete);
+					if (!result) {
+						return false;
+					}
 				}
 				// check the directory again, if empty then delete it
 				if (file.list().length == 0) {
 					file.delete();
 				}
+				return result;
 			}
 		} else {
 			// if file, then delete it
-			file.delete();
+			return file.delete();
 		}
 	}
 
@@ -157,15 +136,14 @@ public class MiscUtils {
 		pointToDataPoint(dp, point);
 		return dp;
 	}
-	
+
 	public static void pointToDataPoint(DataPoint dp, Point point) {
-		dp.setDbName(point.getDbName());
-		dp.setFp(point.getFp());
-		dp.setLongValue(point.getValue());
-		dp.setMeasurementName(point.getMeasurementName());
-		dp.setTags(new ArrayList<>(point.getTagsList()));
+		if (point.getFp()) {
+			dp.setValue(Double.doubleToLongBits(point.getValue()));
+		} else {
+			dp.setLongValue(point.getValue());
+		}
 		dp.setTimestamp(point.getTimestamp());
-		dp.setValueFieldName(point.getValueFieldName());
 	}
 
 	public static Filter<List<String>> buildTagFilter(String tagFilter, List<String> tags)
@@ -173,7 +151,6 @@ public class MiscUtils {
 		String[] tagSet = tagFilter.split("(&|\\|)");
 		tags.addAll(Arrays.asList(tagSet));
 		try {
-
 			Stack<Filter<List<String>>> predicateStack = new Stack<>();
 			for (int i = 0; i < tagSet.length; i++) {
 				String item = tagSet[i];
@@ -203,33 +180,39 @@ public class MiscUtils {
 		}
 	}
 
-	public static AggregationFunction createAggregateFunction(String[] parts)
+	public static Function createFunctionChain(String[] parts, int startIndex)
 			throws InstantiationException, IllegalAccessException, Exception {
-		String[] args = parts[1].split(",");
-		Class<? extends AggregationFunction> lookupFunction = FunctionTable.get().lookupFunction(args[0]);
-		if (lookupFunction == null) {
-			throw new BadRequestException("Bad aggregation function:" + args[0]);
-		}
-		AggregationFunction instance = lookupFunction.newInstance();
-		if (args.length - 1 < instance.getNumberOfArgs()) {
-			throw new BadRequestException("Insufficient arguments for aggregation function, needed:"
-					+ instance.getNumberOfArgs() + ", found:" + (args.length - 1));
-		}
-		Object[] ary = new Object[args.length - 1];
-		for (int i = 1; i < args.length; i++) {
-			Matcher matcher = NUMBER.matcher(args[i]);
-			if (matcher.matches()) {
-				if (matcher.group(1) != null) {
-					ary[i - 1] = Double.parseDouble(args[i]);
-				} else {
-					ary[i - 1] = Integer.parseInt(args[i]);
-				}
-			} else {
-				ary[i - 1] = args[i];
+		Function[] arguments = new Function[parts.length - startIndex];
+		for (int k = startIndex, p = 0; k < parts.length; k++, p++) {
+			String[] args = parts[k].split(",");
+			Class<? extends Function> lookupFunction = FunctionTable.get().lookupFunction(args[0]);
+			if (lookupFunction == null) {
+				throw new BadRequestException("Unknown function:" + args[0]);
 			}
+			Function instance = (Function) lookupFunction.newInstance();
+			if (args.length - 1 < instance.getNumberOfArgs()) {
+				throw new BadRequestException("Insufficient arguments for aggregation function, needed:"
+						+ instance.getNumberOfArgs() + ", found:" + (args.length - 1));
+			}
+			Object[] ary = new Object[args.length - 1];
+			for (int i = 1; i < args.length; i++) {
+				Matcher matcher = NUMBER.matcher(args[i]);
+				if (matcher.matches()) {
+					if (matcher.group(1) != null) {
+						ary[i - 1] = Double.parseDouble(args[i]);
+					} else {
+						ary[i - 1] = Integer.parseInt(args[i]);
+					}
+				} else {
+					ary[i - 1] = args[i];
+				}
+			}
+			instance.init(ary);
+			arguments[p] = instance;
 		}
-		instance.init(ary);
-		return instance;
+		ChainFunction function = new ChainFunction();
+		function.init(arguments);
+		return function;
 	}
 
 	public static TargetSeries extractTargetFromQuery(String query) {
@@ -261,16 +244,39 @@ public class MiscUtils {
 				throw new BadRequestException(e);
 			}
 		}
-		AggregationFunction aggregationFunction = null;
+		Function aggregationFunction = null;
 		if (parts.length > 1) {
 			try {
-				aggregationFunction = createAggregateFunction(parts);
+				aggregationFunction = createFunctionChain(parts, 1);
 			} catch (Exception e) {
 				throw new BadRequestException(e);
 			}
 		}
 
 		return new TargetSeries(measurementName, valueFieldName, tags, tagFilter, aggregationFunction, false);
+	}
+
+	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
+			long timestamp, long value) {
+		return buildDP(dbName, measurementName, valueFieldName, tags, timestamp, value, false);
+	}
+
+	public static Point buildDP(String dbName, String measurementName, String valueFieldName, List<String> tags,
+			long timestamp, long value, boolean fp) {
+		Builder builder = Point.newBuilder();
+		builder.setDbName(dbName);
+		builder.setMeasurementName(measurementName);
+		builder.setValueFieldName(valueFieldName);
+		builder.addAllTags(tags);
+		builder.setTimestamp(timestamp);
+		builder.setValue(value);
+		builder.setFp(fp);
+		return builder.build();
+	}
+
+	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
+			long timestamp, double value) {
+		return buildDP(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true);
 	}
 
 }

@@ -17,22 +17,21 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import com.codahale.metrics.Counter;
-import com.srotya.sidewinder.core.aggregators.AggregationFunction;
-import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.filters.Filter;
+import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
 /**
@@ -57,10 +56,11 @@ public interface StorageEngine {
 			.ceil((((double) DEFAULT_TIME_BUCKET_CONSTANT) * 24 / 60) / 60);
 	public static final String PERSISTENCE_DISK = "persistence.disk";
 	public static final String ARCHIVER_CLASS = "archiver.class";
+	public static final String GC_ENABLED = "gc.enabled";
 	public static final String GC_DELAY = "gc.delay";
 	public static final String GC_FREQUENCY = "gc.frequency";
-	public static final String DEFAULT_GC_FREQUENCY = "500000";
-	public static final String DEFAULT_GC_DELAY = "60000";
+	public static final String DEFAULT_GC_FREQUENCY = "60";
+	public static final String DEFAULT_GC_DELAY = "60";
 	public static final String COMPACTION_ENABLED = "compaction.enabled";
 	public static final String DEFAULT_COMPACTION_ENABLED = "false";
 	public static final String COMPACTION_FREQUENCY = "compaction.frequency";
@@ -89,52 +89,21 @@ public interface StorageEngine {
 	 */
 	public void disconnect() throws IOException;
 
-	/**
-	 * Write datapoint to the storage engine
-	 * 
-	 * @param dp
-	 * @throws IOException
-	 */
-	public default void writeDataPoint(DataPoint dp) throws IOException {
-		StorageEngine.validateDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(), dp.getTags(),
-				TimeUnit.MILLISECONDS);
-		TimeSeries timeSeries = getOrCreateTimeSeries(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
-				dp.getTags(), getDefaultTimebucketSize(), dp.isFp());
-		if (dp.isFp() != timeSeries.isFp()) {
+	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
+			long timestamp, long value, boolean fp) throws IOException {
+		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
+		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
+				getDefaultTimebucketSize(), fp);
+		if (timeSeries.isFp() != fp) {
 			// drop this datapoint, mixed series are not allowed
 			throw FP_MISMATCH_EXCEPTION;
 		}
-		if (dp.isFp()) {
-			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getValue());
+		if (fp) {
+			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, Double.longBitsToDouble(value));
 		} else {
-			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getLongValue());
+			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
 		}
 		getCounter().inc();
-	}
-
-	public default void writeDataPoint(List<DataPoint> dps) throws IOException {
-		Map<TimeSeries, List<DataPoint>> dpMap = new HashMap<>();
-		for (DataPoint dp : dps) {
-			StorageEngine.validateDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
-					dp.getTags(), TimeUnit.MILLISECONDS);
-			TimeSeries timeSeries = getOrCreateTimeSeries(dp.getDbName(), dp.getMeasurementName(),
-					dp.getValueFieldName(), dp.getTags(), getDefaultTimebucketSize(), dp.isFp());
-			if (dp.isFp() != timeSeries.isFp()) {
-				// drop this datapoint, mixed series are not allowed
-				throw FP_MISMATCH_EXCEPTION;
-			}
-			List<DataPoint> dpx;
-			if (!dpMap.containsKey(timeSeries)) {
-				dpMap.put(timeSeries, dpx = new ArrayList<>());
-			} else {
-				dpx = dpMap.get(timeSeries);
-			}
-			dpx.add(dp);
-		}
-		for (Entry<TimeSeries, List<DataPoint>> entry : dpMap.entrySet()) {
-			entry.getKey().addDataPoints(TimeUnit.MILLISECONDS, entry.getValue());
-			getCounter().inc(entry.getValue().size());
-		}
 	}
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
@@ -164,30 +133,7 @@ public interface StorageEngine {
 	}
 
 	/**
-	 * Query timeseries from the storage engine given the supplied attributes. This
-	 * function doesn't allow use of {@link AggregationFunction}.
-	 * 
-	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
-	 * @param startTime
-	 * @param endTime
-	 * @param tags
-	 * @param valuePredicate
-	 * @return
-	 * @throws ItemNotFoundException
-	 * @throws IOException
-	 */
-	public default Set<SeriesQueryOutput> queryDataPoints(String dbName, String measurementName, String valueFieldName,
-			long startTime, long endTime, List<String> tags, Predicate valuePredicate)
-			throws ItemNotFoundException, IOException {
-		return queryDataPoints(dbName, measurementName, valueFieldName, startTime, endTime, tags,
-				new AnyFilter<List<String>>(), valuePredicate, null);
-	}
-
-	/**
-	 * Query timeseries from the storage engine given the supplied attributes. This
-	 * function does allow use of {@link AggregationFunction}.
+	 * Query timeseries from the storage engine given the supplied attributes.
 	 * 
 	 * @param dbName
 	 * @param measurementPattern
@@ -197,24 +143,39 @@ public interface StorageEngine {
 	 * @param tagList
 	 * @param tagFilter
 	 * @param valuePredicate
-	 * @param aggregationFunction
+	 * @param function
 	 * @return
 	 * @throws IOException
 	 */
-	public default Set<SeriesQueryOutput> queryDataPoints(String dbName, String measurementPattern,
-			String valueFieldPattern, long startTime, long endTime, List<String> tagList,
-			Filter<List<String>> tagFilter, Predicate valuePredicate, AggregationFunction aggregationFunction)
-			throws IOException {
+	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
+			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
+			Predicate valuePredicate, Function function) throws IOException {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementPattern);
-		Set<SeriesQueryOutput> resultMap = new HashSet<>();
+		List<Series> resultList = Collections.synchronizedList(new ArrayList<>());
 		for (String measurement : measurementsLike) {
 			getDatabaseMap().get(dbName).get(measurement).queryDataPoints(valueFieldPattern, startTime, endTime,
-					tagList, tagFilter, valuePredicate, aggregationFunction, resultMap);
+					tagList, tagFilter, valuePredicate, resultList);
 		}
-		return resultMap;
+		if (function != null) {
+			resultList = function.apply(resultList);
+		}
+		return resultList;
+	}
+
+	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
+			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
+			Predicate valuePredicate) throws IOException {
+		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagList, tagFilter,
+				valuePredicate, null);
+	}
+
+	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
+			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter) throws IOException {
+		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagList, tagFilter,
+				null, null);
 	}
 
 	/**
@@ -611,5 +572,10 @@ public interface StorageEngine {
 	public int getDefaultTimebucketSize();
 
 	public Counter getCounter();
+
+	public default void writeDataPoint(Point dp) throws IOException {
+		writeDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
+				new ArrayList<>(dp.getTagsList()), dp.getTimestamp(), dp.getValue(), dp.getFp());
+	}
 
 }

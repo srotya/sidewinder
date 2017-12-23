@@ -17,7 +17,6 @@ package com.srotya.sidewinder.core.storage.compression.byzantine;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -34,9 +33,6 @@ public class ByzantineReader implements Reader {
 	private int count;
 	private Predicate timePredicate;
 	private Predicate valuePredicate;
-	private boolean fp;
-	private String fieldName;
-	private List<String> tags;
 	private ByteBuffer buf;
 	private long prevValue;
 
@@ -58,24 +54,15 @@ public class ByzantineReader implements Reader {
 			uncompressAndReadTimestamp();
 			uncompressAndReadValue();
 			counter++;
-			if (timePredicate != null && !timePredicate.apply(prevTs)) {
+			if (timePredicate != null && !timePredicate.test(prevTs)) {
 				return null;
 			}
-			if (valuePredicate != null && !valuePredicate.apply(prevValue)) {
+			if (valuePredicate != null && !valuePredicate.test(prevValue)) {
 				return null;
 			}
 			dp = new DataPoint();
 			dp.setTimestamp(prevTs);
 			dp.setLongValue(prevValue);
-			dp.setFp(fp);
-			if (tags != null) {
-				dp.setTags(tags);
-			}
-
-			if (fieldName != null) {
-				dp.setValueFieldName(fieldName);
-			}
-
 			return dp;
 		} else {
 			throw EOS_EXCEPTION;
@@ -89,10 +76,10 @@ public class ByzantineReader implements Reader {
 			uncompressAndReadTimestamp();
 			uncompressAndReadValue();
 			counter++;
-			if (timePredicate != null && !timePredicate.apply(prevTs)) {
+			if (timePredicate != null && !timePredicate.test(prevTs)) {
 				return null;
 			}
-			if (valuePredicate != null && !valuePredicate.apply(prevValue)) {
+			if (valuePredicate != null && !valuePredicate.test(prevValue)) {
 				return null;
 			}
 			dp[0] = prevTs;
@@ -147,21 +134,6 @@ public class ByzantineReader implements Reader {
 	@Override
 	public void setValuePredicate(Predicate valuePredicate) {
 		this.valuePredicate = valuePredicate;
-	}
-
-	@Override
-	public void setIsFP(boolean fp) {
-		this.fp = fp;
-	}
-
-	@Override
-	public void setFieldName(String fieldName) {
-		this.fieldName = fieldName;
-	}
-
-	@Override
-	public void setTags(List<String> tags) {
-		this.tags = tags;
 	}
 
 	/**

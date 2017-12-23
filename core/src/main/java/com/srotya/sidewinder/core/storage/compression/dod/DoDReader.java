@@ -17,7 +17,6 @@ package com.srotya.sidewinder.core.storage.compression.dod;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -37,9 +36,6 @@ public class DoDReader implements Reader {
 	private long lastTs;
 	private Predicate timePredicate;
 	private Predicate valuePredicate;
-	private boolean fp;
-	private String fieldName;
-	private List<String> tags;
 	private BitReader reader;
 	private long prevValue;
 	private long prevXor;
@@ -81,25 +77,15 @@ public class DoDReader implements Reader {
 			uncompressValue();
 			counter++;
 
-			if (timePredicate != null && !timePredicate.apply(prevTs)) {
+			if (timePredicate != null && !timePredicate.test(prevTs)) {
 				return null;
 			}
-			if (valuePredicate != null && !valuePredicate.apply(prevValue)) {
+			if (valuePredicate != null && !valuePredicate.test(prevValue)) {
 				return null;
 			}
 			dp = new DataPoint();
 			dp.setTimestamp(prevTs);
-			dp.setValue(prevValue);
-			dp.setFp(fp);
-
-			if (tags != null) {
-				dp.setTags(tags);
-			}
-
-			if (fieldName != null) {
-				dp.setValueFieldName(fieldName);
-			}
-
+			dp.setLongValue(prevValue);
 			return dp;
 		} else {
 			throw EOS_EXCEPTION;
@@ -114,10 +100,10 @@ public class DoDReader implements Reader {
 			uncompressValue();
 			counter++;
 
-			if (timePredicate != null && !timePredicate.apply(prevTs)) {
+			if (timePredicate != null && !timePredicate.test(prevTs)) {
 				return null;
 			}
-			if (valuePredicate != null && !valuePredicate.apply(prevValue)) {
+			if (valuePredicate != null && !valuePredicate.test(prevValue)) {
 				return null;
 			}
 			dp[0] = prevTs;
@@ -192,18 +178,4 @@ public class DoDReader implements Reader {
 		this.valuePredicate = valuePredicate;
 	}
 
-	@Override
-	public void setIsFP(boolean fp) {
-		this.fp = fp;
-	}
-
-	@Override
-	public void setFieldName(String fieldName) {
-		this.fieldName = fieldName;
-	}
-
-	@Override
-	public void setTags(List<String> tags) {
-		this.tags = tags;
-	}
 }

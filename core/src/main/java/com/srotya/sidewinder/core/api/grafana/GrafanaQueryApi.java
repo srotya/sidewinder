@@ -46,8 +46,8 @@ import com.codahale.metrics.Timer.Context;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonObject;
-import com.srotya.sidewinder.core.aggregators.FunctionTable;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
+import com.srotya.sidewinder.core.functions.FunctionTable;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.RejectException;
@@ -220,35 +220,35 @@ public class GrafanaQueryApi {
 		return new HashSet<>(Arrays.asList("secs", "mins", "hours", "days", "weeks", "months", "years"));
 	}
 
-	@Path("/rawquery")
-	@POST
-	@Produces({ MediaType.APPLICATION_JSON })
-	@Consumes({ MediaType.APPLICATION_JSON })
-	public List<Target> rawQuery(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
-		grafanaQueryCounter.mark();
-		Context time = grafanaQueryLatency.time();
-		Gson gson = new GsonBuilder().create();
-		JsonObject json = gson.fromJson(query, JsonObject.class);
-		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-		JsonObject range = json.get("range").getAsJsonObject();
-		long startTs = sdf.parse(range.get("from").getAsString()).getTime();
-		long endTs = sdf.parse(range.get("to").getAsString()).getTime();
-
-		startTs = tz.getOffset(startTs) + startTs;
-		endTs = tz.getOffset(endTs) + endTs;
-
-		List<TargetSeries> targetSeries = new ArrayList<>();
-
-		List<Target> output = new ArrayList<>();
-		try {
-			for (TargetSeries targetSeriesEntry : targetSeries) {
-				GrafanaUtils.queryAndGetData(engine, dbName, startTs, endTs, output, targetSeriesEntry);
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		time.stop();
-		return output;
-	}
+//	@Path("/rawquery")
+//	@POST
+//	@Produces({ MediaType.APPLICATION_JSON })
+//	@Consumes({ MediaType.APPLICATION_JSON })
+//	public List<Target> rawQuery(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
+//		grafanaQueryCounter.mark();
+//		Context time = grafanaQueryLatency.time();
+//		Gson gson = new GsonBuilder().create();
+//		JsonObject json = gson.fromJson(query, JsonObject.class);
+//		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+//		JsonObject range = json.get("range").getAsJsonObject();
+//		long startTs = sdf.parse(range.get("from").getAsString()).getTime();
+//		long endTs = sdf.parse(range.get("to").getAsString()).getTime();
+//
+//		startTs = tz.getOffset(startTs) + startTs;
+//		endTs = tz.getOffset(endTs) + endTs;
+//
+//		List<TargetSeries> targetSeries = new ArrayList<>();
+//
+//		List<Target> output = new ArrayList<>();
+//		try {
+//			for (TargetSeries targetSeriesEntry : targetSeries) {
+//				GrafanaUtils.queryAndGetData(engine, dbName, startTs, endTs, output, targetSeriesEntry);
+//			}
+//		} catch (Exception e) {
+//			e.printStackTrace();
+//		}
+//		time.stop();
+//		return output;
+//	}
 
 }

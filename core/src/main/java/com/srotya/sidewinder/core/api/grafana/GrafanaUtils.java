@@ -18,7 +18,6 @@ package com.srotya.sidewinder.core.api.grafana;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.Stack;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -29,17 +28,17 @@ import javax.ws.rs.NotFoundException;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.srotya.sidewinder.core.aggregators.AggregationFunction;
-import com.srotya.sidewinder.core.aggregators.FunctionTable;
 import com.srotya.sidewinder.core.filters.AndFilter;
 import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.filters.ComplexFilter;
 import com.srotya.sidewinder.core.filters.ContainsFilter;
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.filters.OrFilter;
+import com.srotya.sidewinder.core.functions.Function;
+import com.srotya.sidewinder.core.functions.FunctionTable;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
-import com.srotya.sidewinder.core.storage.SeriesQueryOutput;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -55,7 +54,7 @@ public class GrafanaUtils {
 
 	public static void queryAndGetData(StorageEngine engine, String dbName, long startTs, long endTs,
 			List<Target> output, TargetSeries targetSeriesEntry) throws IOException {
-		Set<SeriesQueryOutput> points;
+		List<Series> points;
 		try {
 			points = engine.queryDataPoints(dbName, targetSeriesEntry.getMeasurementName(),
 					targetSeriesEntry.getFieldName(), startTs, endTs, targetSeriesEntry.getTagList(),
@@ -65,7 +64,7 @@ public class GrafanaUtils {
 		} catch (Exception e) {
 			throw new BadRequestException(e.getMessage());
 		}
-		for (SeriesQueryOutput entry : points) {
+		for (Series entry : points) {
 			Target tar = new Target(entry.toString());
 			List<DataPoint> dps = entry.getDataPoints();
 			if (dps != null) {
@@ -74,16 +73,6 @@ public class GrafanaUtils {
 						tar.getDatapoints().add(new Number[] { point.getLongValue(), point.getTimestamp() });
 					} else {
 						tar.getDatapoints().add(new Number[] { point.getValue(), point.getTimestamp() });
-					}
-				}
-			}
-			List<long[]> dataPoints = entry.getPoints();
-			if (dataPoints != null) {
-				for (long[] point : dataPoints) {
-					if (!entry.isFp()) {
-						tar.getDatapoints().add(new Number[] { point[1], point[0] });
-					} else {
-						tar.getDatapoints().add(new Number[] { Double.longBitsToDouble(point[1]), point[0] });
 					}
 				}
 			}
@@ -108,7 +97,7 @@ public class GrafanaUtils {
 			if (jsonElement.has("target") && jsonElement.has("field")) {
 				List<String> filterElements = new ArrayList<>();
 				Filter<List<String>> filter = extractGrafanaFilter(jsonElement, filterElements);
-				AggregationFunction aggregationFunction = extractGrafanaAggregation(jsonElement);
+				Function aggregationFunction = extractGrafanaAggregation(jsonElement);
 				boolean correlate = false;
 				if (jsonElement.has("correlate")) {
 					correlate = jsonElement.get("correlate").getAsBoolean();
@@ -126,7 +115,7 @@ public class GrafanaUtils {
 		}
 	}
 
-	public static AggregationFunction extractGrafanaAggregation(JsonObject jsonElement) {
+	public static Function extractGrafanaAggregation(JsonObject jsonElement) {
 		if (!jsonElement.has("aggregator")) {
 			return null;
 		}
@@ -142,10 +131,10 @@ public class GrafanaUtils {
 		if (obj.has("unit")) {
 			multipleFactor = toSeconds(obj.get("unit").getAsString());
 		}
-		Class<? extends AggregationFunction> lookupFunction = FunctionTable.get().lookupFunction(name);
+		Class<? extends Function> lookupFunction = FunctionTable.get().lookupFunction(name);
 		if (lookupFunction != null) {
 			try {
-				AggregationFunction instance = lookupFunction.newInstance();
+				Function instance = (Function) lookupFunction.newInstance();
 				JsonArray ary = obj.get("args").getAsJsonArray();
 				Object[] args = new Object[ary.size()];
 				for (JsonElement element : ary) {
@@ -199,9 +188,9 @@ public class GrafanaUtils {
 						andFilter.addFilter(pop);
 						predicateStack.push(andFilter);
 					} else if (val.equalsIgnoreCase("or")) {
-						OrFilter<List<String>> andFilter = new OrFilter<>();
-						andFilter.addFilter(pop);
-						predicateStack.push(andFilter);
+						OrFilter<List<String>> orFilter = new OrFilter<>();
+						orFilter.addFilter(pop);
+						predicateStack.push(orFilter);
 					} else {
 						// error
 						System.err.println("Error stack is not empty");

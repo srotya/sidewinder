@@ -97,7 +97,7 @@ public class TestTimeSeries {
 		Writer writer = series.getBucketMap().values().iterator().next();
 		assertEquals(3, writer.getCount());
 
-		Reader reader = TimeSeries.getReader(writer, null, null, true, "value", Arrays.asList("test"));
+		Reader reader = TimeSeries.getReader(writer, null, null);
 		for (int i = 0; i < 3; i++) {
 			reader.readPair();
 		}
@@ -107,23 +107,19 @@ public class TestTimeSeries {
 		} catch (IOException e) {
 		}
 
-		List<DataPoint> values = series.queryDataPoints("value", Arrays.asList("test"), curr, curr + 3, null);
+		List<DataPoint> values = series.queryDataPoints("value", Arrays.asList("test"), curr + 3, curr, null);
 		assertEquals(3, values.size());
 		for (int i = 1; i <= 3; i++) {
 			DataPoint dp = values.get(i - 1);
 			assertEquals("Value mismatch:" + dp.getValue() + "\t" + (2.2 * i) + "\t" + i, dp.getValue(), 2.2 * i, 0.01);
-			assertEquals("value", dp.getValueFieldName());
-			assertEquals(Arrays.asList("test"), dp.getTags());
 		}
 
-		List<Reader> queryReaders = series.queryReader("value", Arrays.asList("test"), curr, curr + 3, null);
+		List<Reader> queryReaders = series.queryReader("value", Arrays.asList("test"), curr + 3, curr, null);
 		assertEquals(1, queryReaders.size());
 		reader = queryReaders.get(0);
 		for (int i = 1; i <= 3; i++) {
 			DataPoint dp = reader.readPair();
 			assertEquals("Value mismatch:" + dp.getValue() + "\t" + (2.2 * i) + "\t" + i, dp.getValue(), 2.2 * i, 0.01);
-			assertEquals("value", dp.getValueFieldName());
-			assertEquals(Arrays.asList("test"), dp.getTags());
 		}
 
 		values = series.queryDataPoints("value", Arrays.asList("test"), curr - 1, curr - 1, null);
