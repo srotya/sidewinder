@@ -16,8 +16,6 @@
 package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -31,13 +29,14 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
-import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.storage.malloc.Malloc;
+import com.srotya.sidewinder.core.storage.malloc.MemMalloc;
 
 /**
  * @author ambud
@@ -50,11 +49,11 @@ public class MemoryMeasurement implements Measurement {
 	private DBMetadata metadata;
 	private Map<String, TimeSeries> seriesMap;
 	private MemTagIndex tagIndex;
-	private List<ByteBuffer> bufTracker;
 	private String compressionCodec;
 	private String compactionCodec;
 	private boolean useQueryPool;
 	private String dbName;
+	private Malloc malloc;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
@@ -65,12 +64,13 @@ public class MemoryMeasurement implements Measurement {
 		this.metadata = metadata;
 		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("request"));
 		this.seriesMap = new ConcurrentHashMap<>();
-		this.bufTracker = new ArrayList<>();
 		this.compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
 				StorageEngine.DEFAULT_COMPRESSION_CODEC);
 		this.compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
 				StorageEngine.DEFAULT_COMPACTION_CODEC);
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
+		malloc = new MemMalloc();
+		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool);
 	}
 
 	@Override
@@ -89,24 +89,6 @@ public class MemoryMeasurement implements Measurement {
 
 	@Override
 	public void close() throws IOException {
-	}
-
-	@Override
-	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
-		return createNewBuffer(seriesId, tsBucket, 1024);
-	}
-
-	@Override
-	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
-		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(newSize);
-		synchronized (bufTracker) {
-			bufTracker.add(allocateDirect);
-		}
-		return new BufferObject(seriesId + "\t" + tsBucket, allocateDirect);
-	}
-
-	public List<ByteBuffer> getBufTracker() {
-		return bufTracker;
 	}
 
 	@Override
@@ -148,18 +130,13 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public String toString() {
 		return "MemoryMeasurement [measurementName=" + measurementName + ", metadata=" + metadata + ", seriesMap="
-				+ seriesMap + ", tagIndex=" + tagIndex + ", bufTracker=" + bufTracker + ", compressionClass="
+				+ seriesMap + ", tagIndex=" + tagIndex + ", compressionClass="
 				+ compressionCodec + "]";
 	}
 
 	@Override
 	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId) {
 		return new ConcurrentSkipListMap<>();
-	}
-
-	@Override
-	public void cleanupBufferIds(Set<String> cleanupList) {
-		// nothing much to do since this is an in-memory implementation
 	}
 
 	@Override
@@ -185,5 +162,10 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public String getDbName() {
 		return dbName;
+	}
+	
+	@Override
+	public Malloc getMalloc() {
+		return malloc;
 	}
 }
