@@ -25,7 +25,7 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 
 public class BasicSingleFunctions {
 
-	@FunctionName(alias = "sfirst", description = "Returns the first value in the series (single result function)")
+	@FunctionName(alias = "sfirst", description = "Returns the first value in the series", type="single")
 	public static class FirstFunction extends ReduceFunction {
 
 		@Override
@@ -39,7 +39,7 @@ public class BasicSingleFunctions {
 
 	}
 
-	@FunctionName(alias = "slast", description = "Returns the last value in the series (single result function)")
+	@FunctionName(alias = "slast", description = "Returns the last value in the series", type="single")
 	public static class LastFunction extends ReduceFunction {
 
 		@Override
@@ -53,7 +53,7 @@ public class BasicSingleFunctions {
 
 	}
 
-	@FunctionName(alias = "smax", description = "Returns the largest value in the series (single result function)")
+	@FunctionName(alias = "smax", description = "Returns the largest value in the series", type="single")
 	public static class MaxFunction extends ReduceFunction {
 
 		@Override
@@ -81,7 +81,7 @@ public class BasicSingleFunctions {
 
 	}
 
-	@FunctionName(alias = "smean", description = "Returns the average value of the series (single result function)")
+	@FunctionName(alias = "smean", description = "Returns the average value of the series", type="single")
 	public static class MeanFunction extends SumFunction {
 
 		@Override
@@ -96,7 +96,7 @@ public class BasicSingleFunctions {
 
 	}
 
-	@FunctionName(alias = "smin", description = "Returns the smallest value in the series (single result function)")
+	@FunctionName(alias = "smin", description = "Returns the smallest value in the series", type="single")
 	public static class MinFunction extends ReduceFunction {
 
 		@Override
@@ -127,7 +127,7 @@ public class BasicSingleFunctions {
 
 	}
 
-	@FunctionName(alias = "sstddev", description = "Returns the standard deviation value of the series (single result function)")
+	@FunctionName(alias = "sstddev", description = "Returns the standard deviation value of the series", type="single")
 	public static class StdDeviationFunction extends ReduceFunction {
 
 		@Override
@@ -155,7 +155,7 @@ public class BasicSingleFunctions {
 
 	}
 
-	@FunctionName(alias = "ssum", description = "Returns the sum of all value in the series (single result function)")
+	@FunctionName(alias = "ssum", description = "Returns the sum of all value in the series", type="single")
 	public static class SumFunction extends ReduceFunction {
 
 		@Override
@@ -179,7 +179,7 @@ public class BasicSingleFunctions {
 
 	}
 
-	@FunctionName(alias = "srms", description = "Returns the Root Mean Squared value of the series (single result function)")
+	@FunctionName(alias = "srms", description = "Returns the Root Mean Squared value of the series", type="single")
 	public static class SRMSFunction extends ReduceFunction {
 
 		@Override
