@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.storage.disk;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
@@ -48,16 +49,18 @@ public class MapDBTagIndex implements TagIndex {
 
 	@SuppressWarnings("unchecked")
 	public MapDBTagIndex(String indexDir, String measurementName) throws IOException {
-		String indexPath = indexDir + "/" + measurementName + "/idx";
-		db = DBMaker.fileDB(indexPath).fileMmapEnableIfSupported().concurrencyScale(4)
+		String indexPath = indexDir + "/" + measurementName;
+		new File(indexPath).mkdirs();
+		db = DBMaker.fileDB(indexPath + "/idx").fileMmapEnableIfSupported().concurrencyScale(4)
 				.allocateStartSize(1024 * 1024 * 10).allocateIncrement(1024 * 1024 * 10).make();
 		tagMap = (Map<Integer, String>) db.hashMap("fwd").createOrOpen();
-		rowKeyIndex = (Map<String, Set<String>>) db.hashMap("rev").valueSerializer(new ValueSerializer()).createOrOpen();
+		rowKeyIndex = (Map<String, Set<String>>) db.hashMap("rev").valueSerializer(new ValueSerializer())
+				.createOrOpen();
 		hash = factory.hash32();
 	}
 
 	@Override
-	public String createEntry(String tag) throws IOException {
+	public String mapTag(String tag) throws IOException {
 		int hash32 = hash.hash(tag.getBytes(), 0, tag.length(), 57);
 		String val = tagMap.get(hash32);
 		if (val == null) {
@@ -69,7 +72,7 @@ public class MapDBTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String getEntry(String hexString) {
+	public String getTagMapping(String hexString) {
 		return tagMap.get(Integer.parseUnsignedInt(hexString, 16));
 	}
 
@@ -103,7 +106,7 @@ public class MapDBTagIndex implements TagIndex {
 	public void close() throws IOException {
 		db.close();
 	}
-	
+
 	public static final class ValueSerializer implements Serializer<Set<String>> {
 		@Override
 		public void serialize(DataOutput2 out, Set<String> value) throws IOException {

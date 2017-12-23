@@ -50,19 +50,11 @@ public class TestMiscUtils {
 		DataPoint dp = MiscUtils.buildDataPoint(10L, 10.1);
 		assertEquals(10L, dp.getTimestamp(), 0);
 		assertEquals(10.1, dp.getValue(), 0);
-		assertTrue(dp.getDbName() == null);
 
 		dp = MiscUtils.buildDataPoint(10L, 10L);
 		assertEquals(10L, dp.getTimestamp(), 0);
 		assertEquals(10, dp.getLongValue(), 0);
 
-		dp = MiscUtils.buildDataPoint("test", "test2", "test3", Arrays.asList("test6"), 10L, 10.1);
-		assertEquals(10L, dp.getTimestamp(), 0);
-		assertEquals(10.1, dp.getValue(), 0);
-		
-		dp = MiscUtils.buildDataPoint("test", "test2", "test3", Arrays.asList("test6"), 10L, 10L);
-		assertEquals(10L, dp.getTimestamp(), 0);
-		assertEquals(10, dp.getLongValue(), 0);
 	}
 
 	@Test
@@ -126,37 +118,38 @@ public class TestMiscUtils {
 
 	@Test
 	public void testCreateAggregateFunctionValid() throws InstantiationException, IllegalAccessException, Exception {
-		String[] parts = new String[] { "", "derivative,10,smean" };
-		MiscUtils.createAggregateFunction(parts);
+		String[] parts = new String[] { "derivative,10,smean" };
+		MiscUtils.createFunctionChain(parts, 0);
 	}
 
 	@Test
 	public void testCreateAggregateFunctionInvalid() throws InstantiationException, IllegalAccessException, Exception {
 		try {
 			String[] parts = new String[] { "", "derivative,10,mean" };
-			MiscUtils.createAggregateFunction(parts);
+			MiscUtils.createFunctionChain(parts, 1);
 			fail("must throw an exception");
 		} catch (IllegalArgumentException e) {
 		}
 
 		try {
 			String[] parts = new String[] { "", "derivative,10,sum" };
-			MiscUtils.createAggregateFunction(parts);
+			MiscUtils.createFunctionChain(parts, 1);
 			fail("must throw an exception");
 		} catch (IllegalArgumentException e) {
 		}
 
 		try {
 			String[] parts = new String[] { "", "derivative,test,ssum" };
-			MiscUtils.createAggregateFunction(parts);
+			MiscUtils.createFunctionChain(parts, 1);
 			fail("must throw an exception");
 		} catch (Exception e) {
 		}
 
 		try {
 			String[] parts = new String[] { "", "ssum,test,ssum" };
-			MiscUtils.createAggregateFunction(parts);
+			MiscUtils.createFunctionChain(parts, 1);
 		} catch (Exception e) {
+			e.printStackTrace();
 			fail("must NOT throw an exception");
 		}
 	}

@@ -63,10 +63,6 @@ public interface Writer {
 
 	public void setHeaderTimestamp(long timestamp);
 
-	public void setBufferId(String key);
-	
-	public String getBufferId();
-	
 	public void setTsBucket(String tsBucket);
 	
 	public String getTsBucket();

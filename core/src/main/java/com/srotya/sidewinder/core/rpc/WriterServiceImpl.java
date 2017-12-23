@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.rpc;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,12 +29,10 @@ import com.lmax.disruptor.EventTranslatorThreeArg;
 import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.srotya.sidewinder.core.rpc.WriterServiceGrpc.WriterServiceImplBase;
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
-import com.srotya.sidewinder.core.utils.MiscUtils;
 
 import io.grpc.stub.StreamObserver;
 
@@ -48,25 +47,31 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 	private Map<String, String> conf;
 	private int handlerCount;
 	private ExecutorService es;
+	private boolean disruptorEnable;
+	private DataPointTranslator translator;
 
 	@SuppressWarnings("unchecked")
 	public WriterServiceImpl(StorageEngine engine, Map<String, String> conf) {
 		this.engine = engine;
 		this.conf = conf;
-		int bufferSize = Integer.parseInt(conf.getOrDefault("grpc.disruptor.buffer.size", "16384"));
-		if (bufferSize % 2 != 0) {
-			throw new IllegalArgumentException("Disruptor buffers must always be power of 2");
+		disruptorEnable = Boolean.parseBoolean(conf.getOrDefault("grpc.disruptor.enabled", "false"));
+		if (disruptorEnable) {
+			int bufferSize = Integer.parseInt(conf.getOrDefault("grpc.disruptor.buffer.size", "16384"));
+			if (bufferSize % 2 != 0) {
+				throw new IllegalArgumentException("Disruptor buffers must always be power of 2");
+			}
+			translator = new DataPointTranslator();
+			handlerCount = Integer.parseInt(conf.getOrDefault("grpc.disruptor.handler.count", "2"));
+			es = Executors.newFixedThreadPool(handlerCount + 2, new BackgrounThreadFactory("grpc-writers"));
+			disruptor = new Disruptor<>(new DPWrapperFactory(), bufferSize, es);
+			@SuppressWarnings("rawtypes")
+			EventHandler[] handlers = new EventHandler[handlerCount];
+			for (int i = 0; i < handlerCount; i++) {
+				handlers[i] = new WriteHandler(engine, handlerCount, i);
+			}
+			disruptor.handleEventsWith(new HashHandler()).then(handlers);
+			buffer = disruptor.start();
 		}
-		handlerCount = Integer.parseInt(conf.getOrDefault("grpc.disruptor.handler.count", "2"));
-		es = Executors.newFixedThreadPool(handlerCount + 2, new BackgrounThreadFactory("grpc-writers"));
-		disruptor = new Disruptor<>(new DPWrapperFactory(), bufferSize, es);
-		@SuppressWarnings("rawtypes")
-		EventHandler[] handlers = new EventHandler[handlerCount];
-		for (int i = 0; i < handlerCount; i++) {
-			handlers[i] = new WriteHandler(engine, handlerCount, i);
-		}
-		disruptor.handleEventsWith(new HashHandler()).then(handlers);
-		buffer = disruptor.start();
 	}
 
 	@Override
@@ -74,8 +79,18 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		Point point = request.getPoint();
 		Ack ack = null;
 		try {
-			// buffer.publishEvent(translator, point, point.getTimestamp(), null);
-			engine.writeDataPoint(MiscUtils.pointToDataPoint(point));
+			if (disruptorEnable) {
+				buffer.publishEvent(translator, point, point.getTimestamp(), null);
+			} else {
+				if (point.getFp()) {
+					engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
+							new ArrayList<>(point.getTagsList()), point.getTimestamp(),
+							Double.doubleToLongBits(point.getValue()));
+				} else {
+					engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
+							new ArrayList<>(point.getTagsList()), point.getTimestamp(), point.getValue());
+				}
+			}
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
 		} catch (Exception e) {
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(500).build();
@@ -88,12 +103,26 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 	public void writeBatchDataPoint(BatchData request, StreamObserver<Ack> responseObserver) {
 		Ack ack = null;
 		try {
-			for (Point point : request.getPointsList()) {
-				// buffer.publishEvent(translator, point, point.getTimestamp(), null);
-				engine.writeDataPoint(MiscUtils.pointToDataPoint(point));
+			List<Point> pointsList = request.getPointsList();
+			for (int i = 0; i < pointsList.size(); i++) {
+				Point point = pointsList.get(i);
+				if (disruptorEnable) {
+					buffer.publishEvent(translator, point, point.getTimestamp(), null);
+				} else {
+					System.out.println("FP:" + point.getFp() + " i:" + i);
+					if (point.getFp()) {
+						engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
+								new ArrayList<>(point.getTagsList()), point.getTimestamp(),
+								Double.longBitsToDouble(point.getValue()));
+					} else {
+						engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
+								new ArrayList<>(point.getTagsList()), point.getTimestamp(), point.getValue());
+					}
+				}
 			}
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
 		} catch (Exception e) {
+			e.printStackTrace();
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(500).build();
 		}
 		responseObserver.onNext(ack);
@@ -143,7 +172,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 	public static class DPWrapper {
 
 		private long messageId;
-		private DataPoint dp;
+		private Point dp;
 		private StreamObserver<Ack> responseObserver;
 		private int hashValue;
 
@@ -165,7 +194,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		/**
 		 * @return the dp
 		 */
-		public DataPoint getDp() {
+		public Point getDp() {
 			return dp;
 		}
 
@@ -173,7 +202,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		 * @param dp
 		 *            the dp to set
 		 */
-		public void setDp(DataPoint dp) {
+		public void setDp(Point dp) {
 			this.dp = dp;
 		}
 
@@ -214,11 +243,11 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		@Override
 		public void onEvent(DPWrapper event, long sequence, boolean endOfBatch) throws Exception {
 			StringBuilder bufString = new StringBuilder();
-			DataPoint dp = event.getDp();
+			Point dp = event.getDp();
 			bufString.append(dp.getDbName() + "\n");
 			bufString.append(dp.getMeasurementName() + "\n");
 			bufString.append(dp.getValueFieldName() + "\n");
-			bufString.append(dp.getTags().toString() + "\n");
+			bufString.append(dp.getTagsList().toString() + "\n");
 			event.setHashValue(bufString.toString().hashCode());
 		}
 
@@ -290,7 +319,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		@Override
 		public void translateTo(DPWrapper dp, long sequence, Point point, Long messageId,
 				StreamObserver<Ack> observer) {
-			MiscUtils.pointToDataPoint(dp.getDp(), point);
+			dp.setDp(point);
 			dp.setMessageId(messageId);
 			dp.setResponseObserver(observer);
 		}
@@ -302,7 +331,6 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		@Override
 		public DPWrapper newInstance() {
 			DPWrapper wrapper = new DPWrapper();
-			wrapper.setDp(new DataPoint());
 			return wrapper;
 		}
 

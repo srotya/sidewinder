@@ -24,16 +24,18 @@ import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import com.codahale.metrics.Metric;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.cluster.ClusterConfiguration;
 import com.srotya.sidewinder.cluster.ClusterResourceMonitor;
+import com.srotya.sidewinder.cluster.pull.rpc.ClusterMetadataServiceImpl;
+import com.srotya.sidewinder.cluster.push.api.InfluxApi;
 import com.srotya.sidewinder.cluster.push.connectors.ClusterConnector;
 import com.srotya.sidewinder.cluster.push.routing.RoutingEngine;
 import com.srotya.sidewinder.cluster.push.rpc.ClusteredWriteServiceImpl;
-import com.srotya.sidewinder.cluster.rpc.ClusterMetadataServiceImpl;
 import com.srotya.sidewinder.core.ConfigConstants;
 import com.srotya.sidewinder.core.SidewinderDropwizardReporter;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
@@ -60,6 +62,8 @@ import io.grpc.ServerBuilder;
  * @author ambud
  */
 public class SidewinderClusteredServer extends Application<ClusterConfiguration> {
+
+	private static final Logger logger = Logger.getLogger(SidewinderClusteredServer.class.getName());
 
 	public static void main(String[] args) throws Exception {
 		new SidewinderClusteredServer().run(args);
@@ -90,9 +94,8 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 
 		ClusterConnector connector;
 		try {
-			connector = (ClusterConnector) Class.forName(
-					conf.getOrDefault("cluster.connector", "com.srotya.sidewinder.cluster.connectors.ConfigConnector"))
-					.newInstance();
+			connector = (ClusterConnector) Class.forName(conf.getOrDefault("cluster.connector",
+					"com.srotya.sidewinder.cluster.push.connectors.ConfigConnector")).newInstance();
 			connector.init(conf);
 		} catch (Exception e) {
 			throw new IOException(e);
@@ -101,18 +104,18 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		RoutingEngine router;
 		try {
 			router = (RoutingEngine) Class.forName(conf.getOrDefault("cluster.routing.engine",
-					"com.srotya.sidewinder.cluster.routing.impl.MasterSlaveRoutingEngine")).newInstance();
+					"com.srotya.sidewinder.cluster.push.routing.impl.MasterSlaveRoutingEngine")).newInstance();
 			router.init(conf, storageEngine, connector);
 		} catch (Exception e) {
 			throw new IOException(e);
 		}
 
-		System.err.print("Waiting for coordinator to be elected.");
+		System.out.println("Waiting for coordinator to be elected.");
 		while (router.getLeader() == null) {
 			Thread.sleep(1000);
 			System.out.print(".");
 		}
-		System.out.println("\nCoordinator elected, registering services");
+		logger.info("\nCoordinator elected, registering services");
 
 		final Server server = ServerBuilder.forPort(port)
 				.decompressorRegistry(DecompressorRegistry.getDefaultInstance())
@@ -134,6 +137,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		env.jersey().register(new GrafanaQueryApi(storageEngine));
 		env.jersey().register(new MeasurementOpsApi(storageEngine));
 		env.jersey().register(new DatabaseOpsApi(storageEngine));
+		env.jersey().register(new InfluxApi(router));
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
 
 		if (Boolean.parseBoolean(conf.getOrDefault(ConfigConstants.AUTH_BASIC_ENABLED, ConfigConstants.FALSE))) {
@@ -157,7 +161,8 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		}
 	}
 
-	private void registerMetrics(final MetricRegistry registry, StorageEngine storageEngine, ScheduledExecutorService es) {
+	private void registerMetrics(final MetricRegistry registry, StorageEngine storageEngine,
+			ScheduledExecutorService es) {
 		@SuppressWarnings("resource")
 		SidewinderDropwizardReporter requestReporter = new SidewinderDropwizardReporter(registry, "request",
 				new MetricFilter() {

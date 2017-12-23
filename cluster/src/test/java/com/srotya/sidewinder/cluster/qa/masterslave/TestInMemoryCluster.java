@@ -48,7 +48,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.cluster.ClusterConfiguration;
-import com.srotya.sidewinder.cluster.SidewinderClusteredServer;
+import com.srotya.sidewinder.cluster.push.SidewinderClusteredServer;
 
 import io.dropwizard.testing.junit.DropwizardAppRule;
 

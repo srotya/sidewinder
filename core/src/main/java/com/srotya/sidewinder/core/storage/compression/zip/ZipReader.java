@@ -19,7 +19,6 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.List;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -31,11 +30,8 @@ public abstract class ZipReader implements Reader {
 	private DataInputStream dis;
 	private int count;
 	private int counter;
-	private List<String> tags;
 	private Predicate timePredicate;
 	private Predicate valuePredicate;
-	private String fieldName;
-	private boolean fp;
 
 	public ZipReader(ByteBuffer readBuf, int startOffset, int blockSize) throws IOException {
 		readBuf.position(startOffset);
@@ -57,23 +53,15 @@ public abstract class ZipReader implements Reader {
 				throw EOS_EXCEPTION;
 			}
 
-			if (timePredicate != null && !timePredicate.apply(ts)) {
+			if (timePredicate != null && !timePredicate.test(ts)) {
 				return null;
 			}
-			if (valuePredicate != null && !valuePredicate.apply(value)) {
+			if (valuePredicate != null && !valuePredicate.test(value)) {
 				return null;
 			}
 			DataPoint dp = new DataPoint();
 			dp.setTimestamp(ts);
 			dp.setLongValue(value);
-			dp.setFp(fp);
-			if (tags != null) {
-				dp.setTags(tags);
-			}
-			if (fieldName != null) {
-				dp.setValueFieldName(fieldName);
-			}
-			// System.out.println("Reading:" + dp);
 			return dp;
 		} else {
 			zip.close();
@@ -91,10 +79,10 @@ public abstract class ZipReader implements Reader {
 			return null;
 		}
 
-		if (timePredicate != null && !timePredicate.apply(dp[0])) {
+		if (timePredicate != null && !timePredicate.test(dp[0])) {
 			return null;
 		}
-		if (valuePredicate != null && !valuePredicate.apply(dp[1])) {
+		if (valuePredicate != null && !valuePredicate.test(dp[1])) {
 			return null;
 		}
 		return dp;
@@ -108,21 +96,6 @@ public abstract class ZipReader implements Reader {
 	@Override
 	public int getPairCount() {
 		return count;
-	}
-
-	@Override
-	public void setIsFP(boolean fp) {
-		this.fp = fp;
-	}
-
-	@Override
-	public void setFieldName(String fieldName) {
-		this.fieldName = fieldName;
-	}
-
-	@Override
-	public void setTags(List<String> tags) {
-		this.tags = tags;
 	}
 
 	@Override

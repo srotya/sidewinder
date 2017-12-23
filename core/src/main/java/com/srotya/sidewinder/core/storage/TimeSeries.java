@@ -66,7 +66,7 @@ public class TimeSeries {
 	private Measurement measurement;
 	private int timeBucketSize;
 	private int bucketCount;
-	private Map<String, List<Writer>> compactionSet;
+	private Map<String, List<Writer>> compactionCandidateSet;
 	private boolean compactionEnabled;
 	private double compactionRatio;
 
@@ -93,7 +93,7 @@ public class TimeSeries {
 		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
 		bucketMap = measurement.createNewBucketMap(seriesId);
-		this.compactionSet = new HashMap<>();
+		this.compactionCandidateSet = new HashMap<>();
 		compactionEnabled = Boolean.parseBoolean(
 				conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, StorageEngine.DEFAULT_COMPACTION_ENABLED));
 		compactionRatio = Double.parseDouble(conf.getOrDefault(COMPACTION_RATIO, "0.8"));
@@ -108,6 +108,8 @@ public class TimeSeries {
 					list = Collections.synchronizedList(new ArrayList<>());
 					createNewTimeSeriesBucket(timestamp, tsBucket, list);
 					bucketMap.put(tsBucket, list);
+					logger.fine("Creating new time series bucket:" + seriesId + ",measurement:"
+							+ measurement.getMeasurementName());
 				}
 			}
 		}
@@ -121,23 +123,25 @@ public class TimeSeries {
 					ans = createNewTimeSeriesBucket(timestamp, tsBucket, list);
 					if (compactionEnabled) {
 						// add older bucket to compaction queue
-						compactionSet.put(tsBucket, list);
+						compactionCandidateSet.put(tsBucket, list);
 					}
 				}
 			}
-			try {
-				// int idx = list.indexOf(ans);
-				// if (idx != (list.size() - 1)) {
-				// System.out.println("\n\nThread safety error\t" + idx + "\t" +
-				// list.size() +
-				// "\n\n");
-				// }
-				return ans;
-			} catch (Exception e) {
-				logger.log(Level.SEVERE, "Create new:" + "\tList:" + list + "\tbucket:" + tsBucket + "\t" + bucketMap,
-						e);
-				throw e;
-			}
+			return ans;
+			// Old code used for thread safety checks
+			// try {
+			// int idx = list.indexOf(ans);
+			// if (idx != (list.size() - 1)) {
+			// System.out.println("\n\nThread safety error\t" + idx + "\t" +
+			// list.size() +
+			// "\n\n");
+			// }
+			// } catch (Exception e) {
+			// logger.log(Level.SEVERE, "Create new:" + "\tList:" + list + "\tbucket:" +
+			// tsBucket + "\t" + bucketMap,
+			// e);
+			// throw e;
+			// }
 		}
 	}
 
@@ -149,13 +153,11 @@ public class TimeSeries {
 
 	private Writer createNewTimeSeriesBucket(long timestamp, String tsBucket, List<Writer> list) throws IOException {
 		BufferObject bufPair = measurement.createNewBuffer(seriesId, tsBucket);
-		// writeStringToBuffer(seriesId, buf);
 		bufPair.getBuf().put((byte) CompressionFactory.getIdByClass(compressionClass));
 		Writer writer;
 		writer = getWriterInstance(compressionClass);
 		writer.configure(conf, bufPair.getBuf(), true, 1, true);
 		writer.setHeaderTimestamp(timestamp);
-		writer.setBufferId(bufPair.getBufferId());
 		list.add(writer);
 		bucketCount++;
 		return writer;
@@ -166,6 +168,7 @@ public class TimeSeries {
 			Writer writer = compressionClass.newInstance();
 			return writer;
 		} catch (InstantiationException | IllegalAccessException e) {
+			// should never happen unless the constructors are hidden
 			throw new RuntimeException(e);
 		}
 	}
@@ -192,13 +195,11 @@ public class TimeSeries {
 				list = Collections.synchronizedList(new ArrayList<>());
 				bucketMap.put(tsBucket, list);
 			}
-			// long bucketTimestamp = duplicate.getLong();
 			ByteBuffer slice = duplicate.slice();
 			int codecId = (int) slice.get();
 			Class<Writer> classById = CompressionFactory.getClassById(codecId);
 			Writer writer = getWriterInstance(classById);
 			writer.configure(cacheConf, slice, false, 1, true);
-			writer.setBufferId(entry.getValue().getBufferId());
 			list.add(writer);
 			logger.fine("Loading bucketmap:" + seriesId + "\t" + tsBucket);
 		}
@@ -262,8 +263,7 @@ public class TimeSeries {
 		}
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
-				readers.add(
-						getReader(writer, timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
+				readers.add(getReader(writer, timeRangePredicate, valuePredicate));
 			}
 		}
 		List<DataPoint> points = new ArrayList<>();
@@ -301,8 +301,7 @@ public class TimeSeries {
 		}
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
-				readers.add(
-						getReader(writer, timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
+				readers.add(getReader(writer, timeRangePredicate, valuePredicate));
 			}
 		}
 		List<long[]> points = new ArrayList<>();
@@ -310,29 +309,6 @@ public class TimeSeries {
 			readerToPoints(points, reader);
 		}
 		return points;
-	}
-
-	/**
-	 * Get {@link Reader} with time and value filter predicates pushed-down to it.
-	 * Along with {@link DataPoint} enrichments pushed to it.
-	 * 
-	 * @param timePredicate
-	 * @param valuePredicate
-	 * @param isFp
-	 * @param appendFieldValueName
-	 * @param appendTags
-	 * @return point in time instance of reader
-	 * @throws IOException
-	 */
-	public static Reader getReader(Writer writer, Predicate timePredicate, Predicate valuePredicate, boolean isFp,
-			String appendFieldValueName, List<String> appendTags) throws IOException {
-		Reader reader = writer.getReader();
-		reader.setTimePredicate(timePredicate);
-		reader.setValuePredicate(valuePredicate);
-		reader.setFieldName(appendFieldValueName);
-		reader.setIsFP(isFp);
-		reader.setTags(appendTags);
-		return reader;
 	}
 
 	/**
@@ -386,8 +362,7 @@ public class TimeSeries {
 		SortedMap<String, List<Writer>> series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
-				readers.add(
-						getReader(writer, timeRangePredicate, valuePredicate, fp, appendFieldValueName, appendTags));
+				readers.add(getReader(writer, timeRangePredicate, valuePredicate));
 			}
 		}
 		return readers;
@@ -477,7 +452,7 @@ public class TimeSeries {
 	public static List<DataPoint> seriesToDataPoints(String appendFieldValueName, List<String> appendTags,
 			List<DataPoint> points, Writer writer, Predicate timePredicate, Predicate valuePredicate, boolean isFp)
 			throws IOException {
-		Reader reader = getReader(writer, timePredicate, valuePredicate, isFp, appendFieldValueName, appendTags);
+		Reader reader = getReader(writer, timePredicate, valuePredicate);
 		DataPoint point = null;
 		while (true) {
 			try {
@@ -492,10 +467,6 @@ public class TimeSeries {
 				}
 				break;
 			}
-		}
-		if (reader.getCounter() != reader.getPairCount() || points.size() < reader.getCounter()) {
-			// System.err.println("SDP:" + points.size() + "/" +
-			// reader.getCounter() + "/" + reader.getPairCount());
 		}
 		return points;
 	}
@@ -656,7 +627,7 @@ public class TimeSeries {
 	public final List<Writer> compact(Consumer<List<Writer>>... functions) throws IOException {
 		List<Writer> compactedWriter = new ArrayList<>();
 		int id = CompressionFactory.getIdByClass(compactionClass);
-		Iterator<Entry<String, List<Writer>>> iterator = compactionSet.entrySet().iterator();
+		Iterator<Entry<String, List<Writer>>> iterator = compactionCandidateSet.entrySet().iterator();
 		while (iterator.hasNext()) {
 			Entry<String, List<Writer>> entry = iterator.next();
 			List<Writer> list = entry.getValue();
@@ -704,11 +675,11 @@ public class TimeSeries {
 				}
 				// create buffer in measurement
 				BufferObject newBuf = measurement.createNewBuffer(seriesId, input.getTsBucket(), size);
-				String bufferId = newBuf.getBufferId();
+				// String bufferId = newBuf.getBufferId();
 				buf = newBuf.getBuf();
 				writer = getWriterInstance(compactionClass);
 				buf.put(rawBytes);
-				writer.setBufferId(bufferId);
+				// writer.setBufferId(bufferId);
 				writer.configure(conf, buf, false, 1, false);
 				if (functions != null) {
 					for (Consumer<List<Writer>> function : functions) {
@@ -739,7 +710,7 @@ public class TimeSeries {
 	}
 
 	public Collection<List<Writer>> getCompactionSet() {
-		return compactionSet.values();
+		return compactionCandidateSet.values();
 	}
 
 }

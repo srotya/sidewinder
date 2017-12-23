@@ -45,7 +45,6 @@ public class ByzantineWriter implements Writer {
 	private long prevValue;
 	private boolean readOnly;
 	private volatile boolean full;
-	private String bufferId;
 	private int startOffset;
 	private String tsBucket;
 
@@ -85,7 +84,6 @@ public class ByzantineWriter implements Writer {
 			this.buf.putInt(0);
 		} else {
 			forwardCursorToEnd();
-			readOnly = true;
 		}
 	}
 
@@ -102,9 +100,6 @@ public class ByzantineWriter implements Writer {
 
 	@Override
 	public void write(DataPoint dp) throws IOException {
-		if (readOnly) {
-			throw WRITE_REJECT_EXCEPTION;
-		}
 		try {
 			write.lock();
 			writeDataPoint(dp.getTimestamp(), dp.getLongValue());
@@ -132,6 +127,9 @@ public class ByzantineWriter implements Writer {
 	 * @throws IOException
 	 */
 	private void writeDataPoint(long timestamp, long value) throws IOException {
+		if (readOnly) {
+			throw WRITE_REJECT_EXCEPTION;
+		}
 		lastTs = timestamp;
 		checkAndExpandBuffer();
 		compressAndWriteTimestamp(buf, timestamp);
@@ -345,16 +343,6 @@ public class ByzantineWriter implements Writer {
 	@Override
 	public boolean isFull() {
 		return full;
-	}
-
-	@Override
-	public void setBufferId(String key) {
-		this.bufferId = key;
-	}
-
-	@Override
-	public String getBufferId() {
-		return bufferId;
 	}
 
 	@Override

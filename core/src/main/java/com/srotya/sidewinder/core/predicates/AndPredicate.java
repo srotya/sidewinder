@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.predicates;
 
 import java.util.List;
+import java.util.function.LongPredicate;
 
 /**
  * {@link Predicate} implementing AND operator
@@ -24,23 +25,13 @@ import java.util.List;
  */
 public class AndPredicate extends ComplexPredicate {
 
-	public AndPredicate(List<Predicate> operators) {
-		super(operators);
-	}
-
-	@Override
-	public boolean shortCircuit(boolean prev, boolean current) {
-		return !(prev && current);
-	}
-
-	@Override
-	public boolean predicate(boolean prev, Predicate next, long value) {
-		return prev && next.apply(value);
+	public AndPredicate(List<LongPredicate> operators) {
+		super(operators, (x, y)->x.and(y));
 	}
 
 	@Override
 	public String toString() {
-		return "AndOperator " + getPredicates() + "";
+		return "AndOperator " + getPredicate() + "";
 	}
 
 }
