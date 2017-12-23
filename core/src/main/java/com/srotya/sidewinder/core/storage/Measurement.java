@@ -37,6 +37,7 @@ import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.storage.malloc.Malloc;
 import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
@@ -63,8 +64,6 @@ public interface Measurement {
 	public void loadTimeseriesFromMeasurements() throws IOException;
 
 	public void close() throws IOException;
-
-	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException;
 
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException;
@@ -236,13 +235,11 @@ public interface Measurement {
 				getLogger().info("For measurement:" + getMeasurementName() + " buffers compacted for:"
 						+ cleanupList.size() + " buffers");
 			}
-			cleanupBufferIds(cleanupList);
+			getMalloc().cleanupBufferIds(cleanupList);
 		} finally {
 			getLock().unlock();
 		}
 	}
-
-	public void cleanupBufferIds(Set<String> cleanupList) throws IOException;
 
 	public default TimeSeries getTimeSeries(String valueFieldName, List<String> tags) throws IOException {
 		Collections.sort(tags);
@@ -367,8 +364,8 @@ public interface Measurement {
 
 	public boolean useQueryPool();
 
-	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException;
-
 	public String getDbName();
+	
+	public Malloc getMalloc();
 
 }
