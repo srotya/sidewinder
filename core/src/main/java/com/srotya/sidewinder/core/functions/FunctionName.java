@@ -27,5 +27,7 @@ public @interface FunctionName {
 	String[] alias();
 	
 	String description();
+	
+	String type();
 
 }

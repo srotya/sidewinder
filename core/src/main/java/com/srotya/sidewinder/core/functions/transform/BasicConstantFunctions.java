@@ -19,7 +19,7 @@ import com.srotya.sidewinder.core.functions.FunctionName;
 
 public class BasicConstantFunctions {
 
-	@FunctionName(alias = "add", description = "Adds a constant to each value in the series (transform function)")
+	@FunctionName(alias = "add", description = "Adds a constant to each value in the series", type = "transform")
 	public static class AddFunction extends ConstantFunction {
 
 		@Override
@@ -34,7 +34,7 @@ public class BasicConstantFunctions {
 
 	}
 
-	@FunctionName(alias = "sub", description = "Subtracts a constant from each value in the series (transform function)")
+	@FunctionName(alias = "sub", description = "Subtracts a constant from each value in the series", type = "transform")
 	public static class SubtractFunction extends ConstantFunction {
 
 		@Override
@@ -49,7 +49,7 @@ public class BasicConstantFunctions {
 
 	}
 
-	@FunctionName(alias = "mult", description = "Multiplies a constant to each value in the series (transform function)")
+	@FunctionName(alias = "mult", description = "Multiplies a constant to each value in the series", type = "transform")
 	public static class MultiplyFunction extends ConstantFunction {
 
 		@Override
@@ -64,7 +64,7 @@ public class BasicConstantFunctions {
 
 	}
 
-	@FunctionName(alias = "divide", description = "Divides each value in the series with a constant (transform function)")
+	@FunctionName(alias = "divide", description = "Divides each value in the series with a constant", type = "transform")
 	public static class DivideFunction extends ConstantFunction {
 
 		@Override
