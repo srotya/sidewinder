@@ -152,7 +152,7 @@ public class TimeSeries {
 	}
 
 	private Writer createNewTimeSeriesBucket(long timestamp, String tsBucket, List<Writer> list) throws IOException {
-		BufferObject bufPair = measurement.createNewBuffer(seriesId, tsBucket);
+		BufferObject bufPair = measurement.getMalloc().createNewBuffer(seriesId, tsBucket);
 		bufPair.getBuf().put((byte) CompressionFactory.getIdByClass(compressionClass));
 		Writer writer;
 		writer = getWriterInstance(compressionClass);
@@ -674,7 +674,7 @@ public class TimeSeries {
 					size++;
 				}
 				// create buffer in measurement
-				BufferObject newBuf = measurement.createNewBuffer(seriesId, input.getTsBucket(), size);
+				BufferObject newBuf = measurement.getMalloc().createNewBuffer(seriesId, input.getTsBucket(), size);
 				// String bufferId = newBuf.getBufferId();
 				buf = newBuf.getBuf();
 				writer = getWriterInstance(compactionClass);
