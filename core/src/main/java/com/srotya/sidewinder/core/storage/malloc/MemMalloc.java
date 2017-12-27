@@ -55,4 +55,8 @@ public class MemMalloc implements Malloc{
 		this.size = Integer.parseInt(conf.getOrDefault("buffer.size", "1024"));
 	}
 
+	@Override
+	public void close() throws IOException {
+	}
+
 }

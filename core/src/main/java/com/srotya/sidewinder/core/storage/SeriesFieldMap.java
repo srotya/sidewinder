@@ -15,7 +15,9 @@
  */
 package com.srotya.sidewinder.core.storage;
 
+import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class SeriesFieldMap {
@@ -25,12 +27,21 @@ public class SeriesFieldMap {
 	public SeriesFieldMap() {
 		seriesMap = new ConcurrentHashMap<>();
 	}
+	
+	public Set<String> getFields() {
+		return seriesMap.keySet();
+	}
 
-	/**
-	 * @return the seriesMap
-	 */
-	public Map<String, TimeSeries> getSeriesMap() {
-		return seriesMap;
+	public void addSeries(String valueFieldName, TimeSeries series) {
+		seriesMap.put(valueFieldName, series);
+	}
+
+	public TimeSeries get(String valueFieldName) {
+		return seriesMap.get(valueFieldName);
+	}
+
+	public Collection<? extends TimeSeries> values() {
+		return seriesMap.values();
 	}
 
 }
