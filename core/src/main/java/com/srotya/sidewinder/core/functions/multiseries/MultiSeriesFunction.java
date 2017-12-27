@@ -221,4 +221,23 @@ public abstract class MultiSeriesFunction implements Function {
 
 	}
 
+	@FunctionName(alias = "ms-pca", description = "Performs principal component analysis on the input series", type = "multi-series")
+	public static class PCA extends MultiSeriesFunction {
+
+		@Override
+		public List<DataPoint> compute(List<List<DataPoint>> list, boolean isFp) {
+			// convert to matrix
+			
+			
+			// TODO Auto-generated method stub
+			return null;
+		}
+
+		@Override
+		public String name() {
+			return "ppmcc";
+		}
+
+	}
+
 }

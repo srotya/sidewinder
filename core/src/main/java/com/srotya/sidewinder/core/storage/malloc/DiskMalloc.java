@@ -80,7 +80,8 @@ public class DiskMalloc implements Malloc {
 	private Counter metricsBufferCounter;
 
 	@Override
-	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine, ScheduledExecutorService bgTaskPool) {
+	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine,
+			ScheduledExecutorService bgTaskPool) {
 		this.measurementName = measurementName;
 		this.dataDirectory = dataDirectory + "/" + measurementName;
 		this.fileMapIncrement = Integer
@@ -96,12 +97,15 @@ public class DiskMalloc implements Malloc {
 			throw new IllegalArgumentException("File increment can't be greater than or equal to file size");
 		}
 		this.ptrFile = new File(getPtrPath());
-		MetricsRegistryService reg = MetricsRegistryService.getInstance(engine, bgTaskPool);
-		MetricRegistry r = reg.getInstance("memoryops");
-		metricsBufferSize = r.counter("buffer-size");
-		metricsBufferResize = r.counter("buffer-resize");
-		metricsFileRotation = r.counter("file-rotation");
-		metricsBufferCounter = r.counter("buffer-counter");
+		if (engine != null) {
+			enableMetricsCapture = true;
+			MetricsRegistryService reg = MetricsRegistryService.getInstance(engine, bgTaskPool);
+			MetricRegistry r = reg.getInstance("memoryops");
+			metricsBufferSize = r.counter("buffer-size");
+			metricsBufferResize = r.counter("buffer-resize");
+			metricsFileRotation = r.counter("file-rotation");
+			metricsBufferCounter = r.counter("buffer-counter");
+		}
 	}
 
 	@Override
@@ -326,7 +330,7 @@ public class DiskMalloc implements Malloc {
 		}
 		logger.fine("GC: Remaining files:" + fileSet.size() + "; deleted:" + deleteCounter + " files");
 	}
-	
+
 	private String getPtrPath() {
 		return dataDirectory + "/.ptr";
 	}
