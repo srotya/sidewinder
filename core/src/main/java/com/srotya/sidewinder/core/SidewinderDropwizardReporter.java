@@ -57,7 +57,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 				try {
 					engine.writeDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
 							System.currentTimeMillis(), entry.getValue().getCount());
-				} catch (IOException e) {
+				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
