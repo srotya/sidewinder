@@ -34,7 +34,8 @@ public class BasicConstantFunctions {
 
 	}
 
-	@FunctionName(alias = "sub", description = "Subtracts a constant from each value in the series", type = "transform")
+	@FunctionName(alias = { "sub",
+			"subtract" }, description = "Subtracts a constant from each value in the series", type = "transform")
 	public static class SubtractFunction extends ConstantFunction {
 
 		@Override
@@ -49,7 +50,8 @@ public class BasicConstantFunctions {
 
 	}
 
-	@FunctionName(alias = "mult", description = "Multiplies a constant to each value in the series", type = "transform")
+	@FunctionName(alias = { "mult",
+			"multi" }, description = "Multiplies a constant to each value in the series", type = "transform")
 	public static class MultiplyFunction extends ConstantFunction {
 
 		@Override
@@ -64,7 +66,8 @@ public class BasicConstantFunctions {
 
 	}
 
-	@FunctionName(alias = "divide", description = "Divides each value in the series with a constant", type = "transform")
+	@FunctionName(alias = { "divide",
+			"div" }, description = "Divides each value in the series with a constant", type = "transform")
 	public static class DivideFunction extends ConstantFunction {
 
 		@Override
