@@ -39,6 +39,7 @@ import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
@@ -286,8 +287,8 @@ public class DiskStorageEngine implements StorageEngine {
 			synchronized (databaseMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					measurement = new PersistentMeasurement();
-					measurement.configure(conf, this, dbName, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName),
-							dbMetadataMap.get(dbName), bgTaskPool);
+					measurement.configure(conf, this, dbName, measurementName, dbIndexPath(dbName),
+							dbDirectoryPath(dbName), dbMetadataMap.get(dbName), bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
 					metricsMeasurementCounter.inc();
@@ -330,8 +331,8 @@ public class DiskStorageEngine implements StorageEngine {
 			logger.info("Loading measurements:" + measurementName);
 			futures.add(bgTaskPool.submit(() -> {
 				try {
-					measurement.configure(conf, this, dbName, measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName),
-							metadata, bgTaskPool);
+					measurement.configure(conf, this, dbName, measurementName, dbIndexPath(dbName),
+							dbDirectoryPath(dbName), metadata, bgTaskPool);
 				} catch (IOException e) {
 					logger.log(Level.SEVERE, "Error recovering measurement:" + measurementName, e);
 				}
@@ -381,8 +382,9 @@ public class DiskStorageEngine implements StorageEngine {
 		// check and create measurement map
 		Measurement measurement = getOrCreateMeasurement(dbMap, measurementName, dbName);
 		for (String entry : measurement.getSeriesKeys()) {
-			if (entry.startsWith(valueFieldName)) {
-				return measurement.getSeriesFromKey(entry).isFp();
+			SeriesFieldMap seriesFromKey = measurement.getSeriesFromKey(entry);
+			if(seriesFromKey.get(valueFieldName)!=null) {
+				return seriesFromKey.get(valueFieldName).isFp();
 			}
 		}
 		throw NOT_FOUND_EXCEPTION;
@@ -412,12 +414,12 @@ public class DiskStorageEngine implements StorageEngine {
 				measurement.close();
 			}
 			boolean result = MiscUtils.delete(new File(dbDirectoryPath(dbName)));
-			if(!result) {
-				throw new Exception("Database("+dbName+") deletion(data) failed due file deletion issues");
+			if (!result) {
+				throw new Exception("Database(" + dbName + ") deletion(data) failed due file deletion issues");
 			}
 			result = MiscUtils.delete(new File(dbIndexPath(dbName)));
-			if(!result) {
-				throw new Exception("Database("+dbName+") deletion(index) failed due file deletion issues");
+			if (!result) {
+				throw new Exception("Database(" + dbName + ") deletion(index) failed due file deletion issues");
 			}
 			metricsDbCounter.dec();
 			logger.info("Database(" + dbName + ") deleted");
