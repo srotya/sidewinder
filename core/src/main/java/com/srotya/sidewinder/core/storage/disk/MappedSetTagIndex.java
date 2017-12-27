@@ -21,11 +21,10 @@ import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.SortedSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.logging.Logger;
 
 import com.codahale.metrics.Counter;
@@ -38,11 +37,12 @@ import com.srotya.sidewinder.core.storage.TagIndex;
  * 
  * @author ambud
  */
-public class MappedBitmapTagIndex implements TagIndex {
+public class MappedSetTagIndex implements TagIndex {
 
-	private static final Logger logger = Logger.getLogger(MappedBitmapTagIndex.class.getName());
+	private static final String SEPERATOR = " ";
+	private static final Logger logger = Logger.getLogger(MappedSetTagIndex.class.getName());
 	private static final int INCREMENT_SIZE = 1024 * 1024 * 1;
-	private Map<String, Set<String>> rowKeyIndex;
+	private SortedSet<String> rowKeyIndex;
 	private String indexPath;
 	private File revIndex;
 	private Counter metricIndexRow;
@@ -50,9 +50,9 @@ public class MappedBitmapTagIndex implements TagIndex {
 	private RandomAccessFile revRaf;
 	private MappedByteBuffer rev;
 
-	public MappedBitmapTagIndex(String indexDir, String measurementName) throws IOException {
+	public MappedSetTagIndex(String indexDir, String measurementName) throws IOException {
 		this.indexPath = indexDir + "/" + measurementName;
-		rowKeyIndex = new ConcurrentHashMap<>(10000);
+		rowKeyIndex = new ConcurrentSkipListSet<>();
 		revIndex = new File(indexPath + ".rev");
 		MetricsRegistryService instance = MetricsRegistryService.getInstance();
 		if (instance != null) {
@@ -81,15 +81,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 				byte[] b = new byte[length];
 				rev.get(b);
 				String r = new String(b);
-				String[] split = r.split(" ");
-				String tag = split[0];
-				Set<String> set = rowKeyIndex.get(tag);
-				if (set == null) {
-					set = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>(100));
-					rowKeyIndex.put(split[0], set);
-				}
-				String rowKey = split[1];
-				set.add(rowKey);
+				rowKeyIndex.add(r);
 			}
 		}
 	}
@@ -106,28 +98,25 @@ public class MappedBitmapTagIndex implements TagIndex {
 
 	@Override
 	public Set<String> getTags() {
-		return new HashSet<>(rowKeyIndex.keySet());
+		Set<String> tags = new HashSet<>();
+		for (String string : rowKeyIndex) {
+			String[] split = string.split(SEPERATOR);
+			tags.add(split[0]);
+		}
+		return tags;
 	}
 
 	@Override
 	public void index(String tagKey, String rowKey) throws IOException {
-		Set<String> rowKeySet = rowKeyIndex.get(tagKey);
-		if (rowKeySet == null) {
-			synchronized (rowKeyIndex) {
-				if ((rowKeySet = rowKeyIndex.get(tagKey)) == null) {
-					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
-					rowKeyIndex.put(tagKey, rowKeySet);
-				}
-			}
-		}
-		if (!rowKeySet.contains(rowKey)) {
-			boolean add = rowKeySet.add(rowKey);
+		rowKey = tagKey + SEPERATOR + rowKey;
+		if (rowKeyIndex.add(rowKey)) {
+			boolean add = true;
 			if (add) {
 				if (enableMetrics) {
 					metricIndexRow.inc();
 				}
 				synchronized (rowKeyIndex) {
-					byte[] str = (tagKey + " " + rowKey).getBytes();
+					byte[] str = rowKey.getBytes();
 					if (rev.remaining() < str.length + Integer.BYTES) {
 						// resize buffer
 						int temp = rev.position();
@@ -143,8 +132,17 @@ public class MappedBitmapTagIndex implements TagIndex {
 	}
 
 	@Override
-	public Collection<String> searchRowKeysForTag(String tagKey) {
-		return rowKeyIndex.get(tagKey);
+	public Collection<String> searchRowKeysForTag(String tag) {
+		Set<String> result = new HashSet<>();
+		SortedSet<String> tailSet = rowKeyIndex.tailSet(tag);
+		for (String entry : tailSet) {
+			if (entry.startsWith(tag + SEPERATOR)) {
+				result.add(entry.split(SEPERATOR)[1]);
+			} else {
+				break;
+			}
+		}
+		return result;
 	}
 
 	@Override

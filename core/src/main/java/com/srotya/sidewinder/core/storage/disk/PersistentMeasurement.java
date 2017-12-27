@@ -74,8 +74,9 @@ public class PersistentMeasurement implements Measurement {
 	private Malloc malloc;
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName, String indexDirectory,
-			String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool) throws IOException {
+	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
+			String indexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
+			throws IOException {
 		this.dbName = dbName;
 		this.measurementName = measurementName;
 		enableMetricsMonitoring(engine, bgTaskPool);
@@ -90,8 +91,10 @@ public class PersistentMeasurement implements Measurement {
 		if (metadata == null) {
 			throw new IOException("Metadata can't be null");
 		}
-		
+
 		this.metadata = metadata;
+		// this.seriesMap = (Map<String, Integer>)
+		// DBMaker.memoryDirectDB().make().hashMap(measurementName).create();
 		this.seriesMap = new ConcurrentHashMap<>(100_000);
 		this.seriesList = new ArrayList<>(100_000);
 		this.compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
@@ -100,7 +103,7 @@ public class PersistentMeasurement implements Measurement {
 				StorageEngine.DEFAULT_COMPACTION_CODEC);
 		this.measurementName = measurementName;
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
-		this.tagIndex = new MappedBitmapTagIndex(this.indexDirectory, measurementName);
+		this.tagIndex = new MappedSetTagIndex(this.indexDirectory, measurementName);
 		malloc = new DiskMalloc();
 		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool);
 		loadTimeseriesFromMeasurements();
@@ -278,12 +281,12 @@ public class PersistentMeasurement implements Measurement {
 			return seriesList.get(index);
 		}
 	}
-	
+
 	@Override
 	public String getDbName() {
 		return dbName;
 	}
-	
+
 	@Override
 	public Malloc getMalloc() {
 		return malloc;

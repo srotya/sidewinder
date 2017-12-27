@@ -58,7 +58,7 @@ public class FunctionTable {
 				alias = alias.trim();
 				if (!alias.isEmpty()) {
 					FunctionTable.get().register(alias, (Class<? extends Function>) annotatedClass);
-					System.out.println("|" + alias + "|" + annotatedClass.getSimpleName() + "|" + description + "|"
+					logger.fine("|" + alias + "|" + annotatedClass.getSimpleName() + "|" + description + "|"
 							+ function.type() + "|");
 				}
 			}

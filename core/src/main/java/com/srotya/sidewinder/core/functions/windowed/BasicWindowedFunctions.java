@@ -150,7 +150,7 @@ public class BasicWindowedFunctions {
 
 	}
 
-	@FunctionName(alias = { "mean", "average" }, description="Returns the average value for each window of time", type="windowed aggregate")
+	@FunctionName(alias = { "mean", "average", "avg" }, description="Returns the average value for each window of time", type="windowed aggregate")
 	public static class WindowedMean extends ReducingWindowedAggregator {
 
 		@Override
