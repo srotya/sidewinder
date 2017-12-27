@@ -25,6 +25,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -115,6 +116,7 @@ public class DiskMalloc implements Malloc {
 
 	@Override
 	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
+		logger.fine("Seriesid:" + seriesId + " requesting buffer of size:" + newSize);
 		if (rafActiveFile == null) {
 			lock.lock();
 			if (rafActiveFile == null) {
@@ -217,6 +219,7 @@ public class DiskMalloc implements Malloc {
 		for (int i = 0; i < ptrCounter; i++) {
 			String line = TimeSeries.getStringFromBuffer(ptrBuf);
 			String[] splits = line.split("\\" + SEPARATOR);
+			logger.finest("reading line:"+Arrays.toString(splits));
 			String fileName = splits[1];
 			int positionOffset = Integer.parseInt(splits[3]);
 			String seriesId = splits[0];
@@ -242,7 +245,7 @@ public class DiskMalloc implements Malloc {
 		String line = seriesId + SEPARATOR + split[split.length - 1] + SEPARATOR + curr + SEPARATOR + offset;
 		// resize
 		byte[] bytes = line.getBytes();
-		if (ptrBuf.remaining() < bytes.length + Short.BYTES) {
+		if (ptrBuf.remaining() < bytes.length + Integer.BYTES) {
 			int newSize = ptrBuf.position() + INCREMENT;
 			ptrBuf = rafPtr.getChannel().map(MapMode.READ_WRITE, 0, newSize);
 		}
