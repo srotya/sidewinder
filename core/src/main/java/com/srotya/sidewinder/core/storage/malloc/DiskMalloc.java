@@ -45,19 +45,24 @@ import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 
+/**
+ * @author ambud
+ */
 public class DiskMalloc implements Malloc {
 
+	private static final int PTR_INCREMENT = 1048576;
 	private static final String SEPARATOR = ")";
-	private static final int INCREMENT = 1048576;
 	private static final Logger logger = Logger.getLogger(DiskMalloc.class.getName());
 	// 100MB default buffer increment size
 	private static final int DEFAULT_BUF_INCREMENT = 1048576;
 	private static final int DEFAULT_MAX_FILE_SIZE = Integer.MAX_VALUE;
 	private static final int DEFAULT_INCREMENT_SIZE = 32768;
-	public static final String CONF_MEASUREMENT_FILE_MAX = "measurement.file.max";
-	public static final String CONF_MEASUREMENT_INCREMENT_SIZE = "measurement.buf.increment";
-	public static final String CONF_MEASUREMENT_FILE_INCREMENT = "measurement.file.increment";
-	private ReentrantLock lock = new ReentrantLock(false);
+	public static final String CONF_MALLOC_PTRFILE_INCREMENT = "malloc.ptrfile.increment";
+	public static final String CONF_MEASUREMENT_FILE_MAX = "malloc.file.max";
+	public static final String CONF_MEASUREMENT_INCREMENT_SIZE = "malloc.buf.increment";
+	public static final String CONF_MEASUREMENT_FILE_INCREMENT = "malloc.file.increment";
+	private ReentrantLock lock;
+	private int ptrFileIncrement;
 	private int itr;
 	private int fileMapIncrement;
 	private int increment;
@@ -82,8 +87,9 @@ public class DiskMalloc implements Malloc {
 
 	@Override
 	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine,
-			ScheduledExecutorService bgTaskPool) {
+			ScheduledExecutorService bgTaskPool, ReentrantLock lock) {
 		this.measurementName = measurementName;
+		this.lock = lock;
 		this.dataDirectory = dataDirectory + "/" + measurementName;
 		this.fileMapIncrement = Integer
 				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_INCREMENT, String.valueOf(DEFAULT_BUF_INCREMENT)));
@@ -98,6 +104,8 @@ public class DiskMalloc implements Malloc {
 			throw new IllegalArgumentException("File increment can't be greater than or equal to file size");
 		}
 		this.ptrFile = new File(getPtrPath());
+		this.ptrFileIncrement = Integer
+				.parseInt(conf.getOrDefault(CONF_MALLOC_PTRFILE_INCREMENT, String.valueOf(PTR_INCREMENT)));
 		if (engine != null) {
 			enableMetricsCapture = true;
 			MetricsRegistryService reg = MetricsRegistryService.getInstance(engine, bgTaskPool);
@@ -204,22 +212,11 @@ public class DiskMalloc implements Malloc {
 	private void sliceMappedBuffersForBuckets(Map<String, MappedByteBuffer> bufferMap,
 			Map<String, List<Entry<String, BufferObject>>> seriesBuffers) throws IOException {
 		ptrCounter = 0;
-		if (ptrFile.exists()) {
-			rafPtr = new RandomAccessFile(ptrFile, "rwd");
-			ptrBuf = rafPtr.getChannel().map(MapMode.READ_WRITE, 0, ptrFile.length());
-			ptrCounter = ptrBuf.getInt();
-			logger.info(
-					"Ptr file exists, will load " + ptrCounter + " series entries, file length:" + ptrFile.length());
-		} else {
-			rafPtr = new RandomAccessFile(ptrFile, "rwd");
-			ptrBuf = rafPtr.getChannel().map(MapMode.READ_WRITE, 0, INCREMENT);
-			ptrBuf.putInt(0);
-			logger.fine("Ptr file is missing, creating one");
-		}
+		initializePtrFile();
 		for (int i = 0; i < ptrCounter; i++) {
 			String line = TimeSeries.getStringFromBuffer(ptrBuf);
 			String[] splits = line.split("\\" + SEPARATOR);
-			logger.finest("reading line:"+Arrays.toString(splits));
+			logger.fine("reading line:" + Arrays.toString(splits));
 			String fileName = splits[1];
 			int positionOffset = Integer.parseInt(splits[3]);
 			String seriesId = splits[0];
@@ -239,19 +236,43 @@ public class DiskMalloc implements Malloc {
 		}
 	}
 
+	private void initializePtrFile() throws FileNotFoundException, IOException {
+		if (ptrFile.exists()) {
+			rafPtr = new RandomAccessFile(ptrFile, "rwd");
+			ptrBuf = rafPtr.getChannel().map(MapMode.READ_WRITE, 0, ptrFile.length());
+			ptrCounter = ptrBuf.getInt();
+			logger.fine(
+					"Ptr file exists, will load " + ptrCounter + " series entries, file length:" + ptrFile.length());
+		} else {
+			rafPtr = new RandomAccessFile(ptrFile, "rwd");
+			ptrBuf = rafPtr.getChannel().map(MapMode.READ_WRITE, 0, ptrFileIncrement);
+			ptrBuf.putInt(ptrCounter);
+			logger.fine("Ptr file is missing, creating one");
+		}
+	}
+
 	protected String appendBufferPointersToDisk(String seriesId, String filename, int curr, long offset)
 			throws IOException {
-		String[] split = filename.split("/");
-		String line = seriesId + SEPARATOR + split[split.length - 1] + SEPARATOR + curr + SEPARATOR + offset;
-		// resize
-		byte[] bytes = line.getBytes();
-		if (ptrBuf.remaining() < bytes.length + Integer.BYTES) {
-			int newSize = ptrBuf.position() + INCREMENT;
-			ptrBuf = rafPtr.getChannel().map(MapMode.READ_WRITE, 0, newSize);
+		lock.lock();
+		try {
+			String[] split = filename.split("/");
+			String line = seriesId + SEPARATOR + split[split.length - 1] + SEPARATOR + curr + SEPARATOR + offset;
+			logger.finest("Measurement(" + measurementName + ")Appending pointer information to ptr file:" + line);
+			// resize
+			byte[] bytes = line.getBytes();
+			if (ptrBuf.remaining() < bytes.length + Short.BYTES) {
+				int pos = ptrBuf.position();
+				int newSize = pos + ptrFileIncrement;
+				ptrBuf = rafPtr.getChannel().map(MapMode.READ_WRITE, 0, newSize);
+				// BUGFIX: missing pointer reset caused PTR file corruption
+				ptrBuf.position(pos);
+			}
+			TimeSeries.writeStringToBuffer(line, ptrBuf);
+			ptrBuf.putInt(0, ++ptrCounter);
+			return line;
+		} finally {
+			lock.unlock();
 		}
-		TimeSeries.writeStringToBuffer(line, ptrBuf);
-		ptrBuf.putInt(0, ++ptrCounter);
-		return line;
 	}
 
 	public void close() throws IOException {

@@ -88,7 +88,7 @@ public class TestPersistentMeasurement {
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> map = new HashMap<>();
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
+		map.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
 		m.configure(map, null, DBNAME, "m1", "target/db41/index", "target/db41/data", metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
@@ -131,13 +131,13 @@ public class TestPersistentMeasurement {
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> map = new HashMap<>();
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		map.put("measurement.file.max", String.valueOf(1024 * 1024));
+		map.put("malloc.file.max", String.valueOf(1024 * 1024));
 		try {
 			m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 			fail("Must throw invalid file max size exception");
 		} catch (Exception e) {
 		}
-		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
+		map.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
 		m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
@@ -156,6 +156,32 @@ public class TestPersistentMeasurement {
 	}
 
 	@Test
+	public void testDataPointsRecoveryPTR() throws Exception {
+		long ts = System.currentTimeMillis();
+		MiscUtils.delete(new File("target/db290/"));
+		List<String> tags = Arrays.asList("test1", "test2");
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> map = new HashMap<>();
+		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		map.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		map.put("malloc.ptrfile.increment", String.valueOf(2 * 1024));
+		m.configure(map, null, DBNAME, "m1", "target/db290/index", "target/db290/data", metadata, bgTaskPool);
+		int LIMIT = 100;
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value" + i, tags, 4096, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, ts, 1L);
+		}
+		m.close();
+
+		m = new PersistentMeasurement();
+		m.configure(map, null, DBNAME, "m1", "target/db290/index", "target/db290/data", metadata, bgTaskPool);
+		List<Series> resultMap = new ArrayList<>();
+		m.queryDataPoints("value.*", ts, ts + 1000, tags, new AnyFilter<>(), null, resultMap);
+		assertEquals(LIMIT, resultMap.size());
+		m.close();
+	}
+
+	@Test
 	public void testOptimizationsLambdaInvoke() throws IOException {
 		long ts = System.currentTimeMillis();
 		MiscUtils.delete(new File("target/db42/"));
@@ -163,7 +189,7 @@ public class TestPersistentMeasurement {
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> map = new HashMap<>();
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
+		map.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
 		m.configure(map, null, DBNAME, "m1", "target/db42/index", "target/db42/data", metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {

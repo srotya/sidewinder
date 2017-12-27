@@ -43,7 +43,7 @@ public class MockMeasurement implements Measurement {
 		memMalloc = new MemMalloc();
 		Map<String, String> conf = new HashMap<>();
 		conf.put("buffer.size", String.valueOf(bufSize));
-		memMalloc.configure(conf, null, null, null, null);
+		memMalloc.configure(conf, null, null, null, null, null);
 	}
 
 	@Override

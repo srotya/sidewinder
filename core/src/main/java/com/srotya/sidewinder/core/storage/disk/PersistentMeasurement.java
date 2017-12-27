@@ -56,6 +56,7 @@ public class PersistentMeasurement implements Measurement {
 
 	private static final Logger logger = Logger.getLogger(PersistentMeasurement.class.getName());
 	private ReentrantLock lock = new ReentrantLock(false);
+	private ReentrantLock mallocLock = new ReentrantLock(false);
 	private Map<String, Integer> seriesMap;
 	private List<SeriesFieldMap> seriesList;
 	private TagIndex tagIndex;
@@ -106,7 +107,7 @@ public class PersistentMeasurement implements Measurement {
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
 		this.tagIndex = new MappedSetTagIndex(this.indexDirectory, measurementName);
 		malloc = new DiskMalloc();
-		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool);
+		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, mallocLock);
 		loadTimeseriesFromMeasurements();
 	}
 

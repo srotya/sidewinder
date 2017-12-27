@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -51,7 +52,7 @@ public class MemMalloc implements Malloc{
 
 	@Override
 	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine,
-			ScheduledExecutorService bgTaskPool) {
+			ScheduledExecutorService bgTaskPool, ReentrantLock lock) {
 		this.size = Integer.parseInt(conf.getOrDefault("buffer.size", "1024"));
 	}
 
