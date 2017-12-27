@@ -71,7 +71,7 @@ public class MemoryMeasurement implements Measurement {
 				StorageEngine.DEFAULT_COMPACTION_CODEC);
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
 		malloc = new MemMalloc();
-		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool);
+		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, lock);
 	}
 
 	@Override
