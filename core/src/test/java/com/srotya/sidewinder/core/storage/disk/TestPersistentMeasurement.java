@@ -72,8 +72,8 @@ public class TestPersistentMeasurement {
 	public void testConfigure() throws IOException {
 		MiscUtils.delete(new File("target/pmeasurement1"));
 		Measurement measurement = new PersistentMeasurement();
-		measurement.configure(conf, engine, DBNAME, "m1", "target/pmeasurement1/idx", "target/pmeasurement1/data", metadata,
-				bgTaskPool);
+		measurement.configure(conf, engine, DBNAME, "m1", "target/pmeasurement1/idx", "target/pmeasurement1/data",
+				metadata, bgTaskPool);
 		assertTrue(measurement.getTagIndex() != null);
 		// TimeSeries series = measurement.getOrCreateTimeSeries("v1",
 		// Arrays.asList("test1"), 4096, false, conf);
@@ -110,14 +110,13 @@ public class TestPersistentMeasurement {
 			}
 		}
 
-		List<List<String>> tagsResult = m.getTagsForMeasurement("value.*$");
+		List<List<String>> tagsResult = m.getTagsForMeasurement();
 		for (List<String> list : tagsResult) {
 			assertEquals(tags, list);
 		}
 
 		try {
-			tagsResult = m.getTagsForMeasurement("value.*(");
-			fail("Bad rejex must fail");
+			tagsResult = m.getTagsForMeasurement();
 		} catch (IOException e) {
 		}
 
@@ -185,8 +184,8 @@ public class TestPersistentMeasurement {
 		m.configure(conf, engine, DBNAME, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
 		TagIndex index = m.getTagIndex();
 		String encodeTagsToString = m.encodeTagsToString(index, tags);
-		String key = m.constructSeriesId("csd", tags, index);
-		assertEquals("csd#" + encodeTagsToString, key);
+		String key = m.constructSeriesId(tags, index);
+		assertEquals(encodeTagsToString, key);
 		m.close();
 	}
 

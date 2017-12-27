@@ -23,4 +23,6 @@ public interface Malloc {
 
 	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine, ScheduledExecutorService bgTaskPool);
 
+	public void close() throws IOException;
+
 }
