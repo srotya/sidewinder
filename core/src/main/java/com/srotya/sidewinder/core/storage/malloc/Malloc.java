@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.locks.ReentrantLock;
 
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -21,7 +22,8 @@ public interface Malloc {
 
 	public Map<String, List<Entry<String, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException;
 
-	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine, ScheduledExecutorService bgTaskPool);
+	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine,
+			ScheduledExecutorService bgTaskPool, ReentrantLock lock);
 
 	public void close() throws IOException;
 
