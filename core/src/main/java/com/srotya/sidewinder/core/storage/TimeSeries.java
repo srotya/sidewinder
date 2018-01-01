@@ -525,7 +525,6 @@ public class TimeSeries {
 			String key = bucketMap.firstKey();
 			List<Writer> buckets = bucketMap.remove(key);
 			for (Writer bucket : buckets) {
-				// TODO close
 				// bucket.close();
 				gcedBuckets.add(bucket);
 				logger.log(Level.FINEST,

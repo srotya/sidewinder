@@ -110,13 +110,11 @@ public class MockMeasurement implements Measurement {
 
 	@Override
 	public Set<String> getSeriesKeys() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public String getDbName() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
@@ -127,13 +125,11 @@ public class MockMeasurement implements Measurement {
 
 	@Override
 	public SeriesFieldMap getSeriesFromKey(String key) {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public Collection<SeriesFieldMap> getSeriesList() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 

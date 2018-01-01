@@ -42,7 +42,6 @@ public class DoD {
 				try {
 					gorilla.write(dp);
 				} catch (RejectException e1) {
-					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
 				if (i % 1000 == 0) {
