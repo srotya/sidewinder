@@ -42,7 +42,7 @@ import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
-import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
+import com.srotya.sidewinder.core.storage.archival.NoneArchiver;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -383,7 +383,7 @@ public class DiskStorageEngine implements StorageEngine {
 		Measurement measurement = getOrCreateMeasurement(dbMap, measurementName, dbName);
 		for (String entry : measurement.getSeriesKeys()) {
 			SeriesFieldMap seriesFromKey = measurement.getSeriesFromKey(entry);
-			if(seriesFromKey.get(valueFieldName)!=null) {
+			if (seriesFromKey.get(valueFieldName) != null) {
 				return seriesFromKey.get(valueFieldName).isFp();
 			}
 		}

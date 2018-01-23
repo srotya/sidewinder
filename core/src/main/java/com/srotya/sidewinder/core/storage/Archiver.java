@@ -22,8 +22,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
+import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
 import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
  * @author ambud

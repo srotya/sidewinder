@@ -36,10 +36,9 @@ import java.util.stream.Stream;
 
 import com.srotya.sidewinder.core.filters.Filter;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.storage.malloc.Malloc;
-import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
 
 /**
  * @author ambud
@@ -93,7 +92,7 @@ public interface Measurement {
 		if (tagString == null || tagString.isEmpty()) {
 			return tagList;
 		}
-		for (String tag : tagString.split("\\"+TAG_SEPARATOR)) {
+		for (String tag : tagString.split("\\" + TAG_SEPARATOR)) {
 			tagList.add(tagLookupTable.getTagMapping(tag));
 		}
 		return tagList;
@@ -128,7 +127,7 @@ public interface Measurement {
 		runCleanupOperation("garbage collection", ts -> {
 			try {
 				List<Writer> collectedGarbage = ts.collectGarbage();
-				if (archiver != null) {
+				if (archiver != null && collectedGarbage != null) {
 					for (Writer writer : collectedGarbage) {
 						byte[] buf = Archiver.writerToByteArray(writer);
 						TimeSeriesArchivalObject archivalObject = new TimeSeriesArchivalObject(getDbName(),
@@ -148,8 +147,8 @@ public interface Measurement {
 		});
 	}
 
-	public default void compact() throws IOException {
-		runCleanupOperation("compacting", ts -> {
+	public default Set<String> compact() throws IOException {
+		return runCleanupOperation("compacting", ts -> {
 			try {
 				return ts.compact();
 			} catch (IOException e) {
@@ -158,17 +157,21 @@ public interface Measurement {
 		});
 	}
 
-	public default void runCleanupOperation(String operation, java.util.function.Function<TimeSeries, List<Writer>> op)
-			throws IOException {
+	public default Set<String> runCleanupOperation(String operation,
+			java.util.function.Function<TimeSeries, List<Writer>> op) throws IOException {
+		Set<String> cleanupList = new HashSet<>();
 		getLock().lock();
 		try {
-			Set<String> cleanupList = new HashSet<>();
 			for (TimeSeries entry : getTimeSeries()) {
 				try {
 					List<Writer> list = op.apply(entry);
+					if (list == null) {
+						continue;
+					}
 					for (Writer timeSeriesBucket : list) {
-						getLogger().fine("Buffers " + operation + " for bucket:" + entry.getSeriesId() + "\tOffset:"
-								+ timeSeriesBucket.currentOffset());
+						cleanupList.add(timeSeriesBucket.getBufferId());
+						getLogger().fine("Adding buffer to cleanup " + operation + " for bucket:" + entry.getSeriesId()
+								+ " Offset:" + timeSeriesBucket.currentOffset());
 					}
 					getLogger().fine("Buffers " + operation + " for time series:" + entry.getSeriesId());
 				} catch (Exception e) {
@@ -177,13 +180,14 @@ public interface Measurement {
 			}
 			// cleanup these buffer ids
 			if (cleanupList.size() > 0) {
-				getLogger().info("For measurement:" + getMeasurementName() + " buffers compacted for:"
-						+ cleanupList.size() + " buffers");
+				getLogger().info(
+						"For measurement:" + getMeasurementName() + " cleaned=" + cleanupList.size() + " buffers");
 			}
 			getMalloc().cleanupBufferIds(cleanupList);
 		} finally {
 			getLock().unlock();
 		}
+		return cleanupList;
 	}
 
 	public default SeriesFieldMap getSeriesField(List<String> tags) throws IOException {
@@ -222,10 +226,10 @@ public interface Measurement {
 	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime,
 			List<String> tagList, Filter<List<String>> tagFilter, Predicate valuePredicate, List<Series> resultMap)
 			throws IOException {
-		Set<String> rowKeys = null;
-		if(tagList==null || tagList.isEmpty()) {
+		final Set<String> rowKeys;
+		if (tagList == null || tagList.isEmpty()) {
 			rowKeys = getSeriesKeys();
-		}else {
+		} else {
 			rowKeys = getTagFilteredRowKeys(tagFilter, tagList);
 		}
 		final Pattern p;
@@ -234,29 +238,33 @@ public interface Measurement {
 		} catch (Exception e) {
 			throw new IOException("Invalid regex for value field name:" + e.getMessage());
 		}
+		Set<String> outputKeys = new HashSet<>();
 		final Map<String, List<String>> fields = new HashMap<>();
-		for (Iterator<String> iterator = rowKeys.iterator(); iterator.hasNext();) {
-			String key = iterator.next();
-			List<String> field = new ArrayList<>();
+		for (String key : rowKeys) {
+			List<String> fieldMap = new ArrayList<>();
 			Set<String> fieldSet = getSeriesFromKey(key).getFields();
 			for (String fieldSetEntry : fieldSet) {
 				if (p.matcher(fieldSetEntry).matches()) {
-					field.add(fieldSetEntry);
+					fieldMap.add(fieldSetEntry);
 				}
 			}
-			if (field.size() > 0) {
-				fields.put(key, field);
-			} else {
-				iterator.remove();
+			if (fieldMap.size() > 0) {
+				fields.put(key, fieldMap);
+				outputKeys.add(key);
 			}
 		}
-		Stream<String> stream = rowKeys.stream();
+		Stream<String> stream = outputKeys.stream();
 		if (useQueryPool()) {
 			stream = stream.parallel();
 		}
 		stream.forEach(entry -> {
 			try {
-				populateDataPoints(fields.get(entry), entry, startTime, endTime, valuePredicate, p, resultMap);
+				List<String> valueFieldNames = fields.get(entry);
+				if (valueFieldNames == null) {
+					throw new NullPointerException(
+							"NPEfor:" + entry + " rowkeys:" + fields + " vfn:" + valueFieldNamePattern);
+				}
+				populateDataPoints(valueFieldNames, entry, startTime, endTime, valuePredicate, p, resultMap);
 			} catch (Exception e) {
 				getLogger().log(Level.SEVERE, "Failed to query data points", e);
 			}
@@ -310,6 +318,11 @@ public interface Measurement {
 		return series;
 	}
 
+	/**
+	 * List all series field maps
+	 * 
+	 * @return
+	 */
 	public Collection<SeriesFieldMap> getSeriesList();
 
 	public Logger getLogger();

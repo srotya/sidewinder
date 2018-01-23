@@ -40,8 +40,20 @@ public class SeriesFieldMap {
 		return seriesMap.get(valueFieldName);
 	}
 
+	/**
+	 * Must close before modifying this via iterator
+	 * @return
+	 */
 	public Collection<? extends TimeSeries> values() {
 		return seriesMap.values();
+	}
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "SeriesFieldMap [seriesMap=" + seriesMap + "]";
 	}
 
 }

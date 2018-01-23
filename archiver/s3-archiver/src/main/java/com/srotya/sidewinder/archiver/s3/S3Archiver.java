@@ -38,7 +38,7 @@ import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.S3ObjectSummary;
 import com.srotya.sidewinder.core.storage.ArchiveException;
 import com.srotya.sidewinder.core.storage.Archiver;
-import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
+import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
 
 /**
  * @author ambud

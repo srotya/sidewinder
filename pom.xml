@@ -14,7 +14,6 @@
   <description>A timeseries database</description>
   <modules>
     <module>core</module>
-    <module>cluster</module>
     <module>examples</module>
     <module>archiver</module>
     <module>ambari</module>

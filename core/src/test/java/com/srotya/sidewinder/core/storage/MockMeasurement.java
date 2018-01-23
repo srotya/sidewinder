@@ -28,8 +28,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.storage.malloc.Malloc;
-import com.srotya.sidewinder.core.storage.malloc.MemMalloc;
+import com.srotya.sidewinder.core.storage.mem.MemMalloc;
 
 /**
  * @author ambud

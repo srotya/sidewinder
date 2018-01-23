@@ -49,6 +49,7 @@ public class DodWriter implements Writer {
 	private long prevXor;
 	private int startOffset;
 	private String tsBucket;
+	private String bufferId;
 
 	public DodWriter() {
 	}
@@ -272,6 +273,25 @@ public class DodWriter implements Writer {
 	@Override
 	public int getPosition() {
 		return -1;
+	}
+	
+	/**
+	 * @return the bufferId
+	 */
+	public String getBufferId() {
+		return bufferId;
+	}
+
+	/**
+	 * @param bufferId the bufferId to set
+	 */
+	public void setBufferId(String bufferId) {
+		this.bufferId = bufferId;
+	}
+
+	@Override
+	public boolean isReadOnly() {
+		return readOnly;
 	}
 
 }

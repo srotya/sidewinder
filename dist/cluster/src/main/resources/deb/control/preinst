@@ -1,5 +1,0 @@
-#!/bin/sh
-useradd sidewinder
-mkdir -p /usr/sidewinder/lib
-mkdir -p /usr/sidewinder/bin
-mkdir -p /etc/sidewinder

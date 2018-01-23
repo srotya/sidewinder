@@ -22,6 +22,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -39,14 +40,13 @@ import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.DBMetadata;
+import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.storage.malloc.DiskMalloc;
-import com.srotya.sidewinder.core.storage.malloc.Malloc;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -74,6 +74,7 @@ public class PersistentMeasurement implements Measurement {
 	private boolean useQueryPool;
 	private String measurementName;
 	private Malloc malloc;
+	private boolean compactOnStart;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
@@ -103,6 +104,8 @@ public class PersistentMeasurement implements Measurement {
 				StorageEngine.DEFAULT_COMPRESSION_CODEC);
 		this.compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
 				StorageEngine.DEFAULT_COMPACTION_CODEC);
+		this.compactOnStart = Boolean.parseBoolean(
+				conf.getOrDefault(StorageEngine.COMPACTION_ON_START, StorageEngine.DEFAULT_COMPACTION_ON_START));
 		this.measurementName = measurementName;
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
 		this.tagIndex = new MappedSetTagIndex(this.indexDirectory, measurementName);
@@ -145,6 +148,7 @@ public class PersistentMeasurement implements Measurement {
 				if (enableMetricsCapture) {
 					metricsTimeSeriesCounter.inc();
 				}
+				logger.fine("Created new series:" + seriesId + "\t");
 			}
 			lock.unlock();
 		}
@@ -243,6 +247,9 @@ public class PersistentMeasurement implements Measurement {
 				}
 			}
 		}
+		if (compactOnStart) {
+			compact();
+		}
 	}
 
 	@Override
@@ -294,7 +301,7 @@ public class PersistentMeasurement implements Measurement {
 
 	@Override
 	public Set<String> getSeriesKeys() {
-		return seriesMap.keySet();
+		return new HashSet<>(seriesMap.keySet());
 	}
 
 	@Override

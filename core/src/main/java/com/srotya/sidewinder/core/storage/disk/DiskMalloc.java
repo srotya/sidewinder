@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.malloc;
+package com.srotya.sidewinder.core.storage.disk;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -26,6 +26,7 @@ import java.nio.channels.FileChannel.MapMode;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -42,8 +43,9 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.BufferObject;
+import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.TimeSeries;
+import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
@@ -78,7 +80,7 @@ public class DiskMalloc implements Malloc {
 	private MappedByteBuffer ptrBuf;
 	private RandomAccessFile rafPtr;
 	private File ptrFile;
-	private int ptrCounter;
+	private volatile int ptrCounter;
 	private boolean enableMetricsCapture;
 	private Counter metricsBufferSize;
 	private Counter metricsBufferResize;
@@ -156,7 +158,7 @@ public class DiskMalloc implements Malloc {
 							+ filename);
 					rafActiveFile.close();
 					rafActiveFile = null;
-					return createNewBuffer(seriesId, tsBucket);
+					return createNewBuffer(seriesId, tsBucket, newSize);
 				}
 				memoryMappedBuffer = rafActiveFile.getChannel().map(MapMode.READ_WRITE, offset, fileMapIncrement);
 				logger.fine("Buffer expansion:" + offset + "\t\t" + curr);
@@ -165,8 +167,8 @@ public class DiskMalloc implements Malloc {
 					metricsBufferSize.inc(fileMapIncrement);
 				}
 			}
-			String ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset);
-			TimeSeries.writeStringToBuffer(tsBucket, memoryMappedBuffer);
+			String ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset, newSize);
+			MiscUtils.writeStringToBuffer(tsBucket, memoryMappedBuffer);
 			ByteBuffer buf = memoryMappedBuffer.slice();
 			buf.limit(newSize);
 			curr = curr + newSize;
@@ -193,6 +195,14 @@ public class DiskMalloc implements Malloc {
 			}
 		});
 
+		Arrays.sort(listFiles, new Comparator<File>() {
+
+			@Override
+			public int compare(File o1, File o2) {
+				return o1.getName().compareTo(o2.getName());
+			}
+		});
+
 		for (File dataFile : listFiles) {
 			try {
 				RandomAccessFile raf = new RandomAccessFile(dataFile, "r");
@@ -204,6 +214,12 @@ public class DiskMalloc implements Malloc {
 				logger.log(Level.SEVERE, "Failed to recover data files for measurement:" + measurementName, e);
 			}
 		}
+		// fix file sequencing since compaction & garbage collection will delete old
+		// files and this will prevent them from being overwritten
+		if (listFiles.length > 0) {
+			fcnt = Integer.parseInt(listFiles[listFiles.length - 1].getName().replace("data-", "").replace(".dat", ""))
+					+ 1;
+		}
 		Map<String, List<Entry<String, BufferObject>>> seriesBuffers = new HashMap<>();
 		sliceMappedBuffersForBuckets(bufferMap, seriesBuffers);
 		return seriesBuffers;
@@ -214,19 +230,20 @@ public class DiskMalloc implements Malloc {
 		ptrCounter = 0;
 		initializePtrFile();
 		for (int i = 0; i < ptrCounter; i++) {
-			String line = TimeSeries.getStringFromBuffer(ptrBuf);
+			String line = MiscUtils.getStringFromBuffer(ptrBuf);
 			String[] splits = line.split("\\" + SEPARATOR);
-			logger.fine("reading line:" + Arrays.toString(splits));
+			logger.finer("reading line:" + Arrays.toString(splits));
 			String fileName = splits[1];
 			int positionOffset = Integer.parseInt(splits[3]);
 			String seriesId = splits[0];
 			int pointer = Integer.parseInt(splits[2]);
+			int size = Integer.parseInt(splits[4]);
 			MappedByteBuffer buf = bufferMap.get(fileName);
 			int position = positionOffset + pointer;
 			buf.position(position);
-			String tsBucket = TimeSeries.getStringFromBuffer(buf);
+			String tsBucket = MiscUtils.getStringFromBuffer(buf);
 			ByteBuffer slice = buf.slice();
-			slice.limit(increment);
+			slice.limit(size);
 			List<Entry<String, BufferObject>> list = seriesBuffers.get(seriesId);
 			if (list == null) {
 				list = new ArrayList<>();
@@ -247,28 +264,35 @@ public class DiskMalloc implements Malloc {
 			rafPtr = new RandomAccessFile(ptrFile, "rwd");
 			ptrBuf = rafPtr.getChannel().map(MapMode.READ_WRITE, 0, ptrFileIncrement);
 			ptrBuf.putInt(ptrCounter);
-			logger.fine("Ptr file is missing, creating one");
+			logger.info("Ptr file is missing, creating one");
 		}
 	}
 
-	protected String appendBufferPointersToDisk(String seriesId, String filename, int curr, long offset)
+	protected String appendBufferPointersToDisk(String seriesId, String filename, int curr, long offset, int size)
 			throws IOException {
 		lock.lock();
 		try {
 			String[] split = filename.split("/");
-			String line = seriesId + SEPARATOR + split[split.length - 1] + SEPARATOR + curr + SEPARATOR + offset;
-			logger.finest("Measurement(" + measurementName + ")Appending pointer information to ptr file:" + line);
+			String line = seriesId + SEPARATOR + split[split.length - 1] + SEPARATOR + curr + SEPARATOR + offset
+					+ SEPARATOR + size;
+			logger.fine("Measurement(" + measurementName + ")Appending pointer information to ptr file:" + line);
 			// resize
 			byte[] bytes = line.getBytes();
 			if (ptrBuf.remaining() < bytes.length + Short.BYTES) {
+				logger.fine("Need to resize ptrbuf because ptrBufRem:" + ptrBuf.remaining() + " line:" + bytes.length);
 				int pos = ptrBuf.position();
 				int newSize = pos + ptrFileIncrement;
+				ptrBuf.force();
 				ptrBuf = rafPtr.getChannel().map(MapMode.READ_WRITE, 0, newSize);
 				// BUGFIX: missing pointer reset caused PTR file corruption
 				ptrBuf.position(pos);
+				logger.info("Resizing ptr file:" + ptrBuf.getInt(0) + " ptrcount:" + ptrCounter + " inc:"
+						+ ptrFileIncrement + " position:" + pos);
 			}
-			TimeSeries.writeStringToBuffer(line, ptrBuf);
+			MiscUtils.writeStringToBuffer(line, ptrBuf);
 			ptrBuf.putInt(0, ++ptrCounter);
+			logger.fine("Measurement(" + measurementName + ")Appending pointer information to ptr file:" + line
+					+ " pos:" + ptrBuf.position());
 			return line;
 		} finally {
 			lock.unlock();
@@ -296,6 +320,9 @@ public class DiskMalloc implements Malloc {
 	public void cleanupBufferIds(Set<String> cleanupList) throws IOException {
 		lock.lock();
 		try {
+			if (cleanupList.isEmpty()) {
+				return;
+			}
 			Set<String> fileSet = new HashSet<>();
 			ByteBuffer duplicate = ptrBuf.duplicate();
 			duplicate.rewind();
@@ -304,27 +331,42 @@ public class DiskMalloc implements Malloc {
 			int tmpCounter = 0;
 			duplicate.getInt();
 			for (int i = 0; i < ptrCounter; i++) {
-				String line = TimeSeries.getStringFromBuffer(duplicate);
+				String line = MiscUtils.getStringFromBuffer(duplicate);
+				if (line.isEmpty()) {
+					throw new IOException("Empty line in ptrbuffer, ptr buffer is likely corrupt");
+				}
 				if (!cleanupList.contains(line)) {
-					byte[] bytes = line.getBytes();
-					temp.putInt(bytes.length);
-					temp.put(bytes);
-					fileSet.add(line.split("\\" + SEPARATOR)[1]);
+					MiscUtils.writeStringToBuffer(line, temp);
+					try {
+						fileSet.add(line.split("\\" + SEPARATOR)[1]);
+					} catch (ArrayIndexOutOfBoundsException e) {
+						logger.severe("AOBException for buffer-cleanup:" + line + "=" + i + "=" + ptrCounter);
+						throw e;
+					}
 					tmpCounter++;
-					logger.fine("Rewriting line:" + line + " to ptr file for measurement");
+					logger.fine("Rewriting line:" + line + " to ptr file for measurement:" + measurementName);
 				} else {
-					logger.fine("Removing line:" + line + " from ptr file due to garbage collection for measurement:");
+					logger.fine("Removing line:" + line + " from ptr file due to garbage collection for measurement:"
+							+ measurementName);
 					if (enableMetricsCapture) {
 						metricsBufferCounter.dec();
 					}
 				}
 			}
+			// rewrite buffers
+
+			// BUGFIX: without the buffer marker; the position was moved to the end of the
+			// buffer causing buffer to contain empty lines which errored out since this
+			// file is suppose to contain sequential binary data
+			int mark = temp.position();
 			temp.putInt(0, tmpCounter);
-			// swap files
 			ptrBuf.rewind();
 			temp.rewind();
+			temp.limit(mark);
 			ptrBuf.put(temp);
-			logger.fine("Renaming tmp ptr file to main for measurement");
+			logger.fine("Swapped ptr buffers: " + "Counter:" + tmpCounter + " total:" + ptrBuf.getInt(0) + " before:"
+					+ ptrCounter + " pos:" + ptrBuf.position());
+			ptrCounter = tmpCounter;
 			// check and delete data files
 			deleteFilesExcept(fileSet);
 		} finally {
@@ -340,6 +382,10 @@ public class DiskMalloc implements Malloc {
 				return name.endsWith(".dat");
 			}
 		});
+		if (files == null) {
+			logger.warning("Empty data directory:" + dataDirectory);
+			return;
+		}
 		logger.fine("GC: Currently there are:" + files.length + " data files");
 		int deleteCounter = 0;
 		for (File file : files) {

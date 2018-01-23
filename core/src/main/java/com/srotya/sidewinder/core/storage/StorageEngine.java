@@ -67,7 +67,10 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_FREQUENCY = "1800";
 	public static final String COMPACTION_DELAY = "compaction.delay";
 	public static final String DEFAULT_COMPACTION_DELAY = "1800";
-
+	public static final String COMPACTION_ON_START = "compaction.onstart";
+	public static final String DEFAULT_COMPACTION_ON_START = "false";
+	public static final String COMPACTION_RATIO = "compaction.ratio";
+	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
 	/**
 	 * @param conf
 	 * @param bgTaskPool

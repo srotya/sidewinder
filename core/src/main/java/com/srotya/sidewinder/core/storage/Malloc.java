@@ -1,4 +1,4 @@
-package com.srotya.sidewinder.core.storage.malloc;
+package com.srotya.sidewinder.core.storage;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -9,12 +9,9 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
 
-import com.srotya.sidewinder.core.storage.BufferObject;
-import com.srotya.sidewinder.core.storage.StorageEngine;
-
 public interface Malloc {
 
-	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException;
+	public BufferObject createNewBuffer(String seriesId, String tsBucket, int size) throws IOException;
 
 	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException;
 

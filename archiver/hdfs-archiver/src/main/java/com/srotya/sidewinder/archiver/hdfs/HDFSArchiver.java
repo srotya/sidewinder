@@ -36,7 +36,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 
 import com.srotya.sidewinder.core.storage.ArchiveException;
 import com.srotya.sidewinder.core.storage.Archiver;
-import com.srotya.sidewinder.core.storage.mem.archival.TimeSeriesArchivalObject;
+import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
 
 
 /**

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.malloc;
+package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -26,10 +26,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
 
 import com.srotya.sidewinder.core.storage.BufferObject;
+import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
-public class MemMalloc implements Malloc{
-	
+public class MemMalloc implements Malloc {
+
 	private int size;
 
 	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
