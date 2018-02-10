@@ -27,6 +27,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -139,7 +140,7 @@ public class TestDiskStorageEngine {
 			fail("Exception must be thrown");
 		} catch (ItemNotFoundException e) {
 		}
-		assertEquals(0, engine.getTagsForMeasurement("db1", "m1", "vf2").size());
+		assertEquals(1, engine.getTagsForMeasurement("db1", "m1", "vf2").size());
 	}
 
 	@Test
@@ -257,8 +258,8 @@ public class TestDiskStorageEngine {
 			e.printStackTrace();
 			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
 		}
-		List<Series> queryDataPoints = engine.queryDataPoints("test", "ss", "value", ts,
-				ts + (4096 * 100 * 1000) + 1, Arrays.asList("te"), null);
+		List<Series> queryDataPoints = engine.queryDataPoints("test", "ss", "value", ts, ts + (4096 * 100 * 1000) + 1,
+				Arrays.asList("te"), null);
 		assertTrue(queryDataPoints.size() >= 1);
 	}
 
@@ -324,8 +325,8 @@ public class TestDiskStorageEngine {
 			engine.configure(map, bgTasks);
 
 			assertTrue(!engine.isMeasurementFieldFP("test3", "cpu", "value"));
-			List<Series> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts,
-					ts + (400 * 60000), null, null);
+			List<Series> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000), null,
+					null);
 			try {
 				engine.isMeasurementFieldFP("test3", "test", "test");
 				fail("Measurement should not exist");
@@ -367,8 +368,12 @@ public class TestDiskStorageEngine {
 		engine.writeDataPoint(
 				MiscUtils.buildDataPoint("test3", "cpu", "value", Arrays.asList("test"), ts + (400 * 60000), 4));
 		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").getSeriesKeys().size());
-		List<Series> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000),
-				null, null);
+		List<Series> queryDataPoints = null;
+		try {
+			queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000), null, null);
+		} catch (Exception e) {
+
+		}
 		try {
 			engine.queryDataPoints("test123", "cpu", "value", ts, ts + (400 * 60000), null, null);
 		} catch (ItemNotFoundException e) {
@@ -405,9 +410,9 @@ public class TestDiskStorageEngine {
 		map.put(StorageEngine.GC_FREQUENCY, "10");
 		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		map.put(StorageEngine.DEFAULT_BUCKET_SIZE, "4096");
-		map.put(PersistentMeasurement.CONF_MEASUREMENT_INCREMENT_SIZE, "4096");
-		map.put(PersistentMeasurement.CONF_MEASUREMENT_FILE_INCREMENT, "10240");
-		map.put(PersistentMeasurement.CONF_MEASUREMENT_FILE_MAX, String.valueOf(1024 * 100));
+		map.put(DiskMalloc.CONF_MEASUREMENT_INCREMENT_SIZE, "4096");
+		map.put(DiskMalloc.CONF_MEASUREMENT_FILE_INCREMENT, "10240");
+		map.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(1024 * 100));
 		map.put(StorageEngine.RETENTION_HOURS, "28");
 		engine.configure(map, bgTasks);
 		long base = 1497720452566L;
@@ -417,10 +422,10 @@ public class TestDiskStorageEngine {
 					base - (3600_000 * i), 2L));
 		}
 		engine.getMeasurementMap().get("test").get("cpu2").collectGarbage(null);
-		List<Series> queryDataPoints = engine.queryDataPoints("test", "cpu2", "value", ts - (3600_000 * 320),
-				ts, null, null);
-		assertTrue(!engine.isMeasurementFieldFP("test", "cpu2", "value"));
+		List<Series> queryDataPoints = engine.queryDataPoints("test", "cpu2", "value", ts - (3600_000 * 320), ts, null,
+				null);
 		assertEquals(27, queryDataPoints.iterator().next().getDataPoints().size());
+		assertTrue(!engine.isMeasurementFieldFP("test", "cpu2", "value"));
 	}
 
 	@Test
@@ -668,15 +673,13 @@ public class TestDiskStorageEngine {
 
 		Filter<List<String>> tagFilterTree = new OrFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("1"),
 				new ContainsFilter<String, List<String>>("2")));
-		series = engine.getTagFilteredRowKeys(dbName, measurementName, valueFieldName + "$", tagFilterTree,
-				Arrays.asList("1", "2"));
-		assertEquals(2, series.size());
+		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree, Arrays.asList("1", "2"));
+		assertEquals(4, series.size());
 
 		System.out.println(engine.getTagsForMeasurement(dbName, measurementName));
 		tagFilterTree = new AndFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("1"),
 				new ContainsFilter<String, List<String>>("8")));
-		series = engine.getTagFilteredRowKeys(dbName, measurementName, valueFieldName + "$", tagFilterTree,
-				Arrays.asList("1", "8"));
+		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree, Arrays.asList("1", "8"));
 		System.out.println("Series::" + series);
 		assertEquals(1, series.size());
 		engine.disconnect();
@@ -707,11 +710,18 @@ public class TestDiskStorageEngine {
 		ContainsFilter<String, List<String>> filter1 = new ContainsFilter<String, List<String>>(tag + 1);
 		ContainsFilter<String, List<String>> filter2 = new ContainsFilter<String, List<String>>(tag + 2);
 
-		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr,
-				curr + 3, Arrays.asList(tag + 1, tag + 2), new OrFilter<>(Arrays.asList(filter1, filter2)), null, null);
+		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr, curr + 3,
+				Arrays.asList(tag + 1, tag + 2), new OrFilter<>(Arrays.asList(filter1, filter2)), null, null);
 		assertEquals(2, queryDataPoints.size());
 		int i = 1;
 		assertEquals(1, queryDataPoints.iterator().next().getDataPoints().size());
+		queryDataPoints.sort(new Comparator<Series>() {
+
+			@Override
+			public int compare(Series o1, Series o2) {
+				return o1.getTags().toString().compareTo(o2.getTags().toString());
+			}
+		});
 		for (Series list : queryDataPoints) {
 			for (DataPoint dataPoint : list.getDataPoints()) {
 				assertEquals(curr + i, dataPoint.getTimestamp());
@@ -775,8 +785,8 @@ public class TestDiskStorageEngine {
 					curr + i, 2 * i));
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
-		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr,
-				curr + 3, Arrays.asList(tag), null);
+		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr, curr + 3,
+				Arrays.asList(tag), null);
 		assertEquals(1, queryDataPoints.size());
 		int i = 1;
 		assertEquals(3, queryDataPoints.iterator().next().getDataPoints().size());

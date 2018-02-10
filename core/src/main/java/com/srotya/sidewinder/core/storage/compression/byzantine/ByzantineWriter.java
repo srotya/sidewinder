@@ -47,6 +47,7 @@ public class ByzantineWriter implements Writer {
 	private volatile boolean full;
 	private int startOffset;
 	private String tsBucket;
+	private String bufferId;
 
 	public ByzantineWriter() {
 	}
@@ -353,6 +354,25 @@ public class ByzantineWriter implements Writer {
 	@Override
 	public void setTsBucket(String tsBucket) {
 		this.tsBucket = tsBucket;
+	}
+
+	/**
+	 * @return the bufferId
+	 */
+	public String getBufferId() {
+		return bufferId;
+	}
+
+	/**
+	 * @param bufferId the bufferId to set
+	 */
+	public void setBufferId(String bufferId) {
+		this.bufferId = bufferId;
+	}
+	
+	@Override
+	public boolean isReadOnly() {
+		return readOnly;
 	}
 
 }

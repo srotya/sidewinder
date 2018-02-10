@@ -19,7 +19,7 @@ import com.srotya.sidewinder.core.functions.FunctionName;
 
 public class BasicTransformFunctions {
 
-	@FunctionName(alias = "abs", description = "Returns the absolute value (non-negative) for each value in the series (transform function)")
+	@FunctionName(alias = "abs", description = "Returns the absolute value (non-negative) for each value in the series", type = "transform")
 	public class AbsoluteFunction extends TransformFunction {
 
 		@Override
@@ -34,7 +34,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "square", description = "Returns the square(^2) of each value in the series (transform function)")
+	@FunctionName(alias = "square", description = "Returns the square(^2) of each value in the series", type = "transform")
 	public static class SquareFunction extends TransformFunction {
 
 		@Override
@@ -49,7 +49,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "cube", description = "Returns the cube(^3) of each value in the series (transform function)")
+	@FunctionName(alias = "cube", description = "Returns the cube(^3) of each value in the series", type = "transform")
 	public static class CubeFunction extends TransformFunction {
 
 		@Override
@@ -64,7 +64,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "cbrt", description = "Returns the cube root of each value in the series (transform function)")
+	@FunctionName(alias = "cbrt", description = "Returns the cube root of each value in the series", type = "transform")
 	public static class CbrtFunction extends TransformFunction {
 
 		@Override
@@ -79,7 +79,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "ceil", description = "Returns the ceil of each value in the series (transform function)")
+	@FunctionName(alias = "ceil", description = "Returns the ceil of each value in the series", type = "transform")
 	public static class CeilFunction extends TransformFunction {
 
 		@Override
@@ -94,7 +94,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "floor", description = "Returns the floor of each value in the series (transform function)")
+	@FunctionName(alias = "floor", description = "Returns the floor of each value in the series", type = "transform")
 	public static class FloorFunction extends TransformFunction {
 
 		@Override
@@ -109,7 +109,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "sqrt", description = "Returns the square root of each value in the series (transform function)")
+	@FunctionName(alias = "sqrt", description = "Returns the square root of each value in the series", type = "transform")
 	public static class SqrtFunction extends TransformFunction {
 
 		@Override
@@ -124,7 +124,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "log", description = "Returns the log (base e) of each value in the series (transform function)")
+	@FunctionName(alias = "log", description = "Returns the log (base e) of each value in the series", type = "transform")
 	public static class LogFunction extends TransformFunction {
 
 		@Override
@@ -139,7 +139,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "log10", description = "Returns the log (base 10) of each value in the series (transform function)")
+	@FunctionName(alias = "log10", description = "Returns the log (base 10) of each value in the series", type = "transform")
 	public static class Log10Function extends TransformFunction {
 
 		@Override
@@ -154,7 +154,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "sin", description = "Returns the sine of each value in the series (transform function)")
+	@FunctionName(alias = "sin", description = "Returns the sine of each value in the series", type = "transform")
 	public static class SineFunction extends TransformFunction {
 
 		@Override
@@ -169,7 +169,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "cos", description = "Returns the cosime of each value in the series (transform function)")
+	@FunctionName(alias = "cos", description = "Returns the cosime of each value in the series", type = "transform")
 	public static class CosineFunction extends TransformFunction {
 
 		@Override
@@ -184,7 +184,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "tan", description = "Returns the tangent of each value in the series (transform function)")
+	@FunctionName(alias = "tan", description = "Returns the tangent of each value in the series", type = "transform")
 	public static class TangentFunction extends TransformFunction {
 
 		@Override
@@ -199,7 +199,7 @@ public class BasicTransformFunctions {
 
 	}
 
-	@FunctionName(alias = "neg", description = "Returns the negative (sign inverted) of each value in the series (transform function)")
+	@FunctionName(alias = "neg", description = "Returns the negative (sign inverted) of each value in the series", type = "transform")
 	public static class NegateFunction extends TransformFunction {
 
 		@Override

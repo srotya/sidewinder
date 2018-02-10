@@ -65,7 +65,7 @@ public abstract class MultiSeriesFunction implements Function {
 		return 0;
 	}
 
-	@FunctionName(alias = "ms-division", description = "Divides first series by the rest of the series (multi-series function)")
+	@FunctionName(alias = "ms-division", description = "Divides first series by the rest of the series", type = "multi-series")
 	public static class Division extends MultiSeriesFunction {
 
 		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFp) {
@@ -96,7 +96,7 @@ public abstract class MultiSeriesFunction implements Function {
 
 	}
 
-	@FunctionName(alias = "ms-multiplication", description = "Multiplies values of all series (multi-series function)")
+	@FunctionName(alias = "ms-multiplication", description = "Multiplies values of all series", type = "multi-series")
 	public static class Multiplication extends MultiSeriesFunction {
 
 		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
@@ -128,7 +128,7 @@ public abstract class MultiSeriesFunction implements Function {
 
 	}
 
-	@FunctionName(alias = "ms-substraction", description = "Adds values of all series (multi-series function)")
+	@FunctionName(alias = "ms-substraction", description = "Adds values of all series", type = "multi-series")
 	public static class Substraction extends MultiSeriesFunction {
 
 		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
@@ -158,7 +158,7 @@ public abstract class MultiSeriesFunction implements Function {
 		}
 	}
 
-	@FunctionName(alias = "ms-addition", description = "Subtracts first series by the rest of the series (multi-series function)")
+	@FunctionName(alias = "ms-addition", description = "Subtracts first series by the rest of the series", type = "multi-series")
 	public static class Addition extends MultiSeriesFunction {
 
 		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
@@ -189,7 +189,7 @@ public abstract class MultiSeriesFunction implements Function {
 
 	}
 
-	@FunctionName(alias = "ms-average", description = "Averages all series (multi-series function)")
+	@FunctionName(alias = "ms-average", description = "Averages all series", type = "multi-series")
 	public static class Average extends MultiSeriesFunction {
 
 		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {

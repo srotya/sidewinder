@@ -22,7 +22,7 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 
 public class BasicWindowedFunctions {
 
-	@FunctionName(alias = { "derivative", "dvdt" }, description = "Takes the derivative value for each window of values (window aggregate function)")
+	@FunctionName(alias = { "derivative", "dvdt" }, description = "Takes the derivative value for each window of values", type="windowed aggregate")
 	public static class DerivativeFunction extends ReducingWindowedAggregator {
 
 		@Override
@@ -50,7 +50,7 @@ public class BasicWindowedFunctions {
 
 	}
 
-	@FunctionName(alias = "diff", description="Takes the difference between the next and current value (window aggregate function)")
+	@FunctionName(alias = "diff", description="Takes the difference between the next and current value", type="windowed aggregate")
 	public static class DiffFunction extends ReducingWindowedAggregator {
 
 		@Override
@@ -76,7 +76,7 @@ public class BasicWindowedFunctions {
 
 	}
 
-	@FunctionName(alias = "rms", description="Returns the RMS value for each window of time (window aggregate function)")
+	@FunctionName(alias = "rms", description="Returns the RMS value for each window of time", type="windowed aggregate")
 	public static class RMSFunction extends ReducingWindowedAggregator {
 
 		@Override
@@ -90,7 +90,7 @@ public class BasicWindowedFunctions {
 		}
 	}
 
-	@FunctionName(alias = "integral", description="Returns the integral (sum) value for each window of time (window aggregate function)")
+	@FunctionName(alias = "integral", description="Returns the integral (sum) value for each window of time", type="windowed aggregate")
 	public static class IntegralFunction extends ReducingWindowedAggregator {
 
 		@Override
@@ -105,7 +105,7 @@ public class BasicWindowedFunctions {
 
 	}
 
-	@FunctionName(alias = "first", description="Returns the first value for each window of time (window aggregate function)")
+	@FunctionName(alias = "first", description="Returns the first value for each window of time", type="windowed aggregate")
 	public static class WindowedFirst extends ReducingWindowedAggregator {
 
 		@Override
@@ -120,7 +120,7 @@ public class BasicWindowedFunctions {
 
 	}
 
-	@FunctionName(alias = "last", description="Returns the last value for each window of time (window aggregate function)")
+	@FunctionName(alias = "last", description="Returns the last value for each window of time", type="windowed aggregate")
 	public static class WindowedLast extends ReducingWindowedAggregator {
 
 		@Override
@@ -135,7 +135,7 @@ public class BasicWindowedFunctions {
 
 	}
 
-	@FunctionName(alias = "max", description="Returns the max value for each window of time (window aggregate function)")
+	@FunctionName(alias = "max", description="Returns the max value for each window of time", type="windowed aggregate")
 	public static class WindowedMax extends ReducingWindowedAggregator {
 
 		@Override
@@ -150,7 +150,7 @@ public class BasicWindowedFunctions {
 
 	}
 
-	@FunctionName(alias = { "mean", "average" }, description="Returns the average value for each window of time (window aggregate function)")
+	@FunctionName(alias = { "mean", "average", "avg" }, description="Returns the average value for each window of time", type="windowed aggregate")
 	public static class WindowedMean extends ReducingWindowedAggregator {
 
 		@Override
@@ -165,7 +165,7 @@ public class BasicWindowedFunctions {
 
 	}
 
-	@FunctionName(alias = "min", description="Returns the minimum value for each window of time (window aggregate function)")
+	@FunctionName(alias = "min", description="Returns the minimum value for each window of time", type="windowed aggregate")
 	public static class WindowedMin extends ReducingWindowedAggregator {
 
 		@Override
@@ -180,7 +180,7 @@ public class BasicWindowedFunctions {
 
 	}
 
-	@FunctionName(alias = "stddev", description="Returns the standard deviation value for each window of time (window aggregate function)")
+	@FunctionName(alias = "stddev", description="Returns the standard deviation value for each window of time", type="windowed aggregate")
 	public static class WindowedStdDev extends ReducingWindowedAggregator {
 
 		@Override

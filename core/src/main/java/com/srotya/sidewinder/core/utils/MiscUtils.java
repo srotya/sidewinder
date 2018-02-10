@@ -19,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -277,6 +278,27 @@ public class MiscUtils {
 	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
 			long timestamp, double value) {
 		return buildDP(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true);
+	}
+	
+	public static String printBuffer(ByteBuffer buffer, int counter) {
+		StringBuffer buf = new StringBuffer();
+		for (int i = 0; i < counter; i++) {
+			String line = MiscUtils.getStringFromBuffer(buffer);
+			buf.append("\n" + i + " " + line);
+		}
+		return buf.toString();
+	}
+
+	public static void writeStringToBuffer(String str, ByteBuffer buf) {
+		buf.putShort((short) str.length());
+		buf.put(str.getBytes());
+	}
+
+	public static String getStringFromBuffer(ByteBuffer buf) {
+		short length = buf.getShort();
+		byte[] dst = new byte[length];
+		buf.get(dst);
+		return new String(dst);
 	}
 
 }
