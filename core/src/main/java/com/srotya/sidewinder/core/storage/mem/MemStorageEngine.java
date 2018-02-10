@@ -32,10 +32,11 @@ import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
+import com.srotya.sidewinder.core.storage.archival.NoneArchiver;
 import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.storage.mem.archival.NoneArchiver;
 
 /**
  * In-memory Timeseries {@link StorageEngine} implementation that uses the
@@ -126,7 +127,7 @@ public class MemStorageEngine implements StorageEngine {
 				}, Integer.parseInt(conf.getOrDefault(COMPACTION_FREQUENCY, DEFAULT_COMPACTION_FREQUENCY)),
 						Integer.parseInt(conf.getOrDefault(COMPACTION_DELAY, DEFAULT_COMPACTION_DELAY)),
 						TimeUnit.SECONDS);
-			}else {
+			} else {
 				logger.warning("Compaction is disabled");
 			}
 		}
@@ -216,9 +217,9 @@ public class MemStorageEngine implements StorageEngine {
 		if (measurement == null) {
 			synchronized (measurementMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
-					// TODO create measurement
 					measurement = new MemoryMeasurement();
-					measurement.configure(conf, this, dbName, measurementName, "", "", dbMetadataMap.get(dbName), bgTaskPool);
+					measurement.configure(conf, this, dbName, measurementName, "", "", dbMetadataMap.get(dbName),
+							bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
 					metricsMeasurementCounter.inc();
@@ -244,13 +245,16 @@ public class MemStorageEngine implements StorageEngine {
 	@Override
 	public boolean isMeasurementFieldFP(String dbName, String measurementName, String valueFieldName)
 			throws IOException {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
 		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
-
 		// check and create measurement map
 		Measurement measurement = getOrCreateMeasurement(dbMap, dbName, measurementName);
 		for (String entry : measurement.getSeriesKeys()) {
-			if (entry.startsWith(valueFieldName)) {
-				return measurement.getSeriesFromKey(entry).isFp();
+			SeriesFieldMap seriesFromKey = measurement.getSeriesFromKey(entry);
+			if (seriesFromKey.get(valueFieldName) != null) {
+				return seriesFromKey.get(valueFieldName).isFp();
 			}
 		}
 		throw NOT_FOUND_EXCEPTION;

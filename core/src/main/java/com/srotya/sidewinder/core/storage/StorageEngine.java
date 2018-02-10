@@ -67,7 +67,10 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_FREQUENCY = "1800";
 	public static final String COMPACTION_DELAY = "compaction.delay";
 	public static final String DEFAULT_COMPACTION_DELAY = "1800";
-
+	public static final String COMPACTION_ON_START = "compaction.onstart";
+	public static final String DEFAULT_COMPACTION_ON_START = "false";
+	public static final String COMPACTION_RATIO = "compaction.ratio";
+	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
 	/**
 	 * @param conf
 	 * @param bgTaskPool
@@ -272,7 +275,7 @@ public interface StorageEngine {
 		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
 		List<List<String>> results = new ArrayList<>();
 		for (String m : measurementsLike) {
-			results.addAll(getDatabaseMap().get(dbName).get(m).getTagsForMeasurement(valueFieldName));
+			results.addAll(getDatabaseMap().get(dbName).get(m).getTagsForMeasurement());
 		}
 		return results;
 	}
@@ -509,7 +512,8 @@ public interface StorageEngine {
 			return false;
 		}
 		// check and create timeseries
-		TimeSeries timeSeries = getDatabaseMap().get(dbName).get(measurementName).getTimeSeries(valueFieldName, tags);
+		TimeSeries timeSeries = getDatabaseMap().get(dbName).get(measurementName).getSeriesField(tags)
+				.get(valueFieldName);
 		return timeSeries != null;
 	}
 
@@ -530,7 +534,7 @@ public interface StorageEngine {
 		}
 		// get timeseries
 		Measurement measurement = getDatabaseMap().get(dbName).get(measurementName);
-		TimeSeries timeSeries = measurement.getTimeSeries(valueFieldName, tags);
+		TimeSeries timeSeries = measurement.getSeriesField(tags).get(valueFieldName);
 		return timeSeries;
 	}
 
@@ -551,13 +555,12 @@ public interface StorageEngine {
 		return getDatabaseMap().get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
 	}
 
-	public default Set<String> getTagFilteredRowKeys(String dbName, String measurementName, String valueFieldName,
+	public default Set<String> getTagFilteredRowKeys(String dbName, String measurementName,
 			Filter<List<String>> tagFilterTree, List<String> rawTags) throws IOException {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		return getDatabaseMap().get(dbName).get(measurementName).getTagFilteredRowKeys(valueFieldName, tagFilterTree,
-				rawTags);
+		return getDatabaseMap().get(dbName).get(measurementName).getTagFilteredRowKeys(tagFilterTree, rawTags);
 	}
 
 	public Map<String, Map<String, Measurement>> getDatabaseMap();

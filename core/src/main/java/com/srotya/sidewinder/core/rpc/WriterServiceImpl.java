@@ -109,7 +109,6 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 				if (disruptorEnable) {
 					buffer.publishEvent(translator, point, point.getTimestamp(), null);
 				} else {
-					System.out.println("FP:" + point.getFp() + " i:" + i);
 					if (point.getFp()) {
 						engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
 								new ArrayList<>(point.getTagsList()), point.getTimestamp(),

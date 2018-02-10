@@ -20,6 +20,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
+import javax.validation.constraints.NotNull;
+
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.RejectException;
 
@@ -27,7 +29,7 @@ import com.srotya.sidewinder.core.storage.RejectException;
  * @author ambud
  */
 public interface Writer {
-	
+
 	public static final RollOverException BUF_ROLLOVER_EXCEPTION = new RollOverException();
 	public static final RejectException WRITE_REJECT_EXCEPTION = new RejectException();
 
@@ -36,37 +38,45 @@ public interface Writer {
 	public void addValue(long timestamp, double value) throws IOException;
 
 	public void write(DataPoint dp) throws IOException;
-	
+
 	public void write(List<DataPoint> dp) throws IOException;
-	
+
 	public Reader getReader() throws IOException;
 
 	public double getCompressionRatio();
 
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking) throws IOException;
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
+			throws IOException;
 
 	public void bootstrap(ByteBuffer buf) throws IOException;
 
 	public ByteBuffer getRawBytes();
-	
+
 	public void setCounter(int counter);
-	
+
 	public void makeReadOnly() throws IOException;
-	
+
 	public int currentOffset();
-	
+
 	public int getCount();
 
 	public boolean isFull();
+	
+	public boolean isReadOnly();
 
 	public long getHeaderTimestamp();
 
 	public void setHeaderTimestamp(long timestamp);
 
 	public void setTsBucket(String tsBucket);
-	
+
 	public String getTsBucket();
 
-	int getPosition();
-	
+	public int getPosition();
+
+	public void setBufferId(String key);
+
+	@NotNull
+	public String getBufferId();
+
 }

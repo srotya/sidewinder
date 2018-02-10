@@ -49,7 +49,7 @@ public class InfluxDecoder {
 						timestamp = timestamp / (1000 * 1000);
 					}
 				} else {
-					System.out.println("DB timestamp");
+					logger.finest("Bad datapoint parts:" + parts.length);
 				}
 				String[] key = parts[0].split(",");
 				String measurementName = key[0];

@@ -16,13 +16,10 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.AbstractMap;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -31,6 +28,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.storage.mem.MemMalloc;
 
 /**
  * @author ambud
@@ -38,13 +36,13 @@ import com.srotya.sidewinder.core.storage.compression.Writer;
 public class MockMeasurement implements Measurement {
 
 	private ReentrantLock lock = new ReentrantLock();
-	private int bufferRenewCounter = 0;
-	private List<Entry<String, BufferObject>> list;
-	private int bufSize;
+	private Malloc memMalloc;
 
 	public MockMeasurement(int bufSize) {
-		this.bufSize = bufSize;
-		list = new ArrayList<>();
+		memMalloc = new MemMalloc();
+		Map<String, String> conf = new HashMap<>();
+		conf.put("buffer.size", String.valueOf(bufSize));
+		memMalloc.configure(conf, null, null, null, null, null);
 	}
 
 	@Override
@@ -63,28 +61,6 @@ public class MockMeasurement implements Measurement {
 
 	@Override
 	public void collectGarbage(Archiver archiver) throws IOException {
-	}
-
-	@Override
-	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
-		return createNewBuffer(seriesId, tsBucket, bufSize);
-	}
-	
-	@Override
-	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
-		bufferRenewCounter++;
-		ByteBuffer allocate = ByteBuffer.allocate(newSize);
-		BufferObject obj = new BufferObject(seriesId + "\t" + tsBucket, allocate);
-		list.add(new AbstractMap.SimpleEntry<>(tsBucket, obj));
-		return obj;
-	}
-
-	public int getBufferRenewCounter() {
-		return bufferRenewCounter;
-	}
-
-	public List<Entry<String, BufferObject>> getBufTracker() {
-		return list;
 	}
 
 	@Override
@@ -118,7 +94,6 @@ public class MockMeasurement implements Measurement {
 		return new ConcurrentSkipListMap<>();
 	}
 
-	@Override
 	public void cleanupBufferIds(Set<String> cleanupList) {
 	}
 
@@ -134,19 +109,26 @@ public class MockMeasurement implements Measurement {
 
 	@Override
 	public Set<String> getSeriesKeys() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public TimeSeries getSeriesFromKey(String key) {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public String getDbName() {
-		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Malloc getMalloc() {
+		return memMalloc;
+	}
+
+	@Override
+	public SeriesFieldMap getSeriesFromKey(String key) {
+		return null;
+	}
+
+	@Override
+	public Collection<SeriesFieldMap> getSeriesList() {
 		return null;
 	}
 

@@ -16,8 +16,6 @@
 package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -31,9 +29,10 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
-import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.DBMetadata;
+import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.TimeSeries;
@@ -48,13 +47,13 @@ public class MemoryMeasurement implements Measurement {
 	private ReentrantLock lock = new ReentrantLock(false);
 	private String measurementName;
 	private DBMetadata metadata;
-	private Map<String, TimeSeries> seriesMap;
+	private Map<String, SeriesFieldMap> seriesMap;
 	private MemTagIndex tagIndex;
-	private List<ByteBuffer> bufTracker;
 	private String compressionCodec;
 	private String compactionCodec;
 	private boolean useQueryPool;
 	private String dbName;
+	private Malloc malloc;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
@@ -65,17 +64,13 @@ public class MemoryMeasurement implements Measurement {
 		this.metadata = metadata;
 		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("request"));
 		this.seriesMap = new ConcurrentHashMap<>();
-		this.bufTracker = new ArrayList<>();
 		this.compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
 				StorageEngine.DEFAULT_COMPRESSION_CODEC);
 		this.compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
 				StorageEngine.DEFAULT_COMPACTION_CODEC);
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
-	}
-
-	@Override
-	public Collection<TimeSeries> getTimeSeries() {
-		return seriesMap.values();
+		malloc = new MemMalloc();
+		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, lock);
 	}
 
 	@Override
@@ -92,42 +87,35 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
-		return createNewBuffer(seriesId, tsBucket, 1024);
-	}
-
-	@Override
-	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
-		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(newSize);
-		synchronized (bufTracker) {
-			bufTracker.add(allocateDirect);
-		}
-		return new BufferObject(seriesId + "\t" + tsBucket, allocateDirect);
-	}
-
-	public List<ByteBuffer> getBufTracker() {
-		return bufTracker;
-	}
-
-	@Override
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException {
 		Collections.sort(tags);
-		String rowKey = constructSeriesId(valueFieldName, tags, tagIndex);
-		TimeSeries timeSeries = getSeriesFromKey(rowKey);
-		if (timeSeries == null) {
-			synchronized (this) {
-				if ((timeSeries = getSeriesFromKey(rowKey)) == null) {
-					Measurement.indexRowKey(tagIndex, rowKey, tags);
-					timeSeries = new TimeSeries(this, compressionCodec, compactionCodec, rowKey, timeBucketSize,
-							metadata, fp, conf);
-					seriesMap.put(rowKey, timeSeries);
-					logger.fine("Created new timeseries:" + timeSeries + " for measurement:" + measurementName + "\t"
-							+ rowKey + "\t" + metadata);
-				}
+		String seriesId = constructSeriesId(tags, tagIndex);
+		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
+		if (seriesFieldMap == null) {
+			lock.lock();
+			if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
+				Measurement.indexRowKey(tagIndex, seriesId, tags);
+				seriesFieldMap = new SeriesFieldMap();
+				seriesMap.put(seriesId, seriesFieldMap);
 			}
+			lock.unlock();
 		}
-		return timeSeries;
+		TimeSeries series = seriesFieldMap.get(valueFieldName);
+		if (series == null) {
+			lock.lock();
+			if ((series = seriesFieldMap.get(valueFieldName)) == null) {
+				String seriesId2 = seriesId + SERIESID_SEPARATOR + valueFieldName;
+				series = new TimeSeries(this, compressionCodec, compactionCodec, seriesId2, timeBucketSize, metadata,
+						fp, conf);
+				seriesFieldMap.addSeries(valueFieldName, series);
+				logger.fine("Created new timeseries:" + seriesFieldMap + " for measurement:" + measurementName + "\t"
+						+ seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesMap.size());
+			}
+			lock.unlock();
+		}
+
+		return series;
 	}
 
 	@Override
@@ -148,18 +136,12 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public String toString() {
 		return "MemoryMeasurement [measurementName=" + measurementName + ", metadata=" + metadata + ", seriesMap="
-				+ seriesMap + ", tagIndex=" + tagIndex + ", bufTracker=" + bufTracker + ", compressionClass="
-				+ compressionCodec + "]";
+				+ seriesMap + ", tagIndex=" + tagIndex + ", compressionClass=" + compressionCodec + "]";
 	}
 
 	@Override
 	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId) {
 		return new ConcurrentSkipListMap<>();
-	}
-
-	@Override
-	public void cleanupBufferIds(Set<String> cleanupList) {
-		// nothing much to do since this is an in-memory implementation
 	}
 
 	@Override
@@ -178,12 +160,22 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public TimeSeries getSeriesFromKey(String key) {
+	public SeriesFieldMap getSeriesFromKey(String key) {
 		return seriesMap.get(key);
 	}
-	
+
 	@Override
 	public String getDbName() {
 		return dbName;
+	}
+
+	@Override
+	public Malloc getMalloc() {
+		return malloc;
+	}
+
+	@Override
+	public Collection<SeriesFieldMap> getSeriesList() {
+		return seriesMap.values();
 	}
 }

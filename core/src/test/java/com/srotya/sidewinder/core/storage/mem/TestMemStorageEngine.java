@@ -250,15 +250,15 @@ public class TestMemStorageEngine {
 		assertEquals(1, engine.getOrCreateMeasurement("test", "cpu").getSeriesKeys().size());
 		List<Series> queryDataPoints = engine.queryDataPoints("test", "cpu", "value", ts, ts + (400 * 60000), null,
 				null);
+		assertEquals(2, queryDataPoints.iterator().next().getDataPoints().size());
+		assertEquals(ts, queryDataPoints.iterator().next().getDataPoints().get(0).getTimestamp());
+		assertEquals(ts + (400 * 60000), queryDataPoints.iterator().next().getDataPoints().get(1).getTimestamp());
 		assertTrue(!engine.isMeasurementFieldFP("test", "cpu", "value"));
 		try {
 			engine.isMeasurementFieldFP("test", "test", "test");
 			fail("Measurement should not exist");
 		} catch (Exception e) {
 		}
-		assertEquals(2, queryDataPoints.iterator().next().getDataPoints().size());
-		assertEquals(ts, queryDataPoints.iterator().next().getDataPoints().get(0).getTimestamp());
-		assertEquals(ts + (400 * 60000), queryDataPoints.iterator().next().getDataPoints().get(1).getTimestamp());
 		try {
 			engine.dropDatabase("test");
 		} catch (Exception e) {
@@ -471,15 +471,13 @@ public class TestMemStorageEngine {
 
 		Filter<List<String>> tagFilterTree = new OrFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("1"),
 				new ContainsFilter<String, List<String>>("2")));
-		series = engine.getTagFilteredRowKeys(dbName, measurementName, valueFieldName, tagFilterTree,
-				Arrays.asList("1", "2"));
-		assertEquals(2, series.size());
+		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree, Arrays.asList("1", "2"));
+		assertEquals(4, series.size());
 
 		System.out.println(engine.getTagsForMeasurement(dbName, measurementName));
 		tagFilterTree = new AndFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("1"),
 				new ContainsFilter<String, List<String>>("8")));
-		series = engine.getTagFilteredRowKeys(dbName, measurementName, valueFieldName + "$", tagFilterTree,
-				Arrays.asList("1", "8"));
+		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree, Arrays.asList("1", "8"));
 		System.out.println("Series::" + series);
 		assertEquals(1, series.size());
 	}
@@ -736,7 +734,6 @@ public class TestMemStorageEngine {
 			try {
 				Thread.sleep(1000);
 			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 			if (!bool.get()) {

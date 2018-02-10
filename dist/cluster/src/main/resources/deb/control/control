@@ -1,8 +1,0 @@
-Package: [[name]]
-Version: [[version]]
-Section: misc
-Priority: low
-Architecture: all
-Description: [[description]]
-Maintainer: Ambud Sharma
-Depends: openjdk-8-jre

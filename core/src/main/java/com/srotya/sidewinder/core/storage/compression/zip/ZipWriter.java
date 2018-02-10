@@ -43,9 +43,11 @@ public abstract class ZipWriter implements Writer {
 	private int startOffset;
 	private String tsBucket;
 	private int blockSize;
+	private String bufferId;
 
 	@Override
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking) throws IOException {
+	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
+			throws IOException {
 		this.startOffset = startOffset;
 		if (isLocking) {
 			ReentrantReadWriteLock lck = new ReentrantReadWriteLock();
@@ -138,8 +140,10 @@ public abstract class ZipWriter implements Writer {
 	@Override
 	public void makeReadOnly() throws IOException {
 		try {
-			dos.flush();
-			dos.close();
+			if (dos != null) {
+				dos.flush();
+				dos.close();
+			}
 		} catch (Exception e) {
 			throw new IOException(e);
 		}
@@ -229,4 +233,25 @@ public abstract class ZipWriter implements Writer {
 	public int getBlockSize() {
 		return blockSize;
 	}
+
+	/**
+	 * @return the bufferId
+	 */
+	public String getBufferId() {
+		return bufferId;
+	}
+
+	/**
+	 * @param bufferId
+	 *            the bufferId to set
+	 */
+	public void setBufferId(String bufferId) {
+		this.bufferId = bufferId;
+	}
+
+	@Override
+	public boolean isReadOnly() {
+		return true;
+	}
+
 }

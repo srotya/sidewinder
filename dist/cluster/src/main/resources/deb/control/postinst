@@ -1,4 +1,0 @@
-#!/bin/sh
-chmod +x /usr/sidewinder/bin/sidewinder
-
-chmod +x /etc/sidewinder/jq

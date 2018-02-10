@@ -72,8 +72,8 @@ public class TestPersistentMeasurement {
 	public void testConfigure() throws IOException {
 		MiscUtils.delete(new File("target/pmeasurement1"));
 		Measurement measurement = new PersistentMeasurement();
-		measurement.configure(conf, engine, DBNAME, "m1", "target/pmeasurement1/idx", "target/pmeasurement1/data", metadata,
-				bgTaskPool);
+		measurement.configure(conf, engine, DBNAME, "m1", "target/pmeasurement1/idx", "target/pmeasurement1/data",
+				metadata, bgTaskPool);
 		assertTrue(measurement.getTagIndex() != null);
 		// TimeSeries series = measurement.getOrCreateTimeSeries("v1",
 		// Arrays.asList("test1"), 4096, false, conf);
@@ -88,7 +88,7 @@ public class TestPersistentMeasurement {
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> map = new HashMap<>();
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
+		map.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
 		m.configure(map, null, DBNAME, "m1", "target/db41/index", "target/db41/data", metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
@@ -110,14 +110,13 @@ public class TestPersistentMeasurement {
 			}
 		}
 
-		List<List<String>> tagsResult = m.getTagsForMeasurement("value.*$");
+		List<List<String>> tagsResult = m.getTagsForMeasurement();
 		for (List<String> list : tagsResult) {
 			assertEquals(tags, list);
 		}
 
 		try {
-			tagsResult = m.getTagsForMeasurement("value.*(");
-			fail("Bad rejex must fail");
+			tagsResult = m.getTagsForMeasurement();
 		} catch (IOException e) {
 		}
 
@@ -132,13 +131,13 @@ public class TestPersistentMeasurement {
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> map = new HashMap<>();
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		map.put("measurement.file.max", String.valueOf(1024 * 1024));
+		map.put("malloc.file.max", String.valueOf(1024 * 1024));
 		try {
 			m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 			fail("Must throw invalid file max size exception");
 		} catch (Exception e) {
 		}
-		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
+		map.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
 		m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
@@ -157,6 +156,32 @@ public class TestPersistentMeasurement {
 	}
 
 	@Test
+	public void testDataPointsRecoveryPTR() throws Exception {
+		long ts = System.currentTimeMillis();
+		MiscUtils.delete(new File("target/db290/"));
+		List<String> tags = Arrays.asList("test1", "test2");
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> map = new HashMap<>();
+		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		map.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		map.put("malloc.ptrfile.increment", String.valueOf(2 * 1024));
+		m.configure(map, null, DBNAME, "m1", "target/db290/index", "target/db290/data", metadata, bgTaskPool);
+		int LIMIT = 100;
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value" + i, tags, 4096, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, ts, 1L);
+		}
+		m.close();
+
+		m = new PersistentMeasurement();
+		m.configure(map, null, DBNAME, "m1", "target/db290/index", "target/db290/data", metadata, bgTaskPool);
+		List<Series> resultMap = new ArrayList<>();
+		m.queryDataPoints("value.*", ts, ts + 1000, tags, new AnyFilter<>(), null, resultMap);
+		assertEquals(LIMIT, resultMap.size());
+		m.close();
+	}
+
+	@Test
 	public void testOptimizationsLambdaInvoke() throws IOException {
 		long ts = System.currentTimeMillis();
 		MiscUtils.delete(new File("target/db42/"));
@@ -164,7 +189,7 @@ public class TestPersistentMeasurement {
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> map = new HashMap<>();
 		map.put("disk.compression.class", ByzantineWriter.class.getName());
-		map.put("measurement.file.max", String.valueOf(2 * 1024 * 1024));
+		map.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
 		m.configure(map, null, DBNAME, "m1", "target/db42/index", "target/db42/data", metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
@@ -178,6 +203,110 @@ public class TestPersistentMeasurement {
 	}
 
 	@Test
+	public void testCompactionEmptyLineValidation() throws IOException {
+		final long ts = 1484788896586L;
+		MiscUtils.delete(new File("target/db46/"));
+		List<String> tags = Arrays.asList("test1", "test2");
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> map = new HashMap<>();
+		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		map.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		map.put("malloc.ptrfile.increment", String.valueOf(256));
+		map.put("compaction.ratio", "1.2");
+		map.put("compaction.enabled", "true");
+		m.configure(map, null, DBNAME, "m1", "target/db46/index", "target/db46/data", metadata, bgTaskPool);
+		int LIMIT = 34500;
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 1024, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 100, i * 1.2);
+		}
+		m.collectGarbage(null);
+		System.err.println("Gc complete");
+		m.compact();
+		m.getTimeSeries().iterator().next();
+		m = new PersistentMeasurement();
+		m.configure(map, null, DBNAME, "m1", "target/db46/index", "target/db46/data", metadata, bgTaskPool);
+	}
+
+	@Test
+	public void testCompaction() throws IOException {
+		final long ts = 1484788896586L;
+		MiscUtils.delete(new File("target/db45/"));
+		List<String> tags = Arrays.asList("test1", "test2");
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> map = new HashMap<>();
+		map.put("disk.compression.class", ByzantineWriter.class.getName());
+		map.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		map.put("malloc.ptrfile.increment", String.valueOf(1024));
+		map.put("compaction.ratio", "1.2");
+		map.put("compaction.enabled", "true");
+		m.configure(map, null, DBNAME, "m1", "target/db45/index", "target/db45/data", metadata, bgTaskPool);
+		int LIMIT = 7000;
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 1024, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i, i * 1.2);
+		}
+		assertEquals(1, m.getTimeSeries().size());
+		TimeSeries series = m.getTimeSeries().iterator().next();
+		assertEquals(1, series.getBucketRawMap().size());
+		assertEquals(3, series.getBucketCount());
+		assertEquals(3, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
+		assertEquals(1, series.getCompactionSet().size());
+		int maxDp = series.getBucketRawMap().values().stream().flatMap(v -> v.stream()).mapToInt(l -> l.getCount())
+				.max().getAsInt();
+		// check and read datapoint count before
+		List<DataPoint> queryDataPoints = series.queryDataPoints("", tags, ts, ts + LIMIT + 1, null);
+		assertEquals(LIMIT, queryDataPoints.size());
+		for (int i = 0; i < LIMIT; i++) {
+			DataPoint dp = queryDataPoints.get(i);
+			assertEquals(ts + i, dp.getTimestamp());
+			assertEquals(i * 1.2, dp.getValue(), 0.01);
+		}
+		m.compact();
+		assertEquals(2, series.getBucketCount());
+		assertEquals(2, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
+		assertEquals(0, series.getCompactionSet().size());
+		assertTrue(maxDp <= series.getBucketRawMap().values().stream().flatMap(v -> v.stream())
+				.mapToInt(l -> l.getCount()).max().getAsInt());
+		// validate query after compaction
+		queryDataPoints = series.queryDataPoints("", tags, ts, ts + LIMIT + 1, null);
+		assertEquals(LIMIT, queryDataPoints.size());
+		for (int i = 0; i < LIMIT; i++) {
+			DataPoint dp = queryDataPoints.get(i);
+			assertEquals(ts + i, dp.getTimestamp());
+			assertEquals(i * 1.2, dp.getValue(), 0.01);
+		}
+		// test buffer recovery after compaction, validate count
+		m = new PersistentMeasurement();
+		m.configure(map, null, DBNAME, "m1", "target/db45/index", "target/db45/data", metadata, bgTaskPool);
+		series = m.getTimeSeries().iterator().next();
+		queryDataPoints = series.queryDataPoints("", tags, ts, ts + LIMIT + 1, null);
+		assertEquals(LIMIT, queryDataPoints.size());
+		for (int i = 0; i < LIMIT; i++) {
+			DataPoint dp = queryDataPoints.get(i);
+			assertEquals(ts + i, dp.getTimestamp());
+			assertEquals(i * 1.2, dp.getValue(), 0.01);
+		}
+		for (int i = 0; i < LIMIT; i++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 1024, false, map);
+			t.addDataPoint(TimeUnit.MILLISECONDS, LIMIT + ts + i, i * 1.2);
+		}
+		series.getBucketRawMap().entrySet().iterator().next().getValue().stream()
+				.map(v -> "" + v.getCount() + ":" + v.isReadOnly() + ":" + (int) v.getRawBytes().get(1))
+				.forEach(System.out::println);
+		// test recovery again
+		m = new PersistentMeasurement();
+		m.configure(map, null, DBNAME, "m1", "target/db45/index", "target/db45/data", metadata, bgTaskPool);
+		series = m.getTimeSeries().iterator().next();
+		queryDataPoints = series.queryDataPoints("", tags, ts - 1, ts + 2 + (LIMIT * 2), null);
+		assertEquals(LIMIT * 2, queryDataPoints.size());
+		for (int i = 0; i < LIMIT * 2; i++) {
+			DataPoint dp = queryDataPoints.get(i);
+			assertEquals("Error:" + i + " " + (dp.getTimestamp() - ts - i), ts + i, dp.getTimestamp());
+		}
+	}
+
+	@Test
 	public void testConstructRowKey() throws Exception {
 		MiscUtils.delete(new File("target/db131/"));
 		List<String> tags = Arrays.asList("test1", "test2");
@@ -185,8 +314,8 @@ public class TestPersistentMeasurement {
 		m.configure(conf, engine, DBNAME, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
 		TagIndex index = m.getTagIndex();
 		String encodeTagsToString = m.encodeTagsToString(index, tags);
-		String key = m.constructSeriesId("csd", tags, index);
-		assertEquals("csd#" + encodeTagsToString, key);
+		String key = m.constructSeriesId(tags, index);
+		assertEquals(encodeTagsToString, key);
 		m.close();
 	}
 

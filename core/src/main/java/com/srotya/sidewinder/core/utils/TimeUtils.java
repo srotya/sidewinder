@@ -52,7 +52,8 @@ public class TimeUtils {
 	/**
 	 * @param unit
 	 * @param timestamp
-	 * @param windowSizeInSeconds (must be a power of 2)
+	 * @param windowSizeInSeconds
+	 *            (must be a power of 2)
 	 * @return
 	 */
 	public static int getWindowFlooredBinaryTime(TimeUnit unit, long timestamp, int windowSizeInSeconds) {
@@ -134,11 +135,13 @@ public class TimeUtils {
 	 */
 	public static int getWindowFlooredNaturalTime(int timeInSeconds, int bucketInSeconds) {
 		/**
-		 * bit shifting division and multiplication doesn't outperform the JIT
-		 * compiler
+		 * bit shifting division and multiplication doesn't outperform the JIT compiler
 		 */
 		// return (timeInSeconds >> bucketInSeconds) << bucketInSeconds;
 		return ((timeInSeconds / bucketInSeconds) * bucketInSeconds);
 	}
 
+	public static long getTimeFromBucketString(String hexTimeInSeconds) {
+		return Integer.parseInt(hexTimeInSeconds, 16) * 1000;
+	}
 }

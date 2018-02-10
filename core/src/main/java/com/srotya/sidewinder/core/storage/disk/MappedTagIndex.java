@@ -42,6 +42,7 @@ import net.jpountz.xxhash.XXHashFactory;
  */
 public class MappedTagIndex implements TagIndex {
 
+	private static final String SEPARATOR = " ";
 	private static final Logger logger = Logger.getLogger(MappedTagIndex.class.getName());
 	private static final int INCREMENT_SIZE = 1024 * 1024 * 1;
 	private Map<Integer, String> tagMap;
@@ -98,7 +99,7 @@ public class MappedTagIndex implements TagIndex {
 				byte[] b = new byte[length];
 				fwd.get(b);
 				String tag = new String(b);
-				String[] split = tag.split("\t");
+				String[] split = tag.split(SEPARATOR);
 				String hash32 = split[0];
 				tag = split[1];
 				tagMap.put(Integer.parseInt(hash32), tag);
@@ -111,7 +112,7 @@ public class MappedTagIndex implements TagIndex {
 				byte[] b = new byte[length];
 				rev.get(b);
 				String r = new String(b);
-				String[] split = r.split("\t");
+				String[] split = r.split(SEPARATOR);
 				String tag = split[0];
 				Set<String> set = rowKeyIndex.get(tag);
 				if (set == null) {
@@ -132,7 +133,7 @@ public class MappedTagIndex implements TagIndex {
 			synchronized (tagMap) {
 				String out = tagMap.put(hash32, tagKey);
 				if (out == null) {
-					byte[] str = (hash32 + "\t" + tagKey).getBytes();
+					byte[] str = (hash32 + SEPARATOR + tagKey).getBytes();
 					if (fwd.remaining() < str.length + Integer.BYTES) {
 						// resize buffer
 						int temp = fwd.position();
@@ -179,7 +180,7 @@ public class MappedTagIndex implements TagIndex {
 					metricIndexRow.inc();
 				}
 				synchronized (tagMap) {
-					byte[] str = (tag + "\t" + rowKey).getBytes();
+					byte[] str = (tag + SEPARATOR + rowKey).getBytes();
 					if (rev.remaining() < str.length + Integer.BYTES) {
 						// resize buffer
 						int temp = rev.position();
