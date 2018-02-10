@@ -173,6 +173,5 @@
     <connection>scm:git:git@github.com:srotya/sidewinder.git</connection>
     <developerConnection>scm:git:git@github.com:srotya/sidewinder.git</developerConnection>
     <url>https://github.com/srotya/sidewinder.git</url>
-    <tag>sidewinder-parent-0.0.33-SNAPSHOT</tag>
   </scm>
 </project>
