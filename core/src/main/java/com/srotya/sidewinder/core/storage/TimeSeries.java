@@ -122,8 +122,9 @@ public class TimeSeries {
 			Writer ans = list.get(list.size() - 1);
 			if (ans.isFull()) {
 				if ((ans = list.get(list.size() - 1)).isFull()) {
-					logger.fine("Requesting new writer for:" + seriesId + ",measurement:"
-							+ measurement.getMeasurementName() + "\t" + bucketCount);
+					logger.fine(
+							"Requesting new writer for:" + seriesId + ",measurement:" + measurement.getMeasurementName()
+									+ " bucketcount:" + bucketCount + " pos:" + ans.getPosition());
 					ans = createNewWriter(timestamp, tsBucket, list);
 					// if there are more than 2 buffers in the list then it is a candidate for
 					// compaction else not because 2 or less buffers means there is at least 1
@@ -669,7 +670,7 @@ public class TimeSeries {
 			Entry<String, List<Writer>> entry = iterator.next();
 			List<Writer> list = entry.getValue();
 			int listSize = list.size() - 1;
-			int bytes = list.subList(0, listSize).stream().mapToInt(s -> s.getCount()).sum();
+			int pointCount = list.subList(0, listSize).stream().mapToInt(s -> s.getCount()).sum();
 			int total = list.subList(0, listSize).stream().mapToInt(s -> s.getPosition()).sum();
 			if (total == 0) {
 				logger.warning("Ignoring bucket for compaction, not enough bytes. THIS BUG SHOULD BE INVESTIGATED");
@@ -677,10 +678,10 @@ public class TimeSeries {
 			}
 			Writer writer = getWriterInstance(compactionClass);
 			int compactedPoints = 0;
-			logger.finer("Allocating buffer:" + total + " Vs. " + bytes * 16 + " max compacted buffer:"
-					+ (total * compactionRatio));
+			double bufSize = total * compactionRatio;
+			logger.finer("Allocating buffer:" + total + " Vs. " + pointCount * 16 + " max compacted buffer:" + bufSize);
 			logger.finer("Getting sublist from:" + 0 + " to:" + (list.size() - 1));
-			ByteBuffer buf = ByteBuffer.allocate((int) (total * compactionRatio));
+			ByteBuffer buf = ByteBuffer.allocate((int) bufSize);
 			buf.put((byte) id);
 			// since this buffer will be the first one
 			buf.put(1, (byte) 0);
@@ -701,20 +702,24 @@ public class TimeSeries {
 					}
 				}
 				writer.makeReadOnly();
-			} catch (Exception e) {
+			} catch (RollOverException e) {
 				logger.warning("Buffer filled up; bad compression ratio; not compacting");
 				continue;
+			} catch (Exception e) {
+				logger.log(Level.SEVERE, "Compaction failed due to unknown exception", e);
 			}
 			// get the raw compressed bytes
 			ByteBuffer rawBytes = writer.getRawBytes();
-			rawBytes.rewind();
+			rawBytes.limit(rawBytes.position());
 			// convert buffer length request to size of 2
 			int size = rawBytes.limit() + 1;
 			if (size % 2 != 0) {
 				size++;
 			}
+			rawBytes.rewind();
 			// create buffer in measurement
 			BufferObject newBuf = measurement.getMalloc().createNewBuffer(seriesId, entry.getKey(), size);
+			logger.info("Compacted buffer size:" + size + " vs " + total);
 			String bufferId = newBuf.getBufferId();
 			buf = newBuf.getBuf();
 			writer = getWriterInstance(compactionClass);
@@ -735,9 +740,9 @@ public class TimeSeries {
 					compactedWriter.add(list.remove(i));
 				}
 				list.add(0, writer);
-				for (int i = 0; i < list.size(); i++) {
-					list.get(i).getRawBytes().put(1, (byte) i);
-				}
+				// for (int i = 0; i < list.size(); i++) {
+				// list.get(i).getRawBytes().put(1, (byte) i);
+				// }
 				// fix bucket count
 				bucketCount -= size;
 				logger.fine(
