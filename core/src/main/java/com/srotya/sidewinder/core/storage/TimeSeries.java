@@ -109,6 +109,8 @@ public class TimeSeries {
 		String tsBucket = getTimeBucket(unit, timestamp, timeBucketSize);
 		List<Writer> list = bucketMap.get(tsBucket);
 		if (list == null) {
+			// potential opportunity to load bucket information from some other non-memory
+			// location
 			synchronized (bucketMap) {
 				if ((list = bucketMap.get(tsBucket)) == null) {
 					list = Collections.synchronizedList(new ArrayList<>());
@@ -543,6 +545,7 @@ public class TimeSeries {
 	 */
 	public List<Writer> collectGarbage() throws IOException {
 		List<Writer> gcedBuckets = new ArrayList<>();
+		logger.finer("Retention buckets:" + retentionBuckets.get());
 		while (bucketMap.size() > retentionBuckets.get()) {
 			int oldSize = bucketMap.size();
 			String key = bucketMap.firstKey();

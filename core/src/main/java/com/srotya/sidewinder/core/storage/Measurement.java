@@ -127,6 +127,7 @@ public interface Measurement {
 		runCleanupOperation("garbage collection", ts -> {
 			try {
 				List<Writer> collectedGarbage = ts.collectGarbage();
+				getLogger().fine("Collected garbage:" + collectedGarbage.size());
 				if (archiver != null && collectedGarbage != null) {
 					for (Writer writer : collectedGarbage) {
 						byte[] buf = Archiver.writerToByteArray(writer);

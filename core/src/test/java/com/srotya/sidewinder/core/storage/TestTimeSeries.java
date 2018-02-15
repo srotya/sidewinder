@@ -20,10 +20,14 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,6 +38,7 @@ import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.storage.mem.MemMalloc;
 
 /**
  * @author ambud
@@ -412,6 +417,105 @@ public class TestTimeSeries {
 			DataPoint dp = dataPoints.get(i - 1);
 			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
 			assertEquals(dp.getValue(), i * 1.1, 0.001);
+		}
+	}
+
+	@Test
+	public void testReplaceSeries() throws IOException {
+		DBMetadata metadata = new DBMetadata(28);
+		MockMeasurement measurement = new MockMeasurement(1024);
+		HashMap<String, String> conf = new HashMap<>();
+		conf.put("default.bucket.size", "409600");
+		conf.put("compaction.enabled", "true");
+		conf.put("use.query.pool", "false");
+
+		final TimeSeries series = new TimeSeries(measurement, "byzantine", "gorilla", "asdasasd", 409600, metadata,
+				true, conf);
+		final long curr = 1497720652566L;
+		String valueFieldName = "value";
+		String tag = "host123123";
+		List<String> tags = Arrays.asList(tag);
+		for (int i = 1; i <= 10000; i++) {
+			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
+		}
+		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		int size = bucketRawMap.values().iterator().next().size();
+		assertTrue(series.getCompactionSet().size() < size);
+		assertTrue(size > 2);
+		List<Writer> compact = series.compact();
+		assertTrue(compact.size() > 0);
+		assertTrue(bucketRawMap.values().iterator().next().size() == 2);
+		List<Writer> next = bucketRawMap.values().iterator().next();
+		Writer writer = next.get(0);
+		ByteBuffer buf = writer.getRawBytes();
+		buf.rewind();
+		int limit = buf.limit();
+		ByteBuffer allocate = ByteBuffer.allocate(limit);
+		allocate.put(buf);
+		allocate.rewind();
+		byte[] array = allocate.array();
+		assertEquals(buf.limit(), array.length);
+
+		MemMalloc allocator = measurement.getAllocator();
+		List<Entry<Long, byte[]>> list = new ArrayList<>();
+		list.add(new AbstractMap.SimpleEntry<Long, byte[]>(writer.getHeaderTimestamp(), array));
+		try {
+			series.replaceFirstBuckets(bucketRawMap.firstKey(), list);
+		} catch (InstantiationException | IllegalAccessException e) {
+			e.printStackTrace();
+			fail(e.getMessage());
+		}
+		assertEquals(1, allocator.getCleanupCallback().size());
+		List<DataPoint> dataPoints = series.queryDataPoints(valueFieldName, tags, curr - 1000, curr + 10000 * 1000 + 1,
+				null);
+		for (int i = 1; i <= 10000; i++) {
+			DataPoint dp = dataPoints.get(i - 1);
+			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
+			assertEquals(dp.getValue(), i * 1.1, 0.001);
+		}
+	}
+
+	@Test(timeout = 10000)
+	public void testConcurrentSeriesCreate() throws IOException, InterruptedException {
+		DBMetadata metadata = new DBMetadata(28);
+		MockMeasurement measurement = new MockMeasurement(4096);
+		HashMap<String, String> conf = new HashMap<>();
+		conf.put("default.bucket.size", "4096");
+		conf.put("compaction.enabled", "true");
+		conf.put("use.query.pool", "false");
+
+		final TimeSeries series = new TimeSeries(measurement, "byzantine", "gorilla", "asdasasd", 4096, metadata, true,
+				conf);
+		final AtomicBoolean control = new AtomicBoolean(true);
+		ExecutorService c = Executors.newCachedThreadPool();
+		final long curr = 1497720652566L;
+		for (int i = 0; i < 4; i++) {
+			c.submit(() -> {
+				int k = 0;
+				while (control.get()) {
+					try {
+						long timestamp = curr + k * 4000;
+						if (timestamp < (1497720652566L + 4096 * 1000)) {
+							series.addDataPoint(TimeUnit.MILLISECONDS, timestamp, k);
+						} else {
+							break;
+						}
+						k++;
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+		c.shutdown();
+		Thread.sleep(1000);
+		control.set(false);
+		assertEquals(2, series.getBucketRawMap().size());
+		for (Entry<String, List<Writer>> entry : series.getBucketRawMap().entrySet()) {
+			for (int i = 0; i < entry.getValue().size() - 1; i++) {
+				Writer writer = entry.getValue().get(i);
+				assertTrue(writer.isFull());
+			}
 		}
 	}
 

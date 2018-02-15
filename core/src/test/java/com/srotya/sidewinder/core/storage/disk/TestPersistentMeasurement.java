@@ -307,6 +307,48 @@ public class TestPersistentMeasurement {
 	}
 
 	@Test
+	public void testMemoryMapFree() throws IOException, InterruptedException {
+		final long ts = 1484788896586L;
+		DiskMalloc.debug = true;
+		MiscUtils.delete(new File("target/db46/"));
+		List<String> tags = Arrays.asList("test1", "test2");
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> map = new HashMap<>();
+		map.put("compression.class", "byzantine");
+		map.put("compaction.class", "byzantine");
+		map.put("malloc.file.max", String.valueOf(512 * 1024));
+		map.put("malloc.file.increment", String.valueOf(256 * 1024));
+		map.put("malloc.buf.increment", String.valueOf(1024));
+		map.put("default.series.retention.hours", String.valueOf(2));
+		map.put("compaction.ratio", "1.2");
+		map.put("compaction.enabled", "true");
+		m.configure(map, null, DBNAME, "m1", "target/db46/index", "target/db46/data", metadata, bgTaskPool);
+		int LIMIT = 20000;
+		for (int i = 0; i < LIMIT; i++) {
+			for (int k = 0; k < 2; k++) {
+				TimeSeries t = m.getOrCreateTimeSeries("value" + k, tags, 512, false, map);
+				t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 10000, i * 1.2);
+			}
+		}
+
+		System.out.println(m.getOrCreateTimeSeries("value0", tags, 512, false, map).getBucketRawMap().size());
+		m.collectGarbage(null);
+		for (int k = 0; k < 2; k++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value" + k, tags, 512, false, map);
+			List<DataPoint> dps = t.queryDataPoints("", tags, ts, ts + LIMIT * 10000, null);
+			assertEquals(10032, dps.size());
+		}
+		System.gc();
+		Thread.sleep(200);
+		for (int k = 0; k < 2; k++) {
+			TimeSeries t = m.getOrCreateTimeSeries("value" + k, tags, 512, false, map);
+			List<DataPoint> dps = t.queryDataPoints("", tags, ts, ts + LIMIT * 10000, null);
+			assertEquals(10032, dps.size());
+		}
+		m.close();
+	}
+
+	@Test
 	public void testConstructRowKey() throws Exception {
 		MiscUtils.delete(new File("target/db131/"));
 		List<String> tags = Arrays.asList("test1", "test2");
