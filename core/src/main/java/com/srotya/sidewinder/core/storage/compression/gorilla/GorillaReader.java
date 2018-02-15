@@ -33,6 +33,7 @@ public class GorillaReader implements Reader {
 	public GorillaReader(ByteBuffer buf, int startOffset) {
 		buf.position(startOffset);
 		count = buf.getInt();
+		buf.getInt();
 		decompressor = new GorillaDecompressor(new ByteBufferBitInput(buf));
 	}
 

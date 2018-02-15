@@ -172,17 +172,19 @@ public class TestTimeSeries {
 		assertEquals("test12312", ts.getSeriesId());
 		assertTrue(!ts.isFp());
 
-//		ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 * 10, metadata, false, conf);
-//		ts.loadBucketMap(measurement.getMalloc().getBufTracker());
-//		assertEquals(size, measurement.getBufferRenewCounter());
-//		List<DataPoint> dps = ts.queryDataPoints("test", Arrays.asList("test32"), t, t + 1001, null);
-//		assertEquals(1000, dps.size());
-//		for (int j = 0; j < dps.size(); j++) {
-//			DataPoint dataPoint = dps.get(j);
-//			assertEquals(t + j, dataPoint.getTimestamp());
-//			assertEquals(j * 0.1, dataPoint.getValue(), 0);
-//		}
-//		assertEquals(2, ts.getRetentionBuckets());
+		// ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 *
+		// 10, metadata, false, conf);
+		// ts.loadBucketMap(measurement.getMalloc().getBufTracker());
+		// assertEquals(size, measurement.getBufferRenewCounter());
+		// List<DataPoint> dps = ts.queryDataPoints("test", Arrays.asList("test32"), t,
+		// t + 1001, null);
+		// assertEquals(1000, dps.size());
+		// for (int j = 0; j < dps.size(); j++) {
+		// DataPoint dataPoint = dps.get(j);
+		// assertEquals(t + j, dataPoint.getTimestamp());
+		// assertEquals(j * 0.1, dataPoint.getValue(), 0);
+		// }
+		// assertEquals(2, ts.getRetentionBuckets());
 	}
 
 	@Test
@@ -202,16 +204,18 @@ public class TestTimeSeries {
 		assertEquals(4, ts.getBucketMap().values().size());
 		assertTrue(!ts.isFp());
 
-//		ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 * 10, metadata, false, conf);
-//		ts.loadBucketMap(measurement.getBufTracker());
-//		assertEquals(4, measurement.getBufferRenewCounter());
-//		List<DataPoint> dps = ts.queryDataPoints("test", Arrays.asList("test32"), t, t + 1001, null);
-//		assertEquals(1000, dps.size());
-//		for (int j = 0; j < dps.size(); j++) {
-//			DataPoint dataPoint = dps.get(j);
-//			assertEquals(t + j, dataPoint.getTimestamp());
-//			assertEquals(j, dataPoint.getLongValue());
-//		}
+		// ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 *
+		// 10, metadata, false, conf);
+		// ts.loadBucketMap(measurement.getBufTracker());
+		// assertEquals(4, measurement.getBufferRenewCounter());
+		// List<DataPoint> dps = ts.queryDataPoints("test", Arrays.asList("test32"), t,
+		// t + 1001, null);
+		// assertEquals(1000, dps.size());
+		// for (int j = 0; j < dps.size(); j++) {
+		// DataPoint dataPoint = dps.get(j);
+		// assertEquals(t + j, dataPoint.getTimestamp());
+		// assertEquals(j, dataPoint.getLongValue());
+		// }
 	}
 
 	@Test
@@ -317,7 +321,7 @@ public class TestTimeSeries {
 	}
 
 	@Test
-	public void testCompactionGzip() throws IOException {
+	public void testCompactionGorilla() throws IOException {
 		DBMetadata metadata = new DBMetadata(28);
 		MockMeasurement measurement = new MockMeasurement(1024);
 		HashMap<String, String> conf = new HashMap<>();
@@ -326,7 +330,55 @@ public class TestTimeSeries {
 		conf.put("use.query.pool", "false");
 		conf.put("compaction.ratio", "1.1");
 
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "gzip", "asdasasd", 409600, metadata, true,
+		final TimeSeries series = new TimeSeries(measurement, "byzantine", "gorilla", "asdasasd", 409600, metadata,
+				true, conf);
+		final long curr = 1497720652566L;
+
+		String valueFieldName = "value";
+		String tag = "host123123";
+		List<String> tags = Arrays.asList(tag);
+		for (int i = 1; i <= 10000; i++) {
+			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
+		}
+
+		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		assertEquals(1, bucketRawMap.size());
+		int size = bucketRawMap.values().iterator().next().size();
+		assertTrue(series.getCompactionSet().size() < size);
+		assertTrue(size > 2);
+		series.compact();
+		List<DataPoint> dataPoints = series.queryDataPoints(valueFieldName, tags, curr - 1000, curr + 10000 * 1000 + 1,
+				null);
+		bucketRawMap = series.getBucketRawMap();
+		assertEquals(2, bucketRawMap.values().iterator().next().size());
+		int count = 0;
+		for (List<Writer> list : bucketRawMap.values()) {
+			for (Writer writer : list) {
+				Reader reader = writer.getReader();
+				count += reader.getPairCount();
+			}
+		}
+		assertEquals(10000, count);
+		assertEquals(10000, dataPoints.size());
+		for (int i = 1; i <= 10000; i++) {
+			DataPoint dp = dataPoints.get(i - 1);
+			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
+			assertEquals(dp.getValue(), i * 1.1, 0.001);
+		}
+	}
+
+	@Test
+	public void testCompactionGzip() throws IOException {
+		DBMetadata metadata = new DBMetadata(28);
+		MockMeasurement measurement = new MockMeasurement(1024);
+		HashMap<String, String> conf = new HashMap<>();
+		conf.put("default.bucket.size", "409600");
+		conf.put("compaction.enabled", "true");
+		conf.put("use.query.pool", "false");
+		conf.put("compaction.ratio", "1.1");
+		conf.put("zip.block.size", "8");
+
+		final TimeSeries series = new TimeSeries(measurement, "byzantine", "bzip", "asdasasd", 409600, metadata, true,
 				conf);
 		final long curr = 1497720652566L;
 

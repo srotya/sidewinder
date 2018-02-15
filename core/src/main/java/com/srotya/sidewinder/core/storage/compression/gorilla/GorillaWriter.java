@@ -25,7 +25,7 @@ import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
-@Codec(id = 3, name = "gorilla")
+@Codec(id = 4, name = "gorilla")
 public class GorillaWriter implements Writer {
 
 	private boolean full;
@@ -37,6 +37,7 @@ public class GorillaWriter implements Writer {
 	private long timestamp;
 	private ByteBufferBitOutput output;
 	private int startOffset;
+	private int position;
 
 	@Override
 	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
@@ -46,39 +47,52 @@ public class GorillaWriter implements Writer {
 		buf.position(startOffset);
 		if (!isNew) {
 			counter = buf.getInt();
+			// forward to the end
+			position = buf.getInt();
+			// forwardToEnd();
 		} else {
 			buf.putInt(0);
+			buf.putInt(0);
+		}
+	}
+
+	@SuppressWarnings("unused")
+	private void forwardToEnd() throws IOException {
+		GorillaReader reader = new GorillaReader(buf, startOffset);
+		for (int i = 0; i < counter; i++) {
+			reader.readPair();
 		}
 	}
 
 	@Override
 	public void addValue(long timestamp, long value) throws IOException {
 		compressor.addValue(timestamp, value);
-		updateCount();
+		counter++;
 	}
 
 	private void updateCount() {
-		counter++;
 		buf.putInt(startOffset, counter);
+		position = buf.position();
+		buf.putInt(startOffset + 4, position);
 	}
 
 	@Override
 	public void addValue(long timestamp, double value) throws IOException {
 		compressor.addValue(timestamp, value);
-		updateCount();
+		counter++;
 	}
 
 	@Override
 	public void write(DataPoint dp) throws IOException {
 		compressor.addValue(dp.getTimestamp(), dp.getLongValue());
-		updateCount();
+		counter++;
 	}
 
 	@Override
 	public void write(List<DataPoint> dp) throws IOException {
 		for (DataPoint d : dp) {
 			write(d);
-			updateCount();
+			counter++;
 		}
 	}
 
@@ -92,13 +106,11 @@ public class GorillaWriter implements Writer {
 
 	@Override
 	public double getCompressionRatio() {
-		// TODO Auto-generated method stub
-		return 0;
+		return (double) position / counter;
 	}
 
 	@Override
 	public void bootstrap(ByteBuffer buf) throws IOException {
-		// TODO Auto-generated method stub
 	}
 
 	@Override
@@ -117,12 +129,13 @@ public class GorillaWriter implements Writer {
 		// this writer is always readonly
 		if (compressor != null) {
 			compressor.close();
+			updateCount();
 		}
 	}
 
 	@Override
 	public int currentOffset() {
-		return buf.position();
+		return position;
 	}
 
 	@Override
@@ -164,7 +177,7 @@ public class GorillaWriter implements Writer {
 
 	@Override
 	public int getPosition() {
-		return buf.position();
+		return position;
 	}
 
 	@Override

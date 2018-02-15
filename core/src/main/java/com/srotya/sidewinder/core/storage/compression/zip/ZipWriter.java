@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.storage.compression.zip;
 
+import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -44,6 +45,7 @@ public abstract class ZipWriter implements Writer {
 	private String tsBucket;
 	private int blockSize;
 	private String bufferId;
+	private ByteArrayOutputStream bas;
 
 	@Override
 	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
@@ -62,7 +64,8 @@ public abstract class ZipWriter implements Writer {
 		buf.position(startOffset);
 		if (isNew) {
 			buf.putInt(0);
-			zip = getOutputStream(new ByteBufferOutputStream(buf), blockSize);
+			bas = new ByteArrayOutputStream();
+			zip = getOutputStream(bas, blockSize);
 			dos = new DataOutputStream(zip);
 		} else {
 			count = buf.getInt();
@@ -70,6 +73,8 @@ public abstract class ZipWriter implements Writer {
 	}
 
 	public abstract OutputStream getOutputStream(ByteBufferOutputStream stream, int blockSize) throws IOException;
+
+	public abstract OutputStream getOutputStream(OutputStream stream, int blockSize) throws IOException;
 
 	@Override
 	public void addValue(long timestamp, long value) throws IOException {
@@ -143,6 +148,9 @@ public abstract class ZipWriter implements Writer {
 			if (dos != null) {
 				dos.flush();
 				dos.close();
+				buf.put(bas.toByteArray());
+				// dereference buffers to free-up memory
+				bas = null;
 			}
 		} catch (Exception e) {
 			throw new IOException(e);

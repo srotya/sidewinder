@@ -620,7 +620,7 @@ public class TestMemStorageEngine {
 		conf2.put("default.bucket.size", "409600");
 		conf2.put("compaction.enabled", "true");
 		conf2.put("use.query.pool", "false");
-		conf2.put("compaction.codec", "gzip");
+		conf2.put("compaction.codec", "gorilla");
 		conf2.put("compaction.delay", "1");
 		conf2.put("compaction.frequency", "1");
 		engine.configure(conf2, bgTasks);

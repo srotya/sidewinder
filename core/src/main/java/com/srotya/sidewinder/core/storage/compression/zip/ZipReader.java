@@ -49,6 +49,7 @@ public abstract class ZipReader implements Reader {
 			try {
 				ts = dis.readLong();
 				value = dis.readLong();
+				counter++;
 			} catch (IOException e) {
 				throw EOS_EXCEPTION;
 			}

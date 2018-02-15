@@ -22,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -68,6 +69,7 @@ public class TimeSeries {
 	private Map<String, String> conf;
 	private Measurement measurement;
 	private int timeBucketSize;
+	// used for unit tests only
 	private int bucketCount;
 	private Map<String, List<Writer>> compactionCandidateSet;
 	private boolean compactionEnabled;
@@ -668,6 +670,8 @@ public class TimeSeries {
 		while (iterator.hasNext()) {
 			// entry.getKey() gives tsBucket string
 			Entry<String, List<Writer>> entry = iterator.next();
+			// remove this entry from compaction set
+			iterator.remove();
 			List<Writer> list = entry.getValue();
 			int listSize = list.size() - 1;
 			int pointCount = list.subList(0, listSize).stream().mapToInt(s -> s.getCount()).sum();
@@ -710,6 +714,7 @@ public class TimeSeries {
 			}
 			// get the raw compressed bytes
 			ByteBuffer rawBytes = writer.getRawBytes();
+			// limit how much data needs to be read from the buffer
 			rawBytes.limit(rawBytes.position());
 			// convert buffer length request to size of 2
 			int size = rawBytes.limit() + 1;
@@ -719,7 +724,7 @@ public class TimeSeries {
 			rawBytes.rewind();
 			// create buffer in measurement
 			BufferObject newBuf = measurement.getMalloc().createNewBuffer(seriesId, entry.getKey(), size);
-			logger.info("Compacted buffer size:" + size + " vs " + total);
+			logger.fine("Compacted buffer size:" + size + " vs " + total);
 			String bufferId = newBuf.getBufferId();
 			buf = newBuf.getBuf();
 			writer = getWriterInstance(compactionClass);
@@ -740,16 +745,15 @@ public class TimeSeries {
 					compactedWriter.add(list.remove(i));
 				}
 				list.add(0, writer);
-				// for (int i = 0; i < list.size(); i++) {
-				// list.get(i).getRawBytes().put(1, (byte) i);
-				// }
+				for (int i = 0; i < list.size(); i++) {
+					list.get(i).getRawBytes().put(1, (byte) i);
+				}
 				// fix bucket count
 				bucketCount -= size;
 				logger.fine(
 						"Total points:" + compactedPoints + ", original pair count:" + writer.getReader().getPairCount()
 								+ " compression ratio:" + rawBytes.position() + " original:" + total);
 			}
-			iterator.remove();
 		}
 		return compactedWriter;
 	}
@@ -770,6 +774,61 @@ public class TimeSeries {
 	 */
 	public Collection<List<Writer>> getCompactionSet() {
 		return compactionCandidateSet.values();
+	}
+
+	/**
+	 * Method to help fix bucket writers directly
+	 * 
+	 * @param bucket
+	 * @param bufList
+	 * @throws IOException
+	 * @throws InstantiationException
+	 * @throws IllegalAccessException
+	 */
+	public void replaceFirstBuckets(String bucket, List<Entry<Long, byte[]>> bufList)
+			throws IOException, InstantiationException, IllegalAccessException {
+		boolean wasEmpty = false;
+		List<Writer> list = bucketMap.get(bucket);
+		if (list == null) {
+			synchronized (bucketMap) {
+				list = Collections.synchronizedList(new ArrayList<>());
+				bucketMap.put(bucket, list);
+				wasEmpty = true;
+			}
+		}
+		synchronized (list) {
+			// insert writers to list
+			List<String> cleanupList = insertOrOverwriteWriters(bufList, wasEmpty, list, bucket);
+			measurement.getMalloc().cleanupBufferIds(new HashSet<>(cleanupList));
+		}
+	}
+
+	private List<String> insertOrOverwriteWriters(List<Entry<Long, byte[]>> bufList, boolean wasEmpty,
+			List<Writer> list, String tsBucket) throws IOException, InstantiationException, IllegalAccessException {
+		List<String> garbageCollectWriters = new ArrayList<>();
+		if (!wasEmpty) {
+			if (bufList.size() >= list.size()) {
+				throw new IllegalArgumentException(
+						"Buffer can't be replaced since local buffers are smaller than the replacing buffers");
+			}
+		}
+		for (int i = 0; i < bufList.size(); i++) {
+			if (!wasEmpty) {
+				Writer removedWriter = list.remove(i);
+				garbageCollectWriters.add(removedWriter.getBufferId());
+			}
+			Entry<Long, byte[]> bs = bufList.get(i);
+			BufferObject bufPair = measurement.getMalloc().createNewBuffer(seriesId, tsBucket, bs.getValue().length);
+			ByteBuffer buf = bufPair.getBuf();
+			buf.put(bs.getValue());
+			buf.rewind();
+			Writer writer = CompressionFactory.getClassById(buf.get(0)).newInstance();
+			writer.setBufferId(bufPair.getBufferId());
+			writer.configure(conf, bufPair.getBuf(), false, START_OFFSET, true);
+			writer.setHeaderTimestamp(bs.getKey());
+			list.add(i, writer);
+		}
+		return garbageCollectWriters;
 	}
 
 }
