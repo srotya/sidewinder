@@ -52,6 +52,6 @@ if [ "master" == "$TRAVIS_BRANCH" ]; then
 	echo "Cleaning up commits"
 	git checkout master || git checkout -b master
     git reset --hard origin/master
-	git squash 3
+	git squash 2
     git push --force
 fi
