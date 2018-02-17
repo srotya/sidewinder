@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright 2018 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,80 +13,61 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.compression.zip;
+package com.srotya.sidewinder.core.storage.compression.gorilla;
 
-import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
-public abstract class ZipReader implements Reader {
+public class GorillaReader implements Reader {
 
-	private InputStream zip;
-	private DataInputStream dis;
 	private int count;
 	private int counter;
 	private Predicate timePredicate;
 	private Predicate valuePredicate;
+	private GorillaDecompressor decompressor;
 
-	public ZipReader(ByteBuffer readBuf, int startOffset, int blockSize) throws IOException {
-		readBuf.position(startOffset);
-		this.count = readBuf.getInt();
-		zip = getInputStream(new ZipWriter.ByteBufferInputStream(readBuf), blockSize);
-		dis = new DataInputStream(zip);
+	public GorillaReader(ByteBuffer buf, int startOffset) {
+		buf.position(startOffset);
+		count = buf.getInt();
+		buf.getInt();
+		decompressor = new GorillaDecompressor(new ByteBufferBitInput(buf));
 	}
-
-	public abstract InputStream getInputStream(InputStream stream, int blockSize) throws IOException;
 
 	@Override
 	public DataPoint readPair() throws IOException {
 		if (counter < count) {
-			long ts, value;
-			try {
-				ts = dis.readLong();
-				value = dis.readLong();
-				counter++;
-			} catch (IOException e) {
-				throw EOS_EXCEPTION;
-			}
-
-			if (timePredicate != null && !timePredicate.test(ts)) {
+			DataPoint pair = decompressor.readPair();
+			if (timePredicate != null && !timePredicate.test(pair.getTimestamp())) {
 				return null;
 			}
-			if (valuePredicate != null && !valuePredicate.test(value)) {
+			if (valuePredicate != null && !valuePredicate.test(pair.getLongValue())) {
 				return null;
 			}
-			DataPoint dp = new DataPoint();
-			dp.setTimestamp(ts);
-			dp.setLongValue(value);
-			return dp;
+			counter++;
+			return pair;
 		} else {
-			zip.close();
 			throw EOS_EXCEPTION;
 		}
 	}
 
 	@Override
 	public long[] read() throws IOException {
-		long[] dp = new long[2];
-		try {
-			dp[0] = dis.readLong();
-			dp[1] = dis.readLong();
-		} catch (IOException e) {
-			return null;
+		if (counter < count) {
+			long[] pair = decompressor.read();
+			if (timePredicate != null && !timePredicate.test(pair[0])) {
+				return null;
+			}
+			if (valuePredicate != null && !valuePredicate.test(pair[1])) {
+				return null;
+			}
+			return pair;
+		} else {
+			throw EOS_EXCEPTION;
 		}
-
-		if (timePredicate != null && !timePredicate.test(dp[0])) {
-			return null;
-		}
-		if (valuePredicate != null && !valuePredicate.test(dp[1])) {
-			return null;
-		}
-		return dp;
 	}
 
 	@Override

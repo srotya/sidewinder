@@ -48,7 +48,7 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPRESSION_CODEC = "byzantine";
 	public static final String COMPRESSION_CODEC = "compression.codec";
 	public static final String COMPACTION_CODEC = "compaction.codec";
-	public static final String DEFAULT_COMPACTION_CODEC = "byzantine";
+	public static final String DEFAULT_COMPACTION_CODEC = "gorilla";
 	public static final int DEFAULT_TIME_BUCKET_CONSTANT = 32768;
 	public static final String DEFAULT_BUCKET_SIZE = "default.bucket.size";
 	public static final String RETENTION_HOURS = "default.series.retention.hours";

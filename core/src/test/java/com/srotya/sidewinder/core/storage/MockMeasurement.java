@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -36,13 +37,19 @@ import com.srotya.sidewinder.core.storage.mem.MemMalloc;
 public class MockMeasurement implements Measurement {
 
 	private ReentrantLock lock = new ReentrantLock();
-	private Malloc memMalloc;
+	private MemMalloc memMalloc;
+	private List<String> list;
 
 	public MockMeasurement(int bufSize) {
-		memMalloc = new MemMalloc();
+		list = new ArrayList<>();
+		memMalloc = new MemMalloc(list);
 		Map<String, String> conf = new HashMap<>();
 		conf.put("buffer.size", String.valueOf(bufSize));
 		memMalloc.configure(conf, null, null, null, null, null);
+	}
+
+	public MemMalloc getAllocator() {
+		return memMalloc;
 	}
 
 	@Override

@@ -20,10 +20,9 @@ import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.zip.GZIPOutputStream;
 
-import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
-@Codec(id = 2, name = "gzip")
+//@Codec(id = 2, name = "gzip")
 public class GZipWriter extends ZipWriter {
 
 	public Reader getReader() throws IOException {
@@ -36,6 +35,11 @@ public class GZipWriter extends ZipWriter {
 
 	@Override
 	public OutputStream getOutputStream(ByteBufferOutputStream stream, int blockSize) throws IOException {
+		return new GZIPOutputStream(stream, blockSize);
+	}
+
+	@Override
+	public OutputStream getOutputStream(OutputStream stream, int blockSize) throws IOException {
 		return new GZIPOutputStream(stream, blockSize);
 	}
 

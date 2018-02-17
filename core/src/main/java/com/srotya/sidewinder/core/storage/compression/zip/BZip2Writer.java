@@ -21,8 +21,10 @@ import java.nio.ByteBuffer;
 
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream;
 
+import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
+@Codec(id = 3, name = "bzip")
 public class BZip2Writer extends ZipWriter {
 
 	@Override
@@ -36,6 +38,11 @@ public class BZip2Writer extends ZipWriter {
 
 	@Override
 	public OutputStream getOutputStream(ByteBufferOutputStream stream, int blockSize) throws IOException {
+		return new BZip2CompressorOutputStream(stream, blockSize);
+	}
+
+	@Override
+	public OutputStream getOutputStream(OutputStream stream, int blockSize) throws IOException {
 		return new BZip2CompressorOutputStream(stream, blockSize);
 	}
 

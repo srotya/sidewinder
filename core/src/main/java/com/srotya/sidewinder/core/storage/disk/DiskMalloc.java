@@ -20,6 +20,7 @@ import java.io.FileNotFoundException;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
@@ -28,7 +29,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -52,6 +52,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class DiskMalloc implements Malloc {
 
+	protected static boolean debug = false;
 	private static final int PTR_INCREMENT = 1048576;
 	private static final String SEPARATOR = ")";
 	private static final Logger logger = Logger.getLogger(DiskMalloc.class.getName());
@@ -80,12 +81,14 @@ public class DiskMalloc implements Malloc {
 	private MappedByteBuffer ptrBuf;
 	private RandomAccessFile rafPtr;
 	private File ptrFile;
+	
 	private volatile int ptrCounter;
 	private boolean enableMetricsCapture;
 	private Counter metricsBufferSize;
 	private Counter metricsBufferResize;
 	private Counter metricsFileRotation;
 	private Counter metricsBufferCounter;
+	private Map<String, WeakReference<MappedByteBuffer>> oldBufferReferences;
 
 	@Override
 	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine,
@@ -116,6 +119,9 @@ public class DiskMalloc implements Malloc {
 			metricsBufferResize = r.counter("buffer-resize");
 			metricsFileRotation = r.counter("file-rotation");
 			metricsBufferCounter = r.counter("buffer-counter");
+		}
+		if (debug) {
+			oldBufferReferences = new ConcurrentHashMap<>();
 		}
 	}
 
@@ -159,6 +165,10 @@ public class DiskMalloc implements Malloc {
 					rafActiveFile.close();
 					rafActiveFile = null;
 					return createNewBuffer(seriesId, tsBucket, newSize);
+				}
+				// used for GC testing and debugging
+				if (oldBufferReferences != null) {
+					oldBufferReferences.put(filename, new WeakReference<MappedByteBuffer>(memoryMappedBuffer));
 				}
 				memoryMappedBuffer = rafActiveFile.getChannel().map(MapMode.READ_WRITE, offset, fileMapIncrement);
 				logger.fine("Buffer expansion:" + offset + "\t\t" + curr);
@@ -323,7 +333,7 @@ public class DiskMalloc implements Malloc {
 			if (cleanupList.isEmpty()) {
 				return;
 			}
-			Set<String> fileSet = new HashSet<>();
+			Map<String, Integer> fileSet = new HashMap<>();
 			ByteBuffer duplicate = ptrBuf.duplicate();
 			duplicate.rewind();
 			ByteBuffer temp = ByteBuffer.allocate(duplicate.capacity());
@@ -338,7 +348,13 @@ public class DiskMalloc implements Malloc {
 				if (!cleanupList.contains(line)) {
 					MiscUtils.writeStringToBuffer(line, temp);
 					try {
-						fileSet.add(line.split("\\" + SEPARATOR)[1]);
+						String filename = line.split("\\" + SEPARATOR)[1];
+						Integer count = fileSet.get(filename);
+						if (count == null) {
+							count = 0;
+						}
+						count = count + 1;
+						fileSet.put(filename, count);
 					} catch (ArrayIndexOutOfBoundsException e) {
 						logger.severe("AOBException for buffer-cleanup:" + line + "=" + i + "=" + ptrCounter);
 						throw e;
@@ -367,8 +383,13 @@ public class DiskMalloc implements Malloc {
 			logger.fine("Swapped ptr buffers: " + "Counter:" + tmpCounter + " total:" + ptrBuf.getInt(0) + " before:"
 					+ ptrCounter + " pos:" + ptrBuf.position());
 			ptrCounter = tmpCounter;
+
+			for (Entry<String, Integer> entry : fileSet.entrySet()) {
+				logger.info("file stats:" + entry.getKey() + " bufs:" + entry.getValue());
+			}
+
 			// check and delete data files
-			deleteFilesExcept(fileSet);
+			deleteFilesExcept(fileSet.keySet());
 		} finally {
 			lock.unlock();
 		}
@@ -398,10 +419,14 @@ public class DiskMalloc implements Malloc {
 				deleteCounter++;
 			}
 		}
-		logger.fine("GC: Remaining files:" + fileSet.size() + "; deleted:" + deleteCounter + " files");
+		logger.info("GC: Remaining files:" + fileSet.size() + "; deleted:" + deleteCounter + " files");
 	}
 
 	private String getPtrPath() {
 		return dataDirectory + "/.ptr";
+	}
+
+	public Map<String, WeakReference<MappedByteBuffer>> getOldBufferReferences() {
+		return oldBufferReferences;
 	}
 }

@@ -32,6 +32,14 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 public class MemMalloc implements Malloc {
 
 	private int size;
+	private List<String> cleanupCallback;
+
+	public MemMalloc() {
+	}
+
+	public MemMalloc(List<String> cleanupCallback) {
+		this.cleanupCallback = cleanupCallback;
+	}
 
 	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
 		return createNewBuffer(seriesId, tsBucket, size);
@@ -43,7 +51,10 @@ public class MemMalloc implements Malloc {
 	}
 
 	@Override
-	public void cleanupBufferIds(Set<String> cleanupList) throws IOException {
+	public void cleanupBufferIds(Set<String> cleanupSet) throws IOException {
+		if (cleanupCallback != null) {
+			cleanupCallback.addAll(cleanupSet);
+		}
 	}
 
 	@Override
@@ -59,6 +70,10 @@ public class MemMalloc implements Malloc {
 
 	@Override
 	public void close() throws IOException {
+	}
+
+	public List<String> getCleanupCallback() {
+		return cleanupCallback;
 	}
 
 }

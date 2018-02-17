@@ -66,7 +66,7 @@ public interface Writer {
 
 	public long getHeaderTimestamp();
 
-	public void setHeaderTimestamp(long timestamp);
+	public void setHeaderTimestamp(long timestamp) throws IOException;
 
 	public void setTsBucket(String tsBucket);
 
