@@ -34,6 +34,7 @@ if [ "master" == "$TRAVIS_BRANCH" ]; then
     
     git config --global user.name "Travis CI"
     git config --global user.email "$COMMIT_AUTHOR_EMAIL"
+    git config --global alias.squash '!f(){ git reset --soft HEAD~${1} && git commit -m"[ci skip] $(git log --format=%B --reverse HEAD..HEAD@{1})"; };f'
     
     echo "Release Build number:$TRAVIS_BUILD_NUMBER" > build/build-info.txt
     echo "Release Commit number:$TRAVIS_COMMIT" >> build/build-info.txt
@@ -47,4 +48,10 @@ if [ "master" == "$TRAVIS_BRANCH" ]; then
     gpg -q --fast-import /tmp/secrets/secrets/codesign.asc >> /dev/null
     
     mvn -T2 -B -Darguments=-Dgpg.passphrase=$passphrase release:clean release:prepare release:perform --settings settings.xml
+
+	echo "Cleaning up commits"
+	git checkout master || git checkout -b master
+    git reset --hard origin/master
+	git squash 3
+    git push --force
 fi
