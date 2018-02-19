@@ -364,12 +364,13 @@ public class ByzantineWriter implements Writer {
 	}
 
 	/**
-	 * @param bufferId the bufferId to set
+	 * @param bufferId
+	 *            the bufferId to set
 	 */
 	public void setBufferId(String bufferId) {
 		this.bufferId = bufferId;
 	}
-	
+
 	@Override
 	public boolean isReadOnly() {
 		return readOnly;

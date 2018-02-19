@@ -16,6 +16,8 @@
 package com.srotya.sidewinder.core.utils;
 
 import java.nio.charset.Charset;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,6 +31,28 @@ import com.google.gson.JsonElement;
 public class ByteUtils {
 
 	public static final Charset DEF_CHARSET = Charset.forName("US-ASCII");
+	
+	/**
+	 * Returns md5 of data
+	 * @param data
+	 * @return
+	 * @throws NoSuchAlgorithmException
+	 */
+	public static byte[] md5(byte[] data) throws NoSuchAlgorithmException {
+		MessageDigest digest = MessageDigest.getInstance("md5");
+		return digest.digest(data);
+	}
+
+	/**
+	 * Returns sha1 hash of data
+	 * @param data
+	 * @return
+	 * @throws NoSuchAlgorithmException
+	 */
+	public static byte[] sha1(byte[] data) throws NoSuchAlgorithmException {
+		MessageDigest digest = MessageDigest.getInstance("sha1");
+		return digest.digest(data);
+	}
 
 	/**
 	 * @param in
@@ -42,13 +66,13 @@ public class ByteUtils {
 		ou[3] = (byte) (in & 0xff);
 		return ou;
 	}
-	
+
 	public static int bytesToIntMSB(byte[] bytes) {
 		int val = 0;
-		val |= ((int)bytes[0])<< 24;
-		val |= ((int)bytes[1])<< 16;
-		val |= ((int)bytes[2])<< 8;
-		val |= ((int)bytes[3]);
+		val |= ((int) bytes[0]) << 24;
+		val |= ((int) bytes[1]) << 16;
+		val |= ((int) bytes[2]) << 8;
+		val |= ((int) bytes[3]);
 		return val;
 	}
 

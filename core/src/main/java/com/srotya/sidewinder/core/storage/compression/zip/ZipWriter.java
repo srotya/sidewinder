@@ -261,5 +261,5 @@ public abstract class ZipWriter implements Writer {
 	public boolean isReadOnly() {
 		return true;
 	}
-
+	
 }

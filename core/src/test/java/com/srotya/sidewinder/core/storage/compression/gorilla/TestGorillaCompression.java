@@ -68,4 +68,28 @@ public class TestGorillaCompression {
 		}
 	}
 
+	@Test
+	public void testRecovery() throws IOException {
+		ByteBuffer buf = ByteBuffer.allocate(1024);
+		GorillaWriter writer = new GorillaWriter();
+		writer.configure(new HashMap<>(), buf, true, 0, false);
+		long ts = System.currentTimeMillis();
+		writer.setHeaderTimestamp(ts);
+		for (int i = 0; i < 100; i++) {
+			writer.addValue(ts + i * 100, i * 1.1);
+		}
+		writer.makeReadOnly();
+		ByteBuffer rawBytes = writer.getRawBytes();
+
+		writer = new GorillaWriter();
+		writer.configure(new HashMap<>(), rawBytes, false, 0, false);
+		Reader reader = writer.getReader();
+		assertEquals(100, reader.getPairCount());
+		for (int i = 0; i < 100; i++) {
+			DataPoint pair = reader.readPair();
+			assertEquals(ts + i * 100, pair.getTimestamp());
+			assertEquals(i * 1.1, Double.longBitsToDouble(pair.getLongValue()), 0.01);
+		}
+	}
+
 }

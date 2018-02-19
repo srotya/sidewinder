@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.storage.compression.gorilla;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.Map;
 
@@ -24,10 +25,12 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.utils.ByteUtils;
 
 @Codec(id = 4, name = "gorilla")
 public class GorillaWriter implements Writer {
 
+	public static final int MD5_PADDING = 32;
 	private boolean full;
 	private String bufferId;
 	private String tsBucket;
@@ -38,13 +41,15 @@ public class GorillaWriter implements Writer {
 	private ByteBufferBitOutput output;
 	private int startOffset;
 	private int position;
+	private int checkSumLocaltion;
 
 	@Override
 	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
 			throws IOException {
 		this.buf = buf;
-		this.startOffset = startOffset;
-		buf.position(startOffset);
+		this.checkSumLocaltion = startOffset;
+		this.startOffset = startOffset + MD5_PADDING;
+		buf.position(this.startOffset);
 		if (!isNew) {
 			counter = buf.getInt();
 			// forward to the end
@@ -58,7 +63,7 @@ public class GorillaWriter implements Writer {
 
 	@SuppressWarnings("unused")
 	private void forwardToEnd() throws IOException {
-		GorillaReader reader = new GorillaReader(buf, startOffset);
+		GorillaReader reader = new GorillaReader(buf, startOffset, MD5_PADDING);
 		for (int i = 0; i < counter; i++) {
 			reader.readPair();
 		}
@@ -100,7 +105,7 @@ public class GorillaWriter implements Writer {
 	public Reader getReader() throws IOException {
 		ByteBuffer duplicate = buf.duplicate();
 		duplicate.rewind();
-		GorillaReader reader = new GorillaReader(duplicate, startOffset);
+		GorillaReader reader = new GorillaReader(duplicate, startOffset, checkSumLocaltion);
 		return reader;
 	}
 
@@ -130,7 +135,28 @@ public class GorillaWriter implements Writer {
 		if (compressor != null) {
 			compressor.close();
 			updateCount();
+			// compute md5 and store
+			try {
+				// cache old position so the buf position can be reset
+				int oldPosition = buf.position();
+				byte[] bufferToHash = bufferToHash();
+				buf.position(checkSumLocaltion);
+				// save hash
+				buf.put(bufferToHash);
+				buf.position(oldPosition);
+			} catch (NoSuchAlgorithmException e) {
+				throw new IOException(e);
+			}
 		}
+	}
+
+	private byte[] bufferToHash() throws NoSuchAlgorithmException {
+		ByteBuffer duplicate = buf.duplicate();
+		duplicate.rewind();
+		ByteBuffer copy = ByteBuffer.allocate(duplicate.capacity());
+		copy.put(duplicate);
+		byte[] array = copy.array();
+		return ByteUtils.md5(array);
 	}
 
 	@Override

@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.storage.compression.gorilla;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.security.NoSuchAlgorithmException;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -29,8 +30,12 @@ public class GorillaReader implements Reader {
 	private Predicate timePredicate;
 	private Predicate valuePredicate;
 	private GorillaDecompressor decompressor;
+	private ByteBuffer buf;
+	private int checkSumLocation;
 
-	public GorillaReader(ByteBuffer buf, int startOffset) {
+	public GorillaReader(ByteBuffer buf, int startOffset, int checkSumLocation) {
+		this.buf = buf;
+		this.checkSumLocation = checkSumLocation;
 		buf.position(startOffset);
 		count = buf.getInt();
 		buf.getInt();
@@ -88,6 +93,16 @@ public class GorillaReader implements Reader {
 	@Override
 	public void setValuePredicate(Predicate valuePredicate) {
 		this.valuePredicate = valuePredicate;
+	}
+
+	@Override
+	public byte[] getDataHash() throws NoSuchAlgorithmException {
+		ByteBuffer duplicate = buf.duplicate();
+		duplicate.rewind();
+		duplicate.position(checkSumLocation);
+		byte[] ary = new byte[GorillaWriter.MD5_PADDING];
+		duplicate.get(ary);
+		return ary;
 	}
 
 }

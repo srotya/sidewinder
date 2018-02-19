@@ -17,10 +17,12 @@ package com.srotya.sidewinder.core.storage.compression.byzantine;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.security.NoSuchAlgorithmException;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.compression.Reader;
+import com.srotya.sidewinder.core.utils.ByteUtils;
 
 /**
  * @author ambud
@@ -155,5 +157,15 @@ public class ByzantineReader implements Reader {
 	 */
 	public long getPrevValue() {
 		return prevValue;
+	}
+
+	@Override
+	public byte[] getDataHash() throws NoSuchAlgorithmException {
+		ByteBuffer duplicate = buf.duplicate();
+		duplicate.rewind();
+		ByteBuffer copy = ByteBuffer.allocate(duplicate.capacity());
+		copy.put(duplicate);
+		byte[] array = copy.array();
+		return ByteUtils.md5(array);
 	}
 }
