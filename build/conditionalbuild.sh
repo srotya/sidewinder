@@ -49,9 +49,9 @@ if [ "master" == "$TRAVIS_BRANCH" ]; then
     
     mvn -T2 -B -Darguments=-Dgpg.passphrase=$passphrase release:clean release:prepare release:perform --settings settings.xml
 
-	echo "Cleaning up commits"
-	git checkout master || git checkout -b master
-    git reset --hard origin/master
-	git squash 2
-    git push --force
+	#echo "Cleaning up commits"
+	#git checkout master || git checkout -b master
+    #git reset --hard origin/master
+	#git squash 2
+    #git push --force
 fi
