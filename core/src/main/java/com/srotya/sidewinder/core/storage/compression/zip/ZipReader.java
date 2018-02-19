@@ -19,6 +19,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.security.NoSuchAlgorithmException;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -107,6 +108,11 @@ public abstract class ZipReader implements Reader {
 	@Override
 	public void setValuePredicate(Predicate valuePredicate) {
 		this.valuePredicate = valuePredicate;
+	}
+	
+	@Override
+	public byte[] getDataHash() throws NoSuchAlgorithmException {
+		throw new UnsupportedOperationException();
 	}
 
 }

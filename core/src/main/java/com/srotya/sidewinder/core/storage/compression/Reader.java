@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.storage.compression;
 
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -39,5 +40,7 @@ public interface Reader {
 	public void setTimePredicate(Predicate timePredicate);
 
 	public void setValuePredicate(Predicate valuePredicate);
+	
+	public byte[] getDataHash() throws NoSuchAlgorithmException;
 	
 }
