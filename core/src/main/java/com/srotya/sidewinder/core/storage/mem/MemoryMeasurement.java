@@ -96,7 +96,7 @@ public class MemoryMeasurement implements Measurement {
 			lock.lock();
 			if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
 				Measurement.indexRowKey(tagIndex, seriesId, tags);
-				seriesFieldMap = new SeriesFieldMap();
+				seriesFieldMap = new SeriesFieldMap(seriesId);
 				seriesMap.put(seriesId, seriesFieldMap);
 			}
 			lock.unlock();

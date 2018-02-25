@@ -42,6 +42,13 @@ public interface TagIndex {
 	 * @throws IOException
 	 */
 	public void index(String tag, String rowKey) throws IOException;
+	
+	/**
+	 * @param tag
+	 * @param rowIndex
+	 * @throws IOException
+	 */
+	public void index(String tag, int rowIndex) throws IOException;
 
 	/**
 	 * @param tagKey
@@ -51,5 +58,7 @@ public interface TagIndex {
 	public Collection<String> searchRowKeysForTag(String tagKey) throws IOException;
 
 	public void close() throws IOException;
+	
+	public int getSize();
 
 }

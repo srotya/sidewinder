@@ -108,7 +108,8 @@ public class PersistentMeasurement implements Measurement {
 				conf.getOrDefault(StorageEngine.COMPACTION_ON_START, StorageEngine.DEFAULT_COMPACTION_ON_START));
 		this.measurementName = measurementName;
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
-		this.tagIndex = new MappedSetTagIndex(this.indexDirectory, measurementName);
+		// this.tagIndex = new MappedSetTagIndex(this.indexDirectory, measurementName);
+		this.tagIndex = new MappedBitmapTagIndex(this.indexDirectory, measurementName, this);
 		malloc = new DiskMalloc();
 		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, mallocLock);
 		loadTimeseriesFromMeasurements();
@@ -139,33 +140,40 @@ public class PersistentMeasurement implements Measurement {
 		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
 		if (seriesFieldMap == null) {
 			lock.lock();
-			if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
-				Measurement.indexRowKey(tagIndex, seriesId, tags);
-				int index = seriesList.size();
-				seriesFieldMap = new SeriesFieldMap();
-				seriesList.add(seriesFieldMap);
-				seriesMap.put(seriesId, index);
-				if (enableMetricsCapture) {
-					metricsTimeSeriesCounter.inc();
+			try {
+				if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
+					int index = seriesList.size();
+					Measurement.indexRowKey(tagIndex, index, tags);
+					// Measurement.indexRowKey(tagIndex, seriesId, tags);
+					seriesFieldMap = new SeriesFieldMap(seriesId);
+					seriesList.add(seriesFieldMap);
+					seriesMap.put(seriesId, index);
+					if (enableMetricsCapture) {
+						metricsTimeSeriesCounter.inc();
+					}
+					logger.fine("Created new series:" + seriesId + "\t");
 				}
-				logger.fine("Created new series:" + seriesId + "\t");
+			} finally {
+				lock.unlock();
 			}
-			lock.unlock();
 		}
 
 		TimeSeries series = seriesFieldMap.get(valueFieldName);
 		if (series == null) {
 			lock.lock();
-			if ((series = seriesFieldMap.get(valueFieldName)) == null) {
-				String seriesId2 = seriesId + SERIESID_SEPARATOR + valueFieldName;
-				series = new TimeSeries(this, compressionCodec, compactionCodec, seriesId2, timeBucketSize, metadata,
-						fp, conf);
-				seriesFieldMap.addSeries(valueFieldName, series);
-				appendTimeseriesToMeasurementMetadata(seriesId2, fp, timeBucketSize);
-				logger.fine("Created new timeseries:" + seriesFieldMap + " for measurement:" + measurementName + "\t"
-						+ seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesList.size());
+			try {
+				if ((series = seriesFieldMap.get(valueFieldName)) == null) {
+					String seriesId2 = seriesId + SERIESID_SEPARATOR + valueFieldName;
+					series = new TimeSeries(this, compressionCodec, compactionCodec, seriesId2, timeBucketSize,
+							metadata, fp, conf);
+					seriesFieldMap.addSeries(valueFieldName, series);
+					appendTimeseriesToMeasurementMetadata(seriesId2, fp, timeBucketSize);
+					logger.fine("Created new timeseries:" + seriesFieldMap + " for measurement:" + measurementName
+							+ "\t" + seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesList.size());
+				}
+			} finally {
+				lock.unlock();
 			}
-			lock.unlock();
 		}
 
 		return series;
@@ -205,7 +213,7 @@ public class PersistentMeasurement implements Measurement {
 				SeriesFieldMap m = null;
 				if (v == null) {
 					v = seriesList.size();
-					m = new SeriesFieldMap();
+					m = new SeriesFieldMap(seriesId);
 					seriesMap.put(seriesId, v);
 					seriesList.add(m);
 				} else {
@@ -326,6 +334,10 @@ public class PersistentMeasurement implements Measurement {
 
 	@Override
 	public Collection<SeriesFieldMap> getSeriesList() {
+		return seriesList;
+	}
+
+	public List<SeriesFieldMap> getSeriesListAsList() {
 		return seriesList;
 	}
 }

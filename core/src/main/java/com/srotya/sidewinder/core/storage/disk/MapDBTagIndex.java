@@ -84,4 +84,15 @@ public class MapDBTagIndex implements TagIndex {
 		db.close();
 	}
 
+	@Override
+	public void index(String tag, int rowIndex) throws IOException {
+		// do nothing
+	}
+
+	@Override
+	public int getSize() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
 }

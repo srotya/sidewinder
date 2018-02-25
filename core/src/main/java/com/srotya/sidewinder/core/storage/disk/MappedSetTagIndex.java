@@ -108,7 +108,8 @@ public class MappedSetTagIndex implements TagIndex {
 
 	@Override
 	public void index(String tagKey, String rowKey) throws IOException {
-		rowKey = tagKey + SEPERATOR + rowKey;
+		rowKey = new StringBuilder(tagKey.length() + 1 + rowKey.length()).append(tagKey).append(SEPERATOR)
+				.append(rowKey).toString();
 		if (rowKeyIndex.add(rowKey)) {
 			boolean add = true;
 			if (add) {
@@ -149,6 +150,20 @@ public class MappedSetTagIndex implements TagIndex {
 	public void close() throws IOException {
 		rev.force();
 		revRaf.close();
+	}
+
+	@Override
+	public void index(String tag, int rowIndex) throws IOException {
+		// do nothing
+	}
+
+	@Override
+	public int getSize() {
+		int total = 0;
+		for (String string : rowKeyIndex) {
+			total += string.length();
+		}
+		return total;
 	}
 
 }

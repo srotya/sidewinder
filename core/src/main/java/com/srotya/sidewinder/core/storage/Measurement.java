@@ -71,6 +71,12 @@ public interface Measurement {
 			tagIndex.index(tag, rowKey);
 		}
 	}
+	
+	public static void indexRowKey(TagIndex tagIndex, int rowIdx, List<String> tags) throws IOException {
+		for (String tag : tags) {
+			tagIndex.index(tag, rowIdx);
+		}
+	}
 
 	public default String encodeTagsToString(TagIndex tagIndex, List<String> tags) throws IOException {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);

@@ -22,9 +22,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class SeriesFieldMap {
 	
+	private String seriesId;
 	private Map<String, TimeSeries> seriesMap;
 	
-	public SeriesFieldMap() {
+	public SeriesFieldMap(String seriesId) {
+		this.seriesId = seriesId;
 		seriesMap = new ConcurrentHashMap<>();
 	}
 	
@@ -46,6 +48,20 @@ public class SeriesFieldMap {
 	 */
 	public Collection<? extends TimeSeries> values() {
 		return seriesMap.values();
+	}
+
+	/**
+	 * @return the seriesId
+	 */
+	public String getSeriesId() {
+		return seriesId;
+	}
+
+	/**
+	 * @param seriesId the seriesId to set
+	 */
+	public void setSeriesId(String seriesId) {
+		this.seriesId = seriesId;
 	}
 
 	/* (non-Javadoc)

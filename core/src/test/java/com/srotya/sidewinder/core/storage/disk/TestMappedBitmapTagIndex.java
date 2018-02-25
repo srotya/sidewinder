@@ -19,10 +19,7 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -32,16 +29,14 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
-import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
-import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
  */
-public class TestSetTagIndex {
+public class TestMappedBitmapTagIndex {
 
 	private static StorageEngine engine;
 	private static ScheduledExecutorService bgTasks;
@@ -54,65 +49,20 @@ public class TestSetTagIndex {
 	}
 
 	@Test
-	public void testDiskTagIndexBasic() throws IOException {
-		MiscUtils.delete(new File("target/s5"));
-		String indexDir = "target/s5";
+	public void testDiskTagIndexBasic() throws IOException, InterruptedException {
+		MiscUtils.delete(new File("target/s6"));
+		String indexDir = "target/s6";
 		new File(indexDir).mkdirs();
-		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "s2");
-		for (int i = 0; i < 1000; i++) {
-			String idx = index.mapTag("tag" + (i + 1));
-			index.index(idx, "test212");
+		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s2", null);
+		long ts = System.currentTimeMillis();
+		for (int i = 10_000; i < 1_000_000; i++) {
+			index.index("key" + (i % 10000), (i % 1_000_000));
 		}
-		for (int i = 0; i < 1000; i++) {
-			String entry = index.mapTag("tag" + (i + 1));
-			assertEquals("tag" + (i + 1), index.getTagMapping(entry));
-			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
-		}
+		ts = System.currentTimeMillis() - ts;
+		System.out.println("Time:" + ts);
 	}
 
 	// @Test
-	public void testTagIndexPerformance() throws IOException, InterruptedException {
-		MiscUtils.delete(new File("target/perf/index-dir"));
-		MiscUtils.delete(new File("target/perf/data-dir"));
-		DiskStorageEngine engine = new DiskStorageEngine();
-		HashMap<String, String> conf = new HashMap<>();
-		conf.put("index.dir", "target/perf/index-dir");
-		conf.put("data.dir", "target/perf/data-dir");
-		engine.configure(conf, Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("bgt")));
-		final long ms = System.currentTimeMillis();
-		ExecutorService es = Executors.newCachedThreadPool();
-		for (int k = 0; k < 6; k++) {
-			es.submit(() -> {
-				for (int i = 0; i < 200_000_000; i++) {
-					try {
-						engine.getOrCreateTimeSeries("db1", "m1", "v10",
-								Arrays.asList(String.valueOf(i % 10_000), "test=" + "asdasdasd" + String.valueOf(i % 5),
-										"test2=" + String.valueOf(i % 5), "goliath=" + String.valueOf(i % 100_000),
-										"goliath2=" + String.valueOf(i % 1_500)),
-								4096, true);
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-					if (i % 1_000_000 == 0) {
-						System.out.println(i + "  " + (System.currentTimeMillis() - ms) / 1000);
-					}
-				}
-			});
-		}
-		es.shutdown();
-		es.awaitTermination(1000, TimeUnit.SECONDS);
-		System.err.println("Index time:" + (System.currentTimeMillis() - ms));
-		Map<String, Map<String, Measurement>> index = engine.getMeasurementMap();
-		assertEquals(1, index.size());
-		Entry<String, Map<String, Measurement>> next = index.entrySet().iterator().next();
-		assertEquals("db1", next.getKey());
-		Entry<String, Measurement> itr = next.getValue().entrySet().iterator().next();
-		assertEquals("m1", itr.getKey());
-		MappedTagIndex value = (MappedTagIndex) itr.getValue().getTagIndex();
-		assertEquals(20000 + 10 + 1500, value.getTags().size());
-	}
-
-	@Test
 	public void testTagIndexThreaded() throws InterruptedException, IOException {
 		String indexDir = "target/s4";
 		new File(indexDir).mkdirs();

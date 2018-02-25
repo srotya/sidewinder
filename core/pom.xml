@@ -181,6 +181,11 @@
       <artifactId>reflections</artifactId>
       <version>0.9.11</version>
     </dependency>
+    <dependency>
+      <groupId>org.roaringbitmap</groupId>
+      <artifactId>RoaringBitmap</artifactId>
+      <version>0.7.1</version>
+    </dependency>
   </dependencies>
   <build>
     <resources>
