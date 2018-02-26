@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.disk;
+package com.srotya.sidewinder.core.storage.mem;
 
 import static org.junit.Assert.assertEquals;
 
@@ -34,6 +34,9 @@ import org.junit.Test;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.disk.DiskStorageEngine;
+import com.srotya.sidewinder.core.storage.disk.MappedSetTagIndex;
+import com.srotya.sidewinder.core.storage.disk.MappedTagIndex;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;

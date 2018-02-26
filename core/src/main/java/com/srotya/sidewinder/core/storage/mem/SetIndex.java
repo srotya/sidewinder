@@ -13,16 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.disk;
+package com.srotya.sidewinder.core.storage.mem;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.concurrent.ConcurrentSkipListSet;
 
 import org.mapdb.DB;
-import org.mapdb.DBMaker;
 
 import com.srotya.sidewinder.core.storage.TagIndex;
 
@@ -31,19 +30,14 @@ import com.srotya.sidewinder.core.storage.TagIndex;
  * 
  * @author ambud
  */
-public class MapDBTagIndex implements TagIndex {
+public class SetIndex implements TagIndex {
 
-	private static final String SEPERATOR = " ";
+	private static final String SEPERATOR = "~";
 	private SortedSet<String> rowKeyIndex;
 	private DB db;
 
-	@SuppressWarnings("unchecked")
-	public MapDBTagIndex(String indexDir, String measurementName) throws IOException {
-		String indexPath = indexDir + "/" + measurementName;
-		new File(indexPath).mkdirs();
-		db = DBMaker.fileDB(indexPath + "/idx").fileMmapEnableIfSupported().fileMmapEnable()
-				.allocateStartSize(1024 * 1024 * 100).allocateIncrement(1024 * 1024 * 50).make();
-		rowKeyIndex = (SortedSet<String>) db.treeSet("rev").createOrOpen();
+	public SetIndex(String indexDir, String measurementName) throws IOException {
+		rowKeyIndex = new ConcurrentSkipListSet<>();
 	}
 
 	@Override
@@ -74,6 +68,8 @@ public class MapDBTagIndex implements TagIndex {
 		for (String entry : tailSet) {
 			if (entry.startsWith(tag + SEPERATOR)) {
 				result.add(entry.split(SEPERATOR)[1]);
+			}else {
+				break;
 			}
 		}
 		return result;
