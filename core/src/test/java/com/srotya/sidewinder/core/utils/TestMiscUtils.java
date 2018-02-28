@@ -63,10 +63,10 @@ public class TestMiscUtils {
 		assertEquals("cpu", series.getMeasurementName());
 		assertEquals("value", series.getFieldName());
 		assertEquals(Arrays.asList("tes=2", "tes=3"), series.getTagList());
-		assertTrue(series.getTagFilter().isRetain(Arrays.asList("tes=2", "tes=3")));
-		assertTrue(series.getTagFilter().isRetain(Arrays.asList("tes=2")));
-		assertTrue(series.getTagFilter().isRetain(Arrays.asList("tes=3")));
-		assertTrue(!series.getTagFilter().isRetain(Arrays.asList("tes=4")));
+		assertTrue(series.getTagFilter().retain(Arrays.asList("tes=2", "tes=3")));
+		assertTrue(series.getTagFilter().retain(Arrays.asList("tes=2")));
+		assertTrue(series.getTagFilter().retain(Arrays.asList("tes=3")));
+		assertTrue(!series.getTagFilter().retain(Arrays.asList("tes=4")));
 
 		try {
 			series = MiscUtils.extractTargetFromQuery("cpuvalue|tes=3");
@@ -99,21 +99,21 @@ public class TestMiscUtils {
 		List<String> tags = new ArrayList<>();
 		Filter<List<String>> filter = MiscUtils.buildTagFilter("host1&test|tree", tags);
 		assertEquals(3, tags.size());
-		assertTrue(filter.isRetain(Arrays.asList("host1", "test")));
-		assertTrue(filter.isRetain(Arrays.asList("tree")));
-		assertTrue(!filter.isRetain(Arrays.asList("test")));
+		assertTrue(filter.retain(Arrays.asList("host1", "test")));
+		assertTrue(filter.retain(Arrays.asList("tree")));
+		assertTrue(!filter.retain(Arrays.asList("test")));
 		tags.clear();
 
 		filter = MiscUtils.buildTagFilter("user1&test1", tags);
 		assertEquals(2, tags.size());
-		assertTrue(!filter.isRetain(Arrays.asList("test1")));
-		assertTrue(!filter.isRetain(Arrays.asList("user1")));
-		assertTrue(filter.isRetain(Arrays.asList("user1", "test1")));
+		assertTrue(!filter.retain(Arrays.asList("test1")));
+		assertTrue(!filter.retain(Arrays.asList("user1")));
+		assertTrue(filter.retain(Arrays.asList("user1", "test1")));
 
 		filter = MiscUtils.buildTagFilter("user1|test1", tags);
-		assertTrue(filter.isRetain(Arrays.asList("test1")));
-		assertTrue(filter.isRetain(Arrays.asList("user1")));
-		assertTrue(filter.isRetain(Arrays.asList("user1", "test1")));
+		assertTrue(filter.retain(Arrays.asList("test1")));
+		assertTrue(filter.retain(Arrays.asList("user1")));
+		assertTrue(filter.retain(Arrays.asList("user1", "test1")));
 	}
 
 	@Test

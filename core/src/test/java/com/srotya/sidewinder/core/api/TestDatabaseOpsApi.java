@@ -46,13 +46,13 @@ public class TestDatabaseOpsApi {
 		dp.setValue(1L);
 		dp.setMeasurementName("cpu");
 		dp.setTimestamp(System.currentTimeMillis());
-		dp.addAllTags(Arrays.asList("host=1", "vm1"));
+		dp.addAllTags(Arrays.asList("host=1", "vm=1"));
 		dp.setValueFieldName("value");
 		engine.writeDataPoint(dp.build());
 
 		DatabaseOpsApi api = new DatabaseOpsApi(engine);
 		String querySeries = api.querySeries("test1",
-				"2000-12-10T10:10:10<cpu.value.host=1|te=2&vm1<2020-12-10T10:10:10");
+				"2000-12-10T10:10:10<cpu.value.host=1|te=2&vm=1<2020-12-10T10:10:10");
 		JsonArray results = new Gson().fromJson(querySeries, JsonArray.class);
 		assertEquals(1, results.size());
 
@@ -60,7 +60,7 @@ public class TestDatabaseOpsApi {
 		results = new Gson().fromJson(querySeries, JsonArray.class);
 		assertEquals(0, results.size());
 
-		querySeries = api.querySeries("test1", "2000-12-10T10:10:10<cpu.value.vm1<2020-12-10T10:10:10");
+		querySeries = api.querySeries("test1", "2000-12-10T10:10:10<cpu.value.vm=1<2020-12-10T10:10:10");
 		results = new Gson().fromJson(querySeries, JsonArray.class);
 		assertEquals(1, results.size());
 

@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.filters;
+package com.srotya.sidewinder.core.filters.tags;
 
 import java.util.List;
+
+import com.srotya.sidewinder.core.filters.Filter;
 
 /**
  * @author ambud
@@ -31,7 +33,7 @@ public class ContainsFilter<K, E extends List<K>> implements Filter<E> {
 	}
 
 	@Override
-	public boolean isRetain(E value) {
+	public boolean retain(E value) {
 		return value.contains(literal);
 	}
 

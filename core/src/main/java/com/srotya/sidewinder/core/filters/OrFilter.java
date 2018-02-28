@@ -40,7 +40,7 @@ public class OrFilter<E> extends ComplexFilter<E> {
 
 	@Override
 	public boolean operator(boolean prev, Filter<E> next, E value) {
-		return prev || next.isRetain(value);
+		return prev || next.retain(value);
 	}
 	
 	@Override

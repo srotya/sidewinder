@@ -80,8 +80,8 @@ public class TestGrafanaUtils {
 		Filter<List<String>> filter = GrafanaUtils.extractGrafanaFilter(element, filterElements);
 		System.out.println(filter);
 
-		assertTrue(filter.isRetain(Arrays.asList("test", "test2")));
-		assertTrue(!filter.isRetain(Arrays.asList("test")));
+		assertTrue(filter.retain(Arrays.asList("test", "test2")));
+		assertTrue(!filter.retain(Arrays.asList("test")));
 	}
 
 	@Test
@@ -119,8 +119,8 @@ public class TestGrafanaUtils {
 		Filter<List<String>> filter = GrafanaUtils.extractGrafanaFilter(element, filterElements);
 		System.out.println(filter);
 
-		assertTrue(filter.isRetain(Arrays.asList("test", "test2", "test3")));
-		assertTrue(!filter.isRetain(Arrays.asList("test")));
+		assertTrue(filter.retain(Arrays.asList("test", "test2", "test3")));
+		assertTrue(!filter.retain(Arrays.asList("test")));
 	}
 
 }

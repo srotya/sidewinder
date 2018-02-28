@@ -266,7 +266,7 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public Collection<String> getTags() throws IOException {
+	public Collection<String> getTagKeys() throws IOException {
 		return tagIndex.getTags();
 	}
 

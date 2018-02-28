@@ -15,13 +15,23 @@
  */
 package com.srotya.sidewinder.core.filters;
 
+import com.srotya.sidewinder.core.predicates.Predicate;
+
 /**
+ * Filter API is essentially predicate design pattern for non-numeric data.
+ * 
+ * Note that the two APIs are separated for performance efficiency reasons since
+ * numeric data can and should be vectorized for time series use cases however
+ * metadata due it's small size doesn't need to be.
+ * 
+ * Ref {@link Predicate}
+ * 
  * @author ambud
  *
  * @param <E>
  */
 public interface Filter<E> {
-	
-	boolean isRetain(E value);
+
+	boolean retain(E value);
 
 }

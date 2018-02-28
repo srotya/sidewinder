@@ -25,19 +25,15 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.disk.DiskStorageEngine;
 import com.srotya.sidewinder.core.storage.disk.MappedSetTagIndex;
-import com.srotya.sidewinder.core.storage.disk.MappedTagIndex;
-import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -47,12 +43,10 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 public class TestSetTagIndex {
 
 	private static StorageEngine engine;
-	private static ScheduledExecutorService bgTasks;
 
 	@BeforeClass
 	public static void before() throws IOException {
 		engine = new MemStorageEngine();
-		bgTasks = Executors.newScheduledThreadPool(1);
 		engine.configure(new HashMap<>(), Executors.newScheduledThreadPool(1));
 	}
 
@@ -63,13 +57,13 @@ public class TestSetTagIndex {
 		new File(indexDir).mkdirs();
 		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "s2");
 		for (int i = 0; i < 1000; i++) {
-			String idx = index.mapTag("tag" + (i + 1));
-			index.index(idx, "test212");
+			String idx = index.mapTagKey("tag");
+			index.index(idx, index.mapTagValue(String.valueOf(i + 1)), "test212");
 		}
 		for (int i = 0; i < 1000; i++) {
-			String entry = index.mapTag("tag" + (i + 1));
-			assertEquals("tag" + (i + 1), index.getTagMapping(entry));
-			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
+			String entry = index.mapTagKey("tag");
+			assertEquals("tag", index.getTagKeyMapping(entry));
+			assertEquals(String.valueOf(i + 1), index.getTagValueMapping(index.mapTagValue(String.valueOf(i + 1))));
 		}
 	}
 
@@ -111,44 +105,6 @@ public class TestSetTagIndex {
 		assertEquals("db1", next.getKey());
 		Entry<String, Measurement> itr = next.getValue().entrySet().iterator().next();
 		assertEquals("m1", itr.getKey());
-		MappedTagIndex value = (MappedTagIndex) itr.getValue().getTagIndex();
-		assertEquals(20000 + 10 + 1500, value.getTags().size());
-	}
-
-	@Test
-	public void testTagIndexThreaded() throws InterruptedException, IOException {
-		String indexDir = "target/s4";
-		new File(indexDir).mkdirs();
-		MetricsRegistryService.getInstance(engine, bgTasks).getInstance("requests");
-		final MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "m2");
-		ExecutorService es = Executors.newCachedThreadPool();
-		for (int k = 0; k < 10; k++) {
-			es.submit(() -> {
-				try {
-					for (int i = 0; i < 1000; i++) {
-						String idx = index.mapTag("tag" + (i + 1));
-						index.index(idx, "test212");
-					}
-				} catch (Exception e) {
-					throw new RuntimeException(e);
-				}
-			});
-		}
-		es.shutdown();
-		es.awaitTermination(10, TimeUnit.SECONDS);
-		for (int i = 0; i < 1000; i++) {
-			String entry = index.mapTag("tag" + (i + 1));
-			assertEquals("tag" + (i + 1), index.getTagMapping(entry));
-			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
-		}
-
-		// recover tag index
-		MappedSetTagIndex index2 = new MappedSetTagIndex(indexDir, "m2");
-		for (int i = 0; i < 1000; i++) {
-			String entry = index2.mapTag("tag" + (i + 1));
-			assertEquals("tag" + (i + 1), index2.getTagMapping(entry));
-			assertEquals("test212", index2.searchRowKeysForTag(entry).iterator().next());
-		}
 	}
 
 }

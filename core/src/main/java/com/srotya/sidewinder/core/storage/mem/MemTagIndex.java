@@ -36,15 +36,17 @@ import net.jpountz.xxhash.XXHashFactory;
  */
 public class MemTagIndex implements TagIndex {
 
-	private Map<Integer, String> tagMap;
-	private Map<String, Set<String>> rowKeyIndex;
+	private Map<Integer, String> tagKeyMap;
+	private Map<Integer, String> tagValueMap;
+	private Map<String, Map<String, Set<String>>> rowKeyIndex;
 	private XXHashFactory factory = XXHashFactory.fastestInstance();
 	private XXHash32 hash;
 	private Counter metricIndexTag;
 	private Counter metricIndexRow;
 
 	public MemTagIndex(MetricRegistry registry) {
-		tagMap = new ConcurrentHashMap<>();
+		tagKeyMap = new ConcurrentHashMap<>();
+		tagValueMap = new ConcurrentHashMap<>();
 		rowKeyIndex = new ConcurrentHashMap<>();
 		hash = factory.hash32();
 		metricIndexTag = registry.counter("index-tag");
@@ -57,37 +59,61 @@ public class MemTagIndex implements TagIndex {
 	 * @param tagKey
 	 * @return uid
 	 */
-	public String mapTag(String tagKey) {
+	public String mapTagKey(String tagKey) {
 		int hash32 = hash.hash(tagKey.getBytes(), 0, tagKey.length(), 57);
-		String val = tagMap.get(hash32);
+		String val = tagKeyMap.get(hash32);
 		if (val == null) {
-			tagMap.put(hash32, tagKey);
+			tagKeyMap.put(hash32, tagKey);
 		}
 		metricIndexTag.inc();
 		return Integer.toHexString(hash32);
 	}
 
-	public String getTagMapping(String hexString) {
-		return tagMap.get(Integer.parseUnsignedInt(hexString, 16));
+	@Override
+	public String mapTagValue(String tagValue) throws IOException {
+		int hash32 = hash.hash(tagValue.getBytes(), 0, tagValue.length(), 57);
+		String val = tagKeyMap.get(hash32);
+		if (val == null) {
+			tagValueMap.put(hash32, tagValue);
+		}
+		metricIndexTag.inc();
+		return Integer.toHexString(hash32);
+	}
+
+	public String getTagKeyMapping(String hexString) {
+		return tagKeyMap.get(Integer.parseUnsignedInt(hexString, 16));
+	}
+
+	@Override
+	public String getTagValueMapping(String hexString) throws IOException {
+		return tagValueMap.get(Integer.parseUnsignedInt(hexString, 16));
 	}
 
 	public Set<String> getTags() {
-		return new HashSet<>(tagMap.values());
+		return new HashSet<>(tagKeyMap.values());
 	}
 
 	/**
 	 * Indexes tag in the row key, creating an adjacency list
 	 * 
 	 * @param tagKey
+	 * @param tagValue
 	 * @param rowKey
 	 */
-	public void index(String tagKey, String rowKey) {
-		Set<String> rowKeySet = rowKeyIndex.get(tagKey);
+	public void index(String tagKey, String tagValue, String rowKey) {
+		Map<String, Set<String>> map = rowKeyIndex.get(tagKey);
+
+		if (map == null) {
+			map = new ConcurrentHashMap<>();
+			rowKeyIndex.put(tagKey, map);
+		}
+
+		Set<String> rowKeySet = map.get(tagValue);
 		if (rowKeySet == null) {
 			synchronized (rowKeyIndex) {
-				if ((rowKeySet = rowKeyIndex.get(tagKey)) == null) {
+				if ((rowKeySet = map.get(tagValue)) == null) {
 					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
-					rowKeyIndex.put(tagKey, rowKeySet);
+					map.put(tagValue, rowKeySet);
 				}
 			}
 		}
@@ -97,8 +123,13 @@ public class MemTagIndex implements TagIndex {
 		}
 	}
 
-	public Set<String> searchRowKeysForTag(String tagKey) {
-		return rowKeyIndex.get(tagKey);
+	public Set<String> searchRowKeysForTag(String tagKey, String tagValue) {
+		Map<String, Set<String>> map = rowKeyIndex.get(tagKey);
+		if (map == null) {
+			return null;
+		} else {
+			return map.get(tagValue);
+		}
 	}
 
 	@Override
@@ -106,14 +137,13 @@ public class MemTagIndex implements TagIndex {
 	}
 
 	@Override
-	public void index(String tag, int rowIndex) throws IOException {
-		// do nothing
+	public int getSize() {
+		return 0;
 	}
 
 	@Override
-	public int getSize() {
-		// TODO Auto-generated method stub
-		return 0;
+	public void index(String tag, String value, int rowIndex) throws IOException {
+		// not implemented
 	}
 
 }

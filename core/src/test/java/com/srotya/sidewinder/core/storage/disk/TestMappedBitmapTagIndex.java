@@ -19,7 +19,9 @@ import static org.junit.Assert.assertEquals;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -29,6 +31,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.storage.DBMetadata;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -53,13 +57,22 @@ public class TestMappedBitmapTagIndex {
 		MiscUtils.delete(new File("target/s6"));
 		String indexDir = "target/s6";
 		new File(indexDir).mkdirs();
-		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s2", null);
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> conf = new HashMap<>();
+		m.configure(conf, engine, "d", "m", "target/i/bitmap", "target/d/bitmap", new DBMetadata(), null);
+		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s2", m);
 		long ts = System.currentTimeMillis();
-		for (int i = 10_000; i < 1_000_000; i++) {
-			index.index("key" + (i % 10000), (i % 1_000_000));
+		for (int i = 0; i < 10_000; i++) {
+			index.index("key", String.valueOf(i), i);
+			String valueOf = String.valueOf(i);
+			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf));
 		}
 		ts = System.currentTimeMillis() - ts;
 		System.out.println("Time:" + ts);
+
+		for (int i = 0; i < 10_000; i++) {
+			assertEquals(Arrays.asList(String.valueOf(i)), index.searchRowKeysForTag("key", String.valueOf(i)));
+		}
 	}
 
 	// @Test
@@ -73,8 +86,8 @@ public class TestMappedBitmapTagIndex {
 			es.submit(() -> {
 				try {
 					for (int i = 0; i < 1000; i++) {
-						String idx = index.mapTag("tag" + (i + 1));
-						index.index(idx, "test212");
+						String idx = index.mapTagKey("tag");
+						index.index(idx, index.mapTagValue(String.valueOf(i)), "test212");
 					}
 				} catch (Exception e) {
 					throw new RuntimeException(e);
@@ -84,17 +97,17 @@ public class TestMappedBitmapTagIndex {
 		es.shutdown();
 		es.awaitTermination(10, TimeUnit.SECONDS);
 		for (int i = 0; i < 1000; i++) {
-			String entry = index.mapTag("tag" + (i + 1));
-			assertEquals("tag" + (i + 1), index.getTagMapping(entry));
-			assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
+			String entry = index.mapTagKey("tag");
+			assertEquals("tag", index.getTagKeyMapping(entry));
+			assertEquals("test212", index.searchRowKeysForTag(entry, String.valueOf(i + 1)).iterator().next());
 		}
 
 		// recover tag index
 		MappedSetTagIndex index2 = new MappedSetTagIndex(indexDir, "m2");
 		for (int i = 0; i < 1000; i++) {
-			String entry = index2.mapTag("tag" + (i + 1));
-			assertEquals("tag" + (i + 1), index2.getTagMapping(entry));
-			assertEquals("test212", index2.searchRowKeysForTag(entry).iterator().next());
+			String entry = index2.mapTagKey("tag" + (i + 1));
+			assertEquals("tag" + (i + 1), index2.getTagKeyMapping(entry));
+			assertEquals("test212", index.searchRowKeysForTag(entry, String.valueOf(i + 1)).iterator().next());
 		}
 	}
 

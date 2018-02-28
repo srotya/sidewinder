@@ -28,9 +28,13 @@ public interface TagIndex {
 	 * @return uid
 	 * @throws IOException
 	 */
-	public String mapTag(String tagKey) throws IOException;
+	public String mapTagKey(String tagKey) throws IOException;
 	
-	public String getTagMapping(String tagUid) throws IOException;
+	public String mapTagValue(String tagValue) throws IOException;
+	
+	public String getTagKeyMapping(String tagkey) throws IOException;
+	
+	public String getTagValueMapping(String tagValue) throws IOException;
 	
 	public Collection<String> getTags() throws IOException;
 	
@@ -38,27 +42,18 @@ public interface TagIndex {
 	 * Indexes tag in the row key, creating an adjacency list
 	 * 
 	 * @param tag
+	 * @param value
 	 * @param rowKey
 	 * @throws IOException
 	 */
-	public void index(String tag, String rowKey) throws IOException;
+	public void index(String tag, String value, String rowKey) throws IOException;
 	
-	/**
-	 * @param tag
-	 * @param rowIndex
-	 * @throws IOException
-	 */
-	public void index(String tag, int rowIndex) throws IOException;
-
-	/**
-	 * @param tagKey
-	 * @return
-	 * @throws IOException
-	 */
-	public Collection<String> searchRowKeysForTag(String tagKey) throws IOException;
+	public void index(String tag, String value, int rowIndex) throws IOException;
 
 	public void close() throws IOException;
 	
 	public int getSize();
+
+	Collection<String> searchRowKeysForTag(String tagKey, String tagValue);
 
 }

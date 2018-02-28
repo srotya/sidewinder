@@ -22,6 +22,8 @@ import java.util.List;
 
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.tags.ContainsFilter;
+
 /**
  * Unit tests for {@link AndFilter}, {@link OrFilter}, {@link ContainsFilter},
  * {@link NotFilter} and {@link AnyFilter}
@@ -33,42 +35,42 @@ public class TestFilters {
 	@Test
 	public void testContainsFilter() {
 		Filter<List<String>> filter = new ContainsFilter<String, List<String>>("cap");
-		assertTrue(!filter.isRetain(Arrays.asList("test", "10", "hello")));
-		assertTrue(filter.isRetain(Arrays.asList("test", "10", "cap")));
+		assertTrue(!filter.retain(Arrays.asList("test", "10", "hello")));
+		assertTrue(filter.retain(Arrays.asList("test", "10", "cap")));
 	}
 
 	@Test
 	public void testAndFilter() {
 		Filter<List<String>> filter = new AndFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("cap"),
 				new ContainsFilter<String, List<String>>("10")));
-		assertTrue(!filter.isRetain(Arrays.asList("test", "10", "hello")));
-		assertTrue(filter.isRetain(Arrays.asList("test", "10", "cap")));
-		assertTrue(!filter.isRetain(Arrays.asList("test", "12", "ca2p")));
+		assertTrue(!filter.retain(Arrays.asList("test", "10", "hello")));
+		assertTrue(filter.retain(Arrays.asList("test", "10", "cap")));
+		assertTrue(!filter.retain(Arrays.asList("test", "12", "ca2p")));
 	}
 
 	@Test
 	public void testOrFilter() {
 		Filter<List<String>> filter = new OrFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("cap"),
 				new ContainsFilter<String, List<String>>("10")));
-		assertTrue(filter.isRetain(Arrays.asList("test", "10", "hello")));
-		assertTrue(filter.isRetain(Arrays.asList("test", "10", "cap")));
-		assertTrue(!filter.isRetain(Arrays.asList("test", "12", "ca2p")));
+		assertTrue(filter.retain(Arrays.asList("test", "10", "hello")));
+		assertTrue(filter.retain(Arrays.asList("test", "10", "cap")));
+		assertTrue(!filter.retain(Arrays.asList("test", "12", "ca2p")));
 	}
 
 	@Test
 	public void testAnyFilter() {
 		Filter<List<String>> filter = new AnyFilter<List<String>>();
-		assertTrue(filter.isRetain(Arrays.asList("test", "10", "hello")));
-		assertTrue(filter.isRetain(Arrays.asList("test", "10", "cap")));
-		assertTrue(filter.isRetain(Arrays.asList("test", "12", "ca2p")));
+		assertTrue(filter.retain(Arrays.asList("test", "10", "hello")));
+		assertTrue(filter.retain(Arrays.asList("test", "10", "cap")));
+		assertTrue(filter.retain(Arrays.asList("test", "12", "ca2p")));
 	}
 
 	@Test
 	public void testNotFilter() {
 		Filter<List<String>> filter = new NotFilter<>(new ContainsFilter<String, List<String>>("10"));
-		assertTrue(!filter.isRetain(Arrays.asList("test", "10", "hello")));
-		assertTrue(!filter.isRetain(Arrays.asList("test", "10", "cap")));
-		assertTrue(filter.isRetain(Arrays.asList("test", "12", "ca2p")));
+		assertTrue(!filter.retain(Arrays.asList("test", "10", "hello")));
+		assertTrue(!filter.retain(Arrays.asList("test", "10", "cap")));
+		assertTrue(filter.retain(Arrays.asList("test", "12", "ca2p")));
 	}
 
 	@Test
@@ -77,9 +79,9 @@ public class TestFilters {
 				new ContainsFilter<String, List<String>>("10"),
 				new AndFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("cap"),
 						new ContainsFilter<String, List<String>>("12")))));
-		assertTrue(filter.isRetain(Arrays.asList("test", "10", "hello")));
-		assertTrue(filter.isRetain(Arrays.asList("test", "10", "cap")));
-		assertTrue(!filter.isRetain(Arrays.asList("test", "12", "ca2p")));
+		assertTrue(filter.retain(Arrays.asList("test", "10", "hello")));
+		assertTrue(filter.retain(Arrays.asList("test", "10", "cap")));
+		assertTrue(!filter.retain(Arrays.asList("test", "12", "ca2p")));
 	}
 
 }

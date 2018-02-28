@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright 2018 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,18 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.filters;
+package com.srotya.sidewinder.core.filters.tags;
 
-/**
- * @author ambud
- *
- * @param <E>
- */
-public class AnyFilter<E> implements Filter<E> {
-
-	@Override
-	public boolean retain(E value) {
-		return true;
+public class Tag {
+	
+	private String tagKey;
+	private String tagValue;
+	/**
+	 * @return the tagKey
+	 */
+	public String getTagKey() {
+		return tagKey;
 	}
-
+	/**
+	 * @param tagKey the tagKey to set
+	 */
+	public void setTagKey(String tagKey) {
+		this.tagKey = tagKey;
+	}
+	/**
+	 * @return the tagValue
+	 */
+	public String getTagValue() {
+		return tagValue;
+	}
+	/**
+	 * @param tagValue the tagValue to set
+	 */
+	public void setTagValue(String tagValue) {
+		this.tagValue = tagValue;
+	}
+	
 }

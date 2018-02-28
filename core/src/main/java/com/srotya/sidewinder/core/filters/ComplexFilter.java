@@ -31,8 +31,8 @@ public abstract class ComplexFilter<E> implements Filter<E> {
 	}
 
 	@Override
-	public boolean isRetain(E value) {
-		boolean result = operators.get(0).isRetain(value);
+	public boolean retain(E value) {
+		boolean result = operators.get(0).retain(value);
 		for (int i = 1; i < operators.size(); i++) {
 			boolean temp = result;
 			result = operator(result, operators.get(i), value);

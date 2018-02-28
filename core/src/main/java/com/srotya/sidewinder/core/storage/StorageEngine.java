@@ -255,7 +255,7 @@ public interface StorageEngine {
 		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
 		Set<String> results = new HashSet<>();
 		for (String m : measurementsLike) {
-			results.addAll(getDatabaseMap().get(dbName).get(m).getTags());
+			results.addAll(getDatabaseMap().get(dbName).get(m).getTagKeys());
 		}
 		return results;
 	}

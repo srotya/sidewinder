@@ -45,6 +45,9 @@ import com.srotya.sidewinder.core.storage.compression.Writer;
  */
 public interface Measurement {
 
+	public static final RejectException INDEX_REJECT = new RejectException("Invalid tag, rejecting index");
+	public static final RejectException SEARCH_REJECT = new RejectException("Invalid tag, rejecting index search");
+	public static final String TAG_KV_SEPARATOR = "=";
 	public static final String SERIESID_SEPARATOR = "#";
 	public static final String USE_QUERY_POOL = "use.query.pool";
 	public static final String TAG_SEPARATOR = "^";
@@ -68,23 +71,35 @@ public interface Measurement {
 
 	public static void indexRowKey(TagIndex tagIndex, String rowKey, List<String> tags) throws IOException {
 		for (String tag : tags) {
-			tagIndex.index(tag, rowKey);
+			String[] split = tag.split(TAG_KV_SEPARATOR);
+			if(split.length!=2) {
+				throw INDEX_REJECT;
+			}
+			String tagKey = split[0];
+			String tagValue = split[1];
+			tagIndex.index(tagKey, tagValue, rowKey);
 		}
 	}
-	
+
 	public static void indexRowKey(TagIndex tagIndex, int rowIdx, List<String> tags) throws IOException {
 		for (String tag : tags) {
-			tagIndex.index(tag, rowIdx);
+			String[] split = tag.split(TAG_KV_SEPARATOR);
+			if(split.length!=2) {
+				throw INDEX_REJECT;
+			}
+			String tagKey = split[0];
+			String tagValue = split[1];
+			tagIndex.index(tagKey, tagValue, rowIdx);
 		}
 	}
 
 	public default String encodeTagsToString(TagIndex tagIndex, List<String> tags) throws IOException {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);
-		builder.append(tagIndex.mapTag(tags.get(0)));
+		builder.append(tagIndex.mapTagKey(tags.get(0)));
 		for (int i = 1; i < tags.size(); i++) {
 			String tag = tags.get(i);
 			builder.append(TAG_SEPARATOR);
-			builder.append(tagIndex.mapTag(tag));
+			builder.append(tagIndex.mapTagKey(tag));
 		}
 		return builder.toString();
 	}
@@ -99,7 +114,7 @@ public interface Measurement {
 			return tagList;
 		}
 		for (String tag : tagString.split("\\" + TAG_SEPARATOR)) {
-			tagList.add(tagLookupTable.getTagMapping(tag));
+			tagList.add(tagLookupTable.getTagKeyMapping(tag));
 		}
 		return tagList;
 	}
@@ -122,7 +137,7 @@ public interface Measurement {
 		for (Iterator<String> iterator = filteredSeries.iterator(); iterator.hasNext();) {
 			String rowKey = iterator.next();
 			List<String> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
-			if (tagFilterTree != null && !tagFilterTree.isRetain(seriesTags)) {
+			if (tagFilterTree != null && !tagFilterTree.retain(seriesTags)) {
 				iterator.remove();
 			}
 		}
@@ -219,7 +234,13 @@ public interface Measurement {
 		Set<String> series = new HashSet<>();
 		if (tags != null) {
 			for (String tag : tags) {
-				Collection<String> keys = getTagIndex().searchRowKeysForTag(tag);
+				String[] split = tag.split(TAG_KV_SEPARATOR);
+				if (split.length != 2) {
+					throw SEARCH_REJECT;
+				}
+				String tagKey = split[0];
+				String tagValue = split[1];
+				Collection<String> keys = getTagIndex().searchRowKeysForTag(tagKey, tagValue);
 				if (keys != null) {
 					series.addAll(keys);
 				}
@@ -313,7 +334,7 @@ public interface Measurement {
 		}
 	}
 
-	public default Collection<String> getTags() throws IOException {
+	public default Collection<String> getTagKeys() throws IOException {
 		return getTagIndex().getTags();
 	}
 

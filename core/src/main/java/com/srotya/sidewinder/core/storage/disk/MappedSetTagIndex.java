@@ -87,12 +87,12 @@ public class MappedSetTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String mapTag(String tagKey) throws IOException {
+	public String mapTagKey(String tagKey) throws IOException {
 		return tagKey;
 	}
 
 	@Override
-	public String getTagMapping(String hexString) {
+	public String getTagKeyMapping(String hexString) {
 		return hexString;
 	}
 
@@ -107,9 +107,9 @@ public class MappedSetTagIndex implements TagIndex {
 	}
 
 	@Override
-	public void index(String tagKey, String rowKey) throws IOException {
-		rowKey = new StringBuilder(tagKey.length() + 1 + rowKey.length()).append(tagKey).append(SEPERATOR)
-				.append(rowKey).toString();
+	public void index(String tagKey, String tagValue, String rowKey) throws IOException {
+		rowKey = new StringBuilder(tagKey.length() + 1 + tagValue.length() + 1 + rowKey.length()).append(tagKey)
+				.append(SEPERATOR).append(tagValue).append(SEPERATOR).append(rowKey).toString();
 		if (rowKeyIndex.add(rowKey)) {
 			boolean add = true;
 			if (add) {
@@ -133,8 +133,9 @@ public class MappedSetTagIndex implements TagIndex {
 	}
 
 	@Override
-	public Collection<String> searchRowKeysForTag(String tag) {
+	public Collection<String> searchRowKeysForTag(String tagKey, String tagValue) {
 		Set<String> result = new HashSet<>();
+		String tag = tagKey + SEPERATOR + tagValue;
 		SortedSet<String> tailSet = rowKeyIndex.tailSet(tag);
 		for (String entry : tailSet) {
 			if (entry.startsWith(tag + SEPERATOR)) {
@@ -153,7 +154,7 @@ public class MappedSetTagIndex implements TagIndex {
 	}
 
 	@Override
-	public void index(String tag, int rowIndex) throws IOException {
+	public void index(String tagKey, String tagValue, int rowIndex) throws IOException {
 		// do nothing
 	}
 
@@ -164,6 +165,16 @@ public class MappedSetTagIndex implements TagIndex {
 			total += string.length();
 		}
 		return total;
+	}
+
+	@Override
+	public String mapTagValue(String tagValue) throws IOException {
+		return tagValue;
+	}
+
+	@Override
+	public String getTagValueMapping(String tagValue) throws IOException {
+		return tagValue;
 	}
 
 }

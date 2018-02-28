@@ -30,8 +30,8 @@ public class NotFilter<E> implements Filter<E>{
 	}
 
 	@Override
-	public boolean isRetain(E value) {
-		return !inputOperator.isRetain(value);
+	public boolean retain(E value) {
+		return !inputOperator.retain(value);
 	}
 
 }
