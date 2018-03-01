@@ -29,7 +29,7 @@
     <dependency>
       <groupId>com.srotya.sidewinder</groupId>
       <artifactId>sidewinder-rpc</artifactId>
-      <version>${project.version}</version>
+      <version>0.0.37</version>
     </dependency>
     <dependency>
       <groupId>commons-daemon</groupId>

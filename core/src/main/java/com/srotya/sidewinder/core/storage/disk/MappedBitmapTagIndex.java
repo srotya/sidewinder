@@ -37,11 +37,12 @@ import org.roaringbitmap.buffer.MutableRoaringBitmap;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
-import com.srotya.sidewinder.core.filters.Filter;
-import com.srotya.sidewinder.core.filters.tags.TagFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
+import com.srotya.sidewinder.core.filters.SimpleTagFilter;
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
@@ -144,19 +145,102 @@ public class MappedBitmapTagIndex implements TagIndex {
 		if (map != null) {
 			MutableRoaringBitmap value = map.get(tagValue);
 			if (value != null) {
-				List<SeriesFieldMap> ref = measurement.getSeriesListAsList();
-				for (Iterator<Integer> iterator = value.iterator(); iterator.hasNext();) {
-					Integer idx = iterator.next();
-					rowKeys.add(ref.get(idx).getSeriesId());
-				}
+				bitmapToRowKeys(rowKeys, value);
 			}
 		}
 		return rowKeys;
 	}
 
-	public Collection<String> evalFilterForTags(TagFilter filterTree) {
-		
+	private void bitmapToRowKeys(Collection<String> rowKeys, MutableRoaringBitmap value) {
+		List<SeriesFieldMap> ref = measurement.getSeriesListAsList();
+		for (Iterator<Integer> iterator = value.iterator(); iterator.hasNext();) {
+			Integer idx = iterator.next();
+			rowKeys.add(ref.get(idx).getSeriesId());
+		}
+	}
+
+	public MutableRoaringBitmap evalFilterForTags(TagFilter filterTree) {
+		// either it's a simple tag filter or a complex tag filter
+		if (filterTree instanceof SimpleTagFilter) {
+			SimpleTagFilter simpleFilter = (SimpleTagFilter) filterTree;
+			SortedMap<String, MutableRoaringBitmap> map = rowkeyIndex.get(simpleFilter.getTagKey());
+			if (map == null) {
+				return null;
+			}
+			return evalSimpleTagFilter(simpleFilter, map);
+		} else {
+			// if it's a complex tag filter then get individual units of return
+			ComplexTagFilter complexFilter = (ComplexTagFilter) filterTree;
+			List<TagFilter> filters = complexFilter.getFilters();
+			ComplexFilterType type = complexFilter.getType();
+			MutableRoaringBitmap map = new MutableRoaringBitmap();
+			for (TagFilter tagFilter : filters) {
+				MutableRoaringBitmap r = evalFilterForTags(tagFilter);
+				if (r == null) {
+					// no match found from evaluation of this filter
+					continue;
+				} else if (map.isEmpty()) {
+					// if the global map is empty then initialize it
+					map.or(r);
+				}
+				switch (type) {
+				case AND:
+					map.and(r);
+					break;
+				case OR:
+					map.or(r);
+					break;
+				}
+			}
+			return map;
+		}
+	}
+
+	private MutableRoaringBitmap evalSimpleTagFilter(SimpleTagFilter simpleFilter,
+			SortedMap<String, MutableRoaringBitmap> map) {
+		switch (simpleFilter.getFilterType()) {
+		case EQUALS:
+			return map.get(simpleFilter.getComparedValue());
+		case GREATER_THAN:
+			SortedMap<String, MutableRoaringBitmap> tailMap = map.tailMap(simpleFilter.getComparedValue());
+			if (tailMap.isEmpty()) {
+				return null;
+			}
+			Iterator<MutableRoaringBitmap> iterator = tailMap.values().iterator();
+			// skip the first one since the condition is greater than
+			iterator.next();
+			return combineMaps(iterator);
+		case LESS_THAN:
+			SortedMap<String, MutableRoaringBitmap> headMap = map.headMap(simpleFilter.getComparedValue());
+			if (headMap.isEmpty()) {
+				return null;
+			}
+			return combineMaps(headMap.values().iterator());
+		case GREATER_THAN_EQUALS:
+			SortedMap<String, MutableRoaringBitmap> tailMap1 = map.tailMap(simpleFilter.getComparedValue());
+			if (tailMap1.isEmpty()) {
+				return null;
+			}
+			Iterator<MutableRoaringBitmap> iterator1 = tailMap1.values().iterator();
+			return combineMaps(iterator1);
+		case LESS_THAN_EQUALS:
+			SortedMap<String, MutableRoaringBitmap> headMap1 = map
+					.headMap(simpleFilter.getComparedValue() + Character.MAX_VALUE);
+			if (headMap1.isEmpty()) {
+				return null;
+			}
+			return combineMaps(headMap1.values().iterator());
+		}
 		return null;
+	}
+
+	private MutableRoaringBitmap combineMaps(Iterator<MutableRoaringBitmap> itr) {
+		MutableRoaringBitmap resultMap = new MutableRoaringBitmap();
+		while (itr.hasNext()) {
+			MutableRoaringBitmap m = itr.next();
+			resultMap.or(m);
+		}
+		return resultMap;
 	}
 
 	@Override
@@ -237,6 +321,14 @@ public class MappedBitmapTagIndex implements TagIndex {
 	@Override
 	public void index(String tag, String value, String rowKey) throws IOException {
 		// not implemented
+	}
+
+	@Override
+	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
+		Set<String> rowKeys = new HashSet<>();
+		MutableRoaringBitmap evalFilterForTags = evalFilterForTags(tagFilterTree);
+		bitmapToRowKeys(rowKeys, evalFilterForTags);
+		return rowKeys;
 	}
 
 }

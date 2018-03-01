@@ -23,6 +23,7 @@ import java.util.concurrent.ConcurrentSkipListSet;
 
 import org.mapdb.DB;
 
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
 /**
@@ -99,6 +100,12 @@ public class SetIndex implements TagIndex {
 	@Override
 	public String getTagValueMapping(String tagValue) throws IOException {
 		return tagValue;
+	}
+
+	@Override
+	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

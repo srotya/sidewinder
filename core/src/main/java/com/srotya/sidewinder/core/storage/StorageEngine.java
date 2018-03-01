@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import com.codahale.metrics.Counter;
-import com.srotya.sidewinder.core.filters.Filter;
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
@@ -151,7 +151,7 @@ public interface StorageEngine {
 	 * @throws IOException
 	 */
 	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
+			long startTime, long endTime, TagFilter tagFilter,
 			Predicate valuePredicate, Function function) throws IOException {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
@@ -160,7 +160,7 @@ public interface StorageEngine {
 		List<Series> resultList = Collections.synchronizedList(new ArrayList<>());
 		for (String measurement : measurementsLike) {
 			getDatabaseMap().get(dbName).get(measurement).queryDataPoints(valueFieldPattern, startTime, endTime,
-					tagList, tagFilter, valuePredicate, resultList);
+					tagFilter, valuePredicate, resultList);
 		}
 		if (function != null) {
 			resultList = function.apply(resultList);
@@ -169,15 +169,15 @@ public interface StorageEngine {
 	}
 
 	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
+			long startTime, long endTime, TagFilter tagFilter,
 			Predicate valuePredicate) throws IOException {
-		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagList, tagFilter,
+		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagFilter,
 				valuePredicate, null);
 	}
 
 	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter) throws IOException {
-		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagList, tagFilter,
+			long startTime, long endTime, TagFilter tagFilter) throws IOException {
+		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagFilter,
 				null, null);
 	}
 
@@ -556,11 +556,11 @@ public interface StorageEngine {
 	}
 
 	public default Set<String> getTagFilteredRowKeys(String dbName, String measurementName,
-			Filter<List<String>> tagFilterTree, List<String> rawTags) throws IOException {
+			TagFilter tagFilter) throws IOException {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		return getDatabaseMap().get(dbName).get(measurementName).getTagFilteredRowKeys(tagFilterTree, rawTags);
+		return getDatabaseMap().get(dbName).get(measurementName).getTagFilteredRowKeys(tagFilter);
 	}
 
 	public Map<String, Map<String, Measurement>> getDatabaseMap();

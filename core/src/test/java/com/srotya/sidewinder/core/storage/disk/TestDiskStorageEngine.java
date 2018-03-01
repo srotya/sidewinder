@@ -46,10 +46,11 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.google.gson.Gson;
-import com.srotya.sidewinder.core.filters.AndFilter;
-import com.srotya.sidewinder.core.filters.Filter;
-import com.srotya.sidewinder.core.filters.OrFilter;
-import com.srotya.sidewinder.core.filters.tags.ContainsFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
+import com.srotya.sidewinder.core.filters.SimpleTagFilter;
+import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
@@ -200,7 +201,7 @@ public class TestDiskStorageEngine {
 			fail("Time series must exist");
 		}
 		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, ts,
-				ts + 220 * 1000, Arrays.asList(tag), null);
+				ts + 220 * 1000, null);
 		assertEquals(1, queryDataPoints.size());
 		Series next = queryDataPoints.iterator().next();
 		assertEquals(200, next.getDataPoints().size());
@@ -259,7 +260,7 @@ public class TestDiskStorageEngine {
 			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
 		}
 		List<Series> queryDataPoints = engine.queryDataPoints("test", "ss", "value", ts, ts + (4096 * 100 * 1000) + 1,
-				Arrays.asList("t=e"), null);
+				new SimpleTagFilter(FilterType.EQUALS, "t", "e"));
 		assertTrue(queryDataPoints.size() >= 1);
 	}
 
@@ -503,20 +504,23 @@ public class TestDiskStorageEngine {
 		long endTs = ts + 99 * 60000;
 
 		// validate all points are returned with a full range query
-		List<Series> points = engine.queryDataPoints(dbName, measurementName, "value", ts, endTs, tags, null);
+		List<Series> points = engine.queryDataPoints(dbName, measurementName, "value", ts, endTs,
+				new SimpleTagFilter(FilterType.EQUALS, "test", "1"));
 		assertEquals(ts, points.iterator().next().getDataPoints().get(0).getTimestamp());
 		assertEquals(endTs, points.iterator().next().getDataPoints()
 				.get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
 
 		// validate ts-1 yields the same result
-		points = engine.queryDataPoints(dbName, measurementName, "value", ts - 1, endTs, tags, null);
+		points = engine.queryDataPoints(dbName, measurementName, "value", ts - 1, endTs,
+				new SimpleTagFilter(FilterType.EQUALS, "test", "1"));
 		assertEquals(ts, points.iterator().next().getDataPoints().get(0).getTimestamp());
 		System.out.println("Value count:" + points.iterator().next().getDataPoints().size());
 		assertEquals(endTs, points.iterator().next().getDataPoints()
 				.get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
 
 		// validate ts+1 yields correct result
-		points = engine.queryDataPoints(dbName, measurementName, "value", ts + 1, endTs, tags, null);
+		points = engine.queryDataPoints(dbName, measurementName, "value", ts + 1, endTs,
+				new SimpleTagFilter(FilterType.EQUALS, "test", "1"));
 		assertEquals(ts + 60000, points.iterator().next().getDataPoints().get(0).getTimestamp());
 		assertEquals(endTs, points.iterator().next().getDataPoints()
 				.get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
@@ -529,13 +533,15 @@ public class TestDiskStorageEngine {
 		System.out.println("Bucket2 base timestamp=" + new Date(baseTs2));
 
 		// validate random seek with deliberate time offset
-		points = engine.queryDataPoints(dbName, measurementName, "value", ts, baseTs2, tags, null);
+		points = engine.queryDataPoints(dbName, measurementName, "value", ts, baseTs2,
+				new SimpleTagFilter(FilterType.EQUALS, "test", "1"));
 		assertEquals("Invalid first entry:" + new Date(points.iterator().next().getDataPoints().get(0).getTimestamp()),
 				ts, points.iterator().next().getDataPoints().get(0).getTimestamp());
 		assertEquals("Invalid first entry:" + (baseTs2 - ts), (baseTs2 / 60000) * 60000, points.iterator().next()
 				.getDataPoints().get(points.iterator().next().getDataPoints().size() - 1).getTimestamp());
 
-		points = engine.queryDataPoints(dbName, measurementName, "value", baseTs2, endTs, tags, null);
+		points = engine.queryDataPoints(dbName, measurementName, "value", baseTs2, endTs,
+				new SimpleTagFilter(FilterType.EQUALS, "test", "1"));
 		assertEquals("Invalid first entry:" + new Date(points.iterator().next().getDataPoints().get(0).getTimestamp()),
 				(baseTs2 - ts), (baseTs2 / 60000) * 60000,
 				points.iterator().next().getDataPoints().get(0).getTimestamp());
@@ -544,7 +550,8 @@ public class TestDiskStorageEngine {
 
 		// validate correct results when time range is incorrectly swapped i.e.
 		// end time is smaller than start time
-		points = engine.queryDataPoints(dbName, measurementName, "value", endTs - 1, baseTs2, tags, null);
+		points = engine.queryDataPoints(dbName, measurementName, "value", endTs - 1, baseTs2,
+				new SimpleTagFilter(FilterType.EQUALS, "test", "1"));
 		assertEquals("Invalid first entry:" + new Date(points.iterator().next().getDataPoints().get(0).getTimestamp()),
 				(baseTs2 - ts), (baseTs2 / 60000) * 60000,
 				points.iterator().next().getDataPoints().get(0).getTimestamp());
@@ -672,15 +679,15 @@ public class TestDiskStorageEngine {
 				Arrays.asList("p=" + String.valueOf(1)));
 		assertEquals(2, series.size());
 
-		Filter<List<String>> tagFilterTree = new OrFilter<>(Arrays.asList(
-				new ContainsFilter<String, List<String>>("p=1"), new ContainsFilter<String, List<String>>("p=2")));
-		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree, Arrays.asList("p=1", "p=2"));
+		TagFilter tagFilterTree = new ComplexTagFilter(ComplexFilterType.OR, Arrays.asList(
+				new SimpleTagFilter(FilterType.EQUALS, "p", "1"), new SimpleTagFilter(FilterType.EQUALS, "p", "2")));
+		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree);
 		assertEquals(4, series.size());
 
 		System.out.println(engine.getTagsForMeasurement(dbName, measurementName));
-		tagFilterTree = new AndFilter<>(Arrays.asList(new ContainsFilter<String, List<String>>("p=1"),
-				new ContainsFilter<String, List<String>>("k=8")));
-		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree, Arrays.asList("p=1", "k=8"));
+		tagFilterTree = new ComplexTagFilter(ComplexFilterType.AND, Arrays.asList(
+				new SimpleTagFilter(FilterType.EQUALS, "p", "1"), new SimpleTagFilter(FilterType.EQUALS, "k", "8")));
+		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree);
 		System.out.println("Series::" + series);
 		assertEquals(1, series.size());
 		engine.disconnect();
@@ -708,11 +715,11 @@ public class TestDiskStorageEngine {
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
 
-		ContainsFilter<String, List<String>> filter1 = new ContainsFilter<String, List<String>>(tag + "=1");
-		ContainsFilter<String, List<String>> filter2 = new ContainsFilter<String, List<String>>(tag + "=2");
+		SimpleTagFilter filter1 = new SimpleTagFilter(FilterType.EQUALS, "host123123", "1");
+		SimpleTagFilter filter2 = new SimpleTagFilter(FilterType.EQUALS, "host123123", "2");
 
 		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr, curr + 3,
-				Arrays.asList(tag + "=1", tag + "=2"), new OrFilter<>(Arrays.asList(filter1, filter2)), null, null);
+				new ComplexTagFilter(ComplexFilterType.OR, Arrays.asList(filter1, filter2)), null, null);
 		assertEquals(2, queryDataPoints.size());
 		int i = 1;
 		assertEquals(1, queryDataPoints.iterator().next().getDataPoints().size());
@@ -787,7 +794,7 @@ public class TestDiskStorageEngine {
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
 		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr, curr + 3,
-				Arrays.asList(tag), null);
+				null);
 		assertEquals(1, queryDataPoints.size());
 		int i = 1;
 		assertEquals(3, queryDataPoints.iterator().next().getDataPoints().size());

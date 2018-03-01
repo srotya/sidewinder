@@ -153,7 +153,7 @@ public class DatabaseOpsApi {
 			TargetSeries tagSeries = MiscUtils.extractTargetFromQuery(query);
 
 			List<Series> points = storageEngine.queryDataPoints(dbName, tagSeries.getMeasurementName(),
-					tagSeries.getFieldName(), startTs, endTs, tagSeries.getTagList(), tagSeries.getTagFilter(), null,
+					tagSeries.getFieldName(), startTs, endTs, tagSeries.getTagFilter(), null,
 					tagSeries.getAggregationFunction());
 			return new Gson().toJson(points);
 		} catch (ItemNotFoundException e) {

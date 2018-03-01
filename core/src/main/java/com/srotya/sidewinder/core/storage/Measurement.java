@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +33,7 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import com.srotya.sidewinder.core.filters.Filter;
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
 import com.srotya.sidewinder.core.storage.compression.Reader;
@@ -72,7 +71,7 @@ public interface Measurement {
 	public static void indexRowKey(TagIndex tagIndex, String rowKey, List<String> tags) throws IOException {
 		for (String tag : tags) {
 			String[] split = tag.split(TAG_KV_SEPARATOR);
-			if(split.length!=2) {
+			if (split.length != 2) {
 				throw INDEX_REJECT;
 			}
 			String tagKey = split[0];
@@ -84,7 +83,7 @@ public interface Measurement {
 	public static void indexRowKey(TagIndex tagIndex, int rowIdx, List<String> tags) throws IOException {
 		for (String tag : tags) {
 			String[] split = tag.split(TAG_KV_SEPARATOR);
-			if(split.length!=2) {
+			if (split.length != 2) {
 				throw INDEX_REJECT;
 			}
 			String tagKey = split[0];
@@ -131,17 +130,8 @@ public interface Measurement {
 		return tagList;
 	}
 
-	public default Set<String> getTagFilteredRowKeys(Filter<List<String>> tagFilterTree, List<String> rawTags)
-			throws IOException {
-		Set<String> filteredSeries = getSeriesIdsWhereTags(rawTags);
-		for (Iterator<String> iterator = filteredSeries.iterator(); iterator.hasNext();) {
-			String rowKey = iterator.next();
-			List<String> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
-			if (tagFilterTree != null && !tagFilterTree.retain(seriesTags)) {
-				iterator.remove();
-			}
-		}
-		return filteredSeries;
+	public default Set<String> getTagFilteredRowKeys(TagFilter tagFilterTree) throws IOException {
+		return getTagIndex().searchRowKeysForTagFilter(tagFilterTree);
 	}
 
 	public default void collectGarbage(Archiver archiver) throws IOException {
@@ -251,14 +241,13 @@ public interface Measurement {
 		return series;
 	}
 
-	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime,
-			List<String> tagList, Filter<List<String>> tagFilter, Predicate valuePredicate, List<Series> resultMap)
-			throws IOException {
+	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime, TagFilter tagFilter,
+			Predicate valuePredicate, List<Series> resultMap) throws IOException {
 		final Set<String> rowKeys;
-		if (tagList == null || tagList.isEmpty()) {
+		if (tagFilter == null) {
 			rowKeys = getSeriesKeys();
 		} else {
-			rowKeys = getTagFilteredRowKeys(tagFilter, tagList);
+			rowKeys = getTagFilteredRowKeys(tagFilter);
 		}
 		final Pattern p;
 		try {
@@ -268,17 +257,19 @@ public interface Measurement {
 		}
 		Set<String> outputKeys = new HashSet<>();
 		final Map<String, List<String>> fields = new HashMap<>();
-		for (String key : rowKeys) {
-			List<String> fieldMap = new ArrayList<>();
-			Set<String> fieldSet = getSeriesFromKey(key).getFields();
-			for (String fieldSetEntry : fieldSet) {
-				if (p.matcher(fieldSetEntry).matches()) {
-					fieldMap.add(fieldSetEntry);
+		if (rowKeys != null) {
+			for (String key : rowKeys) {
+				List<String> fieldMap = new ArrayList<>();
+				Set<String> fieldSet = getSeriesFromKey(key).getFields();
+				for (String fieldSetEntry : fieldSet) {
+					if (p.matcher(fieldSetEntry).matches()) {
+						fieldMap.add(fieldSetEntry);
+					}
 				}
-			}
-			if (fieldMap.size() > 0) {
-				fields.put(key, fieldMap);
-				outputKeys.add(key);
+				if (fieldMap.size() > 0) {
+					fields.put(key, fieldMap);
+					outputKeys.add(key);
+				}
 			}
 		}
 		Stream<String> stream = outputKeys.stream();

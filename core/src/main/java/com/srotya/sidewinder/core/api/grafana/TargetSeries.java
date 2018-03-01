@@ -15,25 +15,21 @@
  */
 package com.srotya.sidewinder.core.api.grafana;
 
-import java.util.List;
-
-import com.srotya.sidewinder.core.filters.Filter;
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.functions.Function;
 
 public class TargetSeries {
 
 	private String measurementName;
 	private String fieldName;
-	private List<String> tagList;
 	private boolean autoCorrelate;
-	private Filter<List<String>> tagFilter;
+	private TagFilter tagFilter;
 	private Function function;
 
-	public TargetSeries(String measurementName, String fieldName, List<String> tagList, Filter<List<String>> tagFilter,
+	public TargetSeries(String measurementName, String fieldName, TagFilter tagFilter,
 			Function function, boolean autoCorrelate) {
 		this.measurementName = measurementName;
 		this.fieldName = fieldName;
-		this.tagList = tagList;
 		this.tagFilter = tagFilter;
 		this.function = function;
 		this.autoCorrelate = autoCorrelate;
@@ -70,16 +66,9 @@ public class TargetSeries {
 	}
 
 	/**
-	 * @return the tagList
-	 */
-	public List<String> getTagList() {
-		return tagList;
-	}
-
-	/**
 	 * @return the tagFilter
 	 */
-	public Filter<List<String>> getTagFilter() {
+	public TagFilter getTagFilter() {
 		return tagFilter;
 	}
 

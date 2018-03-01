@@ -16,7 +16,6 @@
 package com.srotya.sidewinder.core.api.grafana;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Stack;
 import java.util.logging.Level;
@@ -28,12 +27,10 @@ import javax.ws.rs.NotFoundException;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.srotya.sidewinder.core.filters.AndFilter;
-import com.srotya.sidewinder.core.filters.AnyFilter;
-import com.srotya.sidewinder.core.filters.ComplexFilter;
-import com.srotya.sidewinder.core.filters.Filter;
-import com.srotya.sidewinder.core.filters.OrFilter;
-import com.srotya.sidewinder.core.filters.tags.ContainsFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
+import com.srotya.sidewinder.core.filters.SimpleTagFilter;
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.functions.FunctionTable;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -57,8 +54,8 @@ public class GrafanaUtils {
 		List<Series> points;
 		try {
 			points = engine.queryDataPoints(dbName, targetSeriesEntry.getMeasurementName(),
-					targetSeriesEntry.getFieldName(), startTs, endTs, targetSeriesEntry.getTagList(),
-					targetSeriesEntry.getTagFilter(), null, targetSeriesEntry.getAggregationFunction());
+					targetSeriesEntry.getFieldName(), startTs, endTs, targetSeriesEntry.getTagFilter(), null,
+					targetSeriesEntry.getAggregationFunction());
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
 		} catch (Exception e) {
@@ -97,16 +94,14 @@ public class GrafanaUtils {
 				continue;
 			}
 			if (jsonElement.has("target") && jsonElement.has("field")) {
-				List<String> filterElements = new ArrayList<>();
-				Filter<List<String>> filter = extractGrafanaFilter(jsonElement, filterElements);
+				TagFilter filter = extractGrafanaFilter(jsonElement);
 				Function aggregationFunction = extractGrafanaAggregation(jsonElement);
 				boolean correlate = false;
 				if (jsonElement.has("correlate")) {
 					correlate = jsonElement.get("correlate").getAsBoolean();
 				}
 				targetSeries.add(new TargetSeries(jsonElement.get("target").getAsString(),
-						jsonElement.get("field").getAsString(), filterElements, filter, aggregationFunction,
-						correlate));
+						jsonElement.get("field").getAsString(), filter, aggregationFunction, correlate));
 			} else if (jsonElement.has("raw") && jsonElement.get("rawQuery").getAsBoolean()) {
 				// raw query recieved
 				TargetSeries ts = MiscUtils.extractTargetFromQuery(jsonElement.get("raw").getAsString());
@@ -170,8 +165,8 @@ public class GrafanaUtils {
 		return null;
 	}
 
-	public static Filter<List<String>> extractGrafanaFilter(JsonObject element, List<String> filterElements) {
-		Stack<Filter<List<String>>> predicateStack = new Stack<>();
+	public static TagFilter extractGrafanaFilter(JsonObject element) {
+		Stack<TagFilter> predicateStack = new Stack<>();
 		JsonArray array = element.get("filters").getAsJsonArray();
 		for (int i = 0; i < array.size(); i++) {
 			JsonObject obj = array.get(i).getAsJsonObject();
@@ -184,13 +179,13 @@ public class GrafanaUtils {
 					// error
 					System.err.println("Error empty stack");
 				} else {
-					Filter<List<String>> pop = predicateStack.pop();
+					TagFilter pop = predicateStack.pop();
 					if (val.equalsIgnoreCase("and")) {
-						AndFilter<List<String>> andFilter = new AndFilter<>();
+						ComplexTagFilter andFilter = new ComplexTagFilter(ComplexFilterType.AND);
 						andFilter.addFilter(pop);
 						predicateStack.push(andFilter);
 					} else if (val.equalsIgnoreCase("or")) {
-						OrFilter<List<String>> orFilter = new OrFilter<>();
+						ComplexTagFilter orFilter = new ComplexTagFilter(ComplexFilterType.OR);
 						orFilter.addFilter(pop);
 						predicateStack.push(orFilter);
 					} else {
@@ -199,22 +194,21 @@ public class GrafanaUtils {
 					}
 				}
 			} else {
-				filterElements.add(val);
-				ContainsFilter<String, List<String>> filter = new ContainsFilter<String, List<String>>(val);
+				SimpleTagFilter filter = MiscUtils.buildSimpleFilter(val);
 				if (predicateStack.isEmpty()) {
 					predicateStack.push(filter);
 				} else {
-					if (predicateStack.peek() instanceof ContainsFilter) {
+					if (predicateStack.peek() instanceof SimpleTagFilter) {
 						// error
 						System.err.println("Stack contains bad filter");
 					} else {
-						((ComplexFilter<List<String>>) predicateStack.peek()).addFilter(filter);
+						((ComplexTagFilter) predicateStack.peek()).addFilter(filter);
 					}
 				}
 			}
 		}
 		if (predicateStack.isEmpty()) {
-			return new AnyFilter<>();
+			return null;
 		} else {
 			return predicateStack.pop();
 		}

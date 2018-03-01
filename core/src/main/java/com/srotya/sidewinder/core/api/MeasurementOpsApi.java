@@ -18,7 +18,6 @@ package com.srotya.sidewinder.core.api;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
@@ -162,7 +161,7 @@ public class MeasurementOpsApi {
 		Gson gson = new Gson();
 		try {
 			List<Series> output = engine.queryDataPoints(dbName, measurementName, valueField, startTime,
-					endTime, null, null, null, null);
+					endTime, null, null, null);
 			return gson.toJson(output);
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
@@ -233,7 +232,7 @@ public class MeasurementOpsApi {
 				endTs = sdf.parse(endTime).getTime();
 			}
 			List<Series> points = engine.queryDataPoints(dbName, measurementName, valueFieldName, startTs,
-					endTs, Arrays.asList(""), null);
+					endTs, null);
 			List<Number[]> response = new ArrayList<>();
 			for (Series entry : points) {
 				for (DataPoint dataPoint : entry.getDataPoints()) {

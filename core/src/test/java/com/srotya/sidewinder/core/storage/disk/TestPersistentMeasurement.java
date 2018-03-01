@@ -37,7 +37,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.filters.AnyFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -101,7 +100,7 @@ public class TestPersistentMeasurement {
 			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
 		}
 		List<Series> resultMap = new ArrayList<>();
-		m.queryDataPoints("value.*$", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, resultMap);
+		m.queryDataPoints("value.*$", ts, ts + 1000 * LIMIT, null, null, resultMap);
 		assertEquals(2, resultMap.size());
 		for (Series s : resultMap) {
 			for (int i = 0; i < s.getDataPoints().size(); i++) {
@@ -150,7 +149,7 @@ public class TestPersistentMeasurement {
 		m = new PersistentMeasurement();
 		m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		List<Series> resultMap = new ArrayList<>();
-		m.queryDataPoints("value", ts, ts + 1000 * LIMIT, tags, new AnyFilter<>(), null, resultMap);
+		m.queryDataPoints("value", ts, ts + 1000 * LIMIT, null, null, resultMap);
 		Iterator<Series> iterator = resultMap.iterator();
 		assertEquals(LIMIT, iterator.next().getDataPoints().size());
 		m.close();
@@ -177,7 +176,7 @@ public class TestPersistentMeasurement {
 		m = new PersistentMeasurement();
 		m.configure(map, null, DBNAME, "m1", "target/db290/index", "target/db290/data", metadata, bgTaskPool);
 		List<Series> resultMap = new ArrayList<>();
-		m.queryDataPoints("value.*", ts, ts + 1000, tags, new AnyFilter<>(), null, resultMap);
+		m.queryDataPoints("value.*", ts, ts + 1000, null, null, resultMap);
 		assertEquals(LIMIT, resultMap.size());
 		m.close();
 	}
@@ -380,7 +379,7 @@ public class TestPersistentMeasurement {
 			assertEquals(i, dp.getLongValue());
 		}
 		List<Series> resultMap = new ArrayList<>();
-		m.queryDataPoints("vf1", t, t + 1000 * 100, Arrays.asList("t=1", "t=2"), new AnyFilter<>(), null, resultMap);
+		m.queryDataPoints("vf1", t, t + 1000 * 100, null, null, resultMap);
 		assertEquals(1, resultMap.size());
 		Series next = resultMap.iterator().next();
 		for (int i = 0; i < next.getDataPoints().size(); i++) {

@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -31,6 +32,9 @@ import java.util.concurrent.TimeUnit;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.SimpleTagFilter;
+import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -69,6 +73,67 @@ public class TestMappedTagIndex {
 			assertEquals(String.valueOf(i + 1), index.getTagValueMapping(index.mapTagValue(String.valueOf((i + 1)))));
 			// assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
 		}
+	}
+
+	@Test
+	public void testDiskTagIndexFilterEvaluation() throws IOException, InterruptedException {
+		MiscUtils.delete(new File("target/i7"));
+		String indexDir = "target/i7";
+		new File(indexDir).mkdirs();
+		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "s7");
+		for (int i = 0; i < 10_000; i++) {
+			index.index("key", String.valueOf(i), String.valueOf(i));
+		}
+
+		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9");
+		Set<String> keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1110, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "9");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1111, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "10");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(2, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "1000");
+		keys = index.searchRowKeysForTagFilter(filter);
+		// keys.stream().forEach(System.out::println);
+		assertEquals(5, keys.size());
+	}
+
+	@Test
+	public void testDiskTagIndexFilterEvaluationNormalized() throws IOException, InterruptedException {
+		MiscUtils.delete(new File("target/i8"));
+		String indexDir = "target/i8";
+		new File(indexDir).mkdirs();
+		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "s8");
+		for (int i = 0; i < 10_000; i++) {
+			String value = String.format("%04d", i);
+			index.index("key", value, String.valueOf(i));
+		}
+
+		TagFilter filter = new SimpleTagFilter(FilterType.EQUALS, "key", "9990");
+		Set<String> keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9990");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(9, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "9990");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(10, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "0010");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(10, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "0010");
+		keys = index.searchRowKeysForTagFilter(filter);
+		// keys.stream().forEach(System.out::println);
+		assertEquals(11, keys.size());
 	}
 
 	// @Test

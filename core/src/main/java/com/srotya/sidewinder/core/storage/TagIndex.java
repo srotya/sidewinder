@@ -17,6 +17,9 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Set;
+
+import com.srotya.sidewinder.core.filters.TagFilter;
 
 /**
  * @author ambud
@@ -54,6 +57,8 @@ public interface TagIndex {
 	
 	public int getSize();
 
-	Collection<String> searchRowKeysForTag(String tagKey, String tagValue);
+	public Collection<String> searchRowKeysForTag(String tagKey, String tagValue);
+
+	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree);
 
 }

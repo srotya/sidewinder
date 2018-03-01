@@ -72,7 +72,7 @@ public class TestGRPWriterServiceImpl {
 		}
 	}
 
-//	@Test
+	// @Test
 	public void testSingleDataPointWrites() throws Exception {
 		WriterServiceBlockingStub client = WriterServiceGrpc.newBlockingStub(channel);
 		long sts = 1497720452566L;
@@ -82,14 +82,13 @@ public class TestGRPWriterServiceImpl {
 		assertTrue(engine.checkIfExists("test"));
 		assertTrue(engine.checkIfExists("test", "cpu"));
 		assertEquals("host=1", engine.getTagsForMeasurement("test", "cpu").iterator().next());
-		List<Series> result = engine.queryDataPoints("test", "cpu", "usage", sts, sts + 1,
-				Arrays.asList("host1"), null);
+		List<Series> result = engine.queryDataPoints("test", "cpu", "usage", sts, sts + 1, null);
 		assertEquals(1, result.size());
 		assertEquals(1, result.iterator().next().getDataPoints().size());
 		assertEquals(1L, result.iterator().next().getDataPoints().iterator().next().getLongValue());
 	}
 
-//	@Test
+	// @Test
 	public void testMultiDataPointWrites() throws Exception {
 		WriterServiceBlockingStub client = WriterServiceGrpc.newBlockingStub(channel);
 		long sts = 1497720452566L;
@@ -105,8 +104,7 @@ public class TestGRPWriterServiceImpl {
 		assertTrue(engine.checkIfExists(dbName));
 		assertTrue(engine.checkIfExists(dbName, measurementName));
 		assertEquals("host=1", engine.getTagsForMeasurement(dbName, measurementName).iterator().next());
-		List<Series> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1,
-				Arrays.asList("host=1"), null);
+		List<Series> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1, null);
 		assertEquals(1, result.size());
 		assertEquals(2, result.iterator().next().getDataPoints().size());
 		assertEquals(1L, result.iterator().next().getDataPoints().iterator().next().getLongValue());
@@ -136,8 +134,7 @@ public class TestGRPWriterServiceImpl {
 		assertTrue(engine.checkIfExists(dbName));
 		assertTrue(engine.checkIfExists(dbName, measurementName));
 		assertEquals("host=1", engine.getTagsForMeasurement(dbName, measurementName).iterator().next());
-		List<Series> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1,
-				Arrays.asList("host=1"), null);
+		List<Series> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1, null);
 		assertEquals(1, result.size());
 		assertEquals(1, result.iterator().next().getDataPoints().size());
 		assertEquals(1L, result.iterator().next().getDataPoints().iterator().next().getLongValue());

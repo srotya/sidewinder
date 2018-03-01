@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright 2018 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,6 @@
  */
 package com.srotya.sidewinder.core.filters;
 
-/**
- * @author ambud
- *
- * @param <E>
- */
-public class AnyFilter<E> implements Filter<E> {
-
-	@Override
-	public boolean retain(E value) {
-		return true;
-	}
+public interface TagFilter {
 
 }
