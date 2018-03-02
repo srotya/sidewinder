@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.SortedSet;
@@ -42,17 +43,7 @@ public class SetIndex implements TagIndex {
 	}
 
 	@Override
-	public String mapTagKey(String tag) throws IOException {
-		return tag;
-	}
-
-	@Override
-	public String getTagKeyMapping(String hexString) {
-		return hexString;
-	}
-
-	@Override
-	public Set<String> getTags() {
+	public Set<String> getTagKeys() {
 		return new HashSet<>(rowKeyIndex);
 	}
 
@@ -62,20 +53,20 @@ public class SetIndex implements TagIndex {
 		rowKeyIndex.add(rowKey);
 	}
 
-	@Override
-	public Set<String> searchRowKeysForTag(String tagKey, String tagValue) {
-		Set<String> result = new HashSet<>();
-		String tag = tagKey + SEPERATOR + tagValue;
-		SortedSet<String> tailSet = rowKeyIndex.tailSet(tag);
-		for (String entry : tailSet) {
-			if (entry.startsWith(tag + SEPERATOR)) {
-				result.add(entry.split(SEPERATOR)[2]);
-			} else {
-				break;
-			}
-		}
-		return result;
-	}
+	// @Override
+	// public Set<String> searchRowKeysForTag(String tagKey, String tagValue) {
+	// Set<String> result = new HashSet<>();
+	// String tag = tagKey + SEPERATOR + tagValue;
+	// SortedSet<String> tailSet = rowKeyIndex.tailSet(tag);
+	// for (String entry : tailSet) {
+	// if (entry.startsWith(tag + SEPERATOR)) {
+	// result.add(entry.split(SEPERATOR)[2]);
+	// } else {
+	// break;
+	// }
+	// }
+	// return result;
+	// }
 
 	@Override
 	public void close() throws IOException {
@@ -93,17 +84,13 @@ public class SetIndex implements TagIndex {
 	}
 
 	@Override
-	public String mapTagValue(String tagValue) throws IOException {
-		return tagValue;
-	}
-
-	@Override
-	public String getTagValueMapping(String tagValue) throws IOException {
-		return tagValue;
-	}
-
-	@Override
 	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Collection<String> getTagValues(String tagKey) {
 		// TODO Auto-generated method stub
 		return null;
 	}

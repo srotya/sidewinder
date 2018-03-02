@@ -38,9 +38,8 @@ public class ByzantineWriter implements Writer {
 	private Lock read;
 	private Lock write;
 	private long prevTs;
-	private long delta;
+	private long tsDelta;
 	private int count;
-	private long lastTs;
 	private ByteBuffer buf;
 	private long prevValue;
 	private boolean readOnly;
@@ -94,7 +93,7 @@ public class ByzantineWriter implements Writer {
 		for (int i = 0; i < count; i++) {
 			reader.readPair();
 		}
-		delta = reader.getDelta();
+		tsDelta = reader.getDelta();
 		prevTs = reader.getPrevTs();
 		prevValue = reader.getPrevValue();
 	}
@@ -131,7 +130,6 @@ public class ByzantineWriter implements Writer {
 		if (readOnly) {
 			throw WRITE_REJECT_EXCEPTION;
 		}
-		lastTs = timestamp;
 		checkAndExpandBuffer();
 		compressAndWriteTimestamp(buf, timestamp);
 		compressAndWriteValue(buf, value);
@@ -169,7 +167,7 @@ public class ByzantineWriter implements Writer {
 	private void compressAndWriteTimestamp(ByteBuffer tBuf, long timestamp) {
 		long ts = timestamp;
 		long newDelta = (ts - prevTs);
-		int deltaOfDelta = (int) (newDelta - delta);
+		int deltaOfDelta = (int) (newDelta - tsDelta);
 		if (deltaOfDelta == 0) {
 			tBuf.put((byte) 0);
 		} else if (deltaOfDelta >= Byte.MIN_VALUE && deltaOfDelta <= Byte.MAX_VALUE) {
@@ -183,7 +181,7 @@ public class ByzantineWriter implements Writer {
 			tBuf.putInt(deltaOfDelta);
 		}
 		prevTs = ts;
-		delta = newDelta;
+		tsDelta = newDelta;
 	}
 
 	@Override
@@ -267,7 +265,7 @@ public class ByzantineWriter implements Writer {
 	 * @return the delta
 	 */
 	protected long getDelta() {
-		return delta;
+		return tsDelta;
 	}
 
 	/**
@@ -275,13 +273,6 @@ public class ByzantineWriter implements Writer {
 	 */
 	public int getCount() {
 		return count;
-	}
-
-	/**
-	 * @return the lastTs
-	 */
-	protected long getLastTs() {
-		return lastTs;
 	}
 
 	/**

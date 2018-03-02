@@ -35,6 +35,7 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
@@ -230,6 +231,10 @@ public class TimeSeries {
 			logger.fine(
 					"Loaded bucketmap:" + seriesId + "\t" + tsBucket + " bufferid:" + entry.getValue().getBufferId());
 		}
+		sortBucketMap();
+	}
+
+	private void sortBucketMap() throws IOException {
 		for (Entry<String, List<Writer>> entry : bucketMap.entrySet()) {
 			Collections.sort(entry.getValue(), new Comparator<Writer>() {
 
@@ -267,8 +272,8 @@ public class TimeSeries {
 	 * @return list of datapoints
 	 * @throws IOException
 	 */
-	public List<DataPoint> queryDataPoints(String appendFieldValueName, List<String> appendTags, long startTime,
-			long endTime, Predicate valuePredicate) throws IOException {
+	public List<DataPoint> queryDataPoints(String appendFieldValueName, long startTime, long endTime,
+			Predicate valuePredicate) throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
 			startTime = startTime ^ endTime;
@@ -299,16 +304,16 @@ public class TimeSeries {
 		if (startTsBucket.compareTo(bucketMap.firstKey()) < 0) {
 			startTsBucket = bucketMap.firstKey();
 		}
-		if (endTsBucket.compareTo(bucketMap.lastKey()) > 0) {
-			endTsBucket = bucketMap.lastKey();
-		} else {
-			endTsBucket = endTsBucket + Character.MAX_VALUE;
-		}
 		SortedMap<String, List<Writer>> series = null;
-		if (bucketMap.size() > 1) {
-			series = bucketMap.subMap(startTsBucket, endTsBucket);
-		} else {
+		if (bucketMap.size() <= 1) {
 			series = bucketMap;
+		} else {
+			if (endTsBucket.compareTo(bucketMap.lastKey()) > 0) {
+				series = bucketMap.tailMap(startTsBucket);
+			} else {
+				endTsBucket = endTsBucket + Character.MAX_VALUE;
+				series = bucketMap.subMap(startTsBucket, endTsBucket);
+			}
 		}
 		return series;
 	}
@@ -370,7 +375,7 @@ public class TimeSeries {
 	 * @return list of readers
 	 * @throws IOException
 	 */
-	public List<Reader> queryReader(String appendFieldValueName, List<String> appendTags, long startTime, long endTime,
+	public List<Reader> queryReader(String appendFieldValueName, List<Tag> appendTags, long startTime, long endTime,
 			Predicate valuePredicate) throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
@@ -380,11 +385,7 @@ public class TimeSeries {
 		}
 		List<Reader> readers = new ArrayList<>();
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
-		int tsStartBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;
-		String startTsBucket = Integer.toHexString(tsStartBucket);
-		int tsEndBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
-		String endTsBucket = Integer.toHexString(tsEndBucket);
-		SortedMap<String, List<Writer>> series = bucketMap.subMap(startTsBucket, endTsBucket + Character.MAX_VALUE);
+		SortedMap<String, List<Writer>> series = correctTimeRangeScan(startTime, endTime);
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
 				readers.add(getReader(writer, timeRangePredicate, valuePredicate));

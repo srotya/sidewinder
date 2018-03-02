@@ -81,7 +81,7 @@ public class TestGRPWriterServiceImpl {
 		client.writeSingleDataPoint(SingleData.newBuilder().setMessageId(point.getTimestamp()).setPoint(point).build());
 		assertTrue(engine.checkIfExists("test"));
 		assertTrue(engine.checkIfExists("test", "cpu"));
-		assertEquals("host=1", engine.getTagsForMeasurement("test", "cpu").iterator().next());
+		assertEquals("host=1", engine.getTagKeysForMeasurement("test", "cpu").iterator().next());
 		List<Series> result = engine.queryDataPoints("test", "cpu", "usage", sts, sts + 1, null);
 		assertEquals(1, result.size());
 		assertEquals(1, result.iterator().next().getDataPoints().size());
@@ -103,7 +103,7 @@ public class TestGRPWriterServiceImpl {
 		client.writeBatchDataPoint(BatchData.newBuilder().setMessageId(sts).addAllPoints(points).build());
 		assertTrue(engine.checkIfExists(dbName));
 		assertTrue(engine.checkIfExists(dbName, measurementName));
-		assertEquals("host=1", engine.getTagsForMeasurement(dbName, measurementName).iterator().next());
+		assertEquals("host=1", engine.getTagKeysForMeasurement(dbName, measurementName).iterator().next());
 		List<Series> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1, null);
 		assertEquals(1, result.size());
 		assertEquals(2, result.iterator().next().getDataPoints().size());
@@ -133,7 +133,7 @@ public class TestGRPWriterServiceImpl {
 		// second data point should have been rejected
 		assertTrue(engine.checkIfExists(dbName));
 		assertTrue(engine.checkIfExists(dbName, measurementName));
-		assertEquals("host=1", engine.getTagsForMeasurement(dbName, measurementName).iterator().next());
+		assertEquals("host", engine.getTagKeysForMeasurement(dbName, measurementName).iterator().next());
 		List<Series> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1, null);
 		assertEquals(1, result.size());
 		assertEquals(1, result.iterator().next().getDataPoints().size());

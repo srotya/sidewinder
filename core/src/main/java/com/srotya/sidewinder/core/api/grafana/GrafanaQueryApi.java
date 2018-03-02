@@ -132,7 +132,7 @@ public class GrafanaQueryApi {
 				if (query.has("target")) {
 					String target = query.get("target").getAsString();
 					if (target.startsWith("measurement:")) {
-						return engine.getTagsForMeasurement(dbName, target.replace("measurement:", ""));
+						return engine.getTagKeysForMeasurement(dbName, target.replace("measurement:", ""));
 					} else if (target.contains("field:")) {
 						return engine.getFieldsForMeasurement(dbName, target.replace("field:", ""));
 					} else {
@@ -162,7 +162,7 @@ public class GrafanaQueryApi {
 			Gson gson = new Gson();
 			JsonObject measurement = gson.fromJson(queryString, JsonObject.class);
 			if (measurement.has("target")) {
-				return engine.getTagsForMeasurement(dbName, measurement.get("target").getAsString());
+				return engine.getTagKeysForMeasurement(dbName, measurement.get("target").getAsString());
 			} else {
 				throw new ItemNotFoundException("Bad request");
 			}

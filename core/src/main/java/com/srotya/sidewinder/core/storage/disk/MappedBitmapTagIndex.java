@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -55,7 +54,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 
 	private static final Logger logger = Logger.getLogger(MappedBitmapTagIndex.class.getName());
 	private static final int INCREMENT_SIZE = 1024 * 1024 * 1;
-	private Map<String, SortedMap<String, MutableRoaringBitmap>> rowkeyIndex;
+	private Map<String, SortedMap<String, MutableRoaringBitmap>> rowKeyIndex;
 	private String indexPath;
 	private File revIndex;
 	private Counter metricIndexRow;
@@ -68,7 +67,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 			throws IOException {
 		this.measurement = measurement;
 		this.indexPath = indexDir + "/" + measurementName;
-		rowkeyIndex = new ConcurrentHashMap<>();
+		rowKeyIndex = new ConcurrentHashMap<>();
 		revIndex = new File(indexPath + ".rev");
 		MetricsRegistryService instance = MetricsRegistryService.getInstance();
 		if (instance != null) {
@@ -100,10 +99,10 @@ public class MappedBitmapTagIndex implements TagIndex {
 				String[] split = r.split(" ");
 				String tagKey = split[0];
 				String tagValue = split[1];
-				SortedMap<String, MutableRoaringBitmap> map = rowkeyIndex.get(tagKey);
+				SortedMap<String, MutableRoaringBitmap> map = rowKeyIndex.get(tagKey);
 				if (map == null) {
 					map = new ConcurrentSkipListMap<>();
-					rowkeyIndex.put(tagKey, map);
+					rowKeyIndex.put(tagKey, map);
 				}
 				MutableRoaringBitmap set = map.get(tagValue);
 				if (set == null) {
@@ -117,20 +116,10 @@ public class MappedBitmapTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String mapTagKey(String tagKey) throws IOException {
-		return tagKey;
-	}
-
-	@Override
-	public String getTagKeyMapping(String hexString) {
-		return hexString;
-	}
-
-	@Override
-	public Set<String> getTags() {
+	public Set<String> getTagKeys() {
 		Set<String> set = new HashSet<>();
-		for (String key : rowkeyIndex.keySet()) {
-			Map<String, MutableRoaringBitmap> map = rowkeyIndex.get(key);
+		for (String key : rowKeyIndex.keySet()) {
+			Map<String, MutableRoaringBitmap> map = rowKeyIndex.get(key);
 			for (String value : map.keySet()) {
 				set.add(key + Measurement.TAG_KV_SEPARATOR + value);
 			}
@@ -138,18 +127,19 @@ public class MappedBitmapTagIndex implements TagIndex {
 		return set;
 	}
 
-	@Override
-	public Collection<String> searchRowKeysForTag(String tagKey, String tagValue) {
-		List<String> rowKeys = new ArrayList<>();
-		Map<String, MutableRoaringBitmap> map = rowkeyIndex.get(tagKey);
-		if (map != null) {
-			MutableRoaringBitmap value = map.get(tagValue);
-			if (value != null) {
-				bitmapToRowKeys(rowKeys, value);
-			}
-		}
-		return rowKeys;
-	}
+	// @Override
+	// public Collection<String> searchRowKeysForTag(String tagKey, String tagValue)
+	// {
+	// List<String> rowKeys = new ArrayList<>();
+	// Map<String, MutableRoaringBitmap> map = rowkeyIndex.get(tagKey);
+	// if (map != null) {
+	// MutableRoaringBitmap value = map.get(tagValue);
+	// if (value != null) {
+	// bitmapToRowKeys(rowKeys, value);
+	// }
+	// }
+	// return rowKeys;
+	// }
 
 	private void bitmapToRowKeys(Collection<String> rowKeys, MutableRoaringBitmap value) {
 		List<SeriesFieldMap> ref = measurement.getSeriesListAsList();
@@ -163,7 +153,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 		// either it's a simple tag filter or a complex tag filter
 		if (filterTree instanceof SimpleTagFilter) {
 			SimpleTagFilter simpleFilter = (SimpleTagFilter) filterTree;
-			SortedMap<String, MutableRoaringBitmap> map = rowkeyIndex.get(simpleFilter.getTagKey());
+			SortedMap<String, MutableRoaringBitmap> map = rowKeyIndex.get(simpleFilter.getTagKey());
 			if (map == null) {
 				return null;
 			}
@@ -250,17 +240,17 @@ public class MappedBitmapTagIndex implements TagIndex {
 	}
 
 	public MutableRoaringBitmap getBitMapForTag(String tagKey, String tagValue) {
-		return rowkeyIndex.get(tagKey).get(tagValue);
+		return rowKeyIndex.get(tagKey).get(tagValue);
 	}
 
 	@Override
 	public void index(String tagKey, String tagValue, int rowIndex) throws IOException {
-		SortedMap<String, MutableRoaringBitmap> tagValueMap = rowkeyIndex.get(tagKey);
+		SortedMap<String, MutableRoaringBitmap> tagValueMap = rowKeyIndex.get(tagKey);
 		if (tagValueMap == null) {
-			synchronized (rowkeyIndex) {
-				if ((tagValueMap = rowkeyIndex.get(tagKey)) == null) {
+			synchronized (rowKeyIndex) {
+				if ((tagValueMap = rowKeyIndex.get(tagKey)) == null) {
 					tagValueMap = new ConcurrentSkipListMap<>();
-					rowkeyIndex.put(tagKey, tagValueMap);
+					rowKeyIndex.put(tagKey, tagValueMap);
 				}
 			}
 		}
@@ -281,7 +271,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 				if (enableMetrics) {
 					metricIndexRow.inc();
 				}
-				synchronized (rowkeyIndex) {
+				synchronized (rowKeyIndex) {
 					byte[] str = (tagKey + " " + tagValue + " " + rowIndex).getBytes();
 					if (rev.remaining() < str.length + Integer.BYTES) {
 						// resize buffer
@@ -300,22 +290,12 @@ public class MappedBitmapTagIndex implements TagIndex {
 	@Override
 	public int getSize() {
 		int total = 0;
-		for (Entry<String, SortedMap<String, MutableRoaringBitmap>> entry : rowkeyIndex.entrySet()) {
+		for (Entry<String, SortedMap<String, MutableRoaringBitmap>> entry : rowKeyIndex.entrySet()) {
 			for (Entry<String, MutableRoaringBitmap> entry2 : entry.getValue().entrySet()) {
 				total += entry2.getValue().getSizeInBytes() + entry.getKey().length();
 			}
 		}
 		return total;
-	}
-
-	@Override
-	public String mapTagValue(String tagValue) throws IOException {
-		return tagValue;
-	}
-
-	@Override
-	public String getTagValueMapping(String tagValue) throws IOException {
-		return tagValue;
 	}
 
 	@Override
@@ -329,6 +309,16 @@ public class MappedBitmapTagIndex implements TagIndex {
 		MutableRoaringBitmap evalFilterForTags = evalFilterForTags(tagFilterTree);
 		bitmapToRowKeys(rowKeys, evalFilterForTags);
 		return rowKeys;
+	}
+
+	@Override
+	public Collection<String> getTagValues(String tagKey) {
+		SortedMap<String, MutableRoaringBitmap> map = rowKeyIndex.get(tagKey);
+		if (map != null) {
+			return map.keySet();
+		} else {
+			return null;
+		}
 	}
 
 }

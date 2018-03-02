@@ -33,6 +33,7 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
@@ -94,11 +95,11 @@ public interface Measurement {
 
 	public default String encodeTagsToString(TagIndex tagIndex, List<String> tags) throws IOException {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);
-		builder.append(tagIndex.mapTagKey(tags.get(0)));
+		builder.append(tags.get(0));
 		for (int i = 1; i < tags.size(); i++) {
 			String tag = tags.get(i);
 			builder.append(TAG_SEPARATOR);
-			builder.append(tagIndex.mapTagKey(tag));
+			builder.append(tag);
 		}
 		return builder.toString();
 	}
@@ -107,24 +108,28 @@ public interface Measurement {
 		return encodeTagsToString(index, tags);
 	}
 
-	public static List<String> decodeStringToTags(TagIndex tagLookupTable, String tagString) throws IOException {
-		List<String> tagList = new ArrayList<>();
+	public static List<Tag> decodeStringToTags(TagIndex tagIndex, String tagString) throws IOException {
+		List<Tag> tagList = new ArrayList<>();
 		if (tagString == null || tagString.isEmpty()) {
 			return tagList;
 		}
 		for (String tag : tagString.split("\\" + TAG_SEPARATOR)) {
-			tagList.add(tagLookupTable.getTagKeyMapping(tag));
+			String[] split = tag.split(TAG_KV_SEPARATOR);
+			if (split.length != 2) {
+				throw SEARCH_REJECT;
+			}
+			tagList.add(new Tag(split[0], split[1]));
 		}
 		return tagList;
 	}
 
 	public String getMeasurementName();
 
-	public default List<List<String>> getTagsForMeasurement() throws Exception {
+	public default List<List<Tag>> getTagsForMeasurement() throws Exception {
 		Set<String> keySet = getSeriesKeys();
-		List<List<String>> tagList = new ArrayList<>();
+		List<List<Tag>> tagList = new ArrayList<>();
 		for (String entry : keySet) {
-			List<String> tags = decodeStringToTags(getTagIndex(), entry);
+			List<Tag> tags = decodeStringToTags(getTagIndex(), entry);
 			tagList.add(tags);
 		}
 		return tagList;
@@ -220,26 +225,28 @@ public interface Measurement {
 		return results;
 	}
 
-	public default Set<String> getSeriesIdsWhereTags(List<String> tags) throws IOException {
-		Set<String> series = new HashSet<>();
-		if (tags != null) {
-			for (String tag : tags) {
-				String[] split = tag.split(TAG_KV_SEPARATOR);
-				if (split.length != 2) {
-					throw SEARCH_REJECT;
-				}
-				String tagKey = split[0];
-				String tagValue = split[1];
-				Collection<String> keys = getTagIndex().searchRowKeysForTag(tagKey, tagValue);
-				if (keys != null) {
-					series.addAll(keys);
-				}
-			}
-		} else {
-			series.addAll(getSeriesKeys());
-		}
-		return series;
-	}
+	// public default Set<String> getSeriesIdsWhereTags(List<String> tags) throws
+	// IOException {
+	// Set<String> series = new HashSet<>();
+	// if (tags != null) {
+	// for (String tag : tags) {
+	// String[] split = tag.split(TAG_KV_SEPARATOR);
+	// if (split.length != 2) {
+	// throw SEARCH_REJECT;
+	// }
+	// String tagKey = split[0];
+	// String tagValue = split[1];
+	// Collection<String> keys = getTagIndex().searchRowKeysForTag(tagKey,
+	// tagValue);
+	// if (keys != null) {
+	// series.addAll(keys);
+	// }
+	// }
+	// } else {
+	// series.addAll(getSeriesKeys());
+	// }
+	// return series;
+	// }
 
 	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime, TagFilter tagFilter,
 			Predicate valuePredicate, List<Series> resultMap) throws IOException {
@@ -293,14 +300,14 @@ public interface Measurement {
 	public default void populateDataPoints(List<String> valueFieldNames, String rowKey, long startTime, long endTime,
 			Predicate valuePredicate, Pattern p, List<Series> resultMap) throws IOException {
 		List<DataPoint> points = null;
-		List<String> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
+		List<Tag> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
 		for (String valueFieldName : valueFieldNames) {
 			TimeSeries value = getSeriesFromKey(rowKey).get(valueFieldName);
 			if (value == null) {
 				getLogger().severe("Invalid time series value " + rowKey + "\t" + "\t" + "\n\n");
 				return;
 			}
-			points = value.queryDataPoints(valueFieldName, seriesTags, startTime, endTime, valuePredicate);
+			points = value.queryDataPoints(valueFieldName, startTime, endTime, valuePredicate);
 			if (points != null && points.size() > 0) {
 				Series seriesQueryOutput = new Series(getMeasurementName(), valueFieldName, seriesTags);
 				seriesQueryOutput.setFp(value.isFp());
@@ -318,15 +325,30 @@ public interface Measurement {
 			if (series == null) {
 				continue;
 			}
-			List<String> seriesTags = decodeStringToTags(getTagIndex(), entry);
+			List<Tag> seriesTags = decodeStringToTags(getTagIndex(), entry);
 			for (Reader reader : series.queryReader(valueFieldName, seriesTags, startTime, endTime, null)) {
 				readers.put(reader, series.isFp());
 			}
 		}
 	}
 
+	public default void queryReadersWithMap(String valueFieldName, long startTime, long endTime,
+			LinkedHashMap<Reader, List<Tag>> readers) throws IOException {
+		for (String entry : getSeriesKeys()) {
+			SeriesFieldMap m = getSeriesFromKey(entry);
+			TimeSeries series = m.get(valueFieldName);
+			if (series == null) {
+				continue;
+			}
+			List<Tag> seriesTags = decodeStringToTags(getTagIndex(), entry);
+			for (Reader reader : series.queryReader(valueFieldName, seriesTags, startTime, endTime, null)) {
+				readers.put(reader, seriesTags);
+			}
+		}
+	}
+
 	public default Collection<String> getTagKeys() throws IOException {
-		return getTagIndex().getTags();
+		return getTagIndex().getTagKeys();
 	}
 
 	public default Collection<TimeSeries> getTimeSeries() {
@@ -355,5 +377,9 @@ public interface Measurement {
 	public String getDbName();
 
 	public Malloc getMalloc();
+
+	public default Collection<String> getTagValues(String tagKey) {
+		return getTagIndex().getTagValues(tagKey);
+	}
 
 }

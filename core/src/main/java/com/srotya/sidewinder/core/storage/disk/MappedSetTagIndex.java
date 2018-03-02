@@ -35,6 +35,7 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
 /**
@@ -54,8 +55,13 @@ public class MappedSetTagIndex implements TagIndex {
 	private boolean enableMetrics;
 	private RandomAccessFile revRaf;
 	private MappedByteBuffer rev;
+	private boolean indexMode;
+	private PersistentMeasurement m;
 
-	public MappedSetTagIndex(String indexDir, String measurementName) throws IOException {
+	public MappedSetTagIndex(String indexDir, String measurementName, boolean indexMode, PersistentMeasurement m)
+			throws IOException {
+		this.indexMode = indexMode;
+		this.m = m;
 		this.indexPath = indexDir + "/" + measurementName;
 		rowKeyIndex = new ConcurrentSkipListSet<>();
 		revIndex = new File(indexPath + ".rev");
@@ -92,17 +98,7 @@ public class MappedSetTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String mapTagKey(String tagKey) throws IOException {
-		return tagKey;
-	}
-
-	@Override
-	public String getTagKeyMapping(String hexString) {
-		return hexString;
-	}
-
-	@Override
-	public Set<String> getTags() {
+	public Set<String> getTagKeys() {
 		Set<String> tags = new HashSet<>();
 		for (String string : rowKeyIndex) {
 			String[] split = string.split(SEPERATOR);
@@ -134,20 +130,22 @@ public class MappedSetTagIndex implements TagIndex {
 		}
 	}
 
-	@Override
-	public Collection<String> searchRowKeysForTag(String tagKey, String tagValue) {
-		Set<String> result = new HashSet<>();
-		String tag = tagKey + SEPERATOR + tagValue;
-		SortedSet<String> tailSet = rowKeyIndex.subSet(tag, tag + Character.MAX_VALUE);
-		for (String entry : tailSet) {
-			if (entry.startsWith(tag + SEPERATOR)) {
-				result.add(entry.split(SEPERATOR)[1]);
-			} else {
-				break;
-			}
-		}
-		return result;
-	}
+	// @Override
+	// public Collection<String> searchRowKeysForTag(String tagKey, String tagValue)
+	// {
+	// Set<String> result = new HashSet<>();
+	// String tag = tagKey + SEPERATOR + tagValue;
+	// SortedSet<String> tailSet = rowKeyIndex.subSet(tag, tag +
+	// Character.MAX_VALUE);
+	// for (String entry : tailSet) {
+	// if (entry.startsWith(tag + SEPERATOR)) {
+	// result.add(entry.split(SEPERATOR)[1]);
+	// } else {
+	// break;
+	// }
+	// }
+	// return result;
+	// }
 
 	@Override
 	public void close() throws IOException {
@@ -157,7 +155,25 @@ public class MappedSetTagIndex implements TagIndex {
 
 	@Override
 	public void index(String tagKey, String tagValue, int rowIndex) throws IOException {
-		// do nothing
+		tagKey = new StringBuilder(tagKey.length() + 1 + tagValue.length() + 1 + 8).append(tagKey).append(SEPERATOR)
+				.append(tagValue).append(SEPERATOR).append(Integer.toHexString(rowIndex)).toString();
+		if (rowKeyIndex.add(tagKey)) {
+			if (enableMetrics) {
+				metricIndexRow.inc();
+			}
+			synchronized (rowKeyIndex) {
+				byte[] str = tagKey.getBytes();
+				if (rev.remaining() < str.length + Integer.BYTES) {
+					// resize buffer
+					int temp = rev.position();
+					rev = revRaf.getChannel().map(MapMode.READ_WRITE, 0, rev.capacity() + INCREMENT_SIZE);
+					rev.position(temp);
+				}
+				rev.putInt(str.length);
+				rev.put(str);
+				rev.putInt(0, rev.position());
+			}
+		}
 	}
 
 	@Override
@@ -170,18 +186,19 @@ public class MappedSetTagIndex implements TagIndex {
 	}
 
 	@Override
-	public String mapTagValue(String tagValue) throws IOException {
-		return tagValue;
-	}
-
-	@Override
-	public String getTagValueMapping(String tagValue) throws IOException {
-		return tagValue;
-	}
-
-	@Override
 	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
-		return evalFilterForTags(tagFilterTree);
+		Set<String> hexKeys = evalFilterForTags(tagFilterTree);
+		if (indexMode) {
+			Set<String> rowKeys = new HashSet<>();
+			List<SeriesFieldMap> list = m.getSeriesListAsList();
+			for (String val : hexKeys) {
+				String[] split = val.split(SEPERATOR);
+				rowKeys.add(list.get(Integer.parseInt(split[split.length - 1], 16)).getSeriesId());
+			}
+			return rowKeys;
+		} else {
+			return hexKeys;
+		}
 	}
 
 	public Set<String> evalFilterForTags(TagFilter filterTree) {
@@ -235,6 +252,16 @@ public class MappedSetTagIndex implements TagIndex {
 			return rowKeyIndex.headSet(key4 + Character.MAX_VALUE);
 		}
 		return null;
+	}
+
+	@Override
+	public Collection<String> getTagValues(String tagKey) {
+		Set<String> tagValues = new HashSet<>();
+		for (String string : rowKeyIndex.subSet(tagKey, tagKey + SEPERATOR)) {
+			String[] split = string.split(SEPERATOR);
+			tagValues.add(split[1]);
+		}
+		return tagValues;
 	}
 
 }

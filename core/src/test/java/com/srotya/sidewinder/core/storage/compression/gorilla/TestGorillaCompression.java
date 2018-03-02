@@ -29,6 +29,22 @@ import com.srotya.sidewinder.core.storage.compression.Reader;
 public class TestGorillaCompression {
 
 	@Test
+	public void testValueCompressor() throws IOException {
+		ByteBuffer buf = ByteBuffer.allocate(1024);
+		ByteBufferBitOutput out = new ByteBufferBitOutput(buf);
+		ValueCompressor c = new ValueCompressor(out);
+		for (int i = 0; i < 100; i++) {
+			c.compressValue(i);
+		}
+		out.flush();
+		buf.rewind();
+		ValueDecompressor d = new ValueDecompressor(new ByteBufferBitInput(buf));
+		for (int i = 0; i < 100; i++) {
+			assertEquals(i, d.nextValue());
+		}
+	}
+
+	@Test
 	public void testCompressUncompress() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
 		GorillaWriter writer = new GorillaWriter();

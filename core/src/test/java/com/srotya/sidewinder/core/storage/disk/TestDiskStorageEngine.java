@@ -129,7 +129,7 @@ public class TestDiskStorageEngine {
 		engine.configure(conf, bgTasks);
 		engine.getOrCreateTimeSeries("db1", "m1", "vf1", Arrays.asList("t=1"), 4096, false);
 		assertEquals(1, engine.getAllMeasurementsForDb("db1").size());
-		assertEquals(1, engine.getTagsForMeasurement("db1", "m1").size());
+		assertEquals(1, engine.getTagKeysForMeasurement("db1", "m1").size());
 		assertEquals(1, engine.getTagsForMeasurement("db1", "m1", "vf1").size());
 		try {
 			engine.getAllMeasurementsForDb("db2");
@@ -137,7 +137,7 @@ public class TestDiskStorageEngine {
 		} catch (ItemNotFoundException e) {
 		}
 		try {
-			engine.getTagsForMeasurement("db1", "m2");
+			engine.getTagKeysForMeasurement("db1", "m2");
 			fail("Exception must be thrown");
 		} catch (ItemNotFoundException e) {
 		}
@@ -672,19 +672,19 @@ public class TestDiskStorageEngine {
 			engine.writeDataPoint(MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName + "2",
 					Arrays.asList("p=" + String.valueOf(i), "k=" + String.valueOf(i + 12)), curr, 2 * i));
 		}
-		Set<String> tags = engine.getTagsForMeasurement(dbName, measurementName);
+		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
 		System.out.println("Tags:" + tags);
 		assertEquals(9, tags.size());
-		Set<String> series = engine.getSeriesIdsWhereTags(dbName, measurementName,
-				Arrays.asList("p=" + String.valueOf(1)));
-		assertEquals(2, series.size());
+		// Set<String> series = engine.getSeriesIdsWhereTags(dbName, measurementName,
+		// Arrays.asList("p=" + String.valueOf(1)));
+		// assertEquals(2, series.size());
 
 		TagFilter tagFilterTree = new ComplexTagFilter(ComplexFilterType.OR, Arrays.asList(
 				new SimpleTagFilter(FilterType.EQUALS, "p", "1"), new SimpleTagFilter(FilterType.EQUALS, "p", "2")));
-		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree);
+		Set<String> series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree);
 		assertEquals(4, series.size());
 
-		System.out.println(engine.getTagsForMeasurement(dbName, measurementName));
+		System.out.println(engine.getTagKeysForMeasurement(dbName, measurementName));
 		tagFilterTree = new ComplexTagFilter(ComplexFilterType.AND, Arrays.asList(
 				new SimpleTagFilter(FilterType.EQUALS, "p", "1"), new SimpleTagFilter(FilterType.EQUALS, "k", "8")));
 		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree);
@@ -736,19 +736,19 @@ public class TestDiskStorageEngine {
 				i++;
 			}
 		}
-		Set<String> tags = engine.getTagsForMeasurement(dbName, measurementName);
+		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
 		assertEquals(new HashSet<>(Arrays.asList(tag + "=1", tag + "=2", tag + "=3", tag + "=4")), tags);
 		Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
 		assertEquals(new HashSet<>(Arrays.asList(valueFieldName)), fieldsForMeasurement);
 
 		try {
-			engine.getTagsForMeasurement(dbName + "1", measurementName);
+			engine.getTagKeysForMeasurement(dbName + "1", measurementName);
 			fail("This measurement should not exist");
 		} catch (Exception e) {
 		}
 
 		try {
-			engine.getTagsForMeasurement(dbName, measurementName + "1");
+			engine.getTagKeysForMeasurement(dbName, measurementName + "1");
 			fail("This measurement should not exist");
 		} catch (Exception e) {
 		}
@@ -808,19 +808,19 @@ public class TestDiskStorageEngine {
 				i++;
 			}
 		}
-		Set<String> tags = engine.getTagsForMeasurement(dbName, measurementName);
+		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
 		assertEquals(new HashSet<>(Arrays.asList(tag)), tags);
 		Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
 		assertEquals(new HashSet<>(Arrays.asList(valueFieldName)), fieldsForMeasurement);
 
 		try {
-			engine.getTagsForMeasurement(dbName + "1", measurementName);
+			engine.getTagKeysForMeasurement(dbName + "1", measurementName);
 			fail("This measurement should not exist");
 		} catch (Exception e) {
 		}
 
 		try {
-			engine.getTagsForMeasurement(dbName, measurementName + "1");
+			engine.getTagKeysForMeasurement(dbName, measurementName + "1");
 			fail("This measurement should not exist");
 		} catch (Exception e) {
 		}

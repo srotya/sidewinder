@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.storage;
 
 import java.util.List;
 
+import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -27,19 +28,19 @@ public class Series implements Comparable<Series> {
 	private String measurementName;
 	private String valueFieldName;
 	private boolean isFp;
-	private List<String> tags;
+	private List<Tag> tags;
 	private List<DataPoint> dataPoints;
 
 	public Series() {
 	}
 
-	public Series(String measurementName, String valueFieldName, List<String> tags) {
+	public Series(String measurementName, String valueFieldName, List<Tag> tags) {
 		this.measurementName = measurementName;
 		this.valueFieldName = valueFieldName;
 		this.tags = tags;
 	}
 
-	public Series(String measurementName, String valueFieldName, List<String> tags,
+	public Series(String measurementName, String valueFieldName, List<Tag> tags,
 			List<DataPoint> dataPoints) {
 		this.measurementName = measurementName;
 		this.valueFieldName = valueFieldName;
@@ -53,7 +54,7 @@ public class Series implements Comparable<Series> {
 
 	@Override
 	public int hashCode() {
-		return (measurementName + "-" + valueFieldName + MiscUtils.tagToString(tags)).hashCode();
+		return (measurementName + "-" + valueFieldName + MiscUtils.tagsToString(tags)).hashCode();
 	}
 
 	/**
@@ -89,7 +90,7 @@ public class Series implements Comparable<Series> {
 	/**
 	 * @return the tags
 	 */
-	public List<String> getTags() {
+	public List<Tag> getTags() {
 		return tags;
 	}
 
@@ -97,7 +98,7 @@ public class Series implements Comparable<Series> {
 	 * @param tags
 	 *            the tags to set
 	 */
-	public void setTags(List<String> tags) {
+	public void setTags(List<Tag> tags) {
 		this.tags = tags;
 	}
 
@@ -138,7 +139,7 @@ public class Series implements Comparable<Series> {
 	 */
 	@Override
 	public String toString() {
-		return measurementName + "-" + valueFieldName + MiscUtils.tagToString(tags);
+		return measurementName + "-" + valueFieldName + MiscUtils.tagsToString(tags);
 	}
 
 	@Override

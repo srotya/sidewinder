@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
 import com.codahale.metrics.Counter;
+import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.predicates.Predicate;
@@ -71,6 +72,7 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_ON_START = "false";
 	public static final String COMPACTION_RATIO = "compaction.ratio";
 	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
+
 	/**
 	 * @param conf
 	 * @param bgTaskPool
@@ -151,8 +153,8 @@ public interface StorageEngine {
 	 * @throws IOException
 	 */
 	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, TagFilter tagFilter,
-			Predicate valuePredicate, Function function) throws IOException {
+			long startTime, long endTime, TagFilter tagFilter, Predicate valuePredicate, Function function)
+			throws IOException {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -169,16 +171,15 @@ public interface StorageEngine {
 	}
 
 	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, TagFilter tagFilter,
-			Predicate valuePredicate) throws IOException {
+			long startTime, long endTime, TagFilter tagFilter, Predicate valuePredicate) throws IOException {
 		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagFilter,
 				valuePredicate, null);
 	}
 
 	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
 			long startTime, long endTime, TagFilter tagFilter) throws IOException {
-		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagFilter,
-				null, null);
+		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagFilter, null,
+				null);
 	}
 
 	/**
@@ -248,7 +249,7 @@ public interface StorageEngine {
 	 * @return tags
 	 * @throws Exception
 	 */
-	public default Set<String> getTagsForMeasurement(String dbName, String measurementName) throws Exception {
+	public default Set<String> getTagKeysForMeasurement(String dbName, String measurementName) throws Exception {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -260,6 +261,19 @@ public interface StorageEngine {
 		return results;
 	}
 
+	public default Set<String> getTagValuesForMeasurement(String dbName, String measurementName, String tagKey)
+			throws Exception {
+		if (!checkIfExists(dbName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
+		Set<String> results = new HashSet<>();
+		for (String m : measurementsLike) {
+			results.addAll(getDatabaseMap().get(dbName).get(m).getTagValues(tagKey));
+		}
+		return results;
+	}
+
 	/**
 	 * @param dbName
 	 * @param measurementName
@@ -267,13 +281,13 @@ public interface StorageEngine {
 	 * @return tags for the supplied parameters
 	 * @throws Exception
 	 */
-	public default List<List<String>> getTagsForMeasurement(String dbName, String measurementName,
-			String valueFieldName) throws Exception {
+	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName, String valueFieldName)
+			throws Exception {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
-		List<List<String>> results = new ArrayList<>();
+		List<List<Tag>> results = new ArrayList<>();
 		for (String m : measurementsLike) {
 			results.addAll(getDatabaseMap().get(dbName).get(m).getTagsForMeasurement());
 		}
@@ -496,6 +510,17 @@ public interface StorageEngine {
 		return readers;
 	}
 
+	public default LinkedHashMap<Reader, List<Tag>> queryReadersWithMap(String dbName, String measurementName,
+			String valueFieldName, long startTime, long endTime) throws Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		LinkedHashMap<Reader, List<Tag>> readers = new LinkedHashMap<>();
+		getDatabaseMap().get(dbName).get(measurementName).queryReadersWithMap(valueFieldName, startTime, endTime,
+				readers);
+		return readers;
+	}
+
 	/**
 	 * Check if timeseries exists
 	 * 
@@ -547,16 +572,18 @@ public interface StorageEngine {
 
 	public Map<String, Map<String, Measurement>> getMeasurementMap();
 
-	public default Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags)
-			throws ItemNotFoundException, Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		return getDatabaseMap().get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
-	}
+	// public default Set<String> getSeriesIdsWhereTags(String dbName, String
+	// measurementName, List<String> tags)
+	// throws ItemNotFoundException, Exception {
+	// if (!checkIfExists(dbName, measurementName)) {
+	// throw NOT_FOUND_EXCEPTION;
+	// }
+	// return
+	// getDatabaseMap().get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
+	// }
 
-	public default Set<String> getTagFilteredRowKeys(String dbName, String measurementName,
-			TagFilter tagFilter) throws IOException {
+	public default Set<String> getTagFilteredRowKeys(String dbName, String measurementName, TagFilter tagFilter)
+			throws IOException {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}

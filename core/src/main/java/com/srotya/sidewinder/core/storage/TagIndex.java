@@ -26,20 +26,7 @@ import com.srotya.sidewinder.core.filters.TagFilter;
  */
 public interface TagIndex {
 	
-	/**
-	 * @param tagKey
-	 * @return uid
-	 * @throws IOException
-	 */
-	public String mapTagKey(String tagKey) throws IOException;
-	
-	public String mapTagValue(String tagValue) throws IOException;
-	
-	public String getTagKeyMapping(String tagkey) throws IOException;
-	
-	public String getTagValueMapping(String tagValue) throws IOException;
-	
-	public Collection<String> getTags() throws IOException;
+	public Collection<String> getTagKeys() throws IOException;
 	
 	/**
 	 * Indexes tag in the row key, creating an adjacency list
@@ -57,8 +44,9 @@ public interface TagIndex {
 	
 	public int getSize();
 
-	public Collection<String> searchRowKeysForTag(String tagKey, String tagValue);
 
 	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree);
+
+	public Collection<String> getTagValues(String tagKey);
 
 }

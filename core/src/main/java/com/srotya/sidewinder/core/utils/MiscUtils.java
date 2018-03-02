@@ -34,6 +34,7 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter;
 import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
+import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.functions.FunctionTable;
@@ -122,6 +123,15 @@ public class MiscUtils {
 			// if file, then delete it
 			return file.delete();
 		}
+	}
+
+	public static String tagsToString(List<Tag> tags) {
+		StringBuilder builder = new StringBuilder();
+		for (Tag tag : tags) {
+			builder.append("/");
+			builder.append(tag.getTagKey() + "=" + tag.getTagValue());
+		}
+		return builder.toString();
 	}
 
 	public static String tagToString(List<String> tags) {

@@ -37,6 +37,10 @@ public interface Writer {
 
 	public void addValue(long timestamp, double value) throws IOException;
 
+	// public void addValue(long timestamp, long[] value) throws IOException;
+
+	// public void addValue(long timestamp, double[] value) throws IOException;
+
 	public void write(DataPoint dp) throws IOException;
 
 	public void write(List<DataPoint> dp) throws IOException;
@@ -61,7 +65,7 @@ public interface Writer {
 	public int getCount();
 
 	public boolean isFull();
-	
+
 	public boolean isReadOnly();
 
 	public long getHeaderTimestamp();

@@ -48,6 +48,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.SidewinderConfig;
 import com.srotya.sidewinder.core.SidewinderServer;
+import com.srotya.sidewinder.core.filters.Tag;
 
 import io.dropwizard.testing.junit.DropwizardAppRule;
 
@@ -143,7 +144,7 @@ public class TestInMemoryByzantineDefaults {
 		response = TestUtils.makeRequest(post);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
-		assertEquals(4, ary.size());
+		assertEquals(2, ary.size());
 
 		String payload = "{\"panelId\":2,\"range\":{\"from\":\"%s\",\"to\":\"%s\",\"raw\":{\"from\":\"now-5m\",\"to\":\"now\"}},\"rangeRaw\":{\"from\":\"now-5m\",\"to\":\"now\"},\"interval\":\"200ms\",\"intervalMs\":200,\"targets\":[{\"target\":\"cpu\",\"filters\":[],\"aggregator\":{\"args\":[{\"index\":0,\"type\":\"int\",\"value\":\"20\"}],\"name\":\"none\",\"unit\":\"secs\"},\"field\":\"value\",\"refId\":\"A\",\"type\":\"timeserie\"}],\"format\":\"json\",\"maxDataPoints\":1280}";
 		post = new HttpPost("http://localhost:8080/qaSingleSeries/query");
@@ -163,8 +164,8 @@ public class TestInMemoryByzantineDefaults {
 				new HttpGet("http://localhost:8080/databases/qaSingleSeries/measurements/cpu/fields/value?startTime="
 						+ (sts - 2000) + "&endTime=" + (sts + 2000)));
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
-		Set<String> tag = new HashSet<>(
-				Arrays.asList("host=server01", "host=server02", "host=server03", "region=uswest"));
+		Set<Tag> tag = new HashSet<>(Arrays.asList(new Tag("host", "server01"), new Tag("host", "server02"),
+				new Tag("host", "server03"), new Tag("region", "uswest")));
 		Iterator<JsonElement> itr = ary.iterator();
 		i = 0;
 		while (itr.hasNext()) {
@@ -173,7 +174,8 @@ public class TestInMemoryByzantineDefaults {
 			assertEquals("value", obj.get("valueFieldName").getAsString());
 			ary = obj.get("tags").getAsJsonArray();
 			for (JsonElement ele : ary) {
-				assertTrue(ele.getAsString(), tag.contains(ele.getAsString()));
+				Tag tagObj = gson.fromJson(ele, Tag.class);
+				assertTrue(ele+" ", tag.contains(tagObj));
 			}
 			i += obj.get("dataPoints").getAsJsonArray().size();
 			JsonArray ary2 = obj.get("dataPoints").getAsJsonArray();
@@ -229,7 +231,7 @@ public class TestInMemoryByzantineDefaults {
 		String res = EntityUtils.toString(response.getEntity());
 		List<String> fromJson = new Gson().fromJson(res, List.class);
 		assertEquals(1, fromJson.size());
-		
+
 		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity("{\"target\":\".*\"}"));

@@ -465,18 +465,18 @@ public class TestMemStorageEngine {
 			engine.writeDataPoint(MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName + "2",
 					Arrays.asList("p=" + String.valueOf(i), "k=" + String.valueOf(i + 12)), curr, 2 * i));
 		}
-		Set<String> tags = engine.getTagsForMeasurement(dbName, measurementName);
-		assertEquals(9, tags.size());
-		Set<String> series = engine.getSeriesIdsWhereTags(dbName, measurementName,
-				Arrays.asList("p=" + String.valueOf(1)));
-		assertEquals(2, series.size());
+		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
+		assertEquals(2, tags.size());
+		// Set<String> series = engine.getSeriesIdsWhereTags(dbName, measurementName,
+		// Arrays.asList("p=" + String.valueOf(1)));
+		// assertEquals(2, series.size());
 
 		TagFilter tagFilterTree = new ComplexTagFilter(ComplexFilterType.OR, Arrays.asList(
 				new SimpleTagFilter(FilterType.EQUALS, "p", "1"), new SimpleTagFilter(FilterType.EQUALS, "p", "2")));
-		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree);
+		Set<String> series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree);
 		assertEquals(4, series.size());
 
-		System.out.println(engine.getTagsForMeasurement(dbName, measurementName));
+		System.out.println(engine.getTagKeysForMeasurement(dbName, measurementName));
 		tagFilterTree = new ComplexTagFilter(ComplexFilterType.AND, Arrays.asList(
 				new SimpleTagFilter(FilterType.EQUALS, "p", "1"), new SimpleTagFilter(FilterType.EQUALS, "k", "8")));
 		series = engine.getTagFilteredRowKeys(dbName, measurementName, tagFilterTree);
@@ -516,19 +516,21 @@ public class TestMemStorageEngine {
 			assertEquals(i + curr, dataPoint.getTimestamp());
 			i++;
 		}
-		Set<String> tags = engine.getTagsForMeasurement(dbName, measurementName);
-		assertEquals(new HashSet<>(Arrays.asList(tag + 1, tag + 2, tag + 3, tag + 4)), tags);
+		Set<String> tagKeys = engine.getTagKeysForMeasurement(dbName, measurementName);
+		assertEquals(new HashSet<>(Arrays.asList("host")), tagKeys);
+		assertEquals(new HashSet<>(Arrays.asList("1231231", "1231232", "1231233", "1231234")),
+				engine.getTagValuesForMeasurement(dbName, measurementName, "host"));
 		Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
 		assertEquals(new HashSet<>(Arrays.asList(valueFieldName)), fieldsForMeasurement);
 
 		try {
-			engine.getTagsForMeasurement(dbName + "1", measurementName);
+			engine.getTagKeysForMeasurement(dbName + "1", measurementName);
 			fail("This measurement should not exist");
 		} catch (Exception e) {
 		}
 
 		try {
-			engine.getTagsForMeasurement(dbName, measurementName + "1");
+			engine.getTagKeysForMeasurement(dbName, measurementName + "1");
 			fail("This measurement should not exist");
 		} catch (Exception e) {
 		}
@@ -577,19 +579,19 @@ public class TestMemStorageEngine {
 				i++;
 			}
 		}
-		Set<String> tags = engine.getTagsForMeasurement(dbName, measurementName);
-		assertEquals(new HashSet<>(Arrays.asList(tag)), tags);
+		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
+		assertEquals(new HashSet<>(Arrays.asList("host")), tags);
 		Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
 		assertEquals(new HashSet<>(Arrays.asList(valueFieldName)), fieldsForMeasurement);
 
 		try {
-			engine.getTagsForMeasurement(dbName + "1", measurementName);
+			engine.getTagKeysForMeasurement(dbName + "1", measurementName);
 			fail("This measurement should not exist");
 		} catch (Exception e) {
 		}
 
 		try {
-			engine.getTagsForMeasurement(dbName, measurementName + "1");
+			engine.getTagKeysForMeasurement(dbName, measurementName + "1");
 			fail("This measurement should not exist");
 		} catch (Exception e) {
 		}

@@ -15,11 +15,12 @@
  */
 package com.srotya.sidewinder.core.storage.mem;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -28,6 +29,9 @@ import java.util.concurrent.TimeUnit;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.SimpleTagFilter;
+import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -51,8 +55,7 @@ public class TestMemTagIndex {
 		MemTagIndex index = new MemTagIndex(
 				MetricsRegistryService.getInstance(engine, bgTasks).getInstance("requests"));
 		for (int i = 0; i < 1000; i++) {
-			String idx = index.mapTagKey("tag");
-			index.index(idx, String.valueOf(i + 1), "test212");
+			index.index("tag", String.valueOf(i + 1), "test212");
 		}
 
 	}
@@ -86,31 +89,54 @@ public class TestMemTagIndex {
 	}
 
 	@Test
-	public void testTagIndexThreaded() throws InterruptedException, IOException {
-		MemTagIndex index = new MemTagIndex(
-				MetricsRegistryService.getInstance(engine, bgTasks).getInstance("requests"));
-		ExecutorService es = Executors.newCachedThreadPool();
-		for (int k = 0; k < 10; k++) {
-			es.submit(() -> {
-				for (int i = 0; i < 1000; i++) {
-					String idx = index.mapTagKey("tag");
-					try {
-						index.index(idx, index.mapTagValue(String.valueOf((i + 1))), "test212");
-					} catch (IOException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				}
-			});
+	public void testTagIndexFilterEvaluation() throws IOException, InterruptedException {
+		MemTagIndex index = new MemTagIndex(null);
+		for (int i = 0; i < 10_000; i++) {
+			index.index("key", String.valueOf(i), String.valueOf(i));
 		}
-		es.shutdown();
-		es.awaitTermination(10, TimeUnit.SECONDS);
-		for (int i = 0; i < 1000; i++) {
-			String entry = index.mapTagKey("tag");
-			assertEquals("tag", index.getTagKeyMapping(entry));
-			assertEquals(String.valueOf(i + 1), index.getTagValueMapping(index.mapTagValue(String.valueOf(i + 1))));
-			// assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
+
+		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9");
+		Set<String> keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1110, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "9");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1111, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "10");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(2, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "1000");
+		keys = index.searchRowKeysForTagFilter(filter);
+		// keys.stream().forEach(System.out::println);
+		assertEquals(5, keys.size());
+	}
+
+	@Test
+	public void testDiskTagIndexFilterEvaluationNormalized() throws IOException, InterruptedException {
+		MemTagIndex index = new MemTagIndex(null);
+		for (int i = 0; i < 10_000; i++) {
+			String format = String.format("%04d", i);
+			index.index("key", format, format);
 		}
+
+		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9990");
+		Set<String> keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(9, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "9990");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(10, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "0010");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(10, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "0010");
+		keys = index.searchRowKeysForTagFilter(filter);
+		// keys.stream().forEach(System.out::println);
+		assertEquals(11, keys.size());
 	}
 
 }

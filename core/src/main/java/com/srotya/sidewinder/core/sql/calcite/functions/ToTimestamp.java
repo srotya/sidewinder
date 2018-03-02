@@ -29,5 +29,9 @@ public class ToTimestamp implements Function1<Long, Timestamp> {
 	public Timestamp apply(Long a0) {
 		return Timestamp.from(Instant.ofEpochMilli(a0));
 	}
+	
+	public static Timestamp eval(long a0) {
+		return Timestamp.from(Instant.ofEpochMilli(a0));
+	}
 
 }

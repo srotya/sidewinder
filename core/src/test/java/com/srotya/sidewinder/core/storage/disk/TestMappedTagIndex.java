@@ -26,7 +26,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.BeforeClass;
@@ -35,8 +34,9 @@ import org.junit.Test;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.filters.TagFilter;
-import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
@@ -48,12 +48,10 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 public class TestMappedTagIndex {
 
 	private static StorageEngine engine;
-	private static ScheduledExecutorService bgTasks;
 
 	@BeforeClass
 	public static void before() throws IOException {
 		engine = new MemStorageEngine();
-		bgTasks = Executors.newScheduledThreadPool(1);
 		engine.configure(new HashMap<>(), Executors.newScheduledThreadPool(1));
 	}
 
@@ -62,17 +60,44 @@ public class TestMappedTagIndex {
 		MiscUtils.delete(new File("target/i5"));
 		String indexDir = "target/i5";
 		new File(indexDir).mkdirs();
-		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "i2");
+		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "i2", false, null);
 		for (int i = 0; i < 1000; i++) {
-			String idx = index.mapTagKey("tag");
-			index.index(idx, index.mapTagValue(String.valueOf(i + 1)), "test212");
+			String idx = "tag";
+			index.index(idx, String.valueOf(i + 1), "test212");
 		}
-		for (int i = 0; i < 1000; i++) {
-			String entry = index.mapTagKey("tag");
-			assertEquals("tag", index.getTagKeyMapping(entry));
-			assertEquals(String.valueOf(i + 1), index.getTagValueMapping(index.mapTagValue(String.valueOf((i + 1)))));
-			// assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
+	}
+
+	@Test
+	public void testDiskTagIndexFilterEvaluationIdx() throws IOException, InterruptedException {
+		MiscUtils.delete(new File("target/i7"));
+		String indexDir = "target/i7";
+		new File(indexDir).mkdirs();
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> conf = new HashMap<>();
+		m.configure(conf, engine, "d", "m", "target/i7/i/bitmap", "target/i7/d/bitmap", new DBMetadata(), null);
+		MappedSetTagIndex index = new MappedSetTagIndex("target/i7/i/bitmap", "s7", true, m);
+		for (int i = 0; i < 10_000; i++) {
+			String valueOf = String.valueOf(i);
+			index.index("key", valueOf, i);
+			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf));
 		}
+
+		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9");
+		Set<String> keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1110, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "9");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1111, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "10");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(2, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "1000");
+		keys = index.searchRowKeysForTagFilter(filter);
+		// keys.stream().forEach(System.out::println);
+		assertEquals(5, keys.size());
 	}
 
 	@Test
@@ -80,7 +105,7 @@ public class TestMappedTagIndex {
 		MiscUtils.delete(new File("target/i7"));
 		String indexDir = "target/i7";
 		new File(indexDir).mkdirs();
-		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "s7");
+		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "s7", false, null);
 		for (int i = 0; i < 10_000; i++) {
 			index.index("key", String.valueOf(i), String.valueOf(i));
 		}
@@ -108,7 +133,7 @@ public class TestMappedTagIndex {
 		MiscUtils.delete(new File("target/i8"));
 		String indexDir = "target/i8";
 		new File(indexDir).mkdirs();
-		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "s8");
+		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "s8", false, null);
 		for (int i = 0; i < 10_000; i++) {
 			String value = String.format("%04d", i);
 			index.index("key", value, String.valueOf(i));
@@ -175,42 +200,7 @@ public class TestMappedTagIndex {
 		Entry<String, Measurement> itr = next.getValue().entrySet().iterator().next();
 		assertEquals("m1", itr.getKey());
 		MappedSetTagIndex value = (MappedSetTagIndex) itr.getValue().getTagIndex();
-		assertEquals(20000 + 10 + 1500, value.getTags().size());
-	}
-
-	@Test
-	public void testTagIndexThreaded() throws InterruptedException, IOException {
-		String indexDir = "target/i4";
-		new File(indexDir).mkdirs();
-		MetricsRegistryService.getInstance(engine, bgTasks).getInstance("requests");
-		final MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "m2");
-		ExecutorService es = Executors.newCachedThreadPool();
-		for (int k = 0; k < 10; k++) {
-			es.submit(() -> {
-				try {
-					for (int i = 0; i < 1000; i++) {
-						String idx = index.mapTagKey("tag");
-						index.index(idx, index.mapTagValue(String.valueOf(i + 1)), "test212");
-					}
-				} catch (Exception e) {
-					throw new RuntimeException(e);
-				}
-			});
-		}
-		es.shutdown();
-		es.awaitTermination(10, TimeUnit.SECONDS);
-		// for (int i = 0; i < 1000; i++) {
-		// String entry = index.mapTagKey("tag" + (i + 1));
-		// assertEquals("tag" + (i + 1), index.getTagKeyMapping(entry));
-		// assertEquals("test212", index.searchRowKeysForTag(entry).iterator().next());
-		// }
-		//
-		// MappedSetTagIndex index2 = new MappedSetTagIndex(indexDir, "m2");
-		// for (int i = 0; i < 1000; i++) {
-		// String entry = index2.mapTagKey("tag" + (i + 1));
-		// assertEquals("tag" + (i + 1), index2.getTagKeyMapping(entry));
-		// assertEquals("test212", index2.searchRowKeysForTag(entry).iterator().next());
-		// }
+		assertEquals(20000 + 10 + 1500, value.getTagKeys().size());
 	}
 
 }

@@ -176,7 +176,7 @@ public class MeasurementOpsApi {
 			@PathParam(MEASUREMENT) String measurementName) {
 		try {
 			Set<String> fields = engine.getFieldsForMeasurement(dbName, measurementName);
-			Set<String> tagsForMeasurement = engine.getTagsForMeasurement(dbName, measurementName);
+			Set<String> tagsForMeasurement = engine.getTagKeysForMeasurement(dbName, measurementName);
 			JsonObject obj = new JsonObject();
 			JsonArray fieldAry = new JsonArray();
 			for (String field : fields) {

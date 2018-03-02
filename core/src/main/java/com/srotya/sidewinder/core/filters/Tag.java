@@ -15,33 +15,79 @@
  */
 package com.srotya.sidewinder.core.filters;
 
-public class Tag {
-	
+public class Tag implements Comparable<Tag> {
+
 	private String tagKey;
 	private String tagValue;
+
+	public Tag(String tagKey, String tagValue) {
+		this.tagKey = tagKey;
+		this.tagValue = tagValue;
+	}
+
+	@Override
+	public int hashCode() {
+		return (tagKey + "=" + tagValue).hashCode();
+	}
+
+	@Override
+	public boolean equals(Object obj) {
+		Tag o = ((Tag) obj);
+		if(getTagKey().equals(o.getTagKey()) && getTagValue().equals(o.getTagValue())) {
+			return true;
+		}else {
+			return false;
+		}
+	}
+
 	/**
 	 * @return the tagKey
 	 */
 	public String getTagKey() {
 		return tagKey;
 	}
+
 	/**
-	 * @param tagKey the tagKey to set
+	 * @param tagKey
+	 *            the tagKey to set
 	 */
 	public void setTagKey(String tagKey) {
 		this.tagKey = tagKey;
 	}
+
 	/**
 	 * @return the tagValue
 	 */
 	public String getTagValue() {
 		return tagValue;
 	}
+
 	/**
-	 * @param tagValue the tagValue to set
+	 * @param tagValue
+	 *            the tagValue to set
 	 */
 	public void setTagValue(String tagValue) {
 		this.tagValue = tagValue;
 	}
-	
+
+	@Override
+	public int compareTo(Tag o) {
+		int r = getTagKey().compareTo(o.getTagKey());
+		if (r != 0) {
+			return r;
+		} else {
+			return getTagValue().compareTo(o.getTagValue());
+		}
+	}
+
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "Tag [tagKey=" + tagKey + ", tagValue=" + tagValue + "]";
+	}
+
 }

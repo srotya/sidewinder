@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -34,9 +35,6 @@ import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
-import net.jpountz.xxhash.XXHash32;
-import net.jpountz.xxhash.XXHashFactory;
-
 /**
  * Tag hash lookup table + Tag inverted index
  * 
@@ -44,53 +42,18 @@ import net.jpountz.xxhash.XXHashFactory;
  */
 public class MemTagIndex implements TagIndex {
 
-	private Map<Integer, String> tagKeyMap;
 	private Map<String, SortedMap<String, Set<String>>> rowKeyIndex;
-	private XXHashFactory factory = XXHashFactory.fastestInstance();
-	private XXHash32 hash;
-	private Counter metricIndexTag;
 	private Counter metricIndexRow;
 
 	public MemTagIndex(MetricRegistry registry) {
-		tagKeyMap = new ConcurrentHashMap<>();
 		rowKeyIndex = new ConcurrentHashMap<>();
-		hash = factory.hash32();
-		metricIndexTag = registry.counter("index-tag");
-		metricIndexRow = registry.counter("index-row");
-	}
-
-	/**
-	 * Hashes the tag to UI
-	 * 
-	 * @param tagKey
-	 * @return uid
-	 */
-	public String mapTagKey(String tagKey) {
-		int hash32 = hash.hash(tagKey.getBytes(), 0, tagKey.length(), 57);
-		String val = tagKeyMap.get(hash32);
-		if (val == null) {
-			tagKeyMap.put(hash32, tagKey);
+		if (registry != null) {
+			metricIndexRow = registry.counter("index-row");
 		}
-		metricIndexTag.inc();
-		return Integer.toHexString(hash32);
 	}
 
-	@Override
-	public String mapTagValue(String tagValue) throws IOException {
-		return tagValue;
-	}
-
-	public String getTagKeyMapping(String hexString) {
-		return tagKeyMap.get(Integer.parseUnsignedInt(hexString, 16));
-	}
-
-	@Override
-	public String getTagValueMapping(String hexString) throws IOException {
-		return hexString;
-	}
-
-	public Set<String> getTags() {
-		return new HashSet<>(tagKeyMap.values());
+	public Set<String> getTagKeys() {
+		return new HashSet<>(rowKeyIndex.keySet());
 	}
 
 	/**
@@ -119,7 +82,9 @@ public class MemTagIndex implements TagIndex {
 		}
 		if (!rowKeySet.contains(rowKey)) {
 			rowKeySet.add(rowKey);
-			metricIndexRow.inc();
+			if (metricIndexRow != null) {
+				metricIndexRow.inc();
+			}
 		}
 	}
 
@@ -231,6 +196,16 @@ public class MemTagIndex implements TagIndex {
 			uberSet.addAll(itr.next());
 		}
 		return uberSet;
+	}
+
+	@Override
+	public Collection<String> getTagValues(String tagKey) {
+		SortedMap<String, Set<String>> map = rowKeyIndex.get(tagKey);
+		if (map != null) {
+			return map.keySet();
+		} else {
+			return null;
+		}
 	}
 
 }

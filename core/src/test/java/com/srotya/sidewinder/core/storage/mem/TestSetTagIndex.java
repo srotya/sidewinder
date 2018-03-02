@@ -28,12 +28,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.BeforeClass;
-import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.disk.DiskStorageEngine;
-import com.srotya.sidewinder.core.storage.disk.MappedSetTagIndex;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -48,23 +46,6 @@ public class TestSetTagIndex {
 	public static void before() throws IOException {
 		engine = new MemStorageEngine();
 		engine.configure(new HashMap<>(), Executors.newScheduledThreadPool(1));
-	}
-
-	@Test
-	public void testDiskTagIndexBasic() throws IOException {
-		MiscUtils.delete(new File("target/s5"));
-		String indexDir = "target/s5";
-		new File(indexDir).mkdirs();
-		MappedSetTagIndex index = new MappedSetTagIndex(indexDir, "s2");
-		for (int i = 0; i < 1000; i++) {
-			String idx = index.mapTagKey("tag");
-			index.index(idx, index.mapTagValue(String.valueOf(i + 1)), "test212");
-		}
-		for (int i = 0; i < 1000; i++) {
-			String entry = index.mapTagKey("tag");
-			assertEquals("tag", index.getTagKeyMapping(entry));
-			assertEquals(String.valueOf(i + 1), index.getTagValueMapping(index.mapTagValue(String.valueOf(i + 1))));
-		}
 	}
 
 	// @Test

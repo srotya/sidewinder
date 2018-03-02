@@ -22,12 +22,15 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -54,6 +57,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class PersistentMeasurement implements Measurement {
 
+	private static final String MD_SEPARATOR = "/";
 	private static final Logger logger = Logger.getLogger(PersistentMeasurement.class.getName());
 	private ReentrantLock lock = new ReentrantLock(false);
 	private ReentrantLock mallocLock = new ReentrantLock(false);
@@ -108,7 +112,8 @@ public class PersistentMeasurement implements Measurement {
 				conf.getOrDefault(StorageEngine.COMPACTION_ON_START, StorageEngine.DEFAULT_COMPACTION_ON_START));
 		this.measurementName = measurementName;
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
-		// this.tagIndex = new MappedSetTagIndex(this.indexDirectory, measurementName);
+		// this.tagIndex = new MappedSetTagIndex(this.indexDirectory, measurementName,
+		// true, this);
 		this.tagIndex = new MappedBitmapTagIndex(this.indexDirectory, measurementName, this);
 		malloc = new DiskMalloc();
 		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, mallocLock);
@@ -137,14 +142,14 @@ public class PersistentMeasurement implements Measurement {
 			Map<String, String> conf) throws IOException {
 		Collections.sort(tags);
 		String seriesId = constructSeriesId(tags, tagIndex);
+		int index = 0;
 		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
 		if (seriesFieldMap == null) {
 			lock.lock();
 			try {
 				if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
-					int index = seriesList.size();
+					index = seriesList.size();
 					Measurement.indexRowKey(tagIndex, index, tags);
-					// Measurement.indexRowKey(tagIndex, seriesId, tags);
 					seriesFieldMap = new SeriesFieldMap(seriesId);
 					seriesList.add(seriesFieldMap);
 					seriesMap.put(seriesId, index);
@@ -152,10 +157,14 @@ public class PersistentMeasurement implements Measurement {
 						metricsTimeSeriesCounter.inc();
 					}
 					logger.fine("Created new series:" + seriesId + "\t");
+				} else {
+					index = seriesMap.get(seriesId);
 				}
 			} finally {
 				lock.unlock();
 			}
+		} else {
+			index = seriesMap.get(seriesId);
 		}
 
 		TimeSeries series = seriesFieldMap.get(valueFieldName);
@@ -167,7 +176,7 @@ public class PersistentMeasurement implements Measurement {
 					series = new TimeSeries(this, compressionCodec, compactionCodec, seriesId2, timeBucketSize,
 							metadata, fp, conf);
 					seriesFieldMap.addSeries(valueFieldName, series);
-					appendTimeseriesToMeasurementMetadata(seriesId2, fp, timeBucketSize);
+					appendTimeseriesToMeasurementMetadata(seriesId2, fp, timeBucketSize, index);
 					logger.fine("Created new timeseries:" + seriesFieldMap + " for measurement:" + measurementName
 							+ "\t" + seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesList.size());
 				}
@@ -189,56 +198,86 @@ public class PersistentMeasurement implements Measurement {
 		new File(indexDirectory).mkdirs();
 	}
 
-	protected void appendTimeseriesToMeasurementMetadata(String seriesId, boolean fp, int timeBucketSize)
+	protected void appendTimeseriesToMeasurementMetadata(String seriesId, boolean fp, int timeBucketSize, int idx)
 			throws IOException {
-		DiskStorageEngine.appendLineToFile(seriesId + "\t" + fp + "\t" + timeBucketSize, prMetadata);
+		String line = seriesId + MD_SEPARATOR + fp + MD_SEPARATOR + timeBucketSize + MD_SEPARATOR
+				+ Integer.toHexString(idx);
+		DiskStorageEngine.appendLineToFile(line, prMetadata);
 	}
 
 	private void loadSeriesEntries(List<String> seriesEntries) {
-		for (String entry : seriesEntries) {
-			String[] split = entry.split("\t");
-			String seriesId = split[0];
-			logger.fine("Loading Timeseries:" + seriesId);
-			try {
-				String timeBucketSize = split[2];
-				String isFp = split[1];
-				TimeSeries timeSeries = new TimeSeries(this, compressionCodec, compactionCodec, seriesId,
-						Integer.parseInt(timeBucketSize), metadata, Boolean.parseBoolean(isFp), conf);
-				String[] split2 = seriesId.split(SERIESID_SEPARATOR);
+		Collections.sort(seriesEntries, new Comparator<String>() {
 
-				String valueField = split2[1];
-				seriesId = split2[0];
-
-				Integer v = seriesMap.get(seriesId);
-				SeriesFieldMap m = null;
-				if (v == null) {
-					v = seriesList.size();
-					m = new SeriesFieldMap(seriesId);
-					seriesMap.put(seriesId, v);
-					seriesList.add(m);
-				} else {
-					m = seriesList.get(v);
-				}
-				m.addSeries(valueField, timeSeries);
-				logger.fine("Intialized Timeseries:" + seriesId);
-			} catch (NumberFormatException | IOException e) {
-				logger.log(Level.SEVERE, "Failed to load series:" + entry, e);
+			@Override
+			public int compare(String o1, String o2) {
+				return Integer.compare(Integer.parseInt(o1.split(MD_SEPARATOR)[3], 16),
+						Integer.parseInt(o2.split(MD_SEPARATOR)[3], 16));
 			}
+		});
+		SortedSet<String> set = new TreeSet<>();
+		seriesEntries.stream().forEach(e -> set.add(e.split(MD_SEPARATOR)[3]));
+		try {
+			for (String entry : seriesEntries) {
+				loadEntry(entry);
+			}
+		} catch (Exception e) {
+			System.out.println(set.size() + "  " + Integer.parseInt(set.last(), 16));
+			int i = 0;
+			for (String s : set) {
+				System.out.println(i++ + " s:" + Integer.parseInt(s, 16));
+			}
+			throw e;
+		}
+	}
+
+	private void loadEntry(String entry) {
+		String[] split = entry.split(MD_SEPARATOR);
+		String seriesId = split[0];
+		logger.fine("Loading Timeseries:" + seriesId);
+		try {
+			String timeBucketSize = split[2];
+			String isFp = split[1];
+			TimeSeries timeSeries = new TimeSeries(this, compressionCodec, compactionCodec, seriesId,
+					Integer.parseInt(timeBucketSize), metadata, Boolean.parseBoolean(isFp), conf);
+			String[] split2 = seriesId.split(SERIESID_SEPARATOR);
+
+			String valueField = split2[1];
+			seriesId = split2[0];
+
+			Integer seriesIdx = seriesMap.get(seriesId);
+			SeriesFieldMap m = null;
+			if (seriesIdx == null) {
+				seriesIdx = Integer.parseInt(split[3], 16);
+				m = new SeriesFieldMap(seriesId);
+				seriesMap.put(seriesId, seriesIdx);
+				seriesList.add(seriesIdx, m);
+			} else {
+				m = seriesList.get(seriesIdx);
+			}
+			m.addSeries(valueField, timeSeries);
+			logger.fine("Intialized Timeseries:" + seriesId);
+		} catch (NumberFormatException | IOException e) {
+			logger.log(Level.SEVERE, "Failed to load series:" + entry, e);
 		}
 	}
 
 	@Override
 	public void loadTimeseriesFromMeasurements() throws IOException {
-		logger.info("Loading measurement:" + measurementName);
 		String mdFilePath = getMetadataPath();
 		File file = new File(mdFilePath);
 		if (!file.exists()) {
 			logger.warning("Metadata file missing for measurement:" + measurementName);
 			return;
+		} else {
+			logger.fine("Metadata file exists:" + file.getAbsolutePath());
 		}
 
 		List<String> seriesEntries = MiscUtils.readAllLines(file);
-		loadSeriesEntries(seriesEntries);
+		try {
+			loadSeriesEntries(seriesEntries);
+		} catch (Exception e) {
+			throw new IOException(e);
+		}
 
 		Map<String, List<Entry<String, BufferObject>>> seriesBuffers = malloc.seriesBufferMap();
 		for (Entry<String, List<Entry<String, BufferObject>>> entry : seriesBuffers.entrySet()) {
@@ -258,6 +297,7 @@ public class PersistentMeasurement implements Measurement {
 		if (compactOnStart) {
 			compact();
 		}
+		logger.info("Loaded measurement:" + measurementName);
 	}
 
 	@Override
@@ -267,7 +307,7 @@ public class PersistentMeasurement implements Measurement {
 
 	@Override
 	public Collection<String> getTagKeys() throws IOException {
-		return tagIndex.getTags();
+		return tagIndex.getTagKeys();
 	}
 
 	@Override

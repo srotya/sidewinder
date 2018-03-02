@@ -38,22 +38,19 @@ public class SidewinderDatabaseSchema extends AbstractSchema {
 		this.engine = engine;
 		this.dbName = dbName;
 	}
-	
+
 	@Override
 	protected Map<String, Table> getTableMap() {
 		Map<String, Table> tableMap = new HashMap<>();
 		try {
 			for (String measurementName : engine.getAllMeasurementsForDb(dbName)) {
-				for (String fieldName : engine.getFieldsForMeasurement(dbName, measurementName)) {
-					boolean isFp = engine.isMeasurementFieldFP(dbName, measurementName, fieldName);
-					tableMap.put((measurementName + "_" + fieldName).toUpperCase(),
-							new MeasurementTable(engine, dbName, measurementName, fieldName, isFp));
-				}
+				tableMap.put(measurementName.toUpperCase(), new MeasurementTable(engine, dbName, measurementName,
+						engine.getFieldsForMeasurement(dbName, measurementName), engine.getTagKeysForMeasurement(dbName, measurementName)));
 			}
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Failed to get table map for query", e);
 		}
 		return tableMap;
 	}
-	
+
 }
