@@ -49,6 +49,10 @@ if [ "master" == "$TRAVIS_BRANCH" ]; then
     
     mvn -T2 -B -Darguments=-Dgpg.passphrase=$passphrase release:clean release:prepare release:perform --settings settings.xml
 
+	# Trigger Docker Build
+	TAG=$(git describe --abbrev=0 --tags)
+	curl -H "Content-Type: application/json" --data "{\"source_type\": \"Tag\", \"source_name\": \"$TAG\"}" -X POST https://registry.hub.docker.com/u/srotya/sidewinder/trigger/$BUILD_TOKEN/
+	
 	#echo "Cleaning up commits"
 	#git checkout master || git checkout -b master
     #git reset --hard origin/master
