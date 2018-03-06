@@ -110,14 +110,15 @@ public class TimeSeries {
 		String tsBucket = getTimeBucket(unit, timestamp, timeBucketSize);
 		List<Writer> list = bucketMap.get(tsBucket);
 		if (list == null) {
-			// potential opportunity to load bucket information from some other non-memory
+			// potential opportunity to load bucket information from some other
+			// non-memory
 			// location
 			synchronized (bucketMap) {
 				if ((list = bucketMap.get(tsBucket)) == null) {
 					list = Collections.synchronizedList(new ArrayList<>());
 					createNewWriter(timestamp, tsBucket, list);
 					bucketMap.put(tsBucket, list);
-					logger.fine("Creating new time series bucket:" + seriesId + ",measurement:"
+					logger.fine(() -> "Creating new time series bucket:" + seriesId + ",measurement:"
 							+ measurement.getMeasurementName());
 				}
 			}
@@ -127,17 +128,21 @@ public class TimeSeries {
 			Writer ans = list.get(list.size() - 1);
 			if (ans.isFull()) {
 				if ((ans = list.get(list.size() - 1)).isFull()) {
-					logger.fine(
-							"Requesting new writer for:" + seriesId + ",measurement:" + measurement.getMeasurementName()
-									+ " bucketcount:" + bucketCount + " pos:" + ans.getPosition());
+					final Writer ansTmp = ans;
+					logger.fine(() -> "Requesting new writer for:" + seriesId + ",measurement:"
+							+ measurement.getMeasurementName() + " bucketcount:" + bucketCount + " pos:"
+							+ ansTmp.getPosition());
 					ans = createNewWriter(timestamp, tsBucket, list);
-					// if there are more than 2 buffers in the list then it is a candidate for
-					// compaction else not because 2 or less buffers means there is at least 1
+					// if there are more than 2 buffers in the list then it is a
+					// candidate for
+					// compaction else not because 2 or less buffers means there
+					// is at least 1
 					// writable buffer which can't be compacted
 					// #COMPACTHRESHOLD
 					if (compactionEnabled && list.size() > COMPACTION_THRESHOLD) {//
 						// add older bucket to compaction queue
-						logger.fine("Adding bucket to compaction set:" + list.size());
+						final List<Writer> listTmp = list;
+						logger.fine(() -> "Adding bucket to compaction set:" + listTmp.size());
 						compactionCandidateSet.put(tsBucket, list);
 					}
 				}
@@ -152,7 +157,8 @@ public class TimeSeries {
 			// "\n\n");
 			// }
 			// } catch (Exception e) {
-			// logger.log(Level.SEVERE, "Create new:" + "\tList:" + list + "\tbucket:" +
+			// logger.log(Level.SEVERE, "Create new:" + "\tList:" + list +
+			// "\tbucket:" +
 			// tsBucket + "\t" + bucketMap,
 			// e);
 			// throw e;
@@ -178,6 +184,8 @@ public class TimeSeries {
 		writer.setHeaderTimestamp(timestamp);
 		list.add(writer);
 		bucketCount++;
+		logger.fine(() -> "Created new writer for:" + tsBucket + " timstamp:" + timestamp + " buckectInfo:"
+				+ bufPair.getBufferId());
 		return writer;
 	}
 
@@ -199,7 +207,7 @@ public class TimeSeries {
 	 */
 	public void loadBucketMap(List<Entry<String, BufferObject>> bufferEntries) throws IOException {
 		Map<String, String> cacheConf = new HashMap<>(conf);
-		logger.fine("Scanning buffer for:" + seriesId);
+		logger.fine(() -> "Scanning buffer for:" + seriesId);
 		for (Entry<String, BufferObject> entry : bufferEntries) {
 			ByteBuffer duplicate = entry.getValue().getBuf();
 			duplicate.rewind();
@@ -222,14 +230,14 @@ public class TimeSeries {
 				throw new IOException("Buffer id can't be read:" + measurement.getDbName() + ":"
 						+ measurement.getMeasurementName() + " series:" + getSeriesId());
 			}
-			logger.fine(
-					"Loading bucketmap:" + seriesId + "\t" + tsBucket + " bufferid:" + entry.getValue().getBufferId());
+			logger.fine(() -> "Loading bucketmap:" + seriesId + "\t" + tsBucket + " bufferid:"
+					+ entry.getValue().getBufferId());
 			writer.setBufferId(entry.getValue().getBufferId());
 			writer.configure(cacheConf, slice, false, START_OFFSET, true);
 			list.add(writer);
 			bucketCount++;
-			logger.fine(
-					"Loaded bucketmap:" + seriesId + "\t" + tsBucket + " bufferid:" + entry.getValue().getBufferId());
+			logger.fine(() -> "Loaded bucketmap:" + seriesId + "\t" + tsBucket + " bufferid:"
+					+ entry.getValue().getBufferId());
 		}
 		sortBucketMap();
 	}
@@ -255,7 +263,8 @@ public class TimeSeries {
 	}
 
 	/**
-	 * Extract {@link DataPoint}s for the supplied time range and value predicate.
+	 * Extract {@link DataPoint}s for the supplied time range and value
+	 * predicate.
 	 * 
 	 * Each {@link DataPoint} has the appendFieldValue and appendTags set in it.
 	 * 
@@ -281,7 +290,7 @@ public class TimeSeries {
 			startTime = startTime ^ endTime;
 		}
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
-		logger.fine(getSeriesId() + " " + bucketMap.size() + " " + bucketCount);
+		logger.fine(() -> getSeriesId() + " " + bucketMap.size() + " " + bucketCount);
 		SortedMap<String, List<Writer>> series = correctTimeRangeScan(startTime, endTime);
 		List<Reader> readers = new ArrayList<>();
 		for (List<Writer> writers : series.values()) {
@@ -303,6 +312,7 @@ public class TimeSeries {
 		String endTsBucket = Integer.toHexString(tsEndBucket);
 		if (startTsBucket.compareTo(bucketMap.firstKey()) < 0) {
 			startTsBucket = bucketMap.firstKey();
+			logger.finest(() -> "Corrected query startKey to:" + bucketMap.firstKey());
 		}
 		SortedMap<String, List<Writer>> series = null;
 		if (bucketMap.size() <= 1) {
@@ -310,6 +320,7 @@ public class TimeSeries {
 		} else {
 			if (endTsBucket.compareTo(bucketMap.lastKey()) > 0) {
 				series = bucketMap.tailMap(startTsBucket);
+				logger.finest(() -> "Endkey exceeds last key, using tailmap instead");
 			} else {
 				endTsBucket = endTsBucket + Character.MAX_VALUE;
 				series = bucketMap.subMap(startTsBucket, endTsBucket);
@@ -342,7 +353,8 @@ public class TimeSeries {
 	}
 
 	/**
-	 * Get {@link Reader} with time and value filter predicates pushed-down to it.
+	 * Get {@link Reader} with time and value filter predicates pushed-down to
+	 * it.
 	 * 
 	 * @param timePredicate
 	 * @param valuePredicate
@@ -457,9 +469,9 @@ public class TimeSeries {
 
 	/**
 	 * Converts timeseries to a list of datapoints appended to the supplied list
-	 * object. Datapoints are filtered by the supplied predicates before they are
-	 * returned. These predicates are pushed down to the reader for efficiency and
-	 * performance as it prevents unnecessary object creation.
+	 * object. Datapoints are filtered by the supplied predicates before they
+	 * are returned. These predicates are pushed down to the reader for
+	 * efficiency and performance as it prevents unnecessary object creation.
 	 * 
 	 * @param appendFieldValueName
 	 * @param appendTags
@@ -514,7 +526,7 @@ public class TimeSeries {
 			}
 		}
 		if (reader.getCounter() != reader.getPairCount() || points.size() < reader.getCounter()) {
-			logger.finest("SDP:" + points.size() + "/" + reader.getCounter() + "/" + reader.getPairCount());
+			logger.finest(() -> "SDP:" + points.size() + "/" + reader.getCounter() + "/" + reader.getPairCount());
 		}
 	}
 
@@ -535,7 +547,7 @@ public class TimeSeries {
 			}
 		}
 		if (reader.getCounter() != reader.getPairCount() || points.size() < reader.getCounter()) {
-			logger.finest("SDP:" + points.size() + "/" + reader.getCounter() + "/" + reader.getPairCount());
+			logger.finest(() -> "SDP:" + points.size() + "/" + reader.getCounter() + "/" + reader.getPairCount());
 		}
 	}
 
@@ -561,8 +573,8 @@ public class TimeSeries {
 			}
 		}
 		if (gcedBuckets.size() > 0) {
-			logger.fine("GC," + measurement.getMeasurementName() + " buckets:" + gcedBuckets.size() + " retention size:"
-					+ retentionBuckets);
+			logger.fine(() -> "GC," + measurement.getMeasurementName() + " buckets:" + gcedBuckets.size()
+					+ " retention size:" + retentionBuckets);
 		}
 		return gcedBuckets;
 	}
@@ -650,20 +662,22 @@ public class TimeSeries {
 	}
 
 	/**
-	 * Compacts old Writers into one for every single time bucket, this insures the
-	 * buffers are compacted as well as provides an opportunity to use a higher
-	 * compression rate algorithm for the bucket. All Writers but the last are
-	 * read-only therefore performing operations on them does not impact.
+	 * Compacts old Writers into one for every single time bucket, this insures
+	 * the buffers are compacted as well as provides an opportunity to use a
+	 * higher compression rate algorithm for the bucket. All Writers but the
+	 * last are read-only therefore performing operations on them does not
+	 * impact.
 	 * 
 	 * @param functions
-	 * @return returns null if nothing to compact or empty list if all compaction
-	 *         attempts fail
+	 * @return returns null if nothing to compact or empty list if all
+	 *         compaction attempts fail
 	 * @throws IOException
 	 */
 	@SafeVarargs
 	public final List<Writer> compact(Consumer<List<Writer>>... functions) throws IOException {
 		// this loop only executes if there are any candidate buffers in the set
-		// buckets should be moved out of the compaction set once they are compacted
+		// buckets should be moved out of the compaction set once they are
+		// compacted
 		// size check is to avoid unnecessary calls and exit fast
 		if (compactionCandidateSet.isEmpty()) {
 			return null;

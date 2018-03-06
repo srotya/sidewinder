@@ -141,4 +141,36 @@ public class TestMappedBitmapTagIndex {
 		assertEquals(11, keys.size());
 	}
 
+	@Test
+	public void testIndexRecovery() throws IOException, InterruptedException {
+		MiscUtils.delete(new File("target/s9"));
+		String indexDir = "target/s9";
+		new File(indexDir).mkdirs();
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> conf = new HashMap<>();
+		m.configure(conf, engine, "d", "m", "target/s9/i/bitmap", "target/s9/d/bitmap", new DBMetadata(), null);
+		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s9", m);
+		long ts = System.currentTimeMillis();
+		for (int i = 0; i < 10_000; i++) {
+			index.index("key", String.valueOf(i), i);
+			String valueOf = String.valueOf(i);
+			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf));
+		}
+		ts = System.currentTimeMillis() - ts;
+		System.out.println("Time:" + ts);
+
+		for (int i = 0; i < 10_000; i++) {
+			assertEquals(new HashSet<>(Arrays.asList(String.valueOf(i))),
+					index.searchRowKeysForTagFilter(new SimpleTagFilter(FilterType.EQUALS, "key", String.valueOf(i))));
+		}
+
+		for (int k = 0; k < 10; k++) {
+			index = new MappedBitmapTagIndex(indexDir, "s9", m);
+			for (int i = 0; i < 10_000; i++) {
+				assertEquals(new HashSet<>(Arrays.asList(String.valueOf(i))), index
+						.searchRowKeysForTagFilter(new SimpleTagFilter(FilterType.EQUALS, "key", String.valueOf(i))));
+			}
+		}
+	}
+
 }

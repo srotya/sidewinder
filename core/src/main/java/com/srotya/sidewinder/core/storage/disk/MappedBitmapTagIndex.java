@@ -86,7 +86,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 			logger.fine("Tag index is missing; initializing new index");
 		} else {
 			revRaf = new RandomAccessFile(revIndex, "rwd");
-			logger.info("Tag index is present; loading:" + revIndex.getAbsolutePath());
+			logger.info("Tag index is present; recovering:" + revIndex.getAbsolutePath());
 			rev = revRaf.getChannel().map(MapMode.READ_WRITE, 0, revIndex.length());
 
 			// load reverse lookup
@@ -103,15 +103,18 @@ public class MappedBitmapTagIndex implements TagIndex {
 				if (map == null) {
 					map = new ConcurrentSkipListMap<>();
 					rowKeyIndex.put(tagKey, map);
+					logger.finest(() -> "Map for tagkey:" + tagKey + " not found, creating it");
 				}
 				MutableRoaringBitmap set = map.get(tagValue);
 				if (set == null) {
 					set = new MutableRoaringBitmap();
 					map.put(tagValue, set);
+					logger.finest(() -> "Map for tagValue(" + tagKey + "):" + tagValue + " not found, creating it");
 				}
 				String rowKeyIndex = split[2];
 				set.add(Integer.parseInt(rowKeyIndex));
 			}
+			logger.fine(() -> "Tag index recovered" + revIndex.getAbsolutePath());
 		}
 	}
 
@@ -127,29 +130,20 @@ public class MappedBitmapTagIndex implements TagIndex {
 		return set;
 	}
 
-	// @Override
-	// public Collection<String> searchRowKeysForTag(String tagKey, String tagValue)
-	// {
-	// List<String> rowKeys = new ArrayList<>();
-	// Map<String, MutableRoaringBitmap> map = rowkeyIndex.get(tagKey);
-	// if (map != null) {
-	// MutableRoaringBitmap value = map.get(tagValue);
-	// if (value != null) {
-	// bitmapToRowKeys(rowKeys, value);
-	// }
-	// }
-	// return rowKeys;
-	// }
-
 	private void bitmapToRowKeys(Collection<String> rowKeys, MutableRoaringBitmap value) {
+		logger.finest(() -> "Requesting conversion from bitmap to value");
 		List<SeriesFieldMap> ref = measurement.getSeriesListAsList();
 		for (Iterator<Integer> iterator = value.iterator(); iterator.hasNext();) {
 			Integer idx = iterator.next();
-			rowKeys.add(ref.get(idx).getSeriesId());
+			String seriesId = ref.get(idx).getSeriesId();
+			rowKeys.add(seriesId);
+			logger.finest(
+					() -> "Adding idx:" + idx + " resolving to seriesId:" + seriesId + " for bitmap extrapolation");
 		}
 	}
 
-	public MutableRoaringBitmap evalFilterForTags(TagFilter filterTree) {
+	protected MutableRoaringBitmap evalFilterForTags(TagFilter filterTree) {
+		logger.finest(() -> "Evaluating filter tree:" + filterTree);
 		// either it's a simple tag filter or a complex tag filter
 		if (filterTree instanceof SimpleTagFilter) {
 			SimpleTagFilter simpleFilter = (SimpleTagFilter) filterTree;
@@ -245,6 +239,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 
 	@Override
 	public void index(String tagKey, String tagValue, int rowIndex) throws IOException {
+		logger.finest(() -> "Indexing tagKey:" + tagKey + " with tagValue:" + tagValue + " on rowIndex:" + rowIndex);
 		SortedMap<String, MutableRoaringBitmap> tagValueMap = rowKeyIndex.get(tagKey);
 		if (tagValueMap == null) {
 			synchronized (rowKeyIndex) {
@@ -261,6 +256,8 @@ public class MappedBitmapTagIndex implements TagIndex {
 				if ((rowKeySet = tagValueMap.get(tagValue)) == null) {
 					rowKeySet = new MutableRoaringBitmap();
 					tagValueMap.put(tagValue, rowKeySet);
+					logger.finest(() -> "Not found tag value map creating it:" + tagKey + " with tagValue:" + tagValue
+							+ " on rowIndex:" + rowIndex);
 				}
 			}
 		}
@@ -282,6 +279,8 @@ public class MappedBitmapTagIndex implements TagIndex {
 					rev.putInt(str.length);
 					rev.put(str);
 					rev.putInt(0, rev.position());
+					logger.finest(() -> "Not found row index entry in bitmap for:" + tagKey + " with tagValue:"
+							+ tagValue + " on rowIndex:" + rowIndex);
 				}
 			}
 		}
@@ -301,6 +300,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 	@Override
 	public void index(String tag, String value, String rowKey) throws IOException {
 		// not implemented
+		throw new UnsupportedOperationException("Bitmap index can't store string rowkeys");
 	}
 
 	@Override
