@@ -41,7 +41,6 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
-import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
@@ -120,13 +119,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 
 	@Override
 	public Set<String> getTagKeys() {
-		Set<String> set = new HashSet<>();
-		for (String key : rowKeyIndex.keySet()) {
-			Map<String, MutableRoaringBitmap> map = rowKeyIndex.get(key);
-			for (String value : map.keySet()) {
-				set.add(key + Measurement.TAG_KV_SEPARATOR + value);
-			}
-		}
+		Set<String> set = new HashSet<>(rowKeyIndex.keySet());
 		return set;
 	}
 
@@ -143,7 +136,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 	}
 
 	protected MutableRoaringBitmap evalFilterForTags(TagFilter filterTree) {
-		logger.finest(() -> "Evaluating filter tree:" + filterTree);
+		logger.finer(() -> "Evaluating filter tree:" + measurement.getMeasurementName() + " " + filterTree);
 		// either it's a simple tag filter or a complex tag filter
 		if (filterTree instanceof SimpleTagFilter) {
 			SimpleTagFilter simpleFilter = (SimpleTagFilter) filterTree;
@@ -158,11 +151,18 @@ public class MappedBitmapTagIndex implements TagIndex {
 			List<TagFilter> filters = complexFilter.getFilters();
 			ComplexFilterType type = complexFilter.getType();
 			MutableRoaringBitmap map = new MutableRoaringBitmap();
-			for (TagFilter tagFilter : filters) {
+			for (int i = 0; i < filters.size(); i++) {
+				TagFilter tagFilter = filters.get(i);
 				MutableRoaringBitmap r = evalFilterForTags(tagFilter);
 				if (r == null) {
 					// no match found from evaluation of this filter
-					continue;
+					if (type == ComplexFilterType.AND) {
+						// if filter condition is AND then short circuit terminate the evaluation
+						return map = new MutableRoaringBitmap();
+					} else {
+						// if filter condition is OR then continue evaluation
+						continue;
+					}
 				} else if (map.isEmpty()) {
 					// if the global map is empty then initialize it
 					map.or(r);
@@ -177,6 +177,12 @@ public class MappedBitmapTagIndex implements TagIndex {
 				}
 			}
 			return map;
+		}
+	}
+
+	public static void printBitMap(MutableRoaringBitmap r) {
+		for (Integer integer : r) {
+			System.out.println("Row:" + integer);
 		}
 	}
 
@@ -307,7 +313,9 @@ public class MappedBitmapTagIndex implements TagIndex {
 	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
 		Set<String> rowKeys = new HashSet<>();
 		MutableRoaringBitmap evalFilterForTags = evalFilterForTags(tagFilterTree);
-		bitmapToRowKeys(rowKeys, evalFilterForTags);
+		if (evalFilterForTags != null) {
+			bitmapToRowKeys(rowKeys, evalFilterForTags);
+		}
 		return rowKeys;
 	}
 

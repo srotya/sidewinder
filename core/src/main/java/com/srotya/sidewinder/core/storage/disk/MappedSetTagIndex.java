@@ -212,12 +212,19 @@ public class MappedSetTagIndex implements TagIndex {
 			List<TagFilter> filters = complexFilter.getFilters();
 			Set<String> set = new HashSet<>();
 			ComplexFilterType type = complexFilter.getType();
-			for (TagFilter tagFilter : filters) {
+			for (int i = 0; i < filters.size(); i++) {
+				TagFilter tagFilter = filters.get(i);
 				Set<String> r = evalFilterForTags(tagFilter);
 				if (r == null) {
 					// no match found from evaluation of this filter
-					continue;
-				} else if (set.isEmpty()) {
+					if (type == ComplexFilterType.AND) {
+						// if filter condition is AND then short circuit terminate the evaluation
+						return set = new HashSet<>();
+					} else {
+						// if filter condition is OR then continue evaluation
+						continue;
+					}
+				} else if (set.isEmpty() && i == 0) {
 					set.addAll(r);
 				}
 				switch (type) {

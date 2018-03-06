@@ -75,4 +75,10 @@ public class SimpleTagFilter implements TagFilter {
 		this.comparedValue = comparedValue;
 	}
 
+	@Override
+	public String toString() {
+		return "SimpleTagFilter [filterType=" + filterType + ", tagKey=" + tagKey + ", comparedValue=" + comparedValue
+				+ "]";
+	}
+
 }

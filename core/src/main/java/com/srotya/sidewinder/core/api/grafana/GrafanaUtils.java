@@ -59,6 +59,7 @@ public class GrafanaUtils {
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
 		} catch (Exception e) {
+			e.printStackTrace();
 			throw new BadRequestException(e.getMessage());
 		}
 		if (points != null) {
@@ -100,13 +101,16 @@ public class GrafanaUtils {
 				if (jsonElement.has("correlate")) {
 					correlate = jsonElement.get("correlate").getAsBoolean();
 				}
-				targetSeries.add(new TargetSeries(jsonElement.get("target").getAsString(),
-						jsonElement.get("field").getAsString(), filter, aggregationFunction, correlate));
+				TargetSeries e = new TargetSeries(jsonElement.get("target").getAsString(),
+						jsonElement.get("field").getAsString(), filter, aggregationFunction, correlate);
+				targetSeries.add(e);
+				logger.log(Level.FINE, () -> "Parsed and extracted target:" + e);
 			} else if (jsonElement.has("raw") && jsonElement.get("rawQuery").getAsBoolean()) {
 				// raw query recieved
-				TargetSeries ts = MiscUtils.extractTargetFromQuery(jsonElement.get("raw").getAsString());
-				if (ts != null) {
-					targetSeries.add(ts);
+				TargetSeries e = MiscUtils.extractTargetFromQuery(jsonElement.get("raw").getAsString());
+				logger.log(Level.FINE, () -> "Parsed and extracted raw query:" + e);
+				if (e != null) {
+					targetSeries.add(e);
 				}
 			}
 		}
@@ -194,7 +198,9 @@ public class GrafanaUtils {
 					}
 				}
 			} else {
-				SimpleTagFilter filter = MiscUtils.buildSimpleFilter(val);
+				SimpleTagFilter filter = MiscUtils.buildSimpleFilter(obj.get("key").getAsString()
+						+ obj.get("operator").getAsString() + obj.get("value").getAsString());
+				logger.log(Level.FINE, () -> "Simple filter:" + filter);
 				if (predicateStack.isEmpty()) {
 					predicateStack.push(filter);
 				} else {

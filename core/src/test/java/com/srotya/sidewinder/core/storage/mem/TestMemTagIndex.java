@@ -29,9 +29,11 @@ import java.util.concurrent.TimeUnit;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.ComplexTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.filters.TagFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -111,6 +113,18 @@ public class TestMemTagIndex {
 		keys = index.searchRowKeysForTagFilter(filter);
 		// keys.stream().forEach(System.out::println);
 		assertEquals(5, keys.size());
+		
+		filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "9990"),
+						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(0, keys.size());
+		
+		filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key1", "9990"),
+						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(0, keys.size());
 	}
 
 	@Test
@@ -137,6 +151,30 @@ public class TestMemTagIndex {
 		keys = index.searchRowKeysForTagFilter(filter);
 		// keys.stream().forEach(System.out::println);
 		assertEquals(11, keys.size());
+		
+		filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "9990"),
+						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(0, keys.size());
+		
+		filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key1", "9990"),
+						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(0, keys.size());
+		
+		filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "9990"),
+						new SimpleTagFilter(FilterType.EQUALS, "key1", "9991")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(0, keys.size());
+		
+		filter = new ComplexTagFilter(ComplexFilterType.OR,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key1", "9990"),
+						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1, keys.size());
 	}
 
 }

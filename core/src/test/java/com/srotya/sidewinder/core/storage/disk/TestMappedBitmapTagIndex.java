@@ -29,9 +29,11 @@ import java.util.concurrent.Executors;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.ComplexTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.filters.TagFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -137,8 +139,65 @@ public class TestMappedBitmapTagIndex {
 
 		filter = new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "0010");
 		keys = index.searchRowKeysForTagFilter(filter);
-		// keys.stream().forEach(System.out::println);
 		assertEquals(11, keys.size());
+
+		filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "9990"),
+						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(0, keys.size());
+
+		filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key1", "9990"),
+						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(0, keys.size());
+
+		filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "9990"),
+						new SimpleTagFilter(FilterType.EQUALS, "key1", "9991")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(0, keys.size());
+
+		filter = new ComplexTagFilter(ComplexFilterType.OR,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key1", "9990"),
+						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1, keys.size());
+	}
+
+	@Test
+	public void testBitmapIndexMultiTags() throws IOException, InterruptedException {
+		MiscUtils.delete(new File("target/s9"));
+		String indexDir = "target/s9";
+		new File(indexDir).mkdirs();
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> conf = new HashMap<>();
+		m.configure(conf, engine, "d", "m", "target/s9/i/bitmap", "target/s9/d/bitmap", new DBMetadata(), null);
+		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s9", m);
+		for (int i = 0; i < 10; i++) {
+			String format = String.format("%04d", i);
+			index.index("key", format, i / 2);
+			m.getSeriesListAsList().add(new SeriesFieldMap(format));
+		}
+
+		TagFilter filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "0000"),
+						new SimpleTagFilter(FilterType.EQUALS, "key", "0000")));
+		Set<String> keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1, keys.size());
+		
+		filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "0000"),
+						new SimpleTagFilter(FilterType.EQUALS, "key", "0002")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(0, keys.size());
+		
+		filter = new ComplexTagFilter(ComplexFilterType.AND,
+				Arrays.asList(new SimpleTagFilter(FilterType.LESS_THAN, "key", "0004"),
+						new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "0005")));
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(2, keys.size());
 	}
 
 	@Test

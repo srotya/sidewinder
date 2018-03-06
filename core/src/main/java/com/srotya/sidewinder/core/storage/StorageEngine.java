@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -25,6 +26,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import com.codahale.metrics.Counter;
@@ -145,7 +148,6 @@ public interface StorageEngine {
 	 * @param valueFieldPattern
 	 * @param startTime
 	 * @param endTime
-	 * @param tagList
 	 * @param tagFilter
 	 * @param valuePredicate
 	 * @param function
@@ -160,9 +162,11 @@ public interface StorageEngine {
 		}
 		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementPattern);
 		List<Series> resultList = Collections.synchronizedList(new ArrayList<>());
+		getLogger().finer(() -> "Querying points for:" + measurementsLike + " " + measurementPattern);
 		for (String measurement : measurementsLike) {
-			getDatabaseMap().get(dbName).get(measurement).queryDataPoints(valueFieldPattern, startTime, endTime,
-					tagFilter, valuePredicate, resultList);
+			Measurement measurementObj = getDatabaseMap().get(dbName).get(measurement);
+			measurementObj.queryDataPoints(valueFieldPattern, startTime, endTime, tagFilter, valuePredicate,
+					resultList);
 		}
 		if (function != null) {
 			resultList = function.apply(resultList);
@@ -269,7 +273,11 @@ public interface StorageEngine {
 		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
 		Set<String> results = new HashSet<>();
 		for (String m : measurementsLike) {
-			results.addAll(getDatabaseMap().get(dbName).get(m).getTagValues(tagKey));
+			Measurement measurement = getDatabaseMap().get(dbName).get(m);
+			Collection<String> tagValues = measurement.getTagValues(tagKey);
+			if (tagValues != null) {
+				results.addAll(tagValues);
+			}
 		}
 		return results;
 	}
@@ -587,7 +595,10 @@ public interface StorageEngine {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		return getDatabaseMap().get(dbName).get(measurementName).getTagFilteredRowKeys(tagFilter);
+		getLogger().log(Level.FINER, "Get tag filtered rowkeys for db" + dbName + " measurement:" + measurementName
+				+ " filter:" + tagFilter);
+		Measurement measurement = getDatabaseMap().get(dbName).get(measurementName);
+		return measurement.getTagFilteredRowKeys(tagFilter);
 	}
 
 	public Map<String, Map<String, Measurement>> getDatabaseMap();
@@ -607,5 +618,7 @@ public interface StorageEngine {
 		writeDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
 				new ArrayList<>(dp.getTagsList()), dp.getTimestamp(), dp.getValue(), dp.getFp());
 	}
+
+	public Logger getLogger();
 
 }

@@ -136,7 +136,13 @@ public class MemTagIndex implements TagIndex {
 				Set<String> r = evalFilterForTags(tagFilter);
 				if (r == null) {
 					// no match found from evaluation of this filter
-					continue;
+					if (type == ComplexFilterType.AND) {
+						// if filter condition is AND then short circuit terminate the evaluation
+						return set = new HashSet<>();
+					} else {
+						// if filter condition is OR then continue evaluation
+						continue;
+					}
 				} else if (set.isEmpty()) {
 					set.addAll(r);
 				}

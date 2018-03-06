@@ -331,4 +331,8 @@ public class MemStorageEngine implements StorageEngine {
 		return metricsWriteCounter;
 	}
 
+	@Override
+	public Logger getLogger() {
+		return logger;
+	}
 }

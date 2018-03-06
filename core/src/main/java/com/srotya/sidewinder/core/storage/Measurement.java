@@ -256,6 +256,8 @@ public interface Measurement {
 		} else {
 			rowKeys = getTagFilteredRowKeys(tagFilter);
 		}
+		getLogger()
+				.fine(() -> "Filtered row keys to query(" + valueFieldNamePattern + "," + tagFilter + "):" + rowKeys);
 		final Pattern p;
 		try {
 			p = Pattern.compile(valueFieldNamePattern);

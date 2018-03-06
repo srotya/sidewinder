@@ -263,15 +263,12 @@ public class TimeSeries {
 	}
 
 	/**
-	 * Extract {@link DataPoint}s for the supplied time range and value
-	 * predicate.
+	 * Extract {@link DataPoint}s for the supplied time range and value predicate.
 	 * 
 	 * Each {@link DataPoint} has the appendFieldValue and appendTags set in it.
 	 * 
 	 * @param appendFieldValueName
 	 *            fieldname to append to each datapoint
-	 * @param appendTags
-	 *            tags to append to each datapoint
 	 * @param startTime
 	 *            time range beginning
 	 * @param endTime
@@ -290,7 +287,8 @@ public class TimeSeries {
 			startTime = startTime ^ endTime;
 		}
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
-		logger.fine(() -> getSeriesId() + " " + bucketMap.size() + " " + bucketCount);
+		logger.fine(getSeriesId() + " " + bucketMap.size() + " " + bucketCount + " " + startTime + "  " + endTime + " "
+				+ valuePredicate + " " + timeRangePredicate + " diff:" + (endTime - startTime));
 		SortedMap<String, List<Writer>> series = correctTimeRangeScan(startTime, endTime);
 		List<Reader> readers = new ArrayList<>();
 		for (List<Writer> writers : series.values()) {
@@ -326,6 +324,7 @@ public class TimeSeries {
 				series = bucketMap.subMap(startTsBucket, endTsBucket);
 			}
 		}
+		logger.fine("Series select size:" + series.size());
 		return series;
 	}
 
@@ -353,8 +352,7 @@ public class TimeSeries {
 	}
 
 	/**
-	 * Get {@link Reader} with time and value filter predicates pushed-down to
-	 * it.
+	 * Get {@link Reader} with time and value filter predicates pushed-down to it.
 	 * 
 	 * @param timePredicate
 	 * @param valuePredicate
@@ -469,9 +467,9 @@ public class TimeSeries {
 
 	/**
 	 * Converts timeseries to a list of datapoints appended to the supplied list
-	 * object. Datapoints are filtered by the supplied predicates before they
-	 * are returned. These predicates are pushed down to the reader for
-	 * efficiency and performance as it prevents unnecessary object creation.
+	 * object. Datapoints are filtered by the supplied predicates before they are
+	 * returned. These predicates are pushed down to the reader for efficiency and
+	 * performance as it prevents unnecessary object creation.
 	 * 
 	 * @param appendFieldValueName
 	 * @param appendTags
@@ -662,15 +660,14 @@ public class TimeSeries {
 	}
 
 	/**
-	 * Compacts old Writers into one for every single time bucket, this insures
-	 * the buffers are compacted as well as provides an opportunity to use a
-	 * higher compression rate algorithm for the bucket. All Writers but the
-	 * last are read-only therefore performing operations on them does not
-	 * impact.
+	 * Compacts old Writers into one for every single time bucket, this insures the
+	 * buffers are compacted as well as provides an opportunity to use a higher
+	 * compression rate algorithm for the bucket. All Writers but the last are
+	 * read-only therefore performing operations on them does not impact.
 	 * 
 	 * @param functions
-	 * @return returns null if nothing to compact or empty list if all
-	 *         compaction attempts fail
+	 * @return returns null if nothing to compact or empty list if all compaction
+	 *         attempts fail
 	 * @throws IOException
 	 */
 	@SafeVarargs

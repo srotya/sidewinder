@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.api.grafana;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
@@ -59,7 +60,9 @@ public class TestGrafanaUtils {
 		element.addProperty("target", "ticker");
 		JsonArray array = new JsonArray();
 		JsonObject obj = new JsonObject();
-		obj.addProperty("value", "test=2");
+		obj.addProperty("key", "test");
+		obj.addProperty("operator", "=");
+		obj.addProperty("value", "2");
 		array.add(obj);
 
 		obj = new JsonObject();
@@ -68,7 +71,9 @@ public class TestGrafanaUtils {
 		array.add(obj);
 
 		obj = new JsonObject();
-		obj.addProperty("value", "test>2");
+		obj.addProperty("key", "test");
+		obj.addProperty("operator", ">");
+		obj.addProperty("value", "2");
 		array.add(obj);
 
 		element.add("filters", array);
@@ -77,6 +82,7 @@ public class TestGrafanaUtils {
 
 		TagFilter filter = GrafanaUtils.extractGrafanaFilter(element);
 		System.out.println(filter);
+		assertNotNull(filter);
 
 	}
 
@@ -86,7 +92,9 @@ public class TestGrafanaUtils {
 		element.addProperty("target", "ticker");
 		JsonArray array = new JsonArray();
 		JsonObject obj = new JsonObject();
-		obj.addProperty("value", "testg<0");
+		obj.addProperty("key", "testg");
+		obj.addProperty("operator", "<");
+		obj.addProperty("value", "0");
 		array.add(obj);
 
 		obj = new JsonObject();
@@ -95,7 +103,9 @@ public class TestGrafanaUtils {
 		array.add(obj);
 
 		obj = new JsonObject();
-		obj.addProperty("value", "test>2");
+		obj.addProperty("key", "test");
+		obj.addProperty("operator", ">");
+		obj.addProperty("value", "2");
 		array.add(obj);
 
 		obj = new JsonObject();
@@ -104,7 +114,9 @@ public class TestGrafanaUtils {
 		array.add(obj);
 
 		obj = new JsonObject();
-		obj.addProperty("value", "test2>3");
+		obj.addProperty("key", "test2");
+		obj.addProperty("operator", ">");
+		obj.addProperty("value", "3");
 		array.add(obj);
 
 		element.add("filters", array);
@@ -113,9 +125,9 @@ public class TestGrafanaUtils {
 
 		TagFilter filter = GrafanaUtils.extractGrafanaFilter(element);
 		System.out.println(filter);
-
-//		assertTrue(filter.retain(Arrays.asList("test", "test2", "test3")));
-//		assertTrue(!filter.retain(Arrays.asList("test")));
+		assertNotNull(filter);
+		// assertTrue(filter.retain(Arrays.asList("test", "test2", "test3")));
+		// assertTrue(!filter.retain(Arrays.asList("test")));
 	}
 
 }

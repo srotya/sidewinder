@@ -674,7 +674,7 @@ public class TestDiskStorageEngine {
 		}
 		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
 		System.out.println("Tags:" + tags);
-		assertEquals(9, tags.size());
+		assertEquals(2, tags.size());
 		// Set<String> series = engine.getSeriesIdsWhereTags(dbName, measurementName,
 		// Arrays.asList("p=" + String.valueOf(1)));
 		// assertEquals(2, series.size());
@@ -737,7 +737,9 @@ public class TestDiskStorageEngine {
 			}
 		}
 		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
-		assertEquals(new HashSet<>(Arrays.asList(tag + "=1", tag + "=2", tag + "=3", tag + "=4")), tags);
+		assertEquals(new HashSet<>(Arrays.asList(tag)), tags);
+		assertEquals(new HashSet<>(Arrays.asList("1", "2", "3", "4")),
+				engine.getTagValuesForMeasurement(dbName, measurementName, tag));
 		Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
 		assertEquals(new HashSet<>(Arrays.asList(valueFieldName)), fieldsForMeasurement);
 
@@ -809,7 +811,7 @@ public class TestDiskStorageEngine {
 			}
 		}
 		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
-		assertEquals(new HashSet<>(Arrays.asList(tag)), tags);
+		assertEquals(new HashSet<>(Arrays.asList("host")), tags);
 		Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
 		assertEquals(new HashSet<>(Arrays.asList(valueFieldName)), fieldsForMeasurement);
 

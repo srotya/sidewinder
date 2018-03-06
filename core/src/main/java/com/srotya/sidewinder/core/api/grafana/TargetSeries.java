@@ -93,4 +93,10 @@ public class TargetSeries {
 	public Function getAggregationFunction() {
 		return function;
 	}
+
+	@Override
+	public String toString() {
+		return "TargetSeries [measurementName=" + measurementName + ", fieldName=" + fieldName + ", autoCorrelate="
+				+ autoCorrelate + ", tagFilter=" + tagFilter + ", function=" + function + "]";
+	}
 }
