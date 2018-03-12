@@ -95,8 +95,7 @@ public class TestByzantineReadWrite {
 			writer.addValue(ts + i, i);
 		}
 		assertEquals(10, bwriter.getCount());
-		assertEquals(bwriter.getPrevTs(), bwriter.getLastTs());
-		assertEquals(ts + 9, bwriter.getLastTs());
+		assertEquals(ts + 9, bwriter.getPrevTs());
 		buf = bwriter.getBuf();
 		buf.flip();
 		buf.get();

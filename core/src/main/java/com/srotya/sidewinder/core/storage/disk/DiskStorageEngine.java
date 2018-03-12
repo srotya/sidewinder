@@ -476,4 +476,8 @@ public class DiskStorageEngine implements StorageEngine {
 		return metricsWriteCounter;
 	}
 
+	@Override
+	public Logger getLogger() {
+		return logger;
+	}
 }

@@ -4,10 +4,10 @@ server:
     bufferSize: 8KiB
   applicationConnectors:
   - type: http
-    port: 8080
+    port: 55442
   adminConnectors:
   - type: http
-    port: 9001
+    port: 55443
   requestLog:
     appenders: []
 configPath: src/test/resources/auth.props

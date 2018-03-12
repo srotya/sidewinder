@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright 2018 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,22 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.compression.zip;
+package com.srotya.sidewinder.core.filters;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.ByteBuffer;
-import java.util.zip.GZIPInputStream;
-
-public class GZipReader extends ZipReader {
-
-	public GZipReader(ByteBuffer readBuf, int startOffset, int blockSize) throws IOException {
-		super(readBuf, startOffset, blockSize);
-	}
-
-	@Override
-	public InputStream getInputStream(InputStream stream, int blockSize) throws IOException {
-		return new GZIPInputStream(stream);
-	}
+public interface TagFilter {
 
 }

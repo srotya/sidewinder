@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -25,10 +26,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import com.codahale.metrics.Counter;
-import com.srotya.sidewinder.core.filters.Filter;
+import com.srotya.sidewinder.core.filters.Tag;
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
@@ -71,6 +75,7 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_ON_START = "false";
 	public static final String COMPACTION_RATIO = "compaction.ratio";
 	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
+
 	/**
 	 * @param conf
 	 * @param bgTaskPool
@@ -143,7 +148,6 @@ public interface StorageEngine {
 	 * @param valueFieldPattern
 	 * @param startTime
 	 * @param endTime
-	 * @param tagList
 	 * @param tagFilter
 	 * @param valuePredicate
 	 * @param function
@@ -151,16 +155,18 @@ public interface StorageEngine {
 	 * @throws IOException
 	 */
 	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
-			Predicate valuePredicate, Function function) throws IOException {
+			long startTime, long endTime, TagFilter tagFilter, Predicate valuePredicate, Function function)
+			throws IOException {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementPattern);
 		List<Series> resultList = Collections.synchronizedList(new ArrayList<>());
+		getLogger().finer(() -> "Querying points for:" + measurementsLike + " " + measurementPattern);
 		for (String measurement : measurementsLike) {
-			getDatabaseMap().get(dbName).get(measurement).queryDataPoints(valueFieldPattern, startTime, endTime,
-					tagList, tagFilter, valuePredicate, resultList);
+			Measurement measurementObj = getDatabaseMap().get(dbName).get(measurement);
+			measurementObj.queryDataPoints(valueFieldPattern, startTime, endTime, tagFilter, valuePredicate,
+					resultList);
 		}
 		if (function != null) {
 			resultList = function.apply(resultList);
@@ -169,16 +175,15 @@ public interface StorageEngine {
 	}
 
 	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter,
-			Predicate valuePredicate) throws IOException {
-		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagList, tagFilter,
+			long startTime, long endTime, TagFilter tagFilter, Predicate valuePredicate) throws IOException {
+		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagFilter,
 				valuePredicate, null);
 	}
 
 	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, List<String> tagList, Filter<List<String>> tagFilter) throws IOException {
-		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagList, tagFilter,
-				null, null);
+			long startTime, long endTime, TagFilter tagFilter) throws IOException {
+		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagFilter, null,
+				null);
 	}
 
 	/**
@@ -248,14 +253,31 @@ public interface StorageEngine {
 	 * @return tags
 	 * @throws Exception
 	 */
-	public default Set<String> getTagsForMeasurement(String dbName, String measurementName) throws Exception {
+	public default Set<String> getTagKeysForMeasurement(String dbName, String measurementName) throws Exception {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
 		Set<String> results = new HashSet<>();
 		for (String m : measurementsLike) {
-			results.addAll(getDatabaseMap().get(dbName).get(m).getTags());
+			results.addAll(getDatabaseMap().get(dbName).get(m).getTagKeys());
+		}
+		return results;
+	}
+
+	public default Set<String> getTagValuesForMeasurement(String dbName, String measurementName, String tagKey)
+			throws Exception {
+		if (!checkIfExists(dbName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
+		Set<String> results = new HashSet<>();
+		for (String m : measurementsLike) {
+			Measurement measurement = getDatabaseMap().get(dbName).get(m);
+			Collection<String> tagValues = measurement.getTagValues(tagKey);
+			if (tagValues != null) {
+				results.addAll(tagValues);
+			}
 		}
 		return results;
 	}
@@ -267,13 +289,13 @@ public interface StorageEngine {
 	 * @return tags for the supplied parameters
 	 * @throws Exception
 	 */
-	public default List<List<String>> getTagsForMeasurement(String dbName, String measurementName,
-			String valueFieldName) throws Exception {
+	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName, String valueFieldName)
+			throws Exception {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementName);
-		List<List<String>> results = new ArrayList<>();
+		List<List<Tag>> results = new ArrayList<>();
 		for (String m : measurementsLike) {
 			results.addAll(getDatabaseMap().get(dbName).get(m).getTagsForMeasurement());
 		}
@@ -496,6 +518,17 @@ public interface StorageEngine {
 		return readers;
 	}
 
+	public default LinkedHashMap<Reader, List<Tag>> queryReadersWithMap(String dbName, String measurementName,
+			String valueFieldName, long startTime, long endTime) throws Exception {
+		if (!checkIfExists(dbName, measurementName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		LinkedHashMap<Reader, List<Tag>> readers = new LinkedHashMap<>();
+		getDatabaseMap().get(dbName).get(measurementName).queryReadersWithMap(valueFieldName, startTime, endTime,
+				readers);
+		return readers;
+	}
+
 	/**
 	 * Check if timeseries exists
 	 * 
@@ -547,20 +580,25 @@ public interface StorageEngine {
 
 	public Map<String, Map<String, Measurement>> getMeasurementMap();
 
-	public default Set<String> getSeriesIdsWhereTags(String dbName, String measurementName, List<String> tags)
-			throws ItemNotFoundException, Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		return getDatabaseMap().get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
-	}
+	// public default Set<String> getSeriesIdsWhereTags(String dbName, String
+	// measurementName, List<String> tags)
+	// throws ItemNotFoundException, Exception {
+	// if (!checkIfExists(dbName, measurementName)) {
+	// throw NOT_FOUND_EXCEPTION;
+	// }
+	// return
+	// getDatabaseMap().get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
+	// }
 
-	public default Set<String> getTagFilteredRowKeys(String dbName, String measurementName,
-			Filter<List<String>> tagFilterTree, List<String> rawTags) throws IOException {
+	public default Set<String> getTagFilteredRowKeys(String dbName, String measurementName, TagFilter tagFilter)
+			throws IOException {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		return getDatabaseMap().get(dbName).get(measurementName).getTagFilteredRowKeys(tagFilterTree, rawTags);
+		getLogger().log(Level.FINER, "Get tag filtered rowkeys for db" + dbName + " measurement:" + measurementName
+				+ " filter:" + tagFilter);
+		Measurement measurement = getDatabaseMap().get(dbName).get(measurementName);
+		return measurement.getTagFilteredRowKeys(tagFilter);
 	}
 
 	public Map<String, Map<String, Measurement>> getDatabaseMap();
@@ -580,5 +618,7 @@ public interface StorageEngine {
 		writeDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
 				new ArrayList<>(dp.getTagsList()), dp.getTimestamp(), dp.getValue(), dp.getFp());
 	}
+
+	public Logger getLogger();
 
 }

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.functions.FunctionName;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -47,7 +48,7 @@ public abstract class MultiSeriesFunction implements Function {
 		series.setFp(fp);
 		series.setMeasurementName(t.get(0).getMeasurementName());
 		series.setValueFieldName(name());
-		series.setTags(Arrays.asList("multiseries"));
+		series.setTags(Arrays.asList(new Tag("multiseries", "true")));
 		output.add(series);
 		return output;
 	}

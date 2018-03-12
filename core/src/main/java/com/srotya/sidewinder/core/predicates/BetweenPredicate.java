@@ -36,4 +36,14 @@ public class BetweenPredicate implements Predicate {
 		return value >= startTs && value <= endTs;
 	}
 
+	/*
+	 * (non-Javadoc)
+	 * 
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "BetweenPredicate [startTs=" + startTs + ", endTs=" + endTs + "]";
+	}
+
 }

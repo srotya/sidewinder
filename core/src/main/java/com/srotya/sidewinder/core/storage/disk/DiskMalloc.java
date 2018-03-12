@@ -57,7 +57,7 @@ public class DiskMalloc implements Malloc {
 	private static final String SEPARATOR = ")";
 	private static final Logger logger = Logger.getLogger(DiskMalloc.class.getName());
 	// 100MB default buffer increment size
-	private static final int DEFAULT_BUF_INCREMENT = 1048576;
+	private static final int DEFAULT_FILE_INCREMENT = 1048576;
 	private static final int DEFAULT_MAX_FILE_SIZE = Integer.MAX_VALUE;
 	private static final int DEFAULT_INCREMENT_SIZE = 32768;
 	public static final String CONF_MALLOC_PTRFILE_INCREMENT = "malloc.ptrfile.increment";
@@ -97,7 +97,7 @@ public class DiskMalloc implements Malloc {
 		this.lock = lock;
 		this.dataDirectory = dataDirectory + "/" + measurementName;
 		this.fileMapIncrement = Integer
-				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_INCREMENT, String.valueOf(DEFAULT_BUF_INCREMENT)));
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_INCREMENT, String.valueOf(DEFAULT_FILE_INCREMENT)));
 		this.maxFileSize = Integer
 				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_MAX, String.valueOf(DEFAULT_MAX_FILE_SIZE)));
 		this.increment = Integer

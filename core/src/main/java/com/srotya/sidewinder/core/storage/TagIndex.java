@@ -17,39 +17,36 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Set;
+
+import com.srotya.sidewinder.core.filters.TagFilter;
 
 /**
  * @author ambud
  */
 public interface TagIndex {
 	
-	/**
-	 * @param tagKey
-	 * @return uid
-	 * @throws IOException
-	 */
-	public String mapTag(String tagKey) throws IOException;
-	
-	public String getTagMapping(String tagUid) throws IOException;
-	
-	public Collection<String> getTags() throws IOException;
+	public Collection<String> getTagKeys() throws IOException;
 	
 	/**
 	 * Indexes tag in the row key, creating an adjacency list
 	 * 
 	 * @param tag
+	 * @param value
 	 * @param rowKey
 	 * @throws IOException
 	 */
-	public void index(String tag, String rowKey) throws IOException;
-
-	/**
-	 * @param tagKey
-	 * @return
-	 * @throws IOException
-	 */
-	public Collection<String> searchRowKeysForTag(String tagKey) throws IOException;
+	public void index(String tag, String value, String rowKey) throws IOException;
+	
+	public void index(String tag, String value, int rowIndex) throws IOException;
 
 	public void close() throws IOException;
+	
+	public int getSize();
+
+
+	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree);
+
+	public Collection<String> getTagValues(String tagKey);
 
 }

@@ -34,6 +34,7 @@ import javax.ws.rs.core.MediaType;
 
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.model.ModelHandler;
+import org.apache.calcite.schema.Function;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -67,12 +68,15 @@ public class SqlApi {
 		CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
 		ModelHandler.create(calciteConnection.getRootSchema(), "now", Arrays.asList(""), NowFunction.class.getName(),
 				"apply");
-		ModelHandler.create(calciteConnection.getRootSchema(), "tomilli", Arrays.asList(""),
+		ModelHandler.create(calciteConnection.getRootSchema(), "milli", Arrays.asList(""),
 				ToMilliseconds.class.getName(), "apply");
-		ModelHandler.create(calciteConnection.getRootSchema(), "totimestamp", Arrays.asList(""),
-				ToTimestamp.class.getName(), "apply");
+		ModelHandler.create(calciteConnection.getRootSchema(), "ts", Arrays.asList(""), ToTimestamp.class.getName(),
+				"eval");
 		ModelHandler.create(calciteConnection.getRootSchema(), "datediff", Arrays.asList(""),
 				DateDiffFunction.class.getName(), "apply");
+		for (Function function : calciteConnection.getRootSchema().getFunctions("ts")) {
+			System.out.println(function.getParameters().get(0).getName());
+		}
 	}
 
 	public boolean checkAndAddSchema(String dbName) throws Exception {
@@ -128,7 +132,7 @@ public class SqlApi {
 				case java.sql.Types.ARRAY:
 					break;
 				case java.sql.Types.BIGINT:
-					obj.addProperty(column_name, rs.getInt(column_name));
+					obj.addProperty(column_name, rs.getLong(column_name));
 					break;
 				case java.sql.Types.DOUBLE:
 					obj.addProperty(column_name, rs.getDouble(column_name));

@@ -48,6 +48,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.SidewinderConfig;
 import com.srotya.sidewinder.core.SidewinderServer;
+import com.srotya.sidewinder.core.filters.Tag;
 
 import io.dropwizard.testing.junit.DropwizardAppRule;
 
@@ -56,6 +57,7 @@ import io.dropwizard.testing.junit.DropwizardAppRule;
  */
 public class TestInMemoryByzantineDefaults {
 
+	private static final String PORT = "55442";
 	@ClassRule
 	public static final DropwizardAppRule<SidewinderConfig> RULE = new DropwizardAppRule<SidewinderConfig>(
 			SidewinderServer.class, "src/test/resources/blank.yaml");
@@ -63,31 +65,35 @@ public class TestInMemoryByzantineDefaults {
 	@Test
 	public void testRestApi() throws Exception {
 		CloseableHttpResponse response = TestUtils
-				.makeRequest(new HttpGet("http://localhost:8080/databases/_internal"));
+				.makeRequest(new HttpGet("http://localhost:" + PORT + "/databases/_internal"));
 		assertEquals(200, response.getStatusLine().getStatusCode());
-		response = TestUtils.makeRequest(new HttpGet("http://localhost:8080/databases/_internal2"));
-		assertEquals(404, response.getStatusLine().getStatusCode());
-		response = TestUtils.makeRequest(new HttpGet("http://localhost:8080/databases/_internal/measurements/cpu"));
-		assertEquals(200, response.getStatusLine().getStatusCode());
-		response = TestUtils.makeRequest(new HttpGet("http://localhost:8080/databases/_internal/measurements/memory"));
-		assertEquals(200, response.getStatusLine().getStatusCode());
-		response = TestUtils.makeRequest(new HttpGet("http://localhost:8080/databases/_internal2/measurements/memory"));
-		assertEquals(404, response.getStatusLine().getStatusCode());
-		response = TestUtils.makeRequest(new HttpGet("http://localhost:8080/databases/_internal/measurements/memory2"));
+		response = TestUtils.makeRequest(new HttpGet("http://localhost:" + PORT + "/databases/_internal2"));
 		assertEquals(404, response.getStatusLine().getStatusCode());
 		response = TestUtils
-				.makeRequest(new HttpGet("http://localhost:8080/databases/_internal/measurements/memory/check"));
+				.makeRequest(new HttpGet("http://localhost:" + PORT + "/databases/_internal/measurements/cpu"));
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		response = TestUtils
+				.makeRequest(new HttpGet("http://localhost:" + PORT + "/databases/_internal/measurements/memory"));
+		assertEquals(200, response.getStatusLine().getStatusCode());
+		response = TestUtils
+				.makeRequest(new HttpGet("http://localhost:" + PORT + "/databases/_internal2/measurements/memory"));
+		assertEquals(404, response.getStatusLine().getStatusCode());
+		response = TestUtils
+				.makeRequest(new HttpGet("http://localhost:" + PORT + "/databases/_internal/measurements/memory2"));
+		assertEquals(404, response.getStatusLine().getStatusCode());
+		response = TestUtils.makeRequest(
+				new HttpGet("http://localhost:" + PORT + "/databases/_internal/measurements/memory/check"));
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		assertEquals("true", EntityUtils.toString(response.getEntity()));
-		response = TestUtils
-				.makeRequest(new HttpGet("http://localhost:8080/databases/_internal/measurements/memory/fields/value"));
+		response = TestUtils.makeRequest(
+				new HttpGet("http://localhost:" + PORT + "/databases/_internal/measurements/memory/fields/value"));
 		assertEquals(200, response.getStatusLine().getStatusCode());
 	}
 
 	@Test
 	public void testTSQLApi() throws Exception, ClientProtocolException, NoSuchAlgorithmException, KeyStoreException,
 			MalformedURLException, IOException {
-		HttpPost post = new HttpPost("http://localhost:8080/influx?db=qaTSQL");
+		HttpPost post = new HttpPost("http://localhost:" + PORT + "/influx?db=qaTSQL");
 		post.setEntity(new StringEntity("cpu,host=server01,region=uswest value=1i 1497720452566000000\n"
 				+ "cpu,host=server02,region=uswest value=1i 1497720452566000000\n"
 				+ "cpu,host=server03,region=uswest value=1i 1497720452566000000\n"
@@ -96,7 +102,7 @@ public class TestInMemoryByzantineDefaults {
 				+ "cpu,host=server03,region=uswest value=1i 1497720453566000000"));
 		CloseableHttpResponse response = TestUtils.makeRequest(post);
 		assertEquals(204, response.getStatusLine().getStatusCode());
-		HttpPost get = new HttpPost("http://localhost:8080/databases/qaTSQL/query");
+		HttpPost get = new HttpPost("http://localhost:" + PORT + "/databases/qaTSQL/query");
 		get.setEntity(new StringEntity("1497720442566<cpu.value<1497720652566"));
 		response = TestUtils.makeRequest(get);
 		String entity = EntityUtils.toString(response.getEntity());
@@ -115,11 +121,11 @@ public class TestInMemoryByzantineDefaults {
 		long sts = 1497720452566L;
 		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		format.setTimeZone(TimeZone.getTimeZone("utc"));
-		HttpPost post = new HttpPost("http://localhost:8080/influx?db=qaSingleSeries");
+		HttpPost post = new HttpPost("http://localhost:" + PORT + "/influx?db=qaSingleSeries");
 		CloseableHttpResponse response = TestUtils.makeRequest(post);
 		assertEquals(400, response.getStatusLine().getStatusCode());
 
-		post = new HttpPost("http://localhost:8080/influx?db=qaSingleSeries");
+		post = new HttpPost("http://localhost:" + PORT + "/influx?db=qaSingleSeries");
 		post.setEntity(new StringEntity("cpu,host=server01,region=uswest value=1i 1497720452566000000\n"
 				+ "cpu,host=server02,region=uswest value=1i 1497720452566000000\n"
 				+ "cpu,host=server03,region=uswest value=1i 1497720452566000000\n"
@@ -129,7 +135,7 @@ public class TestInMemoryByzantineDefaults {
 		response = TestUtils.makeRequest(post);
 		assertEquals(204, response.getStatusLine().getStatusCode());
 
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query/measurements");
 		post.setHeader("Content-Type", "application/json");
 		response = TestUtils.makeRequest(post);
 		assertEquals(200, response.getStatusLine().getStatusCode());
@@ -137,16 +143,16 @@ public class TestInMemoryByzantineDefaults {
 		JsonArray ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
 		assertEquals("cpu", ary.get(0).getAsString());
 
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/tags");
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query/tags");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity("{ \"target\":\"cpu\" }"));
 		response = TestUtils.makeRequest(post);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
-		assertEquals(4, ary.size());
+		assertEquals(2, ary.size());
 
 		String payload = "{\"panelId\":2,\"range\":{\"from\":\"%s\",\"to\":\"%s\",\"raw\":{\"from\":\"now-5m\",\"to\":\"now\"}},\"rangeRaw\":{\"from\":\"now-5m\",\"to\":\"now\"},\"interval\":\"200ms\",\"intervalMs\":200,\"targets\":[{\"target\":\"cpu\",\"filters\":[],\"aggregator\":{\"args\":[{\"index\":0,\"type\":\"int\",\"value\":\"20\"}],\"name\":\"none\",\"unit\":\"secs\"},\"field\":\"value\",\"refId\":\"A\",\"type\":\"timeserie\"}],\"format\":\"json\",\"maxDataPoints\":1280}";
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query");
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity(
 				String.format(payload, format.format(new Date(sts - 60_000)), format.format(new Date(sts + 60_000)))));
@@ -159,12 +165,12 @@ public class TestInMemoryByzantineDefaults {
 			i += ele.getAsJsonObject().get("datapoints").getAsJsonArray().size();
 		}
 		assertEquals(6, i);
-		response = TestUtils.makeRequest(
-				new HttpGet("http://localhost:8080/databases/qaSingleSeries/measurements/cpu/fields/value?startTime="
+		response = TestUtils.makeRequest(new HttpGet(
+				"http://localhost:" + PORT + "/databases/qaSingleSeries/measurements/cpu/fields/value?startTime="
 						+ (sts - 2000) + "&endTime=" + (sts + 2000)));
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
-		Set<String> tag = new HashSet<>(
-				Arrays.asList("host=server01", "host=server02", "host=server03", "region=uswest"));
+		Set<Tag> tag = new HashSet<>(Arrays.asList(new Tag("host", "server01"), new Tag("host", "server02"),
+				new Tag("host", "server03"), new Tag("region", "uswest")));
 		Iterator<JsonElement> itr = ary.iterator();
 		i = 0;
 		while (itr.hasNext()) {
@@ -173,7 +179,8 @@ public class TestInMemoryByzantineDefaults {
 			assertEquals("value", obj.get("valueFieldName").getAsString());
 			ary = obj.get("tags").getAsJsonArray();
 			for (JsonElement ele : ary) {
-				assertTrue(ele.getAsString(), tag.contains(ele.getAsString()));
+				Tag tagObj = gson.fromJson(ele, Tag.class);
+				assertTrue(ele + " ", tag.contains(tagObj));
 			}
 			i += obj.get("dataPoints").getAsJsonArray().size();
 			JsonArray ary2 = obj.get("dataPoints").getAsJsonArray();
@@ -186,7 +193,7 @@ public class TestInMemoryByzantineDefaults {
 		}
 		assertEquals(6, i);
 
-		HttpGet get = new HttpGet("http://localhost:8080/qaSingleSeries/hc");
+		HttpGet get = new HttpGet("http://localhost:" + PORT + "/qaSingleSeries/hc");
 		get.setHeader("Content-Type", "application/json");
 		response = TestUtils.makeRequest(get);
 		assertEquals(200, response.getStatusLine().getStatusCode());
@@ -196,7 +203,7 @@ public class TestInMemoryByzantineDefaults {
 				+ "\"rangeRaw\":{\"from\":\"now-6h\",\"to\":\"now\"},"
 				+ "\"interval\":\"15s\",\"intervalMs\":15000,\"targets\":[{\"refId\":\"A\",\"raw\":\"cpu.value\",\"rawQuery\":true,\"type\":\"timeserie\"}],"
 				+ "\"format\":\"json\",\"maxDataPoints\":1272}";
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query");
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity(
 				String.format(payload, format.format(new Date(sts - 60_000)), format.format(new Date(sts + 60_000)))));
@@ -210,18 +217,18 @@ public class TestInMemoryByzantineDefaults {
 		}
 		assertEquals(6, i);
 
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query/measurements");
 		post.setHeader("Content-Type", "application/json");
 		response = TestUtils.makeRequest(post);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query/measurements");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity("{\"target\":\"cpu\"}"));
 		response = TestUtils.makeRequest(post);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query/measurements");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity("{\"target\":\"cpu.*\"}"));
 		response = TestUtils.makeRequest(post);
@@ -229,8 +236,8 @@ public class TestInMemoryByzantineDefaults {
 		String res = EntityUtils.toString(response.getEntity());
 		List<String> fromJson = new Gson().fromJson(res, List.class);
 		assertEquals(1, fromJson.size());
-		
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
+
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query/measurements");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity("{\"target\":\".*\"}"));
 		response = TestUtils.makeRequest(post);

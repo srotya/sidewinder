@@ -55,7 +55,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 		if (counters != null) {
 			for (Entry<String, Counter> entry : counters.entrySet()) {
 				try {
-					engine.writeDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
+					engine.writeDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("node=local"),
 							System.currentTimeMillis(), entry.getValue().getCount());
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -65,7 +65,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 		if (meters != null) {
 			for (Entry<String, Meter> entry : meters.entrySet()) {
 				try {
-					engine.writeDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
+					engine.writeDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("node=local"),
 							System.currentTimeMillis(), entry.getValue().getCount());
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -75,7 +75,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 		if (timers != null) {
 			for (Entry<String, Timer> entry : timers.entrySet()) {
 				try {
-					engine.writeDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("local"),
+					engine.writeDataPoint(_INTERNAL, name, entry.getKey(), Arrays.asList("node=local"),
 							System.currentTimeMillis(), entry.getValue().getSnapshot().getMean());
 				} catch (IOException e) {
 					e.printStackTrace();

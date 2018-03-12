@@ -52,6 +52,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.SidewinderConfig;
 import com.srotya.sidewinder.core.SidewinderServer;
+import com.srotya.sidewinder.core.filters.Tag;
 
 import io.dropwizard.testing.junit.DropwizardAppRule;
 
@@ -59,6 +60,8 @@ import io.dropwizard.testing.junit.DropwizardAppRule;
  * @author ambud
  */
 public class TestInMemoryByzantineDefaultsAuthenticated {
+
+	private static final String PORT = "55442";
 
 	@ClassRule
 	public static final DropwizardAppRule<SidewinderConfig> RULE = new DropwizardAppRule<SidewinderConfig>(
@@ -76,45 +79,46 @@ public class TestInMemoryByzantineDefaultsAuthenticated {
 	@Test
 	public void testUnauthenticatedRequests() throws Exception {
 		CloseableHttpResponse response = TestUtils
-				.makeRequest(new HttpGet("http://localhost:8080/databases/_internal"));
+				.makeRequest(new HttpGet("http://localhost:" + PORT + "/databases/_internal"));
 		assertEquals(401, response.getStatusLine().getStatusCode());
-		response = TestUtils.makeRequest(new HttpGet("http://localhost:8080/databases/_internal2"));
+		response = TestUtils.makeRequest(new HttpGet("http://localhost:" + PORT + "/databases/_internal2"));
 		assertEquals(401, response.getStatusLine().getStatusCode());
 	}
 
 	@Test
 	public void testRestApi() throws Exception {
 		CloseableHttpResponse response = TestUtils
-				.makeRequestAuthenticated(new HttpGet("http://localhost:8080/databases/_internal"), provider);
+				.makeRequestAuthenticated(new HttpGet("http://localhost:" + PORT + "/databases/_internal"), provider);
 		assertEquals(200, response.getStatusLine().getStatusCode());
-		response = TestUtils.makeRequestAuthenticated(new HttpGet("http://localhost:8080/databases/_internal2"),
+		response = TestUtils.makeRequestAuthenticated(new HttpGet("http://localhost:" + PORT + "/databases/_internal2"),
 				provider);
 		assertEquals(404, response.getStatusLine().getStatusCode());
 		response = TestUtils.makeRequestAuthenticated(
-				new HttpGet("http://localhost:8080/databases/_internal/measurements/cpu"), provider);
+				new HttpGet("http://localhost:" + PORT + "/databases/_internal/measurements/cpu"), provider);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		response = TestUtils.makeRequestAuthenticated(
-				new HttpGet("http://localhost:8080/databases/_internal/measurements/memory"), provider);
+				new HttpGet("http://localhost:" + PORT + "/databases/_internal/measurements/memory"), provider);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		response = TestUtils.makeRequestAuthenticated(
-				new HttpGet("http://localhost:8080/databases/_internal2/measurements/memory"), provider);
+				new HttpGet("http://localhost:" + PORT + "/databases/_internal2/measurements/memory"), provider);
 		assertEquals(404, response.getStatusLine().getStatusCode());
 		response = TestUtils.makeRequestAuthenticated(
-				new HttpGet("http://localhost:8080/databases/_internal/measurements/memory2"), provider);
+				new HttpGet("http://localhost:" + PORT + "/databases/_internal/measurements/memory2"), provider);
 		assertEquals(404, response.getStatusLine().getStatusCode());
 		response = TestUtils.makeRequestAuthenticated(
-				new HttpGet("http://localhost:8080/databases/_internal/measurements/memory/check"), provider);
+				new HttpGet("http://localhost:" + PORT + "/databases/_internal/measurements/memory/check"), provider);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 		assertEquals("true", EntityUtils.toString(response.getEntity()));
 		response = TestUtils.makeRequestAuthenticated(
-				new HttpGet("http://localhost:8080/databases/_internal/measurements/memory/fields/value"), provider);
+				new HttpGet("http://localhost:" + PORT + "/databases/_internal/measurements/memory/fields/value"),
+				provider);
 		assertEquals(200, response.getStatusLine().getStatusCode());
 	}
 
 	@Test
 	public void testTSQLApi() throws Exception, ClientProtocolException, NoSuchAlgorithmException, KeyStoreException,
 			MalformedURLException, IOException {
-		HttpPost post = new HttpPost("http://localhost:8080/influx?db=qaTSQL");
+		HttpPost post = new HttpPost("http://localhost:" + PORT + "/influx?db=qaTSQL");
 		post.setEntity(new StringEntity("cpu,host=server01,region=uswest value=1i 1497720452566000000\n"
 				+ "cpu,host=server02,region=uswest value=1i 1497720452566000000\n"
 				+ "cpu,host=server03,region=uswest value=1i 1497720452566000000\n"
@@ -123,7 +127,7 @@ public class TestInMemoryByzantineDefaultsAuthenticated {
 				+ "cpu,host=server03,region=uswest value=1i 1497720453566000000"));
 		CloseableHttpResponse response = TestUtils.makeRequestAuthenticated(post, provider);
 		assertEquals(204, response.getStatusLine().getStatusCode());
-		HttpPost get = new HttpPost("http://localhost:8080/databases/qaTSQL/query");
+		HttpPost get = new HttpPost("http://localhost:" + PORT + "/databases/qaTSQL/query");
 		get.setEntity(new StringEntity("1497720442566<cpu.value<1497720652566"));
 		response = TestUtils.makeRequestAuthenticated(get, provider);
 		String entity = EntityUtils.toString(response.getEntity());
@@ -143,11 +147,11 @@ public class TestInMemoryByzantineDefaultsAuthenticated {
 		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		format.setTimeZone(TimeZone.getTimeZone("utc"));
 		String payload = "{\"panelId\":2,\"range\":{\"from\":\"%s\",\"to\":\"%s\",\"raw\":{\"from\":\"now-5m\",\"to\":\"now\"}},\"rangeRaw\":{\"from\":\"now-5m\",\"to\":\"now\"},\"interval\":\"200ms\",\"intervalMs\":200,\"targets\":[{\"target\":\"cpu\",\"filters\":[],\"aggregator\":{\"args\":[{\"index\":0,\"type\":\"int\",\"value\":\"20\"}],\"name\":\"none\",\"unit\":\"secs\"},\"field\":\"value\",\"refId\":\"A\",\"type\":\"timeserie\"}],\"format\":\"json\",\"maxDataPoints\":1280}";
-		HttpPost post = new HttpPost("http://localhost:8080/influx?db=qaSingleSeries");
+		HttpPost post = new HttpPost("http://localhost:" + PORT + "/influx?db=qaSingleSeries");
 		CloseableHttpResponse response = TestUtils.makeRequestAuthenticated(post, provider);
 		assertEquals(400, response.getStatusLine().getStatusCode());
 
-		post = new HttpPost("http://localhost:8080/influx?db=qaSingleSeries");
+		post = new HttpPost("http://localhost:" + PORT + "/influx?db=qaSingleSeries");
 		post.setEntity(new StringEntity("cpu,host=server01,region=uswest value=1i 1497720452566000000\n"
 				+ "cpu,host=server02,region=uswest value=1i 1497720452566000000\n"
 				+ "cpu,host=server03,region=uswest value=1i 1497720452566000000\n"
@@ -157,21 +161,21 @@ public class TestInMemoryByzantineDefaultsAuthenticated {
 		response = TestUtils.makeRequestAuthenticated(post, provider);
 		assertEquals(204, response.getStatusLine().getStatusCode());
 
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/measurements");
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query/measurements");
 		post.setHeader("Content-Type", "application/json");
 		response = TestUtils.makeRequestAuthenticated(post, provider);
 		Gson gson = new Gson();
 		JsonArray ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
 		assertEquals("cpu", ary.get(0).getAsString());
 
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query/tags");
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query/tags");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity("{ \"target\":\"cpu\" }"));
 		response = TestUtils.makeRequestAuthenticated(post, provider);
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
-		assertEquals(4, ary.size());
+		assertEquals(2, ary.size());
 
-		post = new HttpPost("http://localhost:8080/qaSingleSeries/query");
+		post = new HttpPost("http://localhost:" + PORT + "/qaSingleSeries/query");
 		post.setHeader("Content-Type", "application/json");
 		post.setEntity(new StringEntity(
 				String.format(payload, format.format(new Date(sts - 60_000)), format.format(new Date(sts + 60_000)))));
@@ -183,13 +187,13 @@ public class TestInMemoryByzantineDefaultsAuthenticated {
 			i += ele.getAsJsonObject().get("datapoints").getAsJsonArray().size();
 		}
 		assertEquals(6, i);
-		response = TestUtils.makeRequestAuthenticated(
-				new HttpGet("http://localhost:8080/databases/qaSingleSeries/measurements/cpu/fields/value?startTime="
+		response = TestUtils.makeRequestAuthenticated(new HttpGet(
+				"http://localhost:" + PORT + "/databases/qaSingleSeries/measurements/cpu/fields/value?startTime="
 						+ (sts - 2000) + "&endTime=" + (sts + 2000)),
 				provider);
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
-		Set<String> tag = new HashSet<>(
-				Arrays.asList("host=server01", "host=server02", "host=server03", "region=uswest"));
+		Set<Tag> tag = new HashSet<>(Arrays.asList(new Tag("host", "server01"), new Tag("host", "server02"),
+				new Tag("host", "server03"), new Tag("region", "uswest")));
 		Iterator<JsonElement> itr = ary.iterator();
 		i = 0;
 		while (itr.hasNext()) {
@@ -198,7 +202,8 @@ public class TestInMemoryByzantineDefaultsAuthenticated {
 			assertEquals("value", obj.get("valueFieldName").getAsString());
 			ary = obj.get("tags").getAsJsonArray();
 			for (JsonElement ele : ary) {
-				assertTrue(ele.getAsString(), tag.contains(ele.getAsString()));
+				Tag tagObj = gson.fromJson(ele, Tag.class);
+				assertTrue(ele + " ", tag.contains(tagObj));
 			}
 			i += obj.get("dataPoints").getAsJsonArray().size();
 			JsonArray ary2 = obj.get("dataPoints").getAsJsonArray();

@@ -30,11 +30,12 @@ import java.util.regex.Pattern;
 import javax.ws.rs.BadRequestException;
 
 import com.srotya.sidewinder.core.api.grafana.TargetSeries;
-import com.srotya.sidewinder.core.filters.AndFilter;
-import com.srotya.sidewinder.core.filters.AnyFilter;
-import com.srotya.sidewinder.core.filters.ContainsFilter;
-import com.srotya.sidewinder.core.filters.Filter;
-import com.srotya.sidewinder.core.filters.OrFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
+import com.srotya.sidewinder.core.filters.SimpleTagFilter;
+import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
+import com.srotya.sidewinder.core.filters.Tag;
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.functions.FunctionTable;
 import com.srotya.sidewinder.core.functions.multiseries.ChainFunction;
@@ -50,6 +51,7 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 public class MiscUtils {
 
 	private static final Pattern NUMBER = Pattern.compile("\\d+(\\.\\d+)?");
+	private static final Pattern EXPRESSION = Pattern.compile("([a-zA-Z0-9\\-\\_]+)(=|<=|>=|<|>)([a-zA-Z0-9\\-\\_]+)");
 
 	private MiscUtils() {
 	}
@@ -123,6 +125,15 @@ public class MiscUtils {
 		}
 	}
 
+	public static String tagsToString(List<Tag> tags) {
+		StringBuilder builder = new StringBuilder();
+		for (Tag tag : tags) {
+			builder.append("/");
+			builder.append(tag.getTagKey() + "=" + tag.getTagValue());
+		}
+		return builder.toString();
+	}
+
 	public static String tagToString(List<String> tags) {
 		StringBuilder builder = new StringBuilder();
 		for (String tag : tags) {
@@ -147,38 +158,67 @@ public class MiscUtils {
 		dp.setTimestamp(point.getTimestamp());
 	}
 
-	public static Filter<List<String>> buildTagFilter(String tagFilter, List<String> tags)
-			throws InvalidFilterException {
+	public static TagFilter buildTagFilter(String tagFilter) throws InvalidFilterException {
 		String[] tagSet = tagFilter.split("(&|\\|)");
-		tags.addAll(Arrays.asList(tagSet));
 		try {
-			Stack<Filter<List<String>>> predicateStack = new Stack<>();
+			Stack<TagFilter> predicateStack = new Stack<>();
 			for (int i = 0; i < tagSet.length; i++) {
 				String item = tagSet[i];
 				if (predicateStack.isEmpty()) {
-					predicateStack.push(new ContainsFilter<String, List<String>>(item));
+					SimpleTagFilter filter = buildSimpleFilter(item);
+					predicateStack.push(filter);
 				} else {
-					Filter<List<String>> pop = predicateStack.pop();
+					TagFilter pop = predicateStack.pop();
 					char operator = tagFilter.charAt(tagFilter.indexOf(tagSet[i]) - 1);
 					switch (operator) {
 					case '|':
-						predicateStack.push(new OrFilter<>(Arrays.asList(pop, new ContainsFilter<>(tagSet[i]))));
+						predicateStack.push(new ComplexTagFilter(ComplexFilterType.OR,
+								(Arrays.asList(pop, buildSimpleFilter(item)))));
 						break;
 					case '&':
-						predicateStack.push(new AndFilter<>(Arrays.asList(pop, new ContainsFilter<>(tagSet[i]))));
+						predicateStack.push(new ComplexTagFilter(ComplexFilterType.AND,
+								(Arrays.asList(pop, buildSimpleFilter(item)))));
 						break;
 					}
 				}
 			}
 
 			if (predicateStack.isEmpty()) {
-				return new AnyFilter<>();
+				return null;
 			} else {
 				return predicateStack.pop();
 			}
 		} catch (Exception e) {
+			e.printStackTrace();
 			throw new InvalidFilterException();
 		}
+	}
+
+	public static SimpleTagFilter buildSimpleFilter(String item) {
+		Matcher matcher = EXPRESSION.matcher(item);
+		if (!matcher.matches()) {
+			throw new IllegalArgumentException("Invalid expression:" + item);
+		}
+		FilterType type = null;
+		switch (matcher.group(2)) {
+		case "=":
+			type = FilterType.EQUALS;
+			break;
+		case ">=":
+			type = FilterType.GREATER_THAN_EQUALS;
+			break;
+		case ">":
+			type = FilterType.GREATER_THAN;
+			break;
+		case "<":
+			type = FilterType.LESS_THAN;
+			break;
+		case "<=":
+			type = FilterType.LESS_THAN_EQUALS;
+			break;
+		}
+		SimpleTagFilter filter = new SimpleTagFilter(type, matcher.group(1), matcher.group(3));
+		return filter;
 	}
 
 	public static Function createFunctionChain(String[] parts, int startIndex)
@@ -236,11 +276,10 @@ public class MiscUtils {
 		String measurementName = splits[0];
 		String valueFieldName = splits[1];
 
-		List<String> tags = new ArrayList<>();
-		Filter<List<String>> tagFilter = null;
+		TagFilter tagFilter = null;
 		if (splits.length >= 3) {
 			try {
-				tagFilter = buildTagFilter(splits[2], tags);
+				tagFilter = buildTagFilter(splits[2]);
 			} catch (InvalidFilterException e) {
 				throw new BadRequestException(e);
 			}
@@ -254,7 +293,7 @@ public class MiscUtils {
 			}
 		}
 
-		return new TargetSeries(measurementName, valueFieldName, tags, tagFilter, aggregationFunction, false);
+		return new TargetSeries(measurementName, valueFieldName, tagFilter, aggregationFunction, false);
 	}
 
 	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
@@ -279,7 +318,7 @@ public class MiscUtils {
 			long timestamp, double value) {
 		return buildDP(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true);
 	}
-	
+
 	public static String printBuffer(ByteBuffer buffer, int counter) {
 		StringBuffer buf = new StringBuffer();
 		for (int i = 0; i < counter; i++) {

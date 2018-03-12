@@ -21,6 +21,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -94,8 +95,9 @@ public class GrafanaQueryApi {
 	public List<Target> query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
 		grafanaQueryCounter.mark();
 		Context time = grafanaQueryLatency.time();
-		logger.log(Level.FINE, "Grafana query:" + dbName + "\t" + query);
-		Gson gson = new GsonBuilder().create();
+		Gson gson = new GsonBuilder().setPrettyPrinting().create();
+		logger.log(Level.FINE,
+				() -> "Grafana query:" + dbName + "\t" + gson.toJson(gson.fromJson(query, JsonObject.class)));
 		JsonObject json = gson.fromJson(query, JsonObject.class);
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		JsonObject range = json.get("range").getAsJsonObject();
@@ -106,10 +108,17 @@ public class GrafanaQueryApi {
 		endTs = tz.getOffset(endTs) + endTs;
 
 		List<TargetSeries> targetSeries = new ArrayList<>();
-		GrafanaUtils.extractTargetsFromJson(json, targetSeries);
-
 		List<Target> output = new ArrayList<>();
+		try {
+			GrafanaUtils.extractTargetsFromJson(json, targetSeries);
+		} catch (IllegalArgumentException e) {
+			return output;
+		}
+
+		logger.log(Level.FINE,
+				"Extracted targets from query json, target count:" + targetSeries.size() + " " + new Date(startTs));
 		for (TargetSeries targetSeriesEntry : targetSeries) {
+			logger.log(Level.FINE, () -> "Running grafana query fetch for:" + targetSeriesEntry);
 			try {
 				GrafanaUtils.queryAndGetData(engine, dbName, startTs, endTs, output, targetSeriesEntry);
 			} catch (IOException e) {
@@ -125,14 +134,14 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryMeasurementNames(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
-		logger.log(Level.FINE, "Query measurements for db:" + dbName + "\t" + queryString);
+		logger.log(Level.FINE, () -> "Query measurements for db:" + dbName + "\t" + queryString);
 		try {
 			if (queryString != null && !queryString.isEmpty()) {
 				JsonObject query = new Gson().fromJson(queryString, JsonObject.class);
 				if (query.has("target")) {
 					String target = query.get("target").getAsString();
 					if (target.startsWith("measurement:")) {
-						return engine.getTagsForMeasurement(dbName, target.replace("measurement:", ""));
+						return engine.getTagKeysForMeasurement(dbName, target.replace("measurement:", ""));
 					} else if (target.contains("field:")) {
 						return engine.getFieldsForMeasurement(dbName, target.replace("field:", ""));
 					} else {
@@ -153,8 +162,8 @@ public class GrafanaQueryApi {
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
-	public Set<String> queryTags(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
-		logger.log(Level.FINE, "Query tags for db:" + dbName + "\t" + queryString);
+	public Set<String> queryTagKeys(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
+		logger.log(Level.FINE, () -> "Query tags for db:" + dbName + "\t" + queryString);
 		if (queryString == null || queryString.trim().isEmpty()) {
 			throw new BadRequestException();
 		}
@@ -162,7 +171,33 @@ public class GrafanaQueryApi {
 			Gson gson = new Gson();
 			JsonObject measurement = gson.fromJson(queryString, JsonObject.class);
 			if (measurement.has("target")) {
-				return engine.getTagsForMeasurement(dbName, measurement.get("target").getAsString());
+				return engine.getTagKeysForMeasurement(dbName, measurement.get("target").getAsString());
+			} else {
+				throw new ItemNotFoundException("Bad request");
+			}
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e.getMessage());
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new InternalServerErrorException(e.getMessage());
+		}
+	}
+
+	@Path("/query/tagvs")
+	@POST
+	@Produces({ MediaType.APPLICATION_JSON })
+	@Consumes({ MediaType.APPLICATION_JSON })
+	public Set<String> queryTagValues(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) {
+		logger.log(Level.FINE, () -> "Query tag values for db:" + dbName + "\t" + queryString);
+		if (queryString == null || queryString.trim().isEmpty()) {
+			throw new BadRequestException();
+		}
+		try {
+			Gson gson = new Gson();
+			JsonObject measurement = gson.fromJson(queryString, JsonObject.class);
+			if (measurement.has("target")) {
+				return engine.getTagValuesForMeasurement(dbName, measurement.get("target").getAsString(),
+						measurement.get("tag").getAsString());
 			} else {
 				throw new ItemNotFoundException("Bad request");
 			}
@@ -184,7 +219,7 @@ public class GrafanaQueryApi {
 			JsonObject measurement = gson.fromJson(queryString, JsonObject.class);
 			if (measurement.has("target")) {
 				Set<String> response = engine.getFieldsForMeasurement(dbName, measurement.get("target").getAsString());
-				logger.log(Level.FINE, "Query fields for db:" + dbName + "\t" + response + "\t" + queryString);
+				logger.log(Level.FINE, () -> "Query fields for db:" + dbName + "\t" + response + "\t" + queryString);
 				return response;
 			} else {
 				throw new ItemNotFoundException("Bad request");
@@ -204,6 +239,14 @@ public class GrafanaQueryApi {
 		return new HashSet<>(Arrays.asList("AND", "OR"));
 	}
 
+	@Path("/query/otypes")
+	@POST
+	@Produces({ MediaType.APPLICATION_JSON })
+	@Consumes({ MediaType.APPLICATION_JSON })
+	public Set<String> queryOperatorTypes() {
+		return new HashSet<>(Arrays.asList("=", ">", "<", ">=", "<="));
+	}
+
 	@Path("/query/aggregators")
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -220,35 +263,38 @@ public class GrafanaQueryApi {
 		return new HashSet<>(Arrays.asList("secs", "mins", "hours", "days", "weeks", "months", "years"));
 	}
 
-//	@Path("/rawquery")
-//	@POST
-//	@Produces({ MediaType.APPLICATION_JSON })
-//	@Consumes({ MediaType.APPLICATION_JSON })
-//	public List<Target> rawQuery(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
-//		grafanaQueryCounter.mark();
-//		Context time = grafanaQueryLatency.time();
-//		Gson gson = new GsonBuilder().create();
-//		JsonObject json = gson.fromJson(query, JsonObject.class);
-//		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-//		JsonObject range = json.get("range").getAsJsonObject();
-//		long startTs = sdf.parse(range.get("from").getAsString()).getTime();
-//		long endTs = sdf.parse(range.get("to").getAsString()).getTime();
-//
-//		startTs = tz.getOffset(startTs) + startTs;
-//		endTs = tz.getOffset(endTs) + endTs;
-//
-//		List<TargetSeries> targetSeries = new ArrayList<>();
-//
-//		List<Target> output = new ArrayList<>();
-//		try {
-//			for (TargetSeries targetSeriesEntry : targetSeries) {
-//				GrafanaUtils.queryAndGetData(engine, dbName, startTs, endTs, output, targetSeriesEntry);
-//			}
-//		} catch (Exception e) {
-//			e.printStackTrace();
-//		}
-//		time.stop();
-//		return output;
-//	}
+	// @Path("/rawquery")
+	// @POST
+	// @Produces({ MediaType.APPLICATION_JSON })
+	// @Consumes({ MediaType.APPLICATION_JSON })
+	// public List<Target> rawQuery(@PathParam(DatabaseOpsApi.DB_NAME) String
+	// dbName, String query) throws ParseException {
+	// grafanaQueryCounter.mark();
+	// Context time = grafanaQueryLatency.time();
+	// Gson gson = new GsonBuilder().create();
+	// JsonObject json = gson.fromJson(query, JsonObject.class);
+	// SimpleDateFormat sdf = new
+	// SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+	// JsonObject range = json.get("range").getAsJsonObject();
+	// long startTs = sdf.parse(range.get("from").getAsString()).getTime();
+	// long endTs = sdf.parse(range.get("to").getAsString()).getTime();
+	//
+	// startTs = tz.getOffset(startTs) + startTs;
+	// endTs = tz.getOffset(endTs) + endTs;
+	//
+	// List<TargetSeries> targetSeries = new ArrayList<>();
+	//
+	// List<Target> output = new ArrayList<>();
+	// try {
+	// for (TargetSeries targetSeriesEntry : targetSeries) {
+	// GrafanaUtils.queryAndGetData(engine, dbName, startTs, endTs, output,
+	// targetSeriesEntry);
+	// }
+	// } catch (Exception e) {
+	// e.printStackTrace();
+	// }
+	// time.stop();
+	// return output;
+	// }
 
 }

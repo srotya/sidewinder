@@ -23,6 +23,7 @@ import java.util.List;
 
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.functions.multiseries.ChainFunction;
 import com.srotya.sidewinder.core.functions.windowed.ReducingWindowedAggregator;
 import com.srotya.sidewinder.core.functions.windowed.BasicWindowedFunctions.*;
@@ -33,7 +34,7 @@ public class TestChainFunction {
 
 	@Test
 	public void testSingleFunction() throws Exception {
-		Series series = new Series("cpu", "test", Arrays.asList("t1", "t2"));
+		Series series = new Series("cpu", "test", Arrays.asList(new Tag("t", "1"), new Tag("t", "2")));
 		List<DataPoint> dps = new ArrayList<>();
 		long baseTs = 1486617103629L;
 		for (int i = 0; i < 4; i++) {
@@ -47,15 +48,15 @@ public class TestChainFunction {
 		ReducingWindowedAggregator rwa = new WindowedMean();
 		rwa.init(new Object[] { 70, "smean" });
 		cf.init(new Function[] { rwa });
-		
+
 		List<Series> apply = cf.apply(seriesList);
 		List<DataPoint> result = apply.get(0).getDataPoints();
 		assertEquals(2, result.size());
 	}
-	
+
 	@Test
 	public void testTwoFunctions() throws Exception {
-		Series series = new Series("cpu", "test", Arrays.asList("t1", "t2"));
+		Series series = new Series("cpu", "test", Arrays.asList(new Tag("t", "1"), new Tag("t", "2")));
 		List<DataPoint> dps = new ArrayList<>();
 		long baseTs = 1486617103629L;
 		for (int i = 0; i < 4; i++) {
@@ -71,7 +72,7 @@ public class TestChainFunction {
 		ReducingWindowedAggregator rwa2 = new WindowedMean();
 		rwa2.init(new Object[] { 200, "smean" });
 		cf.init(new Function[] { rwa, rwa2 });
-		
+
 		List<Series> apply = cf.apply(seriesList);
 		List<DataPoint> result = apply.get(0).getDataPoints();
 		assertEquals(1, result.size());

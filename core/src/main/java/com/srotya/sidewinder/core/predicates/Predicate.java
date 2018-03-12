@@ -28,10 +28,13 @@ import com.srotya.sidewinder.core.storage.DataPoint;
  * the necessity to convert time series data to {@link DataPoint} objects which
  * will have more overhead compared to droping primitives.
  * 
+ * This concept extends on Java stream API predicates to make development as
+ * well as leverage performance optimizations. Additionally, trying to avoid
+ * autoboxing and unboxing which is detrimental to performance. Filter API uses
+ * generics which will trigger autoboxing.
+ * 
  * @author ambud
  */
 public interface Predicate extends LongPredicate {
-
-	boolean test(long value);
 
 }
