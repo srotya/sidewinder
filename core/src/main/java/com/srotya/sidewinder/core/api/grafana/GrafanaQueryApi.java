@@ -108,11 +108,15 @@ public class GrafanaQueryApi {
 		endTs = tz.getOffset(endTs) + endTs;
 
 		List<TargetSeries> targetSeries = new ArrayList<>();
-		GrafanaUtils.extractTargetsFromJson(json, targetSeries);
+		List<Target> output = new ArrayList<>();
+		try {
+			GrafanaUtils.extractTargetsFromJson(json, targetSeries);
+		} catch (IllegalArgumentException e) {
+			return output;
+		}
 
 		logger.log(Level.FINE,
 				"Extracted targets from query json, target count:" + targetSeries.size() + " " + new Date(startTs));
-		List<Target> output = new ArrayList<>();
 		for (TargetSeries targetSeriesEntry : targetSeries) {
 			logger.log(Level.FINE, () -> "Running grafana query fetch for:" + targetSeriesEntry);
 			try {
