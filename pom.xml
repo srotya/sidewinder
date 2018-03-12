@@ -8,14 +8,12 @@
   </parent>
   <groupId>com.srotya.sidewinder</groupId>
   <artifactId>sidewinder-parent</artifactId>
-  <version>0.0.38-SNAPSHOT</version>
+  <version>0.2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>sidewinder</name>
   <description>A timeseries database</description>
   <modules>
     <module>core</module>
-    <module>examples</module>
-    <module>archiver</module>
     <module>ambari</module>
     <module>rpc</module>
     <module>ingesters</module>
