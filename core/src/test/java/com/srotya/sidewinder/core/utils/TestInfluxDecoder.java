@@ -15,14 +15,14 @@
  */
 package com.srotya.sidewinder.core.utils;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.util.List;
 
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.rpc.Point;
-import com.srotya.sidewinder.core.utils.InfluxDecoder;
 
 /**
  * Unit tests for {@link InfluxDecoder}
@@ -37,8 +37,9 @@ public class TestInfluxDecoder {
 		List<Point> dps = InfluxDecoder.pointsFromString("test", testPoints);
 		Point dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
-		assertTrue(dp.getTagsList().contains("host=server01"));
-		assertTrue(dp.getTagsList().contains("region=uswest"));
+		assertEquals(2, dp.getTagsList().size());
+		// assertTrue(dp.getTagsList().contains(Tag.newBuilder().setTagKey("host").setTagValue("server01").build()));
+		// assertTrue(dp.getTagsList().contains("region=uswest"));
 		assertEquals(1, dp.getValue());
 		assertEquals(1434055562000000000L / (1000 * 1000), dp.getTimestamp());
 	}
@@ -49,8 +50,7 @@ public class TestInfluxDecoder {
 		List<Point> dps = InfluxDecoder.pointsFromString("test", testPoints);
 		for (Point dp : dps) {
 			assertEquals("cpu", dp.getMeasurementName());
-			assertTrue(dp.getTagsList().contains("host=server01"));
-			assertTrue(dp.getTagsList().contains("region=uswest"));
+			assertEquals(2, dp.getTagsList().size());
 			assertEquals(1, dp.getValue());
 			assertEquals(1434055562000000000L / (1000 * 1000), dp.getTimestamp());
 		}

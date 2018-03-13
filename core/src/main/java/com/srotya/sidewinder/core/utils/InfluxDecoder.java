@@ -20,9 +20,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
+import com.srotya.sidewinder.core.rpc.Tag;
 
 /**
  * @author ambud
@@ -31,6 +33,7 @@ public class InfluxDecoder {
 
 	private static final int LENGTH_OF_MILLISECOND_TS = 13;
 	private static final Logger logger = Logger.getLogger(InfluxDecoder.class.getName());
+	private static final Pattern TAG_PATTERN = Pattern.compile("(.*)\\=(.*)");
 
 	public static List<Point> pointsFromString(String dbName, String payload) {
 		List<Point> dps = new ArrayList<>();
@@ -53,11 +56,16 @@ public class InfluxDecoder {
 				}
 				String[] key = parts[0].split(",");
 				String measurementName = key[0];
-				Set<String> tTags = new HashSet<>();
+				Set<Tag> tTags = new HashSet<>();
 				for (int i = 1; i < key.length; i++) {
-					tTags.add(key[i]);
+					// Matcher matcher = TAG_PATTERN.matcher(key[i]);
+					// if (matcher.find()) {
+					// tTags.add(Tag.newBuilder().setTagKey(matcher.group(1)).setTagValue(matcher.group(2)).build());
+					// }
+					String[] s = key[i].split("\\=");
+					tTags.add(Tag.newBuilder().setTagKey(s[0]).setTagValue(s[1]).build());
 				}
-				List<String> tags = new ArrayList<>(tTags);
+				List<Tag> tags = new ArrayList<>(tTags);
 				String[] fields = parts[1].split(",");
 				for (String field : fields) {
 					String[] fv = field.split("=");

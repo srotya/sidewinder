@@ -41,7 +41,7 @@ import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
 
-import com.srotya.sidewinder.core.filters.Tag;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.compression.Reader;

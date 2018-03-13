@@ -29,6 +29,7 @@ import java.util.logging.Logger;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -144,7 +145,7 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, int retentionHours) throws IOException {
+			List<Tag> tags, int retentionHours) throws IOException {
 		TimeSeries series = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, defaultTimebucketSize,
 				true);
 		series.setRetentionHours(retentionHours);
@@ -231,7 +232,7 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, int timeBucketSize, boolean fp) throws IOException {
+			List<Tag> tags, int timeBucketSize, boolean fp) throws IOException {
 		// check and create database map
 		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
 

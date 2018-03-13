@@ -40,6 +40,7 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -80,9 +81,11 @@ public class MeasurementOpsApi {
 			@PathParam(MEASUREMENT) String measurementName, String seriesConfig) {
 		Gson gson = new Gson();
 		JsonObject series = gson.fromJson(seriesConfig, JsonObject.class);
-		List<String> tags = new ArrayList<>();
+		List<Tag> tags = new ArrayList<>();
 		for (JsonElement jsonElement : series.get("tags").getAsJsonArray()) {
-			tags.add(jsonElement.getAsString());
+			String tagStr = jsonElement.getAsString();
+			String[] splits = tagStr.split(Measurement.PATTERN_TAG_KV_SEPARATOR);
+			tags.add(Tag.newBuilder().setTagKey(splits[0]).setTagValue(splits[1]).build());
 		}
 		try {
 			engine.getOrCreateTimeSeries(dbName, measurementName, series.get("valueField").getAsString(), tags,
@@ -160,8 +163,8 @@ public class MeasurementOpsApi {
 		}
 		Gson gson = new Gson();
 		try {
-			List<Series> output = engine.queryDataPoints(dbName, measurementName, valueField, startTime,
-					endTime, null, null, null);
+			List<Series> output = engine.queryDataPoints(dbName, measurementName, valueField, startTime, endTime, null,
+					null, null);
 			return gson.toJson(output);
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
@@ -231,8 +234,7 @@ public class MeasurementOpsApi {
 				startTs = sdf.parse(startTime).getTime();
 				endTs = sdf.parse(endTime).getTime();
 			}
-			List<Series> points = engine.queryDataPoints(dbName, measurementName, valueFieldName, startTs,
-					endTs, null);
+			List<Series> points = engine.queryDataPoints(dbName, measurementName, valueFieldName, startTs, endTs, null);
 			List<Number[]> response = new ArrayList<>();
 			for (Series entry : points) {
 				for (DataPoint dataPoint : entry.getDataPoints()) {

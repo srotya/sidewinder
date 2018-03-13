@@ -52,6 +52,7 @@ import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -108,7 +109,8 @@ public class TestMemStorageEngine {
 						}
 						try {
 							Point dp = MiscUtils.buildDataPoint("test" + j, "cpu" + (i % modulator), "value",
-									Arrays.asList("test2"), ts + i, i * 1.1);
+									Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()), ts + i,
+									i * 1.1);
 							engine.writeDataPoint(dp);
 						} catch (IOException e) {
 							rejects.incrementAndGet();
@@ -193,7 +195,8 @@ public class TestMemStorageEngine {
 	public void testConfigure() {
 		StorageEngine engine = new MemStorageEngine();
 		try {
-			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "ss", "value", Arrays.asList("te"),
+			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "ss", "value",
+					Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()),
 					System.currentTimeMillis(), 2.2));
 			fail("Engine not initialized, shouldn't be able to write a datapoint");
 		} catch (Exception e) {
@@ -205,7 +208,8 @@ public class TestMemStorageEngine {
 			fail("No IOException should be thrown");
 		}
 		try {
-			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "ss", "value", Arrays.asList("te=2"),
+			engine.writeDataPoint(MiscUtils.buildDataPoint("test", "ss", "value",
+					Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()),
 					System.currentTimeMillis(), 2.2));
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -226,7 +230,8 @@ public class TestMemStorageEngine {
 		}
 		try {
 			for (int i = 0; i < 10; i++) {
-				engine.writeDataPoint(MiscUtils.buildDataPoint("test", "ss", "value", Arrays.asList("te=2"),
+				engine.writeDataPoint(MiscUtils.buildDataPoint("test", "ss", "value",
+						Arrays.asList(Tag.newBuilder().setTagKey("te").setTagValue("2").build()),
 						ts + (i * 4096 * 1000), 2.2));
 			}
 		} catch (Exception e) {
@@ -245,9 +250,10 @@ public class TestMemStorageEngine {
 		long ts = System.currentTimeMillis();
 		Map<String, Measurement> db = engine.getOrCreateDatabase("test", 24);
 		assertEquals(0, db.size());
-		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test=1"), ts, 1));
-		engine.writeDataPoint(
-				MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test=1"), ts + (400 * 60000), 4));
+		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu", "value",
+				Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build()), ts, 1));
+		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu", "value",
+				Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build()), ts + (400 * 60000), 4));
 		assertEquals(1, engine.getOrCreateMeasurement("test", "cpu").getSeriesKeys().size());
 		List<Series> queryDataPoints = engine.queryDataPoints("test", "cpu", "value", ts, ts + (400 * 60000), null,
 				null);
@@ -271,11 +277,14 @@ public class TestMemStorageEngine {
 	public void testGetMeasurementsLike() throws Exception {
 		StorageEngine engine = new MemStorageEngine();
 		engine.configure(conf, bgTasks);
-		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu", "value", Arrays.asList("test=2"),
-				System.currentTimeMillis(), 2L));
-		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "mem", "value", Arrays.asList("test=2"),
+		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "cpu", "value",
+				Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()), System.currentTimeMillis(),
+				2L));
+		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "mem", "value",
+				Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()),
 				System.currentTimeMillis() + 10, 3L));
-		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "netm", "value", Arrays.asList("test=2"),
+		engine.writeDataPoint(MiscUtils.buildDataPoint("test", "netm", "value",
+				Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()),
 				System.currentTimeMillis() + 20, 5L));
 		Set<String> result = engine.getMeasurementsLike("test", " ");
 		assertEquals(3, result.size());
@@ -312,7 +321,7 @@ public class TestMemStorageEngine {
 		engine.connect();
 		String dbName = "test1";
 		String measurementName = "cpu";
-		List<String> tags = Arrays.asList("test=1212");
+		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1212").build());
 
 		long ts = 1483923600000L;
 		System.out.println("Base timestamp=" + new Date(ts));
@@ -389,7 +398,8 @@ public class TestMemStorageEngine {
 				for (int i = 0; i < 1000; i++) {
 					try {
 						engine.writeDataPoint(MiscUtils.buildDataPoint("test", "helo" + p, "value",
-								Arrays.asList("k=2"), ts + i * 60, ts + i));
+								Arrays.asList(Tag.newBuilder().setTagKey("k").setTagValue("2").build()), ts + i * 60,
+								ts + i));
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
@@ -419,7 +429,7 @@ public class TestMemStorageEngine {
 		}
 		for (int i = 1; i <= 3; i++) {
 			engine.writeDataPoint(MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName,
-					Arrays.asList(dbName + "=2"), curr + i, 2.2 * i));
+					Arrays.asList(Tag.newBuilder().setTagKey(dbName).setTagValue("2").build()), curr + i, 2.2 * i));
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
 		LinkedHashMap<Reader, Boolean> readers = engine.queryReaders(dbName, measurementName, valueFieldName, curr,
@@ -457,13 +467,19 @@ public class TestMemStorageEngine {
 		String valueFieldName = "value";
 
 		for (int i = 1; i <= 3; i++) {
-			engine.writeDataPoint(MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName,
-					Arrays.asList("p=" + String.valueOf(i), "k=" + String.valueOf(i + 7)), curr, 2 * i));
+			engine.writeDataPoint(
+					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName,
+							Arrays.asList(Tag.newBuilder().setTagKey("p").setTagValue(String.valueOf(i)).build(),
+									Tag.newBuilder().setTagKey("k").setTagValue(String.valueOf(i + 7)).build()),
+							curr, 2 * i));
 		}
 
 		for (int i = 1; i <= 3; i++) {
-			engine.writeDataPoint(MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName + "2",
-					Arrays.asList("p=" + String.valueOf(i), "k=" + String.valueOf(i + 12)), curr, 2 * i));
+			engine.writeDataPoint(
+					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName + "2",
+							Arrays.asList(Tag.newBuilder().setTagKey("p").setTagValue(String.valueOf(i)).build(),
+									Tag.newBuilder().setTagKey("k").setTagValue(String.valueOf(i + 12)).build()),
+							curr, 2 * i));
 		}
 		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
 		assertEquals(2, tags.size());
@@ -493,10 +509,12 @@ public class TestMemStorageEngine {
 		String dbName = "test";
 		String measurementName = "cpu";
 		String valueFieldName = "value";
-		String tag = "host=123123";
+		String tag = "host";
 
 		for (int i = 1; i <= 3; i++) {
-			engine.writeDataPoint(dbName, measurementName, valueFieldName, Arrays.asList(tag + i, tag + (i + 1)),
+			engine.writeDataPoint(dbName, measurementName, valueFieldName,
+					Arrays.asList(Tag.newBuilder().setTagKey(tag).setTagValue("123123" + i).build(),
+							Tag.newBuilder().setTagKey(tag).setTagValue("123123" + (i + 1)).build()),
 					curr + i, 2 * i);
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
@@ -562,10 +580,11 @@ public class TestMemStorageEngine {
 			fail("Must reject the above datapoint due to missing tags");
 		} catch (Exception e) {
 		}
-		String tag = "host=123123";
+		String tag = "host";
+		String tagValue = "123123";
 		for (int i = 1; i <= 3; i++) {
-			engine.writeDataPoint(MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, Arrays.asList(tag),
-					curr + i, 2 * i));
+			engine.writeDataPoint(MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName,
+					Arrays.asList(Tag.newBuilder().setTagKey(tag).setTagValue(tagValue).build()), curr + i, 2 * i));
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
 		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr, curr + 3,
@@ -633,8 +652,7 @@ public class TestMemStorageEngine {
 		String dbName = "test";
 		String measurementName = "cpu";
 		String valueFieldName = "value";
-		String tag = "host=123123";
-		List<String> tags = Arrays.asList(tag);
+		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("host").setTagValue("123123").build());
 		for (int i = 1; i <= 10000; i++) {
 			engine.writeDataPoint(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, curr + i * 1000, i * 1.1));
@@ -689,8 +707,7 @@ public class TestMemStorageEngine {
 		String dbName = "test";
 		String measurementName = "cpu";
 		String valueFieldName = "value";
-		String tag = "host=123123";
-		List<String> tags = Arrays.asList(tag);
+		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("host").setTagValue("123123").build());
 		for (int i = 1; i <= 10000; i++) {
 			engine.writeDataPoint(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, curr + i * 1000, i * 1.1));

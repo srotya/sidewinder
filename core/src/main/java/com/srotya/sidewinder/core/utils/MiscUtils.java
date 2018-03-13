@@ -34,13 +34,13 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter;
 import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
-import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.functions.FunctionTable;
 import com.srotya.sidewinder.core.functions.multiseries.ChainFunction;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
@@ -296,12 +296,12 @@ public class MiscUtils {
 		return new TargetSeries(measurementName, valueFieldName, tagFilter, aggregationFunction, false);
 	}
 
-	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
+	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, long value) {
 		return buildDP(dbName, measurementName, valueFieldName, tags, timestamp, value, false);
 	}
 
-	public static Point buildDP(String dbName, String measurementName, String valueFieldName, List<String> tags,
+	public static Point buildDP(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, long value, boolean fp) {
 		Builder builder = Point.newBuilder();
 		builder.setDbName(dbName);
@@ -314,7 +314,7 @@ public class MiscUtils {
 		return builder.build();
 	}
 
-	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
+	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, double value) {
 		return buildDP(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true);
 	}

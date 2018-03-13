@@ -52,7 +52,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.SidewinderConfig;
 import com.srotya.sidewinder.core.SidewinderServer;
-import com.srotya.sidewinder.core.filters.Tag;
+import com.srotya.sidewinder.core.rpc.Tag;
 
 import io.dropwizard.testing.junit.DropwizardAppRule;
 
@@ -192,8 +192,10 @@ public class TestInMemoryByzantineDefaultsAuthenticated {
 						+ (sts - 2000) + "&endTime=" + (sts + 2000)),
 				provider);
 		ary = gson.fromJson(EntityUtils.toString(response.getEntity()), JsonArray.class);
-		Set<Tag> tag = new HashSet<>(Arrays.asList(new Tag("host", "server01"), new Tag("host", "server02"),
-				new Tag("host", "server03"), new Tag("region", "uswest")));
+		Set<Tag> tag = new HashSet<>(Arrays.asList(Tag.newBuilder().setTagKey("host").setTagValue("server02").build(),
+				Tag.newBuilder().setTagKey("host").setTagValue("server01").build(),
+				Tag.newBuilder().setTagKey("host").setTagValue("server03").build(),
+				Tag.newBuilder().setTagKey("region").setTagValue("uswest").build()));
 		Iterator<JsonElement> itr = ary.iterator();
 		i = 0;
 		while (itr.hasNext()) {

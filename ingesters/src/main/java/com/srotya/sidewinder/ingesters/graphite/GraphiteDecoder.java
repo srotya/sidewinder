@@ -21,6 +21,9 @@ import java.util.List;
 import java.util.logging.Logger;
 
 import com.codahale.metrics.Counter;
+import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.Measurement;
+import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 import io.netty.buffer.Unpooled;
@@ -36,6 +39,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
  */
 public class GraphiteDecoder extends SimpleChannelInboundHandler<String> {
 
+	private static final RejectException BAD_TAG_EXCEPTION = new RejectException("Bad tag");
 	private static final Logger logger = Logger.getLogger(GraphiteDecoder.class.getName());
 	private StorageEngine storageEngine;
 	private String dbName;
@@ -71,7 +75,7 @@ public class GraphiteDecoder extends SimpleChannelInboundHandler<String> {
 		}
 		String[] key = parts[0].split("\\.");
 		String measurementName, valueFieldName;
-		List<String> tags = new ArrayList<>();
+		List<Tag> tags = new ArrayList<>();
 		switch (key.length) {
 		case 0:// invalid metric
 		case 1:// invalid metric
@@ -82,7 +86,11 @@ public class GraphiteDecoder extends SimpleChannelInboundHandler<String> {
 			measurementName = key[key.length - 2];
 			valueFieldName = key[key.length - 1];
 			for (int i = 0; i < key.length - 2; i++) {
-				tags.add(key[i]);
+				String[] split = key[i].split(Measurement.TAG_KV_SEPARATOR);
+				if (split.length != 2) {
+					throw BAD_TAG_EXCEPTION;
+				}
+				tags.add(Tag.newBuilder().setTagKey(split[0]).setTagValue(split[1]).build());
 			}
 			break;
 		}

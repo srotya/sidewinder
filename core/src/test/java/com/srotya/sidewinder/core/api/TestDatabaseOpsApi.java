@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+s * Copyright 2017 Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@ import org.junit.Test;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.srotya.sidewinder.core.rpc.Point;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 
@@ -46,7 +47,8 @@ public class TestDatabaseOpsApi {
 		dp.setValue(1L);
 		dp.setMeasurementName("cpu");
 		dp.setTimestamp(System.currentTimeMillis());
-		dp.addAllTags(Arrays.asList("host=1", "vm=1"));
+		dp.addAllTags(Arrays.asList(Tag.newBuilder().setTagKey("host").setTagValue("1").build(),
+				Tag.newBuilder().setTagKey("vm").setTagValue("1").build()));
 		dp.setValueFieldName("value");
 		engine.writeDataPoint(dp.build());
 
@@ -66,6 +68,5 @@ public class TestDatabaseOpsApi {
 
 		System.out.println(results);
 	}
-
 
 }

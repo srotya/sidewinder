@@ -31,11 +31,11 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import com.codahale.metrics.Counter;
-import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
 /**
@@ -97,7 +97,7 @@ public interface StorageEngine {
 	 */
 	public void disconnect() throws IOException;
 
-	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
+	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, long value, boolean fp) throws IOException {
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
 		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
@@ -114,7 +114,7 @@ public interface StorageEngine {
 		getCounter().inc();
 	}
 
-	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
+	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, long value) throws IOException {
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
 		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
@@ -127,7 +127,7 @@ public interface StorageEngine {
 		getCounter().inc();
 	}
 
-	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
+	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, double value) throws IOException {
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
 		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
@@ -398,7 +398,7 @@ public interface StorageEngine {
 	 * @throws IOException
 	 */
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, int retentionHours) throws IOException;
+			List<Tag> tags, int retentionHours) throws IOException;
 
 	/**
 	 * Update retention policy for measurement
@@ -482,7 +482,7 @@ public interface StorageEngine {
 	 * @throws IOException
 	 */
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, int timeBucketSize, boolean fp) throws IOException;
+			List<Tag> tags, int timeBucketSize, boolean fp) throws IOException;
 
 	/**
 	 * Check if a measurement field is floating point
@@ -540,7 +540,7 @@ public interface StorageEngine {
 	 * @throws Exception
 	 */
 	public default boolean checkTimeSeriesExists(String dbName, String measurementName, String valueFieldName,
-			List<String> tags) throws Exception {
+			List<Tag> tags) throws Exception {
 		if (!checkIfExists(dbName, measurementName)) {
 			return false;
 		}
@@ -561,7 +561,7 @@ public interface StorageEngine {
 	 * @throws IOException
 	 */
 	public default TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<String> tags) throws IOException {
+			List<Tag> tags) throws IOException {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -604,7 +604,7 @@ public interface StorageEngine {
 	public Map<String, Map<String, Measurement>> getDatabaseMap();
 
 	public static void validateDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, TimeUnit unit) throws RejectException {
+			List<Tag> tags, TimeUnit unit) throws RejectException {
 		if (dbName == null || measurementName == null || valueFieldName == null || tags == null || unit == null) {
 			throw INVALID_DATAPOINT_EXCEPTION;
 		}

@@ -41,6 +41,7 @@ import java.util.logging.Logger;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
@@ -138,9 +139,9 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
+	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException {
-		Collections.sort(tags);
+		Collections.sort(tags, TAG_COMPARATOR);
 		String seriesId = constructSeriesId(tags, tagIndex);
 		int index = 0;
 		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);

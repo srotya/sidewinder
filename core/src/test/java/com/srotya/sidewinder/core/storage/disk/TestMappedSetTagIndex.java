@@ -202,12 +202,12 @@ public class TestMappedSetTagIndex {
 			es.submit(() -> {
 				for (int i = 0; i < 200_000_000; i++) {
 					try {
-						engine.getOrCreateTimeSeries("db1", "m1", "v10",
-								Arrays.asList(String.valueOf(i % 10_000), "test=" + String.valueOf(i % 5),
-										"test2=" + String.valueOf(i % 5), "goliath=" + String.valueOf(i % 10_000),
-										"goliath2=" + String.valueOf(i % 1_500)),
-								4096, true);
-					} catch (IOException e) {
+//						engine.getOrCreateTimeSeries("db1", "m1", "v10",
+//								Arrays.asList(String.valueOf(i % 10_000), "test=" + String.valueOf(i % 5),
+//										"test2=" + String.valueOf(i % 5), "goliath=" + String.valueOf(i % 10_000),
+//										"goliath2=" + String.valueOf(i % 1_500)),
+//								4096, true);
+					} catch (Exception e) {
 						e.printStackTrace();
 					}
 					if (i % 1_000_000 == 0) {

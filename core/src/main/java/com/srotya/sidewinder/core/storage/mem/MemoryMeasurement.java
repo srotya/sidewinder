@@ -29,6 +29,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -87,9 +88,9 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
+	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException {
-		Collections.sort(tags);
+		Collections.sort(tags, TAG_COMPARATOR);
 		String seriesId = constructSeriesId(tags, tagIndex);
 		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
 		if (seriesFieldMap == null) {

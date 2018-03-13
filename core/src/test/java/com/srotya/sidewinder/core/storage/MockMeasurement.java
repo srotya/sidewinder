@@ -28,6 +28,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.mem.MemMalloc;
 
@@ -72,12 +73,6 @@ public class MockMeasurement implements Measurement {
 
 	@Override
 	public void loadTimeseriesFromMeasurements() throws IOException {
-	}
-
-	@Override
-	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
-			Map<String, String> conf) throws IOException {
-		return null;
 	}
 
 	@Override
@@ -136,6 +131,12 @@ public class MockMeasurement implements Measurement {
 
 	@Override
 	public Collection<SeriesFieldMap> getSeriesList() {
+		return null;
+	}
+
+	@Override
+	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
+			Map<String, String> conf) throws IOException {
 		return null;
 	}
 

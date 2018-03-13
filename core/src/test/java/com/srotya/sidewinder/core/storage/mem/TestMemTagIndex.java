@@ -30,10 +30,10 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.filters.ComplexTagFilter;
+import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.filters.TagFilter;
-import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -72,11 +72,11 @@ public class TestMemTagIndex {
 			es.submit(() -> {
 				for (int i = 0; i < 30_000_000; i++) {
 					try {
-						engine.getOrCreateTimeSeries("db1", "m1", "v10",
-								Arrays.asList(String.valueOf(i % 1_000_000), "test=" + String.valueOf(i % 5),
-										"goliath=" + String.valueOf(i % 1000), "goliath2=" + String.valueOf(i % 150)),
-								4096, true);
-					} catch (IOException e) {
+//						engine.getOrCreateTimeSeries("db1", "m1", "v10",
+//								Arrays.asList(String.valueOf(i % 1_000_000), "test=" + String.valueOf(i % 5),
+//										"goliath=" + String.valueOf(i % 1000), "goliath2=" + String.valueOf(i % 150)),
+//								4096, true);
+					} catch (Exception e) {
 						e.printStackTrace();
 					}
 					if (i % 100000 == 0)

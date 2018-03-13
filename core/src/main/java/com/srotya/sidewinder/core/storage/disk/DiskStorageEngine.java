@@ -36,6 +36,7 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.google.gson.Gson;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -152,7 +153,7 @@ public class DiskStorageEngine implements StorageEngine {
 
 	@Override
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, int retentionHours) throws IOException {
+			List<Tag> tags, int retentionHours) throws IOException {
 		TimeSeries series = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, defaultTimebucketSize,
 				true);
 		if (series != null) {
@@ -349,7 +350,7 @@ public class DiskStorageEngine implements StorageEngine {
 
 	@Override
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, int timeBucketSize, boolean fp) throws IOException {
+			List<Tag> tags, int timeBucketSize, boolean fp) throws IOException {
 		// check and create database map
 		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
 

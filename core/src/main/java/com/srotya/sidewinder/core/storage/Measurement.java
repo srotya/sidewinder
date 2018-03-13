@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -33,9 +34,9 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
-import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
@@ -48,9 +49,11 @@ public interface Measurement {
 	public static final RejectException INDEX_REJECT = new RejectException("Invalid tag, rejecting index");
 	public static final RejectException SEARCH_REJECT = new RejectException("Invalid tag, rejecting index search");
 	public static final String TAG_KV_SEPARATOR = "=";
+	public static final String PATTERN_TAG_KV_SEPARATOR = "\\" + TAG_KV_SEPARATOR;
 	public static final String SERIESID_SEPARATOR = "#";
 	public static final String USE_QUERY_POOL = "use.query.pool";
 	public static final String TAG_SEPARATOR = "^";
+	public static final TagComparator TAG_COMPARATOR = new TagComparator();
 
 	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
 			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
@@ -66,45 +69,39 @@ public interface Measurement {
 
 	public void close() throws IOException;
 
-	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
+	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException;
 
-	public static void indexRowKey(TagIndex tagIndex, String rowKey, List<String> tags) throws IOException {
-		for (String tag : tags) {
-			String[] split = tag.split(TAG_KV_SEPARATOR);
-			if (split.length != 2) {
-				throw INDEX_REJECT;
-			}
-			String tagKey = split[0];
-			String tagValue = split[1];
-			tagIndex.index(tagKey, tagValue, rowKey);
+	public static void indexRowKey(TagIndex tagIndex, String rowKey, List<Tag> tags) throws IOException {
+		for (Tag tag : tags) {
+			tagIndex.index(tag.getTagKey(), tag.getTagValue(), rowKey);
 		}
 	}
 
-	public static void indexRowKey(TagIndex tagIndex, int rowIdx, List<String> tags) throws IOException {
-		for (String tag : tags) {
-			String[] split = tag.split(TAG_KV_SEPARATOR);
-			if (split.length != 2) {
-				throw INDEX_REJECT;
-			}
-			String tagKey = split[0];
-			String tagValue = split[1];
-			tagIndex.index(tagKey, tagValue, rowIdx);
+	public static void indexRowKey(TagIndex tagIndex, int rowIdx, List<Tag> tags) throws IOException {
+		for (Tag tag : tags) {
+			tagIndex.index(tag.getTagKey(), tag.getTagValue(), rowIdx);
 		}
 	}
 
-	public default String encodeTagsToString(TagIndex tagIndex, List<String> tags) throws IOException {
+	public default String encodeTagsToString(TagIndex tagIndex, List<Tag> tags) throws IOException {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);
-		builder.append(tags.get(0));
+		serializeTagForKey(builder, tags.get(0));
 		for (int i = 1; i < tags.size(); i++) {
-			String tag = tags.get(i);
+			Tag tag = tags.get(i);
 			builder.append(TAG_SEPARATOR);
-			builder.append(tag);
+			serializeTagForKey(builder, tag);
 		}
 		return builder.toString();
 	}
 
-	public default String constructSeriesId(List<String> tags, TagIndex index) throws IOException {
+	public static void serializeTagForKey(StringBuilder builder, Tag tag) {
+		builder.append(tag.getTagKey());
+		builder.append(TAG_KV_SEPARATOR);
+		builder.append(tag.getTagValue());
+	}
+
+	public default String constructSeriesId(List<Tag> tags, TagIndex index) throws IOException {
 		return encodeTagsToString(index, tags);
 	}
 
@@ -118,7 +115,7 @@ public interface Measurement {
 			if (split.length != 2) {
 				throw SEARCH_REJECT;
 			}
-			tagList.add(new Tag(split[0], split[1]));
+			tagList.add(Tag.newBuilder().setTagKey(split[0]).setTagValue(split[1]).build());
 		}
 		return tagList;
 	}
@@ -207,8 +204,8 @@ public interface Measurement {
 		return cleanupList;
 	}
 
-	public default SeriesFieldMap getSeriesField(List<String> tags) throws IOException {
-		Collections.sort(tags);
+	public default SeriesFieldMap getSeriesField(List<Tag> tags) throws IOException {
+		Collections.sort(tags, TAG_COMPARATOR);
 		String rowKey = constructSeriesId(tags, getTagIndex());
 		// check and create timeseries
 		SeriesFieldMap map = getSeriesFromKey(rowKey);
@@ -382,6 +379,19 @@ public interface Measurement {
 
 	public default Collection<String> getTagValues(String tagKey) {
 		return getTagIndex().getTagValues(tagKey);
+	}
+
+	public static class TagComparator implements Comparator<Tag> {
+
+		@Override
+		public int compare(Tag o1, Tag o2) {
+			int r = o1.getTagKey().compareTo(o2.getTagKey());
+			if (r != 0) {
+				return r;
+			} else {
+				return o1.getTagValue().compareTo(o2.getTagValue());
+			}
+		}
 	}
 
 }

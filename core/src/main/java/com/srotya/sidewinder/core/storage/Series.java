@@ -17,7 +17,7 @@ package com.srotya.sidewinder.core.storage;
 
 import java.util.List;
 
-import com.srotya.sidewinder.core.filters.Tag;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
