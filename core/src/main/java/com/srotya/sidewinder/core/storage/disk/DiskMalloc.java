@@ -44,6 +44,8 @@ import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.ByteString.StringCache;
+import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -53,9 +55,10 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class DiskMalloc implements Malloc {
 
+	private static final int BUF_PARTS_LENGTH = 9;
 	protected static boolean debug = false;
 	private static final int PTR_INCREMENT = 1048576;
-	private static final String SEPARATOR = ")";
+	private static final ByteString SEPARATOR = new ByteString(")");
 	private static final Logger logger = Logger.getLogger(DiskMalloc.class.getName());
 	// 100MB default buffer increment size
 	private static final int DEFAULT_FILE_INCREMENT = 1048576;
@@ -75,21 +78,22 @@ public class DiskMalloc implements Malloc {
 	private MappedByteBuffer memoryMappedBuffer;
 	private String measurementName;
 	private long maxFileSize;
-	private String filename;
+	private ByteString filename;
 	private RandomAccessFile rafActiveFile;
 	private String dataDirectory;
 	private long offset;
 	private MappedByteBuffer ptrBuf;
 	private RandomAccessFile rafPtr;
 	private File ptrFile;
-	
+	private StringCache cache;
+
 	private volatile int ptrCounter;
 	private boolean enableMetricsCapture;
 	private Counter metricsBufferSize;
 	private Counter metricsBufferResize;
 	private Counter metricsFileRotation;
 	private Counter metricsBufferCounter;
-	private Map<String, WeakReference<MappedByteBuffer>> oldBufferReferences;
+	private Map<ByteString, WeakReference<MappedByteBuffer>> oldBufferReferences;
 
 	@Override
 	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine,
@@ -112,6 +116,7 @@ public class DiskMalloc implements Malloc {
 		this.ptrFile = new File(getPtrPath());
 		this.ptrFileIncrement = Integer
 				.parseInt(conf.getOrDefault(CONF_MALLOC_PTRFILE_INCREMENT, String.valueOf(PTR_INCREMENT)));
+		cache = StringCache.instance();
 		if (engine != null) {
 			enableMetricsCapture = true;
 			MetricsRegistryService reg = MetricsRegistryService.getInstance(engine, bgTaskPool);
@@ -137,8 +142,8 @@ public class DiskMalloc implements Malloc {
 		if (rafActiveFile == null) {
 			lock.lock();
 			if (rafActiveFile == null) {
-				filename = dataDirectory + "/data-" + String.format("%012d", fcnt) + ".dat";
-				rafActiveFile = new RandomAccessFile(filename, "rwd");
+				filename = new ByteString(dataDirectory + "/data-" + String.format("%012d", fcnt) + ".dat");
+				rafActiveFile = new RandomAccessFile(filename.toString(), "rwd");
 				offset = 0;
 				logger.info("Creating new datafile for measurement:" + filename);
 				memoryMappedBuffer = rafActiveFile.getChannel().map(MapMode.READ_WRITE, 0, fileMapIncrement);
@@ -178,7 +183,7 @@ public class DiskMalloc implements Malloc {
 					metricsBufferSize.inc(fileMapIncrement);
 				}
 			}
-			String ptrKey = appendBufferPointersToDisk(seriesId.toString(), filename, curr, offset, newSize);
+			LinkedByteString ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset, newSize);
 			MiscUtils.writeStringToBuffer(Integer.toHexString(tsBucket), memoryMappedBuffer);
 			ByteBuffer buf = memoryMappedBuffer.slice();
 			buf.limit(newSize);
@@ -196,7 +201,8 @@ public class DiskMalloc implements Malloc {
 	}
 
 	@Override
-	public Map<String, List<Entry<Integer, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException {
+	public Map<ByteString, List<Entry<Integer, BufferObject>>> seriesBufferMap()
+			throws FileNotFoundException, IOException {
 		Map<String, MappedByteBuffer> bufferMap = new ConcurrentHashMap<>();
 		File[] listFiles = new File(dataDirectory).listFiles(new FilenameFilter() {
 
@@ -231,22 +237,23 @@ public class DiskMalloc implements Malloc {
 			fcnt = Integer.parseInt(listFiles[listFiles.length - 1].getName().replace("data-", "").replace(".dat", ""))
 					+ 1;
 		}
-		Map<String, List<Entry<Integer, BufferObject>>> seriesBuffers = new HashMap<>();
+		Map<ByteString, List<Entry<Integer, BufferObject>>> seriesBuffers = new HashMap<>();
 		sliceMappedBuffersForBuckets(bufferMap, seriesBuffers);
 		return seriesBuffers;
 	}
 
 	private void sliceMappedBuffersForBuckets(Map<String, MappedByteBuffer> bufferMap,
-			Map<String, List<Entry<Integer, BufferObject>>> seriesBuffers) throws IOException {
+			Map<ByteString, List<Entry<Integer, BufferObject>>> seriesBuffers) throws IOException {
 		ptrCounter = 0;
 		initializePtrFile();
 		for (int i = 0; i < ptrCounter; i++) {
 			String line = MiscUtils.getStringFromBuffer(ptrBuf);
 			String[] splits = line.split("\\" + SEPARATOR);
+			LinkedByteString bsLine = new LinkedByteString(BUF_PARTS_LENGTH);
 			logger.finer("reading line:" + Arrays.toString(splits));
 			String fileName = splits[1];
 			int positionOffset = Integer.parseInt(splits[3]);
-			String seriesId = splits[0];
+			String seriesIdStr = splits[0];
 			int pointer = Integer.parseInt(splits[2]);
 			int size = Integer.parseInt(splits[4]);
 			MappedByteBuffer buf = bufferMap.get(fileName);
@@ -255,12 +262,19 @@ public class DiskMalloc implements Malloc {
 			String tsBucket = MiscUtils.getStringFromBuffer(buf);
 			ByteBuffer slice = buf.slice();
 			slice.limit(size);
+
+			ByteString seriesId = cache.get(new ByteString(seriesIdStr));
+			bsLine.concat(seriesId).concat(SEPARATOR).concat(cache.get(new ByteString(splits[1])))
+					.concat(SEPARATOR).concat(new ByteString(splits[2])).concat(SEPARATOR)
+					.concat(cache.get(new ByteString(splits[3]))).concat(SEPARATOR)
+					.concat(cache.get(new ByteString(splits[4])));
+
 			List<Entry<Integer, BufferObject>> list = seriesBuffers.get(seriesId);
 			if (list == null) {
 				list = new ArrayList<>();
 				seriesBuffers.put(seriesId, list);
 			}
-			list.add(new AbstractMap.SimpleEntry<>(Integer.parseInt(tsBucket, 16), new BufferObject(line, slice)));
+			list.add(new AbstractMap.SimpleEntry<>(Integer.parseInt(tsBucket, 16), new BufferObject(bsLine, slice)));
 		}
 	}
 
@@ -279,16 +293,19 @@ public class DiskMalloc implements Malloc {
 		}
 	}
 
-	protected String appendBufferPointersToDisk(String seriesId, String filename, int curr, long offset, int size)
-			throws IOException {
+	protected LinkedByteString appendBufferPointersToDisk(ByteString seriesId, ByteString filename, int curr,
+			long offset, int size) throws IOException {
 		lock.lock();
 		try {
-			String[] split = filename.split("/");
-			String line = seriesId + SEPARATOR + split[split.length - 1] + SEPARATOR + curr + SEPARATOR + offset
-					+ SEPARATOR + size;
+			ByteString[] split = filename.split("/");
+			LinkedByteString line = new LinkedByteString(BUF_PARTS_LENGTH);
+			line.concat(seriesId).concat(SEPARATOR).concat(cache.get(split[split.length - 1])).concat(SEPARATOR)
+					.concat(String.valueOf(curr)).concat(SEPARATOR).concat(String.valueOf(offset)).concat(SEPARATOR)
+					.concat(String.valueOf(size));
 			logger.fine("Measurement(" + measurementName + ")Appending pointer information to ptr file:" + line);
 			// resize
-			byte[] bytes = line.getBytes();
+			String strLine = line.toString();
+			byte[] bytes = strLine.getBytes();
 			if (ptrBuf.remaining() < bytes.length + Short.BYTES) {
 				logger.fine("Need to resize ptrbuf because ptrBufRem:" + ptrBuf.remaining() + " line:" + bytes.length);
 				int pos = ptrBuf.position();
@@ -300,7 +317,7 @@ public class DiskMalloc implements Malloc {
 				logger.info("Resizing ptr file:" + ptrBuf.getInt(0) + " ptrcount:" + ptrCounter + " inc:"
 						+ ptrFileIncrement + " position:" + pos);
 			}
-			MiscUtils.writeStringToBuffer(line, ptrBuf);
+			MiscUtils.writeStringToBuffer(strLine, ptrBuf);
 			ptrBuf.putInt(0, ++ptrCounter);
 			logger.fine("Measurement(" + measurementName + ")Appending pointer information to ptr file:" + line
 					+ " pos:" + ptrBuf.position());
@@ -427,7 +444,7 @@ public class DiskMalloc implements Malloc {
 		return dataDirectory + "/.ptr";
 	}
 
-	public Map<String, WeakReference<MappedByteBuffer>> getOldBufferReferences() {
+	public Map<ByteString, WeakReference<MappedByteBuffer>> getOldBufferReferences() {
 		return oldBufferReferences;
 	}
 }

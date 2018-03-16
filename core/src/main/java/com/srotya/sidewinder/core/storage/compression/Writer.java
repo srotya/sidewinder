@@ -21,8 +21,8 @@ import java.util.List;
 
 import javax.validation.constraints.NotNull;
 
-import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.RejectException;
 
 /**
@@ -72,15 +72,11 @@ public interface Writer {
 
 	public void setHeaderTimestamp(long timestamp) throws IOException;
 
-	public void setTsBucket(ByteString tsBucket);
-
-	public ByteString getTsBucket();
-
 	public int getPosition();
 
-	public void setBufferId(ByteString key);
+	public void setBufferId(LinkedByteString key);
 
 	@NotNull
-	public ByteString getBufferId();
+	public LinkedByteString getBufferId();
 
 }

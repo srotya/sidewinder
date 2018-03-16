@@ -164,7 +164,7 @@ public class TestTimeSeries {
 		readers = series.queryReader("test", Arrays.asList(), curr, curr + (4096_000) * 28, null);
 		// should return 25 partitions
 		assertEquals(25, readers.size());
-		List<Writer> collectGarbage = series.collectGarbage();
+		Map<Integer, List<Writer>> collectGarbage = series.collectGarbage();
 		assertEquals(4, collectGarbage.size());
 		readers = series.queryReader("test", Arrays.asList(), curr, curr + (4096_000) * 28, null);
 		assertEquals(21, readers.size());

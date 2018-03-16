@@ -62,6 +62,7 @@ public class InfluxApi {
 			try {
 				storageEngine.writeDataPoint(dp);
 			} catch (IOException e) {
+				e.printStackTrace();
 				throw new BadRequestException(e);
 			}
 		}

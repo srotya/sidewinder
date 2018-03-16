@@ -99,7 +99,7 @@ public interface StorageEngine {
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, long value, boolean fp) throws IOException {
-		valueFieldName = valueFieldName.intern();
+		// valueFieldName = valueFieldName.intern();
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
 		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
 				getDefaultTimebucketSize(), fp);
@@ -117,7 +117,7 @@ public interface StorageEngine {
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, long value) throws IOException {
-		valueFieldName = valueFieldName.intern();
+		// valueFieldName = valueFieldName.intern();
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
 		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
 				getDefaultTimebucketSize(), false);
@@ -131,7 +131,7 @@ public interface StorageEngine {
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, double value) throws IOException {
-		valueFieldName = valueFieldName.intern();
+		// valueFieldName = valueFieldName.intern();
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
 		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
 				getDefaultTimebucketSize(), true);
@@ -606,8 +606,8 @@ public interface StorageEngine {
 
 	public Map<String, Map<String, Measurement>> getDatabaseMap();
 
-	public static void validateDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, TimeUnit unit) throws RejectException {
+	public static void validateDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
+			TimeUnit unit) throws RejectException {
 		if (dbName == null || measurementName == null || valueFieldName == null || tags == null || unit == null) {
 			throw INVALID_DATAPOINT_EXCEPTION;
 		}

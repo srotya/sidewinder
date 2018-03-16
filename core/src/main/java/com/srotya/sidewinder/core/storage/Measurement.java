@@ -25,6 +25,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -84,7 +85,7 @@ public interface Measurement {
 			tagIndex.index(tag.getTagKey(), tag.getTagValue(), rowIdx);
 		}
 	}
-	
+
 	public default void setCodecsForTimeseries(Map<String, String> conf) {
 		String compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
 				StorageEngine.DEFAULT_COMPRESSION_CODEC);
@@ -150,22 +151,26 @@ public interface Measurement {
 	public default void collectGarbage(Archiver archiver) throws IOException {
 		runCleanupOperation("garbage collection", ts -> {
 			try {
-				List<Writer> collectedGarbage = ts.collectGarbage();
+				Map<Integer, List<Writer>> collectedGarbage = ts.collectGarbage();
+				List<Writer> output = new ArrayList<>();
 				getLogger().fine("Collected garbage:" + collectedGarbage.size());
 				if (archiver != null && collectedGarbage != null) {
-					for (Writer writer : collectedGarbage) {
-						byte[] buf = Archiver.writerToByteArray(writer);
-						TimeSeriesArchivalObject archivalObject = new TimeSeriesArchivalObject(getDbName(),
-								getMeasurementName(), ts.getSeriesId(), writer.getTsBucket(), buf);
-						try {
-							archiver.archive(archivalObject);
-						} catch (ArchiveException e) {
-							getLogger().log(Level.SEVERE, "Series failed to archive, series:" + ts.getSeriesId()
-									+ " db:" + getDbName() + " m:" + getMeasurementName(), e);
+					for (Entry<Integer, List<Writer>> entry : collectedGarbage.entrySet()) {
+						for (Writer writer : entry.getValue()) {
+							byte[] buf = Archiver.writerToByteArray(writer);
+							TimeSeriesArchivalObject archivalObject = new TimeSeriesArchivalObject(getDbName(),
+									getMeasurementName(), ts.getSeriesId(), entry.getKey(), buf);
+							try {
+								archiver.archive(archivalObject);
+							} catch (ArchiveException e) {
+								getLogger().log(Level.SEVERE, "Series failed to archive, series:" + ts.getSeriesId()
+										+ " db:" + getDbName() + " m:" + getMeasurementName(), e);
+							}
+							output.add(writer);
 						}
 					}
 				}
-				return collectedGarbage;
+				return output;
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
@@ -391,7 +396,7 @@ public interface Measurement {
 	public default Collection<String> getTagValues(String tagKey) {
 		return getTagIndex().getTagValues(tagKey);
 	}
-	
+
 	public default boolean isFieldFp(String valueFieldName) throws ItemNotFoundException {
 		for (String entry : getSeriesKeys()) {
 			SeriesFieldMap seriesFromKey = getSeriesFromKey(new ByteString(entry));

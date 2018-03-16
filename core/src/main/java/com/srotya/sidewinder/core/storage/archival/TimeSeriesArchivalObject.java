@@ -25,13 +25,13 @@ public class TimeSeriesArchivalObject {
 	private String db;
 	private String measurement;
 	private ByteString seriesKey;
-	private ByteString tsBucket;
+	private Integer tsBucket;
 	private byte[] data;
 	
 	public TimeSeriesArchivalObject() {
 	}
 
-	public TimeSeriesArchivalObject(String db, String measurement, ByteString seriesKey, ByteString tsBucket, byte[] data) {
+	public TimeSeriesArchivalObject(String db, String measurement, ByteString seriesKey, Integer tsBucket, byte[] data) {
 		this.db = db;
 		this.measurement = measurement;
 		this.seriesKey = seriesKey;
@@ -100,14 +100,14 @@ public class TimeSeriesArchivalObject {
 	/**
 	 * @return the tsBucket
 	 */
-	public ByteString getTsBucket() {
+	public Integer getTsBucket() {
 		return tsBucket;
 	}
 
 	/**
 	 * @param tsBucket the tsBucket to set
 	 */
-	public void setTsBucket(ByteString tsBucket) {
+	public void setTsBucket(Integer tsBucket) {
 		this.tsBucket = tsBucket;
 	}
 

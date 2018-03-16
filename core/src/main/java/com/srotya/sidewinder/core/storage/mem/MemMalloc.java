@@ -27,11 +27,13 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 public class MemMalloc implements Malloc {
 
+	private static final ByteString STR2 = new ByteString("\t");
 	private int size;
 	private List<String> cleanupCallback;
 
@@ -48,7 +50,9 @@ public class MemMalloc implements Malloc {
 
 	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket, int newSize) throws IOException {
 		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(newSize);
-		return new BufferObject(seriesId + "\t" + tsBucket, allocateDirect);
+		LinkedByteString str = new LinkedByteString(seriesId);
+		str.concat(STR2).concat(String.valueOf(tsBucket));
+		return new BufferObject(str, allocateDirect);
 	}
 
 	@Override
@@ -59,7 +63,7 @@ public class MemMalloc implements Malloc {
 	}
 
 	@Override
-	public Map<String, List<Entry<Integer, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException {
+	public Map<ByteString, List<Entry<Integer, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException {
 		return null;
 	}
 

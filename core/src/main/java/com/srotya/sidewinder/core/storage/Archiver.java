@@ -40,7 +40,7 @@ public interface Archiver {
 		bos.writeUTF(blob.getDb());
 		bos.writeUTF(blob.getMeasurement());
 		bos.writeUTF(blob.getSeriesKey().toString());
-		bos.writeUTF(blob.getTsBucket().toString());
+		bos.writeInt(blob.getTsBucket());
 		bos.writeInt(blob.getData().length);
 		bos.write(blob.getData());
 		bos.flush();
@@ -51,7 +51,7 @@ public interface Archiver {
 		bucketWraper.setDb(bis.readUTF());
 		bucketWraper.setMeasurement(bis.readUTF());
 		bucketWraper.setSeriesKey(new ByteString(bis.readUTF()));
-		bucketWraper.setTsBucket(new ByteString(bis.readUTF()));
+		bucketWraper.setTsBucket(bis.readInt());
 		byte[] buf = new byte[bis.readInt()];
 		bis.read(buf);
 		bucketWraper.setData(buf);

@@ -19,23 +19,23 @@ import java.nio.ByteBuffer;
 
 public class BufferObject {
 
-	private String bufferId;
+	private LinkedByteString bufferId;
 	private ByteBuffer buf;
 	
-	public BufferObject(String bufferId, ByteBuffer buf) {
-		this.bufferId = bufferId;
+	public BufferObject(LinkedByteString ptrKey, ByteBuffer buf) {
+		this.bufferId = ptrKey;
 		this.buf = buf;
 	}
 	/**
 	 * @return the bufferId
 	 */
-	public String getBufferId() {
+	public LinkedByteString getBufferId() {
 		return bufferId;
 	}
 	/**
 	 * @param bufferId the bufferId to set
 	 */
-	public void setBufferId(String bufferId) {
+	public void setBufferId(LinkedByteString bufferId) {
 		this.bufferId = bufferId;
 	}
 	/**

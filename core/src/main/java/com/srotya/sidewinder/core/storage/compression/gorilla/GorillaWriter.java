@@ -20,8 +20,8 @@ import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
-import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
@@ -32,8 +32,7 @@ public class GorillaWriter implements Writer {
 
 	public static final int MD5_PADDING = 32;
 	private boolean full;
-	private ByteString bufferId;
-	private ByteString tsBucket;
+	private LinkedByteString bufferId;
 	private ByteBuffer buf;
 	private GorillaCompressor compressor;
 	private int counter;
@@ -192,27 +191,17 @@ public class GorillaWriter implements Writer {
 	}
 
 	@Override
-	public void setTsBucket(ByteString tsBucket) {
-		this.tsBucket = tsBucket;
-	}
-
-	@Override
-	public ByteString getTsBucket() {
-		return tsBucket;
-	}
-
-	@Override
 	public int getPosition() {
 		return position;
 	}
 
 	@Override
-	public void setBufferId(ByteString key) {
+	public void setBufferId(LinkedByteString key) {
 		bufferId = key;
 	}
 
 	@Override
-	public ByteString getBufferId() {
+	public LinkedByteString getBufferId() {
 		return bufferId;
 	}
 

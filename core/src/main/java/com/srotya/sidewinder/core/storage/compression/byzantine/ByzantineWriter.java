@@ -22,8 +22,8 @@ import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
@@ -45,8 +45,7 @@ public class ByzantineWriter implements Writer {
 	private boolean readOnly;
 	private volatile boolean full;
 	private int startOffset;
-	private ByteString tsBucket;
-	private ByteString bufferId;
+	private LinkedByteString bufferId;
 
 	public ByzantineWriter() {
 	}
@@ -337,20 +336,10 @@ public class ByzantineWriter implements Writer {
 		return full;
 	}
 
-	@Override
-	public ByteString getTsBucket() {
-		return tsBucket;
-	}
-
-	@Override
-	public void setTsBucket(ByteString tsBucket) {
-		this.tsBucket = tsBucket;
-	}
-
 	/**
 	 * @return the bufferId
 	 */
-	public ByteString getBufferId() {
+	public LinkedByteString getBufferId() {
 		return bufferId;
 	}
 
@@ -358,7 +347,7 @@ public class ByzantineWriter implements Writer {
 	 * @param bufferId
 	 *            the bufferId to set
 	 */
-	public void setBufferId(ByteString bufferId) {
+	public void setBufferId(LinkedByteString bufferId) {
 		this.bufferId = bufferId;
 	}
 

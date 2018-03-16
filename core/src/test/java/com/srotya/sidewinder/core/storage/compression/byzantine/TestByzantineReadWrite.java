@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.predicates.GreaterThanEqualsPredicate;
-import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
@@ -367,8 +366,6 @@ public class TestByzantineReadWrite {
 	public void testBufferFull() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024);
 		ByzantineWriter writer = new ByzantineWriter();
-		writer.setTsBucket(new ByteString("asdasdasd"));
-		assertEquals("asdasdasd", writer.getTsBucket().toString());
 		writer.configure(buf, true, startOffset, true);
 		long ots = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ots);

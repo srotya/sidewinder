@@ -17,7 +17,7 @@ public interface Malloc {
 
 	public void cleanupBufferIds(Set<String> cleanupList) throws IOException;
 
-	public Map<String, List<Entry<Integer, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException;
+	public Map<ByteString, List<Entry<Integer, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException;
 
 	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine,
 			ScheduledExecutorService bgTaskPool, ReentrantLock lock);

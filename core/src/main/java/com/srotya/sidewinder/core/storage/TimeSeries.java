@@ -77,8 +77,6 @@ public class TimeSeries {
 
 	/**
 	 * @param measurement
-	 * @param compressionCodec
-	 * @param compactionCodec
 	 * @param seriesId
 	 * @param timeBucketSize
 	 * @param metadata
@@ -86,8 +84,8 @@ public class TimeSeries {
 	 * @param conf
 	 * @throws IOException
 	 */
-	public TimeSeries(Measurement measurement, ByteString seriesId,
-			int timeBucketSize, DBMetadata metadata, boolean fp, Map<String, String> conf) throws IOException {
+	public TimeSeries(Measurement measurement, ByteString seriesId, int timeBucketSize, DBMetadata metadata, boolean fp,
+			Map<String, String> conf) throws IOException {
 		this.measurement = measurement;
 		this.seriesId = seriesId;
 		this.timeBucketSize = timeBucketSize;
@@ -167,7 +165,7 @@ public class TimeSeries {
 		String tsBucket = Integer.toHexString(bucket);
 		return tsBucket;
 	}
-	
+
 	public static int getTimeBucketInt(TimeUnit unit, long timestamp, int timeBucketSize) {
 		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
 		return bucket;
@@ -179,7 +177,7 @@ public class TimeSeries {
 		bufPair.getBuf().put((byte) list.size());
 		Writer writer;
 		writer = getWriterInstance(compressionClass);
-		writer.setBufferId(new ByteString(bufPair.getBufferId()));
+		writer.setBufferId(bufPair.getBufferId());
 		// first byte is used to store compression codec type
 		writer.configure(bufPair.getBuf(), true, START_OFFSET, true);
 		writer.setHeaderTimestamp(timestamp);
@@ -232,7 +230,7 @@ public class TimeSeries {
 			}
 			logger.fine(() -> "Loading bucketmap:" + seriesId + "\t" + tsBucket + " bufferid:"
 					+ entry.getValue().getBufferId());
-			writer.setBufferId(new ByteString(entry.getValue().getBufferId()));
+			writer.setBufferId(entry.getValue().getBufferId());
 			writer.configure(slice, false, START_OFFSET, true);
 			list.add(writer);
 			bucketCount++;
@@ -552,13 +550,15 @@ public class TimeSeries {
 	 * 
 	 * @throws IOException
 	 */
-	public List<Writer> collectGarbage() throws IOException {
-		List<Writer> gcedBuckets = new ArrayList<>();
+	public Map<Integer, List<Writer>> collectGarbage() throws IOException {
+		Map<Integer, List<Writer>> collectedGarbageMap = new HashMap<>();
 		logger.finer("Retention buckets:" + retentionBuckets.get());
 		while (bucketMap.size() > retentionBuckets.get()) {
 			int oldSize = bucketMap.size();
 			Integer key = bucketMap.firstKey();
 			List<Writer> buckets = bucketMap.remove(key);
+			List<Writer> gcedBuckets = new ArrayList<>();
+			collectedGarbageMap.put(key, gcedBuckets);
 			for (Writer bucket : buckets) {
 				// bucket.close();
 				gcedBuckets.add(bucket);
@@ -568,11 +568,11 @@ public class TimeSeries {
 								+ oldSize + ":newsize:" + bucketMap.size() + ":");
 			}
 		}
-		if (gcedBuckets.size() > 0) {
-			logger.fine(() -> "GC," + measurement.getMeasurementName() + " buckets:" + gcedBuckets.size()
+		if (collectedGarbageMap.size() > 0) {
+			logger.fine(() -> "GC," + measurement.getMeasurementName() + " buckets:" + collectedGarbageMap.size()
 					+ " retention size:" + retentionBuckets);
 		}
-		return gcedBuckets;
+		return collectedGarbageMap;
 	}
 
 	/**
@@ -738,11 +738,11 @@ public class TimeSeries {
 			// create buffer in measurement
 			BufferObject newBuf = measurement.getMalloc().createNewBuffer(seriesId, entry.getKey(), size);
 			logger.fine("Compacted buffer size:" + size + " vs " + total);
-			String bufferId = newBuf.getBufferId();
+			LinkedByteString bufferId = newBuf.getBufferId();
 			buf = newBuf.getBuf();
 			writer = getWriterInstance(compactionClass);
 			buf.put(rawBytes);
-			writer.setBufferId(new ByteString(bufferId));
+			writer.setBufferId(bufferId);
 			writer.configure(buf, false, START_OFFSET, false);
 			writer.makeReadOnly();
 			synchronized (list) {
@@ -836,7 +836,7 @@ public class TimeSeries {
 			buf.put(bs.getValue());
 			buf.rewind();
 			Writer writer = CompressionFactory.getClassById(buf.get(0)).newInstance();
-			writer.setBufferId(new ByteString(bufPair.getBufferId()));
+			writer.setBufferId(bufPair.getBufferId());
 			writer.configure(bufPair.getBuf(), false, START_OFFSET, true);
 			writer.setHeaderTimestamp(bs.getKey());
 			list.add(i, writer);
