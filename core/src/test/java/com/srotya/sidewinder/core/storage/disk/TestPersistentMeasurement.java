@@ -86,6 +86,20 @@ public class TestPersistentMeasurement {
 	}
 
 	@Test
+	public void testTagEncodingPerformance() throws IOException {
+		Measurement measurement = new PersistentMeasurement();
+		measurement.configure(conf, engine, DBNAME, "m1", "target/pmeasurement2/idx", "target/pmeasurement2/data",
+				metadata, bgTaskPool);
+		assertTrue(measurement.getTagIndex() != null);
+		for (int i = 0; i < 1_000_000; i++) {
+			List<Tag> tags = Arrays.asList(
+					Tag.newBuilder().setTagKey("test").setTagValue(String.valueOf("asdasd" + i)).build(),
+					Tag.newBuilder().setTagKey("test").setTagValue("2").build());
+			measurement.encodeTagsToString(measurement.getTagIndex(), tags);
+		}
+	}
+
+	@Test
 	public void testDataPointsQuery() throws Exception {
 		long ts = System.currentTimeMillis();
 		MiscUtils.delete(new File("target/db41/"));
@@ -376,7 +390,7 @@ public class TestPersistentMeasurement {
 		ByteString encodeTagsToString = m.encodeTagsToString(index, tags);
 		ByteString key = m.constructSeriesId(tags, index);
 		assertEquals(encodeTagsToString, key);
-		assertEquals("Bad output:"+encodeTagsToString, new ByteString("test=1^test=2"), encodeTagsToString);
+		assertEquals("Bad output:" + encodeTagsToString, new ByteString("test=1^test=2"), encodeTagsToString);
 		m.close();
 	}
 

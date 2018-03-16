@@ -150,7 +150,8 @@ public class PersistentMeasurement implements Measurement {
 					seriesFieldMap = new SeriesFieldMap(seriesId);
 					seriesList.add(seriesFieldMap);
 					seriesMap.put(seriesId, index);
-					logger.fine("Created new series:" + seriesId + "\t");
+					final ByteString tmp = seriesId;
+					logger.fine(() -> "Created new series:" + tmp + "\t");
 				} else {
 					index = seriesMap.get(seriesId);
 				}
@@ -167,15 +168,15 @@ public class PersistentMeasurement implements Measurement {
 			try {
 				if ((series = seriesFieldMap.get(valueFieldName)) == null) {
 					ByteString seriesId2 = new ByteString(seriesId + SERIESID_SEPARATOR + valueFieldName);
-					series = new TimeSeries(this, seriesId2, timeBucketSize,
-							metadata, fp, conf);
+					series = new TimeSeries(this, seriesId2, timeBucketSize, metadata, fp, conf);
 					if (enableMetricsCapture) {
 						metricsTimeSeriesCounter.inc();
 					}
 					seriesFieldMap.addSeries(valueFieldName, series);
 					appendTimeseriesToMeasurementMetadata(seriesId2, fp, timeBucketSize, index);
-					logger.fine("Created new timeseries:" + seriesFieldMap + " for measurement:" + measurementName
-							+ "\t" + seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesList.size());
+					final SeriesFieldMap tmp = seriesFieldMap;
+					logger.fine(() -> "Created new timeseries:" + tmp + " for measurement:" + measurementName + "\t"
+							+ seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesList.size());
 				}
 			} finally {
 				lock.unlock();
@@ -238,13 +239,13 @@ public class PersistentMeasurement implements Measurement {
 		try {
 			String timeBucketSize = split[2];
 			String isFp = split[1];
-			TimeSeries timeSeries = new TimeSeries(this, new ByteString(seriesId),
-					Integer.parseInt(timeBucketSize), metadata, Boolean.parseBoolean(isFp), conf);
+			TimeSeries timeSeries = new TimeSeries(this, new ByteString(seriesId), Integer.parseInt(timeBucketSize),
+					metadata, Boolean.parseBoolean(isFp), conf);
 			String[] split2 = seriesId.split(SERIESID_SEPARATOR);
 
 			String valueField = split2[1];
 			seriesId = split2[0];
-			
+
 			ByteString key = new ByteString(seriesId);
 
 			Integer seriesIdx = seriesMap.get(key);
