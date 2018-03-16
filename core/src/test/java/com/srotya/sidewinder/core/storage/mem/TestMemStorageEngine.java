@@ -672,7 +672,7 @@ public class TestMemStorageEngine {
 			assertEquals(dp.getValue(), i * 1.1, 0.001);
 		}
 		TimeSeries series = engine.getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, 409600, false);
-		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		assertEquals(1, bucketRawMap.size());
 		int size = bucketRawMap.values().iterator().next().size();
 		assertTrue(series.getCompactionSet().size() < size);
@@ -728,7 +728,7 @@ public class TestMemStorageEngine {
 		}
 		final TimeSeries series = engine.getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, 409600,
 				false);
-		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		assertEquals(1, bucketRawMap.size());
 		int size = bucketRawMap.values().iterator().next().size();
 		assertTrue(series.getCompactionSet().size() < size);

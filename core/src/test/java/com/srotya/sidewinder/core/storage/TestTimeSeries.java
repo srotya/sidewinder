@@ -294,7 +294,7 @@ public class TestTimeSeries {
 			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
 			assertEquals(dp.getValue(), i * 1.1, 0.001);
 		}
-		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		assertEquals(1, bucketRawMap.size());
 		int size = bucketRawMap.values().iterator().next().size();
 		assertTrue(series.getCompactionSet().size() < size);
@@ -342,7 +342,7 @@ public class TestTimeSeries {
 			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
 
-		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		assertEquals(1, bucketRawMap.size());
 		int size = bucketRawMap.values().iterator().next().size();
 		assertTrue(series.getCompactionSet().size() < size);
@@ -432,7 +432,7 @@ public class TestTimeSeries {
 		for (int i = 1; i <= 10000; i++) {
 			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
-		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		int size = bucketRawMap.values().iterator().next().size();
 		assertTrue(series.getCompactionSet().size() < size);
 		assertTrue(size > 2);
@@ -504,7 +504,7 @@ public class TestTimeSeries {
 		Thread.sleep(1000);
 		control.set(false);
 		assertEquals(2, series.getBucketRawMap().size());
-		for (Entry<String, List<Writer>> entry : series.getBucketRawMap().entrySet()) {
+		for (Entry<Integer, List<Writer>> entry : series.getBucketRawMap().entrySet()) {
 			for (int i = 0; i < entry.getValue().size() - 1; i++) {
 				Writer writer = entry.getValue().get(i);
 				assertTrue(writer.isFull());
@@ -541,7 +541,7 @@ public class TestTimeSeries {
 			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
 			assertEquals(dp.getValue(), i * 1.1, 0.001);
 		}
-		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		assertEquals(1, bucketRawMap.size());
 		int size = bucketRawMap.values().iterator().next().size();
 		assertTrue(series.getCompactionSet().size() < size);

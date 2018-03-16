@@ -61,7 +61,7 @@ public class TimeSeries {
 	private static final int START_OFFSET = 2;
 
 	private static final Logger logger = Logger.getLogger(TimeSeries.class.getName());
-	private SortedMap<String, List<Writer>> bucketMap;
+	private SortedMap<Integer, List<Writer>> bucketMap;
 	private boolean fp;
 	private AtomicInteger retentionBuckets;
 	private String seriesId;
@@ -72,7 +72,7 @@ public class TimeSeries {
 	private int timeBucketSize;
 	// used for unit tests only
 	private int bucketCount;
-	private Map<String, List<Writer>> compactionCandidateSet;
+	private Map<Integer, List<Writer>> compactionCandidateSet;
 	private boolean compactionEnabled;
 	private double compactionRatio;
 
@@ -107,7 +107,7 @@ public class TimeSeries {
 	}
 
 	public Writer getOrCreateSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
-		String tsBucket = getTimeBucket(unit, timestamp, timeBucketSize);
+		int tsBucket = getTimeBucketInt(unit, timestamp, timeBucketSize);
 		List<Writer> list = bucketMap.get(tsBucket);
 		if (list == null) {
 			// potential opportunity to load bucket information from some other
@@ -171,8 +171,13 @@ public class TimeSeries {
 		String tsBucket = Integer.toHexString(bucket);
 		return tsBucket;
 	}
+	
+	public static int getTimeBucketInt(TimeUnit unit, long timestamp, int timeBucketSize) {
+		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
+		return bucket;
+	}
 
-	private Writer createNewWriter(long timestamp, String tsBucket, List<Writer> list) throws IOException {
+	private Writer createNewWriter(long timestamp, int tsBucket, List<Writer> list) throws IOException {
 		BufferObject bufPair = measurement.getMalloc().createNewBuffer(seriesId, tsBucket);
 		bufPair.getBuf().put((byte) CompressionFactory.getIdByClass(compressionClass));
 		bufPair.getBuf().put((byte) list.size());
@@ -205,17 +210,17 @@ public class TimeSeries {
 	 * @param bufferEntries
 	 * @throws IOException
 	 */
-	public void loadBucketMap(List<Entry<String, BufferObject>> bufferEntries) throws IOException {
+	public void loadBucketMap(List<Entry<Integer, BufferObject>> bufferEntries) throws IOException {
 		Map<String, String> cacheConf = new HashMap<>(conf);
 		logger.fine(() -> "Scanning buffer for:" + seriesId);
-		for (Entry<String, BufferObject> entry : bufferEntries) {
+		for (Entry<Integer, BufferObject> entry : bufferEntries) {
 			ByteBuffer duplicate = entry.getValue().getBuf();
 			duplicate.rewind();
 			// String series = getStringFromBuffer(duplicate);
 			// if (!series.equalsIgnoreCase(seriesId)) {
 			// continue;
 			// }
-			String tsBucket = entry.getKey();
+			int tsBucket = entry.getKey();
 			List<Writer> list = bucketMap.get(tsBucket);
 			if (list == null) {
 				list = Collections.synchronizedList(new ArrayList<>());
@@ -243,7 +248,7 @@ public class TimeSeries {
 	}
 
 	private void sortBucketMap() throws IOException {
-		for (Entry<String, List<Writer>> entry : bucketMap.entrySet()) {
+		for (Entry<Integer, List<Writer>> entry : bucketMap.entrySet()) {
 			Collections.sort(entry.getValue(), new Comparator<Writer>() {
 
 				@Override
@@ -289,7 +294,7 @@ public class TimeSeries {
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
 		logger.fine(getSeriesId() + " " + bucketMap.size() + " " + bucketCount + " " + startTime + "  " + endTime + " "
 				+ valuePredicate + " " + timeRangePredicate + " diff:" + (endTime - startTime));
-		SortedMap<String, List<Writer>> series = correctTimeRangeScan(startTime, endTime);
+		SortedMap<Integer, List<Writer>> series = correctTimeRangeScan(startTime, endTime);
 		List<Reader> readers = new ArrayList<>();
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
@@ -303,25 +308,23 @@ public class TimeSeries {
 		return points;
 	}
 
-	private SortedMap<String, List<Writer>> correctTimeRangeScan(long startTime, long endTime) {
+	private SortedMap<Integer, List<Writer>> correctTimeRangeScan(long startTime, long endTime) {
 		int tsStartBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;
-		String startTsBucket = Integer.toHexString(tsStartBucket);
 		int tsEndBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
-		String endTsBucket = Integer.toHexString(tsEndBucket);
-		if (startTsBucket.compareTo(bucketMap.firstKey()) < 0) {
-			startTsBucket = bucketMap.firstKey();
+		if (Integer.compare(tsStartBucket, bucketMap.firstKey()) < 0) {
+			tsStartBucket = bucketMap.firstKey();
 			logger.finest(() -> "Corrected query startKey to:" + bucketMap.firstKey());
 		}
-		SortedMap<String, List<Writer>> series = null;
+		SortedMap<Integer, List<Writer>> series = null;
 		if (bucketMap.size() <= 1) {
 			series = bucketMap;
 		} else {
-			if (endTsBucket.compareTo(bucketMap.lastKey()) > 0) {
-				series = bucketMap.tailMap(startTsBucket);
+			if (Integer.compare(tsEndBucket, bucketMap.lastKey()) > 0) {
+				series = bucketMap.tailMap(tsStartBucket);
 				logger.finest(() -> "Endkey exceeds last key, using tailmap instead");
 			} else {
-				endTsBucket = endTsBucket + Character.MAX_VALUE;
-				series = bucketMap.subMap(startTsBucket, endTsBucket);
+				tsEndBucket = tsEndBucket + 1;
+				series = bucketMap.subMap(tsStartBucket, tsEndBucket);
 			}
 		}
 		logger.fine("Series select size:" + series.size());
@@ -337,7 +340,7 @@ public class TimeSeries {
 			startTime = startTime ^ endTime;
 		}
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
-		SortedMap<String, List<Writer>> series = correctTimeRangeScan(startTime, endTime);
+		SortedMap<Integer, List<Writer>> series = correctTimeRangeScan(startTime, endTime);
 		List<Reader> readers = new ArrayList<>();
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
@@ -395,7 +398,7 @@ public class TimeSeries {
 		}
 		List<Reader> readers = new ArrayList<>();
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
-		SortedMap<String, List<Writer>> series = correctTimeRangeScan(startTime, endTime);
+		SortedMap<Integer, List<Writer>> series = correctTimeRangeScan(startTime, endTime);
 		for (List<Writer> writers : series.values()) {
 			for (Writer writer : writers) {
 				readers.add(getReader(writer, timeRangePredicate, valuePredicate));
@@ -559,7 +562,7 @@ public class TimeSeries {
 		logger.finer("Retention buckets:" + retentionBuckets.get());
 		while (bucketMap.size() > retentionBuckets.get()) {
 			int oldSize = bucketMap.size();
-			String key = bucketMap.firstKey();
+			Integer key = bucketMap.firstKey();
 			List<Writer> buckets = bucketMap.remove(key);
 			for (Writer bucket : buckets) {
 				// bucket.close();
@@ -602,9 +605,9 @@ public class TimeSeries {
 	/**
 	 * @return the bucketMap
 	 */
-	public SortedMap<String, Writer> getBucketMap() {
-		SortedMap<String, Writer> map = new TreeMap<>();
-		for (Entry<String, List<Writer>> entry : bucketMap.entrySet()) {
+	public SortedMap<Integer, Writer> getBucketMap() {
+		SortedMap<Integer, Writer> map = new TreeMap<>();
+		for (Entry<Integer, List<Writer>> entry : bucketMap.entrySet()) {
 			List<Writer> value = entry.getValue();
 			for (int i = 0; i < value.size(); i++) {
 				Writer bucketEntry = value.get(i);
@@ -614,7 +617,7 @@ public class TimeSeries {
 		return map;
 	}
 
-	public SortedMap<String, List<Writer>> getBucketRawMap() {
+	public SortedMap<Integer, List<Writer>> getBucketRawMap() {
 		return bucketMap;
 	}
 
@@ -680,11 +683,11 @@ public class TimeSeries {
 			return null;
 		}
 		List<Writer> compactedWriter = new ArrayList<>();
-		Iterator<Entry<String, List<Writer>>> iterator = compactionCandidateSet.entrySet().iterator();
+		Iterator<Entry<Integer, List<Writer>>> iterator = compactionCandidateSet.entrySet().iterator();
 		int id = CompressionFactory.getIdByClass(compactionClass);
 		while (iterator.hasNext()) {
 			// entry.getKey() gives tsBucket string
-			Entry<String, List<Writer>> entry = iterator.next();
+			Entry<Integer, List<Writer>> entry = iterator.next();
 			// remove this entry from compaction set
 			iterator.remove();
 			List<Writer> list = entry.getValue();
@@ -800,7 +803,7 @@ public class TimeSeries {
 	 * @throws InstantiationException
 	 * @throws IllegalAccessException
 	 */
-	public void replaceFirstBuckets(String bucket, List<Entry<Long, byte[]>> bufList)
+	public void replaceFirstBuckets(Integer bucket, List<Entry<Long, byte[]>> bufList)
 			throws IOException, InstantiationException, IllegalAccessException {
 		boolean wasEmpty = false;
 		List<Writer> list = bucketMap.get(bucket);
@@ -819,7 +822,7 @@ public class TimeSeries {
 	}
 
 	private List<String> insertOrOverwriteWriters(List<Entry<Long, byte[]>> bufList, boolean wasEmpty,
-			List<Writer> list, String tsBucket) throws IOException, InstantiationException, IllegalAccessException {
+			List<Writer> list, Integer tsBucket) throws IOException, InstantiationException, IllegalAccessException {
 		List<String> garbageCollectWriters = new ArrayList<>();
 		if (!wasEmpty) {
 			if (bufList.size() >= list.size()) {

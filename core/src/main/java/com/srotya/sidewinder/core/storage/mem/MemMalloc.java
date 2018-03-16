@@ -41,11 +41,11 @@ public class MemMalloc implements Malloc {
 		this.cleanupCallback = cleanupCallback;
 	}
 
-	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
+	public BufferObject createNewBuffer(String seriesId, Integer tsBucket) throws IOException {
 		return createNewBuffer(seriesId, tsBucket, size);
 	}
 
-	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
+	public BufferObject createNewBuffer(String seriesId, Integer tsBucket, int newSize) throws IOException {
 		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(newSize);
 		return new BufferObject(seriesId + "\t" + tsBucket, allocateDirect);
 	}
@@ -58,7 +58,7 @@ public class MemMalloc implements Malloc {
 	}
 
 	@Override
-	public Map<String, List<Entry<String, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException {
+	public Map<String, List<Entry<Integer, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException {
 		return null;
 	}
 

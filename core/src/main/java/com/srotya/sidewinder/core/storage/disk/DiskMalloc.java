@@ -126,12 +126,12 @@ public class DiskMalloc implements Malloc {
 	}
 
 	@Override
-	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
+	public BufferObject createNewBuffer(String seriesId, Integer tsBucket) throws IOException {
 		return createNewBuffer(seriesId, tsBucket, increment);
 	}
 
 	@Override
-	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
+	public BufferObject createNewBuffer(String seriesId, Integer tsBucket, int newSize) throws IOException {
 		logger.fine("Seriesid:" + seriesId + " requesting buffer of size:" + newSize);
 		if (rafActiveFile == null) {
 			lock.lock();
@@ -178,7 +178,7 @@ public class DiskMalloc implements Malloc {
 				}
 			}
 			String ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset, newSize);
-			MiscUtils.writeStringToBuffer(tsBucket, memoryMappedBuffer);
+			MiscUtils.writeStringToBuffer(Integer.toHexString(tsBucket), memoryMappedBuffer);
 			ByteBuffer buf = memoryMappedBuffer.slice();
 			buf.limit(newSize);
 			curr = curr + newSize;
@@ -195,7 +195,7 @@ public class DiskMalloc implements Malloc {
 	}
 
 	@Override
-	public Map<String, List<Entry<String, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException {
+	public Map<String, List<Entry<Integer, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException {
 		Map<String, MappedByteBuffer> bufferMap = new ConcurrentHashMap<>();
 		File[] listFiles = new File(dataDirectory).listFiles(new FilenameFilter() {
 
@@ -230,13 +230,13 @@ public class DiskMalloc implements Malloc {
 			fcnt = Integer.parseInt(listFiles[listFiles.length - 1].getName().replace("data-", "").replace(".dat", ""))
 					+ 1;
 		}
-		Map<String, List<Entry<String, BufferObject>>> seriesBuffers = new HashMap<>();
+		Map<String, List<Entry<Integer, BufferObject>>> seriesBuffers = new HashMap<>();
 		sliceMappedBuffersForBuckets(bufferMap, seriesBuffers);
 		return seriesBuffers;
 	}
 
 	private void sliceMappedBuffersForBuckets(Map<String, MappedByteBuffer> bufferMap,
-			Map<String, List<Entry<String, BufferObject>>> seriesBuffers) throws IOException {
+			Map<String, List<Entry<Integer, BufferObject>>> seriesBuffers) throws IOException {
 		ptrCounter = 0;
 		initializePtrFile();
 		for (int i = 0; i < ptrCounter; i++) {
@@ -254,12 +254,12 @@ public class DiskMalloc implements Malloc {
 			String tsBucket = MiscUtils.getStringFromBuffer(buf);
 			ByteBuffer slice = buf.slice();
 			slice.limit(size);
-			List<Entry<String, BufferObject>> list = seriesBuffers.get(seriesId);
+			List<Entry<Integer, BufferObject>> list = seriesBuffers.get(seriesId);
 			if (list == null) {
 				list = new ArrayList<>();
 				seriesBuffers.put(seriesId, list);
 			}
-			list.add(new AbstractMap.SimpleEntry<>(tsBucket, new BufferObject(line, slice)));
+			list.add(new AbstractMap.SimpleEntry<>(Integer.parseInt(tsBucket, 16), new BufferObject(line, slice)));
 		}
 	}
 

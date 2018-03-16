@@ -280,12 +280,12 @@ public class PersistentMeasurement implements Measurement {
 			throw new IOException(e);
 		}
 
-		Map<String, List<Entry<String, BufferObject>>> seriesBuffers = malloc.seriesBufferMap();
-		for (Entry<String, List<Entry<String, BufferObject>>> entry : seriesBuffers.entrySet()) {
+		Map<String, List<Entry<Integer, BufferObject>>> seriesBuffers = malloc.seriesBufferMap();
+		for (Entry<String, List<Entry<Integer, BufferObject>>> entry : seriesBuffers.entrySet()) {
 			String[] split = entry.getKey().split(SERIESID_SEPARATOR);
 			Integer seriesId = seriesMap.get(split[0]);
 			SeriesFieldMap ts = seriesList.get(seriesId);
-			List<Entry<String, BufferObject>> list = entry.getValue();
+			List<Entry<Integer, BufferObject>> list = entry.getValue();
 			if (list != null) {
 				try {
 					ts.get(split[1]).loadBucketMap(list);
@@ -334,7 +334,7 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId) {
+	public SortedMap<Integer, List<Writer>> createNewBucketMap(String seriesId) {
 		return new ConcurrentSkipListMap<>();
 	}
 

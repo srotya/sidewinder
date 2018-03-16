@@ -366,7 +366,7 @@ public interface Measurement {
 
 	public Logger getLogger();
 
-	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId);
+	public SortedMap<Integer, List<Writer>> createNewBucketMap(String seriesId);
 
 	public ReentrantLock getLock();
 
