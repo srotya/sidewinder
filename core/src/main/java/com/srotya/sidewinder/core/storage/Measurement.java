@@ -49,7 +49,6 @@ public interface Measurement {
 	public static final RejectException INDEX_REJECT = new RejectException("Invalid tag, rejecting index");
 	public static final RejectException SEARCH_REJECT = new RejectException("Invalid tag, rejecting index search");
 	public static final String TAG_KV_SEPARATOR = "=";
-	public static final String PATTERN_TAG_KV_SEPARATOR = "\\" + TAG_KV_SEPARATOR;
 	public static final String SERIESID_SEPARATOR = "#";
 	public static final String USE_QUERY_POOL = "use.query.pool";
 	public static final String TAG_SEPARATOR = "^";

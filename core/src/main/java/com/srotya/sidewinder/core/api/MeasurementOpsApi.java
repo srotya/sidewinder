@@ -84,7 +84,7 @@ public class MeasurementOpsApi {
 		List<Tag> tags = new ArrayList<>();
 		for (JsonElement jsonElement : series.get("tags").getAsJsonArray()) {
 			String tagStr = jsonElement.getAsString();
-			String[] splits = tagStr.split(Measurement.PATTERN_TAG_KV_SEPARATOR);
+			String[] splits = tagStr.split(Measurement.TAG_KV_SEPARATOR);
 			tags.add(Tag.newBuilder().setTagKey(splits[0]).setTagValue(splits[1]).build());
 		}
 		try {

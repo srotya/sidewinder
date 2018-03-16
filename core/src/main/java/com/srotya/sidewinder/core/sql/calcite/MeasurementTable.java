@@ -69,6 +69,10 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 		this.tagKeys = new ArrayList<>(tagKeys);
 	}
 
+	public List<String> getTagKeys() {
+		return tagKeys;
+	}
+
 	@Override
 	public RelDataType getRowType(RelDataTypeFactory typeFactory) {
 		types = new ArrayList<>();

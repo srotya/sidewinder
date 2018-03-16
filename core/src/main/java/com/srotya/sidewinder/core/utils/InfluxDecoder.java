@@ -20,7 +20,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
-import java.util.regex.Pattern;
 
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
@@ -33,7 +32,6 @@ public class InfluxDecoder {
 
 	private static final int LENGTH_OF_MILLISECOND_TS = 13;
 	private static final Logger logger = Logger.getLogger(InfluxDecoder.class.getName());
-	private static final Pattern TAG_PATTERN = Pattern.compile("(.*)\\=(.*)");
 
 	public static List<Point> pointsFromString(String dbName, String payload) {
 		List<Point> dps = new ArrayList<>();
@@ -62,7 +60,7 @@ public class InfluxDecoder {
 					// if (matcher.find()) {
 					// tTags.add(Tag.newBuilder().setTagKey(matcher.group(1)).setTagValue(matcher.group(2)).build());
 					// }
-					String[] s = key[i].split("\\=");
+					String[] s = key[i].split("=");
 					tTags.add(Tag.newBuilder().setTagKey(s[0]).setTagValue(s[1]).build());
 				}
 				List<Tag> tags = new ArrayList<>(tTags);
