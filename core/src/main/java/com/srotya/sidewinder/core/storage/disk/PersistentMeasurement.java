@@ -58,7 +58,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class PersistentMeasurement implements Measurement {
 
-	private static final String MD_SEPARATOR = "/";
+	private static final String MD_SEPARATOR = "~";
 	private static final Logger logger = Logger.getLogger(PersistentMeasurement.class.getName());
 	private ReentrantLock lock = new ReentrantLock(false);
 	private ReentrantLock mallocLock = new ReentrantLock(false);
@@ -211,8 +211,12 @@ public class PersistentMeasurement implements Measurement {
 
 			@Override
 			public int compare(String o1, String o2) {
-				return Integer.compare(Integer.parseInt(o1.split(MD_SEPARATOR)[3], 16),
-						Integer.parseInt(o2.split(MD_SEPARATOR)[3], 16));
+				try {
+					return Integer.compare(Integer.parseInt(o1.split(MD_SEPARATOR)[3], 16),
+							Integer.parseInt(o2.split(MD_SEPARATOR)[3], 16));
+				} catch (Exception e) {
+					throw new RuntimeException("Bad entry:\n" + o1 + "\n" + o2);
+				}
 			}
 		});
 		SortedSet<String> set = new TreeSet<>();
