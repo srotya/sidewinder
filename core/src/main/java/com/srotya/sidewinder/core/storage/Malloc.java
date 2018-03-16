@@ -11,9 +11,9 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public interface Malloc {
 
-	public BufferObject createNewBuffer(String seriesId, Integer tsBucket, int size) throws IOException;
+	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket, int size) throws IOException;
 
-	public BufferObject createNewBuffer(String seriesId, Integer tsBucket) throws IOException;
+	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket) throws IOException;
 
 	public void cleanupBufferIds(Set<String> cleanupList) throws IOException;
 

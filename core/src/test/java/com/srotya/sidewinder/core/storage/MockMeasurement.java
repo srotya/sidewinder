@@ -92,7 +92,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public SortedMap<Integer, List<Writer>> createNewBucketMap(String seriesId) {
+	public SortedMap<Integer, List<Writer>> createNewBucketMap(ByteString seriesId) {
 		return new ConcurrentSkipListMap<>();
 	}
 
@@ -125,7 +125,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public SeriesFieldMap getSeriesFromKey(String key) {
+	public SeriesFieldMap getSeriesFromKey(ByteString key) {
 		return null;
 	}
 

@@ -43,6 +43,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.BufferObject;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -62,11 +63,9 @@ public class PersistentMeasurement implements Measurement {
 	private static final Logger logger = Logger.getLogger(PersistentMeasurement.class.getName());
 	private ReentrantLock lock = new ReentrantLock(false);
 	private ReentrantLock mallocLock = new ReentrantLock(false);
-	private Map<String, Integer> seriesMap;
+	private Map<ByteString, Integer> seriesMap;
 	private List<SeriesFieldMap> seriesList;
 	private TagIndex tagIndex;
-	private String compressionCodec;
-	private String compactionCodec;
 	private String dataDirectory;
 	private DBMetadata metadata;
 	private Map<String, String> conf;
@@ -105,10 +104,7 @@ public class PersistentMeasurement implements Measurement {
 		// DBMaker.memoryDirectDB().make().hashMap(measurementName).create();
 		this.seriesMap = new ConcurrentHashMap<>(100_000);
 		this.seriesList = new ArrayList<>(100_000);
-		this.compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
-				StorageEngine.DEFAULT_COMPRESSION_CODEC);
-		this.compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
-				StorageEngine.DEFAULT_COMPACTION_CODEC);
+		setCodecsForTimeseries(conf);
 		this.compactOnStart = Boolean.parseBoolean(
 				conf.getOrDefault(StorageEngine.COMPACTION_ON_START, StorageEngine.DEFAULT_COMPACTION_ON_START));
 		this.measurementName = measurementName;
@@ -142,7 +138,7 @@ public class PersistentMeasurement implements Measurement {
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException {
 		Collections.sort(tags, TAG_COMPARATOR);
-		String seriesId = constructSeriesId(tags, tagIndex);
+		ByteString seriesId = constructSeriesId(tags, tagIndex);
 		int index = 0;
 		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
 		if (seriesFieldMap == null) {
@@ -173,8 +169,8 @@ public class PersistentMeasurement implements Measurement {
 			lock.lock();
 			try {
 				if ((series = seriesFieldMap.get(valueFieldName)) == null) {
-					String seriesId2 = seriesId + SERIESID_SEPARATOR + valueFieldName;
-					series = new TimeSeries(this, compressionCodec, compactionCodec, seriesId2, timeBucketSize,
+					ByteString seriesId2 = new ByteString(seriesId + SERIESID_SEPARATOR + valueFieldName);
+					series = new TimeSeries(this, seriesId2, timeBucketSize,
 							metadata, fp, conf);
 					seriesFieldMap.addSeries(valueFieldName, series);
 					appendTimeseriesToMeasurementMetadata(seriesId2, fp, timeBucketSize, index);
@@ -199,9 +195,9 @@ public class PersistentMeasurement implements Measurement {
 		new File(indexDirectory).mkdirs();
 	}
 
-	protected void appendTimeseriesToMeasurementMetadata(String seriesId, boolean fp, int timeBucketSize, int idx)
+	protected void appendTimeseriesToMeasurementMetadata(ByteString seriesId, boolean fp, int timeBucketSize, int idx)
 			throws IOException {
-		String line = seriesId + MD_SEPARATOR + fp + MD_SEPARATOR + timeBucketSize + MD_SEPARATOR
+		String line = seriesId.toString() + MD_SEPARATOR + fp + MD_SEPARATOR + timeBucketSize + MD_SEPARATOR
 				+ Integer.toHexString(idx);
 		DiskStorageEngine.appendLineToFile(line, prMetadata);
 	}
@@ -242,19 +238,21 @@ public class PersistentMeasurement implements Measurement {
 		try {
 			String timeBucketSize = split[2];
 			String isFp = split[1];
-			TimeSeries timeSeries = new TimeSeries(this, compressionCodec, compactionCodec, seriesId,
+			TimeSeries timeSeries = new TimeSeries(this, new ByteString(seriesId),
 					Integer.parseInt(timeBucketSize), metadata, Boolean.parseBoolean(isFp), conf);
 			String[] split2 = seriesId.split(SERIESID_SEPARATOR);
 
 			String valueField = split2[1];
 			seriesId = split2[0];
+			
+			ByteString key = new ByteString(seriesId);
 
-			Integer seriesIdx = seriesMap.get(seriesId);
+			Integer seriesIdx = seriesMap.get(key);
 			SeriesFieldMap m = null;
 			if (seriesIdx == null) {
 				seriesIdx = Integer.parseInt(split[3], 16);
 				m = new SeriesFieldMap(seriesId);
-				seriesMap.put(seriesId, seriesIdx);
+				seriesMap.put(key, seriesIdx);
 				seriesList.add(seriesIdx, m);
 			} else {
 				m = seriesList.get(seriesIdx);
@@ -287,7 +285,7 @@ public class PersistentMeasurement implements Measurement {
 		Map<String, List<Entry<Integer, BufferObject>>> seriesBuffers = malloc.seriesBufferMap();
 		for (Entry<String, List<Entry<Integer, BufferObject>>> entry : seriesBuffers.entrySet()) {
 			String[] split = entry.getKey().split(SERIESID_SEPARATOR);
-			Integer seriesId = seriesMap.get(split[0]);
+			Integer seriesId = seriesMap.get(new ByteString(split[0]));
 			SeriesFieldMap ts = seriesList.get(seriesId);
 			List<Entry<Integer, BufferObject>> list = entry.getValue();
 			if (list != null) {
@@ -338,7 +336,7 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public SortedMap<Integer, List<Writer>> createNewBucketMap(String seriesId) {
+	public SortedMap<Integer, List<Writer>> createNewBucketMap(ByteString seriesId) {
 		return new ConcurrentSkipListMap<>();
 	}
 
@@ -354,11 +352,15 @@ public class PersistentMeasurement implements Measurement {
 
 	@Override
 	public Set<String> getSeriesKeys() {
-		return new HashSet<>(seriesMap.keySet());
+		Set<String> hashSet = new HashSet<>();
+		for (ByteString str : seriesMap.keySet()) {
+			hashSet.add(str.toString());
+		}
+		return hashSet;
 	}
 
 	@Override
-	public SeriesFieldMap getSeriesFromKey(String key) {
+	public SeriesFieldMap getSeriesFromKey(ByteString key) {
 		Integer index = seriesMap.get(key);
 		if (index == null) {
 			return null;

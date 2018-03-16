@@ -19,10 +19,10 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Writer;
@@ -45,8 +45,8 @@ public class ByzantineWriter implements Writer {
 	private boolean readOnly;
 	private volatile boolean full;
 	private int startOffset;
-	private String tsBucket;
-	private String bufferId;
+	private ByteString tsBucket;
+	private ByteString bufferId;
 
 	public ByzantineWriter() {
 	}
@@ -67,7 +67,7 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
+	public void configure(ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
 			throws IOException {
 		this.startOffset = startOffset;
 		if (isLocking) {
@@ -338,19 +338,19 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public String getTsBucket() {
+	public ByteString getTsBucket() {
 		return tsBucket;
 	}
 
 	@Override
-	public void setTsBucket(String tsBucket) {
+	public void setTsBucket(ByteString tsBucket) {
 		this.tsBucket = tsBucket;
 	}
 
 	/**
 	 * @return the bufferId
 	 */
-	public String getBufferId() {
+	public ByteString getBufferId() {
 		return bufferId;
 	}
 
@@ -358,7 +358,7 @@ public class ByzantineWriter implements Writer {
 	 * @param bufferId
 	 *            the bufferId to set
 	 */
-	public void setBufferId(String bufferId) {
+	public void setBufferId(ByteString bufferId) {
 		this.bufferId = bufferId;
 	}
 

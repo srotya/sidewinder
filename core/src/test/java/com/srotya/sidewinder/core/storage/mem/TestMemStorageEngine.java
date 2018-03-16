@@ -302,7 +302,7 @@ public class TestMemStorageEngine {
 		long headerTimestamp = System.currentTimeMillis();
 		ByteBuffer buf = ByteBuffer.allocate(1024);
 		Writer timeSeries = new ByzantineWriter();
-		timeSeries.configure(conf, buf, true, 1, false);
+		timeSeries.configure(buf, true, 1, false);
 		timeSeries.setHeaderTimestamp(headerTimestamp);
 		timeSeries.addValue(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test=2"), points, timeSeries, null, null, false);

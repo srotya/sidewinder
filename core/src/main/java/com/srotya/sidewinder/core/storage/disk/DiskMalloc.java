@@ -43,6 +43,7 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.BufferObject;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -126,12 +127,12 @@ public class DiskMalloc implements Malloc {
 	}
 
 	@Override
-	public BufferObject createNewBuffer(String seriesId, Integer tsBucket) throws IOException {
+	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket) throws IOException {
 		return createNewBuffer(seriesId, tsBucket, increment);
 	}
 
 	@Override
-	public BufferObject createNewBuffer(String seriesId, Integer tsBucket, int newSize) throws IOException {
+	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket, int newSize) throws IOException {
 		logger.fine("Seriesid:" + seriesId + " requesting buffer of size:" + newSize);
 		if (rafActiveFile == null) {
 			lock.lock();
@@ -177,7 +178,7 @@ public class DiskMalloc implements Malloc {
 					metricsBufferSize.inc(fileMapIncrement);
 				}
 			}
-			String ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset, newSize);
+			String ptrKey = appendBufferPointersToDisk(seriesId.toString(), filename, curr, offset, newSize);
 			MiscUtils.writeStringToBuffer(Integer.toHexString(tsBucket), memoryMappedBuffer);
 			ByteBuffer buf = memoryMappedBuffer.slice();
 			buf.limit(newSize);

@@ -19,8 +19,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
-import java.util.Map;
 
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Reader;
@@ -32,8 +32,8 @@ public class GorillaWriter implements Writer {
 
 	public static final int MD5_PADDING = 32;
 	private boolean full;
-	private String bufferId;
-	private String tsBucket;
+	private ByteString bufferId;
+	private ByteString tsBucket;
 	private ByteBuffer buf;
 	private GorillaCompressor compressor;
 	private int counter;
@@ -44,7 +44,7 @@ public class GorillaWriter implements Writer {
 	private int checkSumLocaltion;
 
 	@Override
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
+	public void configure(ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
 			throws IOException {
 		this.buf = buf;
 		this.checkSumLocaltion = startOffset;
@@ -192,12 +192,12 @@ public class GorillaWriter implements Writer {
 	}
 
 	@Override
-	public void setTsBucket(String tsBucket) {
+	public void setTsBucket(ByteString tsBucket) {
 		this.tsBucket = tsBucket;
 	}
 
 	@Override
-	public String getTsBucket() {
+	public ByteString getTsBucket() {
 		return tsBucket;
 	}
 
@@ -207,12 +207,12 @@ public class GorillaWriter implements Writer {
 	}
 
 	@Override
-	public void setBufferId(String key) {
+	public void setBufferId(ByteString key) {
 		bufferId = key;
 	}
 
 	@Override
-	public String getBufferId() {
+	public ByteString getBufferId() {
 		return bufferId;
 	}
 

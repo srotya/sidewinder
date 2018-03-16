@@ -128,7 +128,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 		List<SeriesFieldMap> ref = measurement.getSeriesListAsList();
 		for (Iterator<Integer> iterator = value.iterator(); iterator.hasNext();) {
 			Integer idx = iterator.next();
-			String seriesId = ref.get(idx).getSeriesId();
+			String seriesId = ref.get(idx).getSeriesId().toString();
 			rowKeys.add(seriesId);
 			logger.finest(
 					() -> "Adding idx:" + idx + " resolving to seriesId:" + seriesId + " for bitmap extrapolation");

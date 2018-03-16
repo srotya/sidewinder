@@ -38,6 +38,7 @@ import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
+import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
@@ -53,6 +54,7 @@ public interface Measurement {
 	public static final String USE_QUERY_POOL = "use.query.pool";
 	public static final String TAG_SEPARATOR = "^";
 	public static final TagComparator TAG_COMPARATOR = new TagComparator();
+	public static final Exception NOT_FOUND_EXCEPTION = null;
 
 	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
 			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
@@ -60,7 +62,7 @@ public interface Measurement {
 
 	public Set<String> getSeriesKeys();
 
-	public SeriesFieldMap getSeriesFromKey(String key);
+	public SeriesFieldMap getSeriesFromKey(ByteString key);
 
 	public TagIndex getTagIndex();
 
@@ -82,8 +84,17 @@ public interface Measurement {
 			tagIndex.index(tag.getTagKey(), tag.getTagValue(), rowIdx);
 		}
 	}
+	
+	public default void setCodecsForTimeseries(Map<String, String> conf) {
+		String compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
+				StorageEngine.DEFAULT_COMPRESSION_CODEC);
+		String compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
+				StorageEngine.DEFAULT_COMPACTION_CODEC);
+		TimeSeries.compactionClass = CompressionFactory.getClassByName(compactionCodec);
+		TimeSeries.compressionClass = CompressionFactory.getClassByName(compressionCodec);
+	}
 
-	public default String encodeTagsToString(TagIndex tagIndex, List<Tag> tags) throws IOException {
+	public default ByteString encodeTagsToString(TagIndex tagIndex, List<Tag> tags) throws IOException {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);
 		serializeTagForKey(builder, tags.get(0));
 		for (int i = 1; i < tags.size(); i++) {
@@ -91,7 +102,8 @@ public interface Measurement {
 			builder.append(TAG_SEPARATOR);
 			serializeTagForKey(builder, tag);
 		}
-		return builder.toString();
+		String rowKey = builder.toString();
+		return new ByteString(rowKey);
 	}
 
 	public static void serializeTagForKey(StringBuilder builder, Tag tag) {
@@ -100,7 +112,7 @@ public interface Measurement {
 		builder.append(tag.getTagValue());
 	}
 
-	public default String constructSeriesId(List<Tag> tags, TagIndex index) throws IOException {
+	public default ByteString constructSeriesId(List<Tag> tags, TagIndex index) throws IOException {
 		return encodeTagsToString(index, tags);
 	}
 
@@ -182,7 +194,7 @@ public interface Measurement {
 						continue;
 					}
 					for (Writer timeSeriesBucket : list) {
-						cleanupList.add(timeSeriesBucket.getBufferId());
+						cleanupList.add(timeSeriesBucket.getBufferId().toString());
 						getLogger().fine("Adding buffer to cleanup " + operation + " for bucket:" + entry.getSeriesId()
 								+ " Offset:" + timeSeriesBucket.currentOffset());
 					}
@@ -205,7 +217,7 @@ public interface Measurement {
 
 	public default SeriesFieldMap getSeriesField(List<Tag> tags) throws IOException {
 		Collections.sort(tags, TAG_COMPARATOR);
-		String rowKey = constructSeriesId(tags, getTagIndex());
+		ByteString rowKey = constructSeriesId(tags, getTagIndex());
 		// check and create timeseries
 		SeriesFieldMap map = getSeriesFromKey(rowKey);
 		return map;
@@ -215,7 +227,7 @@ public interface Measurement {
 		Set<String> results = new HashSet<>();
 		Set<String> keySet = getSeriesKeys();
 		for (String key : keySet) {
-			SeriesFieldMap map = getSeriesFromKey(key);
+			SeriesFieldMap map = getSeriesFromKey(new ByteString(key));
 			results.addAll(map.getFields());
 		}
 		return results;
@@ -265,7 +277,7 @@ public interface Measurement {
 		if (rowKeys != null) {
 			for (String key : rowKeys) {
 				List<String> fieldMap = new ArrayList<>();
-				Set<String> fieldSet = getSeriesFromKey(key).getFields();
+				Set<String> fieldSet = getSeriesFromKey(new ByteString(key)).getFields();
 				for (String fieldSetEntry : fieldSet) {
 					if (p.matcher(fieldSetEntry).matches()) {
 						fieldMap.add(fieldSetEntry);
@@ -300,7 +312,7 @@ public interface Measurement {
 		List<DataPoint> points = null;
 		List<Tag> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
 		for (String valueFieldName : valueFieldNames) {
-			TimeSeries value = getSeriesFromKey(rowKey).get(valueFieldName);
+			TimeSeries value = getSeriesFromKey(new ByteString(rowKey)).get(valueFieldName);
 			if (value == null) {
 				getLogger().severe("Invalid time series value " + rowKey + "\t" + "\t" + "\n\n");
 				return;
@@ -318,7 +330,7 @@ public interface Measurement {
 	public default void queryReaders(String valueFieldName, long startTime, long endTime,
 			LinkedHashMap<Reader, Boolean> readers) throws IOException {
 		for (String entry : getSeriesKeys()) {
-			SeriesFieldMap m = getSeriesFromKey(entry);
+			SeriesFieldMap m = getSeriesFromKey(new ByteString(entry));
 			TimeSeries series = m.get(valueFieldName);
 			if (series == null) {
 				continue;
@@ -333,7 +345,7 @@ public interface Measurement {
 	public default void queryReadersWithMap(String valueFieldName, long startTime, long endTime,
 			LinkedHashMap<Reader, List<Tag>> readers) throws IOException {
 		for (String entry : getSeriesKeys()) {
-			SeriesFieldMap m = getSeriesFromKey(entry);
+			SeriesFieldMap m = getSeriesFromKey(new ByteString(entry));
 			TimeSeries series = m.get(valueFieldName);
 			if (series == null) {
 				continue;
@@ -366,7 +378,7 @@ public interface Measurement {
 
 	public Logger getLogger();
 
-	public SortedMap<Integer, List<Writer>> createNewBucketMap(String seriesId);
+	public SortedMap<Integer, List<Writer>> createNewBucketMap(ByteString seriesId);
 
 	public ReentrantLock getLock();
 
@@ -378,6 +390,16 @@ public interface Measurement {
 
 	public default Collection<String> getTagValues(String tagKey) {
 		return getTagIndex().getTagValues(tagKey);
+	}
+	
+	public default boolean isFieldFp(String valueFieldName) throws ItemNotFoundException {
+		for (String entry : getSeriesKeys()) {
+			SeriesFieldMap seriesFromKey = getSeriesFromKey(new ByteString(entry));
+			if (seriesFromKey.get(valueFieldName) != null) {
+				return seriesFromKey.get(valueFieldName).isFp();
+			}
+		}
+		throw StorageEngine.NOT_FOUND_EXCEPTION;
 	}
 
 	public static class TagComparator implements Comparator<Tag> {

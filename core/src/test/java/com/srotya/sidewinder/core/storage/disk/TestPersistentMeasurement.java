@@ -42,6 +42,7 @@ import org.junit.Test;
 
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -372,10 +373,10 @@ public class TestPersistentMeasurement {
 		Measurement m = new PersistentMeasurement();
 		m.configure(conf, engine, DBNAME, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
 		TagIndex index = m.getTagIndex();
-		String encodeTagsToString = m.encodeTagsToString(index, tags);
-		String key = m.constructSeriesId(tags, index);
+		ByteString encodeTagsToString = m.encodeTagsToString(index, tags);
+		ByteString key = m.constructSeriesId(tags, index);
 		assertEquals(encodeTagsToString, key);
-		assertEquals("Bad output:"+encodeTagsToString, "test=1^test=2", encodeTagsToString);
+		assertEquals("Bad output:"+encodeTagsToString, new ByteString("test=1^test=2"), encodeTagsToString);
 		m.close();
 	}
 
@@ -512,8 +513,8 @@ public class TestPersistentMeasurement {
 		new File(indexDir).mkdirs();
 		SetIndex table = new SetIndex(indexDir, "test2");
 		Measurement measurement = new PersistentMeasurement();
-		String encodedStr = measurement.encodeTagsToString(table, tags);
-		List<Tag> decodedStr = Measurement.decodeStringToTags(table, encodedStr);
+		ByteString encodedStr = measurement.encodeTagsToString(table, tags);
+		List<Tag> decodedStr = Measurement.decodeStringToTags(table, encodedStr.toString());
 		List<Tag> list = tags;
 		for (int i = 0; i < list.size(); i++) {
 			assertEquals(list.get(i) + "", list.get(i), decodedStr.get(i));

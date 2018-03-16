@@ -18,6 +18,7 @@ package com.srotya.sidewinder.core.storage.mem;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +31,7 @@ import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -48,10 +50,8 @@ public class MemoryMeasurement implements Measurement {
 	private ReentrantLock lock = new ReentrantLock(false);
 	private String measurementName;
 	private DBMetadata metadata;
-	private Map<String, SeriesFieldMap> seriesMap;
+	private Map<ByteString, SeriesFieldMap> seriesMap;
 	private MemTagIndex tagIndex;
-	private String compressionCodec;
-	private String compactionCodec;
 	private boolean useQueryPool;
 	private String dbName;
 	private Malloc malloc;
@@ -65,10 +65,7 @@ public class MemoryMeasurement implements Measurement {
 		this.metadata = metadata;
 		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("request"));
 		this.seriesMap = new ConcurrentHashMap<>();
-		this.compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
-				StorageEngine.DEFAULT_COMPRESSION_CODEC);
-		this.compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
-				StorageEngine.DEFAULT_COMPACTION_CODEC);
+		setCodecsForTimeseries(conf);
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
 		malloc = new MemMalloc();
 		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, lock);
@@ -91,12 +88,12 @@ public class MemoryMeasurement implements Measurement {
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException {
 		Collections.sort(tags, TAG_COMPARATOR);
-		String seriesId = constructSeriesId(tags, tagIndex);
+		ByteString seriesId = constructSeriesId(tags, tagIndex);
 		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
 		if (seriesFieldMap == null) {
 			lock.lock();
 			if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
-				Measurement.indexRowKey(tagIndex, seriesId, tags);
+				Measurement.indexRowKey(tagIndex, seriesId.toString(), tags);
 				seriesFieldMap = new SeriesFieldMap(seriesId);
 				seriesMap.put(seriesId, seriesFieldMap);
 			}
@@ -106,9 +103,8 @@ public class MemoryMeasurement implements Measurement {
 		if (series == null) {
 			lock.lock();
 			if ((series = seriesFieldMap.get(valueFieldName)) == null) {
-				String seriesId2 = seriesId + SERIESID_SEPARATOR + valueFieldName;
-				series = new TimeSeries(this, compressionCodec, compactionCodec, seriesId2, timeBucketSize, metadata,
-						fp, conf);
+				ByteString seriesId2 = new ByteString(seriesId + SERIESID_SEPARATOR + valueFieldName);
+				series = new TimeSeries(this, seriesId2, timeBucketSize, metadata, fp, conf);
 				seriesFieldMap.addSeries(valueFieldName, series);
 				logger.fine("Created new timeseries:" + seriesFieldMap + " for measurement:" + measurementName + "\t"
 						+ seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesMap.size());
@@ -137,11 +133,11 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public String toString() {
 		return "MemoryMeasurement [measurementName=" + measurementName + ", metadata=" + metadata + ", seriesMap="
-				+ seriesMap + ", tagIndex=" + tagIndex + ", compressionClass=" + compressionCodec + "]";
+				+ seriesMap + ", tagIndex=" + tagIndex + "]";
 	}
 
 	@Override
-	public SortedMap<Integer, List<Writer>> createNewBucketMap(String seriesId) {
+	public SortedMap<Integer, List<Writer>> createNewBucketMap(ByteString seriesId) {
 		return new ConcurrentSkipListMap<>();
 	}
 
@@ -157,11 +153,15 @@ public class MemoryMeasurement implements Measurement {
 
 	@Override
 	public Set<String> getSeriesKeys() {
-		return seriesMap.keySet();
+		Set<String> set = new HashSet<>();
+		for (ByteString str : seriesMap.keySet()) {
+			set.add(str.toString());
+		}
+		return set;
 	}
 
 	@Override
-	public SeriesFieldMap getSeriesFromKey(String key) {
+	public SeriesFieldMap getSeriesFromKey(ByteString key) {
 		return seriesMap.get(key);
 	}
 

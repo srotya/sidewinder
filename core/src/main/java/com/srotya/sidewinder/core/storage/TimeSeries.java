@@ -64,17 +64,16 @@ public class TimeSeries {
 	private SortedMap<Integer, List<Writer>> bucketMap;
 	private boolean fp;
 	private AtomicInteger retentionBuckets;
-	private String seriesId;
-	private Class<Writer> compressionClass;
-	private Class<Writer> compactionClass;
-	private Map<String, String> conf;
+	private ByteString seriesId;
 	private Measurement measurement;
 	private int timeBucketSize;
 	// used for unit tests only
 	private int bucketCount;
 	private Map<Integer, List<Writer>> compactionCandidateSet;
-	private boolean compactionEnabled;
-	private double compactionRatio;
+	public static boolean compactionEnabled;
+	public static double compactionRatio;
+	public static Class<Writer> compressionClass;
+	public static Class<Writer> compactionClass;
 
 	/**
 	 * @param measurement
@@ -87,14 +86,11 @@ public class TimeSeries {
 	 * @param conf
 	 * @throws IOException
 	 */
-	public TimeSeries(Measurement measurement, String compressionCodec, String compactionCodec, String seriesId,
+	public TimeSeries(Measurement measurement, ByteString seriesId,
 			int timeBucketSize, DBMetadata metadata, boolean fp, Map<String, String> conf) throws IOException {
-		this.compressionClass = CompressionFactory.getClassByName(compressionCodec);
-		this.compactionClass = CompressionFactory.getClassByName(compactionCodec);
 		this.measurement = measurement;
 		this.seriesId = seriesId;
 		this.timeBucketSize = timeBucketSize;
-		this.conf = new HashMap<>(conf);
 		retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
@@ -183,9 +179,9 @@ public class TimeSeries {
 		bufPair.getBuf().put((byte) list.size());
 		Writer writer;
 		writer = getWriterInstance(compressionClass);
-		writer.setBufferId(bufPair.getBufferId());
+		writer.setBufferId(new ByteString(bufPair.getBufferId()));
 		// first byte is used to store compression codec type
-		writer.configure(conf, bufPair.getBuf(), true, START_OFFSET, true);
+		writer.configure(bufPair.getBuf(), true, START_OFFSET, true);
 		writer.setHeaderTimestamp(timestamp);
 		list.add(writer);
 		bucketCount++;
@@ -211,7 +207,6 @@ public class TimeSeries {
 	 * @throws IOException
 	 */
 	public void loadBucketMap(List<Entry<Integer, BufferObject>> bufferEntries) throws IOException {
-		Map<String, String> cacheConf = new HashMap<>(conf);
 		logger.fine(() -> "Scanning buffer for:" + seriesId);
 		for (Entry<Integer, BufferObject> entry : bufferEntries) {
 			ByteBuffer duplicate = entry.getValue().getBuf();
@@ -237,8 +232,8 @@ public class TimeSeries {
 			}
 			logger.fine(() -> "Loading bucketmap:" + seriesId + "\t" + tsBucket + " bufferid:"
 					+ entry.getValue().getBufferId());
-			writer.setBufferId(entry.getValue().getBufferId());
-			writer.configure(cacheConf, slice, false, START_OFFSET, true);
+			writer.setBufferId(new ByteString(entry.getValue().getBufferId()));
+			writer.configure(slice, false, START_OFFSET, true);
 			list.add(writer);
 			bucketCount++;
 			logger.fine(() -> "Loaded bucketmap:" + seriesId + "\t" + tsBucket + " bufferid:"
@@ -624,7 +619,7 @@ public class TimeSeries {
 	/**
 	 * @return the seriesId
 	 */
-	public String getSeriesId() {
+	public ByteString getSeriesId() {
 		return seriesId;
 	}
 
@@ -632,7 +627,7 @@ public class TimeSeries {
 	 * @param seriesId
 	 *            the seriesId to set
 	 */
-	public void setSeriesId(String seriesId) {
+	public void setSeriesId(ByteString seriesId) {
 		this.seriesId = seriesId;
 	}
 
@@ -707,7 +702,7 @@ public class TimeSeries {
 			buf.put((byte) id);
 			// since this buffer will be the first one
 			buf.put(1, (byte) 0);
-			writer.configure(conf, buf, true, START_OFFSET, false);
+			writer.configure(buf, true, START_OFFSET, false);
 			Writer input = list.get(0);
 			// read the header timestamp
 			long timestamp = input.getHeaderTimestamp();
@@ -747,8 +742,8 @@ public class TimeSeries {
 			buf = newBuf.getBuf();
 			writer = getWriterInstance(compactionClass);
 			buf.put(rawBytes);
-			writer.setBufferId(bufferId);
-			writer.configure(conf, buf, false, START_OFFSET, false);
+			writer.setBufferId(new ByteString(bufferId));
+			writer.configure(buf, false, START_OFFSET, false);
 			writer.makeReadOnly();
 			synchronized (list) {
 				if (functions != null) {
@@ -833,7 +828,7 @@ public class TimeSeries {
 		for (int i = 0; i < bufList.size(); i++) {
 			if (!wasEmpty) {
 				Writer removedWriter = list.remove(i);
-				garbageCollectWriters.add(removedWriter.getBufferId());
+				garbageCollectWriters.add(removedWriter.getBufferId().toString());
 			}
 			Entry<Long, byte[]> bs = bufList.get(i);
 			BufferObject bufPair = measurement.getMalloc().createNewBuffer(seriesId, tsBucket, bs.getValue().length);
@@ -841,8 +836,8 @@ public class TimeSeries {
 			buf.put(bs.getValue());
 			buf.rewind();
 			Writer writer = CompressionFactory.getClassById(buf.get(0)).newInstance();
-			writer.setBufferId(bufPair.getBufferId());
-			writer.configure(conf, bufPair.getBuf(), false, START_OFFSET, true);
+			writer.setBufferId(new ByteString(bufPair.getBufferId()));
+			writer.configure(bufPair.getBuf(), false, START_OFFSET, true);
 			writer.setHeaderTimestamp(bs.getKey());
 			list.add(i, writer);
 		}

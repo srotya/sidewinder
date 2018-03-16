@@ -467,14 +467,9 @@ public class TestDiskStorageEngine {
 	public void testSeriesToDataPointConversion() throws IOException {
 		List<DataPoint> points = new ArrayList<>();
 		long headerTimestamp = System.currentTimeMillis();
-		HashMap<String, String> map = new HashMap<>();
-		map.put("metadata.dir", "target/db1/mdq");
-		map.put("index.dir", "target/db1/index");
-		map.put("data.dir", "target/db1/data");
-		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		ByteBuffer buf = ByteBuffer.allocate(100);
 		Writer timeSeries = new ByzantineWriter();
-		timeSeries.configure(map, buf, true, 1, false);
+		timeSeries.configure(buf, true, 1, false);
 		timeSeries.setHeaderTimestamp(headerTimestamp);
 		timeSeries.addValue(headerTimestamp, 1L);
 		TimeSeries.seriesToDataPoints("value", Arrays.asList("test=1"), points, timeSeries, null, null, false);

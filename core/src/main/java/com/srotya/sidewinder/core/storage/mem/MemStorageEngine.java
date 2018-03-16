@@ -33,7 +33,6 @@ import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.archival.NoneArchiver;
@@ -252,13 +251,7 @@ public class MemStorageEngine implements StorageEngine {
 		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
 		// check and create measurement map
 		Measurement measurement = getOrCreateMeasurement(dbMap, dbName, measurementName);
-		for (String entry : measurement.getSeriesKeys()) {
-			SeriesFieldMap seriesFromKey = measurement.getSeriesFromKey(entry);
-			if (seriesFromKey.get(valueFieldName) != null) {
-				return seriesFromKey.get(valueFieldName).isFp();
-			}
-		}
-		throw NOT_FOUND_EXCEPTION;
+		return measurement.isFieldFp(valueFieldName);
 	}
 
 	@Override

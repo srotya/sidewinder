@@ -44,7 +44,6 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 	private RingBuffer<DPWrapper> buffer;
 	private Disruptor<DPWrapper> disruptor;
 	private StorageEngine engine;
-	private Map<String, String> conf;
 	private int handlerCount;
 	private ExecutorService es;
 	private boolean disruptorEnable;
@@ -53,7 +52,6 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 	@SuppressWarnings("unchecked")
 	public WriterServiceImpl(StorageEngine engine, Map<String, String> conf) {
 		this.engine = engine;
-		this.conf = conf;
 		disruptorEnable = Boolean.parseBoolean(conf.getOrDefault("grpc.disruptor.enabled", "false"));
 		if (disruptorEnable) {
 			int bufferSize = Integer.parseInt(conf.getOrDefault("grpc.disruptor.buffer.size", "16384"));
@@ -137,7 +135,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 					request.getFp());
 			for (Bucket bucket : request.getBucketsList()) {
 				Writer writer = series.getOrCreateSeriesBucket(TimeUnit.MILLISECONDS, bucket.getHeaderTimestamp());
-				writer.configure(conf, null, false, 1, true);
+				writer.configure(null, false, 1, true);
 				writer.setCounter(bucket.getCount());
 				writer.bootstrap(bucket.getData().asReadOnlyByteBuffer());
 			}

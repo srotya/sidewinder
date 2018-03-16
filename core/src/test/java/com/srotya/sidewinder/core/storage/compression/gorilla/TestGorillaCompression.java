@@ -15,11 +15,10 @@
  */
 package com.srotya.sidewinder.core.storage.compression.gorilla;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 
 import org.junit.Test;
 
@@ -48,7 +47,7 @@ public class TestGorillaCompression {
 	public void testCompressUncompress() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
 		GorillaWriter writer = new GorillaWriter();
-		writer.configure(new HashMap<>(), buf, true, 0, false);
+		writer.configure(buf, true, 0, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
@@ -68,7 +67,7 @@ public class TestGorillaCompression {
 	public void testCompressUncompressFloating() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
 		GorillaWriter writer = new GorillaWriter();
-		writer.configure(new HashMap<>(), buf, true, 0, false);
+		writer.configure(buf, true, 0, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
@@ -88,7 +87,7 @@ public class TestGorillaCompression {
 	public void testRecovery() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
 		GorillaWriter writer = new GorillaWriter();
-		writer.configure(new HashMap<>(), buf, true, 0, false);
+		writer.configure(buf, true, 0, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
@@ -98,7 +97,7 @@ public class TestGorillaCompression {
 		ByteBuffer rawBytes = writer.getRawBytes();
 
 		writer = new GorillaWriter();
-		writer.configure(new HashMap<>(), rawBytes, false, 0, false);
+		writer.configure(rawBytes, false, 0, false);
 		Reader reader = writer.getReader();
 		assertEquals(100, reader.getPairCount());
 		for (int i = 0; i < 100; i++) {

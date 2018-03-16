@@ -34,8 +34,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.mem.MemMalloc;
@@ -45,17 +47,24 @@ import com.srotya.sidewinder.core.storage.mem.MemMalloc;
  */
 public class TestTimeSeries {
 
-	private static final String compression = "byzantine";
-	private static final String compaction = "byzantine";
+	private static final ByteString SID = new ByteString("43232");
+	private static final ByteString SID2 = new ByteString("test12312");
+	private static final ByteString SID3 = new ByteString("asdasasd");
 	private Map<String, String> conf = new HashMap<>();
+	
+	@BeforeClass
+	public static void beforeClass() {
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+	}
 
 	@Test
 	public void testTimeSeries() throws IOException {
 		Measurement measurement = new MockMeasurement(100);
 		DBMetadata metadata = new DBMetadata(24);
-		TimeSeries series = new TimeSeries(measurement, compression, compaction, "2214abfa", 4096, metadata, true,
+		TimeSeries series = new TimeSeries(measurement, new ByteString("2214abfa"), 4096, metadata, true,
 				conf);
-		assertEquals("2214abfa", series.getSeriesId());
+		assertEquals("2214abfa", series.getSeriesId().toString());
 		assertEquals(4096, series.getTimeBucketSize());
 		assertEquals((24 * 3600) / 4096, series.getRetentionBuckets());
 	}
@@ -64,7 +73,7 @@ public class TestTimeSeries {
 	public void testThreadSafety() throws Exception {
 		Measurement measurement = new MockMeasurement(1024);
 		DBMetadata metadata = new DBMetadata(24);
-		final TimeSeries series = new TimeSeries(measurement, compression, compaction, "2214abfa", 4096, metadata, true,
+		final TimeSeries series = new TimeSeries(measurement, new ByteString("2214abfa"), 4096, metadata, true,
 				conf);
 		final int THREAD_COUNT = 1;
 		final int POINT_COUNT = 4_000_000;
@@ -93,7 +102,7 @@ public class TestTimeSeries {
 	public void testAddAndReadDataPoints() throws IOException {
 		Measurement measurement = new MockMeasurement(100);
 		DBMetadata metadata = new DBMetadata(24);
-		TimeSeries series = new TimeSeries(measurement, compression, compaction, "43232", 4096, metadata, true, conf);
+		TimeSeries series = new TimeSeries(measurement, SID, 4096, metadata, true, conf);
 		long curr = System.currentTimeMillis();
 		for (int i = 1; i <= 3; i++) {
 			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
@@ -135,7 +144,7 @@ public class TestTimeSeries {
 	public void testGarbageCollector() throws IOException {
 		Measurement measurement = new MockMeasurement(100);
 		DBMetadata metadata = new DBMetadata(24);
-		TimeSeries series = new TimeSeries(measurement, compression, compaction, "43232", 4096, metadata, true, conf);
+		TimeSeries series = new TimeSeries(measurement, SID, 4096, metadata, true, conf);
 		long curr = 1484788896586L;
 		for (int i = 0; i <= 24; i++) {
 			series.addDataPoint(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
@@ -147,7 +156,7 @@ public class TestTimeSeries {
 		readers = series.queryReader("test", Arrays.asList(), curr-1, curr + (4096_000) * 27, null);
 		assertEquals(21, readers.size());
 
-		series = new TimeSeries(measurement, compression, compaction, "43232", 4096, metadata, true, conf);
+		series = new TimeSeries(measurement, SID, 4096, metadata, true, conf);
 		curr = 1484788896586L;
 		for (int i = 0; i <= 24; i++) {
 			series.addDataPoint(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
@@ -167,17 +176,17 @@ public class TestTimeSeries {
 		MockMeasurement measurement = new MockMeasurement(100);
 		DBMetadata metadata = new DBMetadata(28);
 
-		TimeSeries ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 * 10, metadata, false,
+		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, metadata, false,
 				conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
 			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i * 0.1);
 		}
 
-		assertEquals("test12312", ts.getSeriesId());
+		assertEquals(SID2, ts.getSeriesId());
 		assertTrue(!ts.isFp());
 
-		// ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 *
+		// ts = new TimeSeries(measurement, SID2, 4096 *
 		// 10, metadata, false, conf);
 		// ts.loadBucketMap(measurement.getMalloc().getBufTracker());
 		// assertEquals(size, measurement.getBufferRenewCounter());
@@ -198,18 +207,18 @@ public class TestTimeSeries {
 		MockMeasurement measurement = new MockMeasurement(1024);
 		DBMetadata metadata = new DBMetadata(28);
 
-		TimeSeries ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 * 10, metadata, false,
+		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, metadata, false,
 				conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
 			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i);
 		}
 
-		assertEquals("test12312", ts.getSeriesId());
+		assertEquals(SID2, ts.getSeriesId());
 		assertEquals(4, ts.getBucketMap().values().size());
 		assertTrue(!ts.isFp());
 
-		// ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 *
+		// ts = new TimeSeries(measurement, SID2, 4096 *
 		// 10, metadata, false, conf);
 		// ts.loadBucketMap(measurement.getBufTracker());
 		// assertEquals(4, measurement.getBufferRenewCounter());
@@ -229,7 +238,7 @@ public class TestTimeSeries {
 		MockMeasurement measurement = new MockMeasurement(100);
 		DBMetadata metadata = new DBMetadata(28);
 
-		TimeSeries ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 * 10, metadata, false,
+		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, metadata, false,
 				conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 10; i++) {
@@ -250,7 +259,7 @@ public class TestTimeSeries {
 		MockMeasurement measurement = new MockMeasurement(1024);
 		DBMetadata metadata = new DBMetadata(28);
 
-		TimeSeries ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 * 10, metadata, false,
+		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, metadata, false,
 				conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
@@ -274,8 +283,10 @@ public class TestTimeSeries {
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
 		conf.put("compaction.ratio", "1.1");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("byzantine");
 
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "byzantine", "asdasasd", 409600, metadata,
+		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, metadata,
 				true, conf);
 		final long curr = 1497720652566L;
 
@@ -331,8 +342,10 @@ public class TestTimeSeries {
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
 		conf.put("compaction.ratio", "1.1");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("gorilla");
 
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "gorilla", "asdasasd", 409600, metadata,
+		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, metadata,
 				true, conf);
 		final long curr = 1497720652566L;
 
@@ -379,7 +392,7 @@ public class TestTimeSeries {
 	// conf.put("zip.block.size", "8");
 	//
 	// final TimeSeries series = new TimeSeries(measurement, "byzantine", "bzip",
-	// "asdasasd", 409600, metadata, true,
+	// SID3, 409600, metadata, true,
 	// conf);
 	// final long curr = 1497720652566L;
 	//
@@ -423,8 +436,10 @@ public class TestTimeSeries {
 		conf.put("default.bucket.size", "409600");
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("gorilla");
 
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "gorilla", "asdasasd", 409600, metadata,
+		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, metadata,
 				true, conf);
 		final long curr = 1497720652566L;
 		String valueFieldName = "value";
@@ -476,8 +491,10 @@ public class TestTimeSeries {
 		conf.put("default.bucket.size", "4096");
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
-
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "gorilla", "asdasasd", 4096, metadata, true,
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("gorilla");
+		
+		final TimeSeries series = new TimeSeries(measurement, SID3, 4096, metadata, true,
 				conf);
 		final AtomicBoolean control = new AtomicBoolean(true);
 		ExecutorService c = Executors.newCachedThreadPool();
@@ -520,8 +537,10 @@ public class TestTimeSeries {
 		conf.put("default.bucket.size", "409600");
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("byzantine");
 
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "byzantine", "asdasasd", 409600, metadata,
+		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, metadata,
 				true, conf);
 		final long curr = 1497720652566L;
 

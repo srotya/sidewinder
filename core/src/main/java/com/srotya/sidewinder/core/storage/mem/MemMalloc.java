@@ -26,6 +26,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
 
 import com.srotya.sidewinder.core.storage.BufferObject;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
@@ -41,11 +42,11 @@ public class MemMalloc implements Malloc {
 		this.cleanupCallback = cleanupCallback;
 	}
 
-	public BufferObject createNewBuffer(String seriesId, Integer tsBucket) throws IOException {
+	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket) throws IOException {
 		return createNewBuffer(seriesId, tsBucket, size);
 	}
 
-	public BufferObject createNewBuffer(String seriesId, Integer tsBucket, int newSize) throws IOException {
+	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket, int newSize) throws IOException {
 		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(newSize);
 		return new BufferObject(seriesId + "\t" + tsBucket, allocateDirect);
 	}
