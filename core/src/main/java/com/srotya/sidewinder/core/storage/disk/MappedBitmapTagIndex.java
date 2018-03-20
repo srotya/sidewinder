@@ -41,6 +41,7 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
@@ -123,12 +124,12 @@ public class MappedBitmapTagIndex implements TagIndex {
 		return set;
 	}
 
-	private void bitmapToRowKeys(Collection<String> rowKeys, MutableRoaringBitmap value) {
+	private void bitmapToRowKeys(Collection<ByteString> rowKeys, MutableRoaringBitmap value) {
 		logger.finest(() -> "Requesting conversion from bitmap to value");
 		List<SeriesFieldMap> ref = measurement.getSeriesListAsList();
 		for (Iterator<Integer> iterator = value.iterator(); iterator.hasNext();) {
 			Integer idx = iterator.next();
-			String seriesId = ref.get(idx).getSeriesId().toString();
+			ByteString seriesId = (ByteString) ref.get(idx).getSeriesId();
 			rowKeys.add(seriesId);
 			logger.finest(
 					() -> "Adding idx:" + idx + " resolving to seriesId:" + seriesId + " for bitmap extrapolation");
@@ -221,6 +222,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 			}
 			return combineMaps(headMap1.values().iterator());
 		}
+		// should always be unreachable
 		return null;
 	}
 
@@ -310,8 +312,8 @@ public class MappedBitmapTagIndex implements TagIndex {
 	}
 
 	@Override
-	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
-		Set<String> rowKeys = new HashSet<>();
+	public Set<ByteString> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
+		Set<ByteString> rowKeys = new HashSet<>();
 		MutableRoaringBitmap evalFilterForTags = evalFilterForTags(tagFilterTree);
 		if (evalFilterForTags != null) {
 			bitmapToRowKeys(rowKeys, evalFilterForTags);

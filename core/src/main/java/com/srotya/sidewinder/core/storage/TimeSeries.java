@@ -160,12 +160,6 @@ public class TimeSeries {
 		}
 	}
 
-	public static String getTimeBucket(TimeUnit unit, long timestamp, int timeBucketSize) {
-		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
-		String tsBucket = Integer.toHexString(bucket);
-		return tsBucket;
-	}
-
 	public static int getTimeBucketInt(TimeUnit unit, long timestamp, int timeBucketSize) {
 		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
 		return bucket;
@@ -324,7 +318,7 @@ public class TimeSeries {
 		return series;
 	}
 
-	public List<long[]> queryPoints(String appendFieldValueName, List<String> appendTags, long startTime, long endTime,
+	public List<long[]> queryPoints(String appendFieldValueName, long startTime, long endTime,
 			Predicate valuePredicate) throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
@@ -495,7 +489,7 @@ public class TimeSeries {
 			} catch (IOException e) {
 				if (e instanceof RejectException) {
 				} else {
-					e.printStackTrace();
+					throw new IOException(e);
 				}
 				break;
 			}
@@ -514,7 +508,7 @@ public class TimeSeries {
 			} catch (IOException e) {
 				if (e instanceof RejectException) {
 				} else {
-					e.printStackTrace();
+					throw new IOException(e);
 				}
 				break;
 			}

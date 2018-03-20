@@ -110,7 +110,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public Set<String> getSeriesKeys() {
+	public Set<ByteString> getSeriesKeys() {
 		return null;
 	}
 

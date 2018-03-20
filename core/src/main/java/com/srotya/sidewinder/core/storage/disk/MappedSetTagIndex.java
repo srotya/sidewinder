@@ -35,6 +35,7 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
@@ -186,14 +187,15 @@ public class MappedSetTagIndex implements TagIndex {
 	}
 
 	@Override
-	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
-		Set<String> hexKeys = evalFilterForTags(tagFilterTree);
+	public Set<ByteString> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
+		Set<ByteString> hexKeys = TagIndex.stringSetToByteSet(evalFilterForTags(tagFilterTree), new HashSet<>());
 		if (indexMode) {
-			Set<String> rowKeys = new HashSet<>();
+			Set<ByteString> rowKeys = new HashSet<>();
 			List<SeriesFieldMap> list = m.getSeriesListAsList();
-			for (String val : hexKeys) {
-				String[] split = val.split(SEPERATOR);
-				rowKeys.add(list.get(Integer.parseInt(split[split.length - 1], 16)).getSeriesId().toString());
+			for (ByteString val : hexKeys) {
+				ByteString[] split = val.split(SEPERATOR);
+				rowKeys.add(new ByteString(
+						list.get(Integer.parseInt(split[split.length - 1].toString(), 16)).getSeriesId().toString()));
 			}
 			return rowKeys;
 		} else {

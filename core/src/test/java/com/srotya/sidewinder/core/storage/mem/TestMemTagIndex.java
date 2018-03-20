@@ -35,6 +35,7 @@ import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -98,7 +99,7 @@ public class TestMemTagIndex {
 		}
 
 		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9");
-		Set<String> keys = index.searchRowKeysForTagFilter(filter);
+		Set<ByteString> keys = index.searchRowKeysForTagFilter(filter);
 		assertEquals(1110, keys.size());
 
 		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "9");
@@ -136,7 +137,7 @@ public class TestMemTagIndex {
 		}
 
 		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9990");
-		Set<String> keys = index.searchRowKeysForTagFilter(filter);
+		Set<ByteString> keys = index.searchRowKeysForTagFilter(filter);
 		assertEquals(9, keys.size());
 
 		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "9990");

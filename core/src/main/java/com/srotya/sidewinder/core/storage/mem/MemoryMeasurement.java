@@ -84,6 +84,7 @@ public class MemoryMeasurement implements Measurement {
 	public void close() throws IOException {
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException {
@@ -152,10 +153,10 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public Set<String> getSeriesKeys() {
-		Set<String> set = new HashSet<>();
+	public Set<ByteString> getSeriesKeys() {
+		Set<ByteString> set = new HashSet<>();
 		for (ByteString str : seriesMap.keySet()) {
-			set.add(str.toString());
+			set.add(str);
 		}
 		return set;
 	}

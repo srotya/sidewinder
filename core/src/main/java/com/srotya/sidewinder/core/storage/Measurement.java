@@ -61,7 +61,7 @@ public interface Measurement {
 			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
 			throws IOException;
 
-	public Set<String> getSeriesKeys();
+	public Set<ByteString> getSeriesKeys();
 
 	public SeriesFieldMap getSeriesFromKey(ByteString key);
 
@@ -74,6 +74,7 @@ public interface Measurement {
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
 			Map<String, String> conf) throws IOException;
 
+	@Deprecated
 	public static void indexRowKey(TagIndex tagIndex, String rowKey, List<Tag> tags) throws IOException {
 		for (Tag tag : tags) {
 			tagIndex.index(tag.getTagKey(), tag.getTagValue(), rowKey);
@@ -117,17 +118,17 @@ public interface Measurement {
 		return encodeTagsToString(index, tags);
 	}
 
-	public static List<Tag> decodeStringToTags(TagIndex tagIndex, String tagString) throws IOException {
+	public static List<Tag> decodeStringToTags(TagIndex tagIndex, ByteString tagString) throws IOException {
 		List<Tag> tagList = new ArrayList<>();
 		if (tagString == null || tagString.isEmpty()) {
 			return tagList;
 		}
-		for (String tag : tagString.split("\\" + TAG_SEPARATOR)) {
-			String[] split = tag.split(TAG_KV_SEPARATOR);
+		for (ByteString tag : tagString.split(TAG_SEPARATOR)) {
+			ByteString[] split = tag.split(TAG_KV_SEPARATOR);
 			if (split.length != 2) {
 				throw SEARCH_REJECT;
 			}
-			tagList.add(Tag.newBuilder().setTagKey(split[0]).setTagValue(split[1]).build());
+			tagList.add(Tag.newBuilder().setTagKey(split[0].toString()).setTagValue(split[1].toString()).build());
 		}
 		return tagList;
 	}
@@ -135,16 +136,16 @@ public interface Measurement {
 	public String getMeasurementName();
 
 	public default List<List<Tag>> getTagsForMeasurement() throws Exception {
-		Set<String> keySet = getSeriesKeys();
+		Set<ByteString> keySet = getSeriesKeys();
 		List<List<Tag>> tagList = new ArrayList<>();
-		for (String entry : keySet) {
+		for (ByteString entry : keySet) {
 			List<Tag> tags = decodeStringToTags(getTagIndex(), entry);
 			tagList.add(tags);
 		}
 		return tagList;
 	}
 
-	public default Set<String> getTagFilteredRowKeys(TagFilter tagFilterTree) throws IOException {
+	public default Set<ByteString> getTagFilteredRowKeys(TagFilter tagFilterTree) throws IOException {
 		return getTagIndex().searchRowKeysForTagFilter(tagFilterTree);
 	}
 
@@ -230,9 +231,9 @@ public interface Measurement {
 
 	public default Set<String> getFieldsForMeasurement() {
 		Set<String> results = new HashSet<>();
-		Set<String> keySet = getSeriesKeys();
-		for (String key : keySet) {
-			SeriesFieldMap map = getSeriesFromKey(new ByteString(key));
+		Set<ByteString> keySet = getSeriesKeys();
+		for (ByteString key : keySet) {
+			SeriesFieldMap map = getSeriesFromKey(key);
 			results.addAll(map.getFields());
 		}
 		return results;
@@ -263,7 +264,7 @@ public interface Measurement {
 
 	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime, TagFilter tagFilter,
 			Predicate valuePredicate, List<Series> resultMap) throws IOException {
-		final Set<String> rowKeys;
+		final Set<ByteString> rowKeys;
 		if (tagFilter == null) {
 			rowKeys = getSeriesKeys();
 		} else {
@@ -277,12 +278,12 @@ public interface Measurement {
 		} catch (Exception e) {
 			throw new IOException("Invalid regex for value field name:" + e.getMessage());
 		}
-		Set<String> outputKeys = new HashSet<>();
-		final Map<String, List<String>> fields = new HashMap<>();
+		Set<ByteString> outputKeys = new HashSet<>();
+		final Map<ByteString, List<String>> fields = new HashMap<>();
 		if (rowKeys != null) {
-			for (String key : rowKeys) {
+			for (ByteString key : rowKeys) {
 				List<String> fieldMap = new ArrayList<>();
-				Set<String> fieldSet = getSeriesFromKey(new ByteString(key)).getFields();
+				Set<String> fieldSet = getSeriesFromKey(key).getFields();
 				for (String fieldSetEntry : fieldSet) {
 					if (p.matcher(fieldSetEntry).matches()) {
 						fieldMap.add(fieldSetEntry);
@@ -294,7 +295,7 @@ public interface Measurement {
 				}
 			}
 		}
-		Stream<String> stream = outputKeys.stream();
+		Stream<ByteString> stream = outputKeys.stream();
 		if (useQueryPool()) {
 			stream = stream.parallel();
 		}
@@ -312,12 +313,12 @@ public interface Measurement {
 		});
 	}
 
-	public default void populateDataPoints(List<String> valueFieldNames, String rowKey, long startTime, long endTime,
+	public default void populateDataPoints(List<String> valueFieldNames, ByteString rowKey, long startTime, long endTime,
 			Predicate valuePredicate, Pattern p, List<Series> resultMap) throws IOException {
 		List<DataPoint> points = null;
 		List<Tag> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
 		for (String valueFieldName : valueFieldNames) {
-			TimeSeries value = getSeriesFromKey(new ByteString(rowKey)).get(valueFieldName);
+			TimeSeries value = getSeriesFromKey(rowKey).get(valueFieldName);
 			if (value == null) {
 				getLogger().severe("Invalid time series value " + rowKey + "\t" + "\t" + "\n\n");
 				return;
@@ -334,7 +335,7 @@ public interface Measurement {
 
 	public default void queryReaders(String valueFieldName, long startTime, long endTime,
 			LinkedHashMap<Reader, Boolean> readers) throws IOException {
-		for (String entry : getSeriesKeys()) {
+		for (ByteString entry : getSeriesKeys()) {
 			SeriesFieldMap m = getSeriesFromKey(new ByteString(entry));
 			TimeSeries series = m.get(valueFieldName);
 			if (series == null) {
@@ -349,7 +350,7 @@ public interface Measurement {
 
 	public default void queryReadersWithMap(String valueFieldName, long startTime, long endTime,
 			LinkedHashMap<Reader, List<Tag>> readers) throws IOException {
-		for (String entry : getSeriesKeys()) {
+		for (ByteString entry : getSeriesKeys()) {
 			SeriesFieldMap m = getSeriesFromKey(new ByteString(entry));
 			TimeSeries series = m.get(valueFieldName);
 			if (series == null) {
@@ -398,8 +399,8 @@ public interface Measurement {
 	}
 
 	public default boolean isFieldFp(String valueFieldName) throws ItemNotFoundException {
-		for (String entry : getSeriesKeys()) {
-			SeriesFieldMap seriesFromKey = getSeriesFromKey(new ByteString(entry));
+		for (ByteString entry : getSeriesKeys()) {
+			SeriesFieldMap seriesFromKey = getSeriesFromKey(entry);
 			if (seriesFromKey.get(valueFieldName) != null) {
 				return seriesFromKey.get(valueFieldName).isFp();
 			}

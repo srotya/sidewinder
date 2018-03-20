@@ -33,6 +33,7 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter;
 import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
 /**
@@ -113,8 +114,8 @@ public class MemTagIndex implements TagIndex {
 	}
 
 	@Override
-	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
-		return evalFilterForTags(tagFilterTree);
+	public Set<ByteString> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
+		return TagIndex.stringSetToByteSet(evalFilterForTags(tagFilterTree), new HashSet<>());
 	}
 
 	public Set<String> evalFilterForTags(TagFilter filterTree) {

@@ -40,7 +40,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DBMetadata;
@@ -53,7 +52,6 @@ import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
-import com.srotya.sidewinder.core.storage.mem.SetIndex;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -513,25 +511,6 @@ public class TestPersistentMeasurement {
 			List<DataPoint> dps = ts.queryDataPoints("vf1", t1 - 100, t1 + 1000_0000, null);
 			assertEquals(LIMIT * 2, dps.size(), 10);
 			m.close();
-		}
-	}
-
-	@Test
-	public void testTagEncodeDecode() throws IOException {
-		String indexDir = "target/test";
-		MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("requests");
-		final List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("host").setTagValue("2").build(),
-				Tag.newBuilder().setTagKey("value").setTagValue("1").build(),
-				Tag.newBuilder().setTagKey("test").setTagValue("1").build());
-		MiscUtils.delete(new File(indexDir));
-		new File(indexDir).mkdirs();
-		SetIndex table = new SetIndex(indexDir, "test2");
-		Measurement measurement = new PersistentMeasurement();
-		ByteString encodedStr = measurement.encodeTagsToString(table, tags);
-		List<Tag> decodedStr = Measurement.decodeStringToTags(table, encodedStr.toString());
-		List<Tag> list = tags;
-		for (int i = 0; i < list.size(); i++) {
-			assertEquals(list.get(i) + "", list.get(i), decodedStr.get(i));
 		}
 	}
 

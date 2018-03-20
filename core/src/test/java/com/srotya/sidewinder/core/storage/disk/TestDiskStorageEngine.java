@@ -70,6 +70,9 @@ import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
+import net.jpountz.xxhash.XXHash32;
+import net.jpountz.xxhash.XXHashFactory;
+
 /**
  * Unit tests for {@link DiskStorageEngine}
  * 
@@ -848,6 +851,20 @@ public class TestDiskStorageEngine {
 		} catch (Exception e) {
 		}
 		engine.disconnect();
+	}
+
+	@Test
+	public void testXXHash() {
+		XXHashFactory hash = XXHashFactory.fastestInstance();
+		XXHash32 h = hash.hash32();
+		for (int i = 0; i < 10_000_000; i++) {
+			String str = "hostname=host_" + String.valueOf(i % 10000)
+					+ ",region=us-west-2,datacenter=us-west-2a,rack=26,os=Ubuntu16.10,arch=x64,team=CHI,service=15,service_version=0,service_environment=staging"
+					+ i;
+			byte[] bytes = str.getBytes();
+			h.hash(bytes, 0, bytes.length, 51);
+			str.hashCode();
+		}
 	}
 
 }

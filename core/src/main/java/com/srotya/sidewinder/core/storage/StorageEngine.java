@@ -601,7 +601,8 @@ public interface StorageEngine {
 		getLogger().log(Level.FINER, "Get tag filtered rowkeys for db" + dbName + " measurement:" + measurementName
 				+ " filter:" + tagFilter);
 		Measurement measurement = getDatabaseMap().get(dbName).get(measurementName);
-		return measurement.getTagFilteredRowKeys(tagFilter);
+		Set<ByteString> tagFilteredRowKeys = measurement.getTagFilteredRowKeys(tagFilter);
+		return TagIndex.byteToStringSet(tagFilteredRowKeys, new HashSet<>());
 	}
 
 	public Map<String, Map<String, Measurement>> getDatabaseMap();

@@ -355,10 +355,10 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public Set<String> getSeriesKeys() {
-		Set<String> hashSet = new HashSet<>();
+	public Set<ByteString> getSeriesKeys() {
+		Set<ByteString> hashSet = new HashSet<>();
 		for (ByteString str : seriesMap.keySet()) {
-			hashSet.add(str.toString());
+			hashSet.add(str);
 		}
 		return hashSet;
 	}
