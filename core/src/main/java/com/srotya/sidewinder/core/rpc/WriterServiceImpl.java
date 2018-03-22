@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
@@ -41,6 +42,7 @@ import io.grpc.stub.StreamObserver;
  */
 public class WriterServiceImpl extends WriterServiceImplBase {
 
+	private static final Logger logger = Logger.getLogger(WriterServiceImpl.class.getName());
 	private RingBuffer<DPWrapper> buffer;
 	private Disruptor<DPWrapper> disruptor;
 	private StorageEngine engine;
@@ -54,6 +56,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		this.engine = engine;
 		disruptorEnable = Boolean.parseBoolean(conf.getOrDefault("grpc.disruptor.enabled", "false"));
 		if (disruptorEnable) {
+			logger.info("Disruptor is enabled for GRPC");
 			int bufferSize = Integer.parseInt(conf.getOrDefault("grpc.disruptor.buffer.size", "16384"));
 			if (bufferSize % 2 != 0) {
 				throw new IllegalArgumentException("Disruptor buffers must always be power of 2");
@@ -69,6 +72,8 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			}
 			disruptor.handleEventsWith(new HashHandler()).then(handlers);
 			buffer = disruptor.start();
+		} else {
+			logger.info("Disruptor is disabled for GRPC");
 		}
 	}
 
@@ -78,15 +83,15 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		Ack ack = null;
 		try {
 			if (disruptorEnable) {
-				buffer.publishEvent(translator, point, point.getTimestamp(), null);
+				 buffer.publishEvent(translator, point, point.getTimestamp(), null);
 			} else {
 				if (point.getFp()) {
 					engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
 							new ArrayList<>(point.getTagsList()), point.getTimestamp(),
-							Double.doubleToLongBits(point.getValue()));
+							Double.doubleToLongBits(point.getValue()), false);
 				} else {
 					engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
-							new ArrayList<>(point.getTagsList()), point.getTimestamp(), point.getValue());
+							new ArrayList<>(point.getTagsList()), point.getTimestamp(), point.getValue(), false);
 				}
 			}
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
@@ -105,15 +110,15 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			for (int i = 0; i < pointsList.size(); i++) {
 				Point point = pointsList.get(i);
 				if (disruptorEnable) {
-					buffer.publishEvent(translator, point, point.getTimestamp(), null);
+					 buffer.publishEvent(translator, point, point.getTimestamp(), null);
 				} else {
 					if (point.getFp()) {
 						engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
 								new ArrayList<>(point.getTagsList()), point.getTimestamp(),
-								Double.longBitsToDouble(point.getValue()));
+								Double.longBitsToDouble(point.getValue()), false);
 					} else {
 						engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
-								new ArrayList<>(point.getTagsList()), point.getTimestamp(), point.getValue());
+								new ArrayList<>(point.getTagsList()), point.getTimestamp(), point.getValue(), false);
 					}
 				}
 			}
@@ -132,7 +137,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		try {
 			TimeSeries series = engine.getOrCreateTimeSeries(request.getDbName(), request.getMeasurementName(),
 					request.getValueFieldName(), new ArrayList<>(request.getTagsList()), request.getBucketSize(),
-					request.getFp());
+					request.getFp(), false);
 			for (Bucket bucket : request.getBucketsList()) {
 				Writer writer = series.getOrCreateSeriesBucket(TimeUnit.MILLISECONDS, bucket.getHeaderTimestamp());
 				writer.configure(null, false, 1, true);
@@ -239,13 +244,13 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 
 		@Override
 		public void onEvent(DPWrapper event, long sequence, boolean endOfBatch) throws Exception {
-			StringBuilder bufString = new StringBuilder();
 			Point dp = event.getDp();
-			bufString.append(dp.getDbName() + "\n");
-			bufString.append(dp.getMeasurementName() + "\n");
-			bufString.append(dp.getValueFieldName() + "\n");
-			bufString.append(dp.getTagsList().toString() + "\n");
-			event.setHashValue(bufString.toString().hashCode());
+			int hash = 0;
+			for (Tag t : dp.getTagsList()) {
+				hash = hash * 31 + t.getTagKey().hashCode();
+				hash = hash * 31 + t.getTagValue().hashCode();
+			}
+			event.setHashValue(hash);
 		}
 
 	}
@@ -267,7 +272,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			if (event.getHashValue() % handlerCount == handlerIndex) {
 				Ack ack = null;
 				try {
-					engine.writeDataPoint(event.getDp());
+					engine.writeDataPoint(event.getDp(), false);
 					ack = Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(200).build();
 				} catch (IOException e) {
 					ack = Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(400).build();

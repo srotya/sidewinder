@@ -93,7 +93,7 @@ public class TestPersistentMeasurement {
 			List<Tag> tags = Arrays.asList(
 					Tag.newBuilder().setTagKey("test").setTagValue(String.valueOf("asdasd" + i)).build(),
 					Tag.newBuilder().setTagKey("test").setTagValue("2").build());
-			measurement.encodeTagsToString(measurement.getTagIndex(), tags);
+			measurement.constructSeriesId(measurement.getTagIndex(), tags);
 		}
 	}
 
@@ -110,11 +110,11 @@ public class TestPersistentMeasurement {
 		m.configure(map, null, DBNAME, "m1", "target/db41/index", "target/db41/data", metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
-			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 4096, false, map);
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 4096, false, map, false);
 			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
 		}
 		for (int i = 0; i < LIMIT; i++) {
-			TimeSeries t = m.getOrCreateTimeSeries("value2", tags, 4096, false, map);
+			TimeSeries t = m.getOrCreateTimeSeries("value2", tags, 4096, false, map, false);
 			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
 		}
 		List<Series> resultMap = new ArrayList<>();
@@ -165,7 +165,7 @@ public class TestPersistentMeasurement {
 		m.configure(map, null, DBNAME, "m1", "target/db132/index", "target/db132/data", metadata, bgTaskPool);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
-			TimeSeries t = m.getOrCreateTimeSeries("value", tags, 4096, false, map);
+			TimeSeries t = m.getOrCreateTimeSeries("value", tags, 4096, false, map, false);
 			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
 		}
 		m.close();
@@ -193,7 +193,7 @@ public class TestPersistentMeasurement {
 		m.configure(map, null, DBNAME, "m1", "target/db290/index", "target/db290/data", metadata, bgTaskPool);
 		int LIMIT = 100;
 		for (int i = 0; i < LIMIT; i++) {
-			TimeSeries t = m.getOrCreateTimeSeries("value" + i, tags, 4096, false, map);
+			TimeSeries t = m.getOrCreateTimeSeries("value" + i, tags, 4096, false, map, false);
 			t.addDataPoint(TimeUnit.MILLISECONDS, ts, 1L);
 		}
 		m.close();
@@ -219,7 +219,7 @@ public class TestPersistentMeasurement {
 		m.configure(map, null, DBNAME, "m1", "target/db42/index", "target/db42/data", metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
-			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 4096, false, map);
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 4096, false, map, false);
 			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, 1L);
 		}
 		m.runCleanupOperation("print", s -> {
@@ -244,7 +244,7 @@ public class TestPersistentMeasurement {
 		m.configure(map, null, DBNAME, "m1", "target/db46/index", "target/db46/data", metadata, bgTaskPool);
 		int LIMIT = 34500;
 		for (int i = 0; i < LIMIT; i++) {
-			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 1024, false, map);
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 1024, false, map, false);
 			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 100, i * 1.2);
 		}
 		m.collectGarbage(null);
@@ -271,7 +271,7 @@ public class TestPersistentMeasurement {
 		m.configure(map, null, DBNAME, "m1", "target/db45/index", "target/db45/data", metadata, bgTaskPool);
 		int LIMIT = 7000;
 		for (int i = 0; i < LIMIT; i++) {
-			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 1024, false, map);
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 1024, false, map, false);
 			t.addDataPoint(TimeUnit.MILLISECONDS, ts + i, i * 1.2);
 		}
 		assertEquals(1, m.getTimeSeries().size());
@@ -316,7 +316,7 @@ public class TestPersistentMeasurement {
 			assertEquals(i * 1.2, dp.getValue(), 0.01);
 		}
 		for (int i = 0; i < LIMIT; i++) {
-			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 1024, false, map);
+			TimeSeries t = m.getOrCreateTimeSeries("value1", tags, 1024, false, map, false);
 			t.addDataPoint(TimeUnit.MILLISECONDS, LIMIT + ts + i, i * 1.2);
 		}
 		series.getBucketRawMap().entrySet().iterator().next().getValue().stream()
@@ -355,22 +355,22 @@ public class TestPersistentMeasurement {
 		int LIMIT = 20000;
 		for (int i = 0; i < LIMIT; i++) {
 			for (int k = 0; k < 2; k++) {
-				TimeSeries t = m.getOrCreateTimeSeries("value" + k, tags, 512, false, map);
+				TimeSeries t = m.getOrCreateTimeSeries("value" + k, tags, 512, false, map, false);
 				t.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 10000, i * 1.2);
 			}
 		}
 
-		System.out.println(m.getOrCreateTimeSeries("value0", tags, 512, false, map).getBucketRawMap().size());
+		System.out.println(m.getOrCreateTimeSeries("value0", tags, 512, false, map, false).getBucketRawMap().size());
 		m.collectGarbage(null);
 		for (int k = 0; k < 2; k++) {
-			TimeSeries t = m.getOrCreateTimeSeries("value" + k, tags, 512, false, map);
+			TimeSeries t = m.getOrCreateTimeSeries("value" + k, tags, 512, false, map, false);
 			List<DataPoint> dps = t.queryDataPoints("", ts, ts + LIMIT * 10000, null);
 			assertEquals(10032, dps.size());
 		}
 		System.gc();
 		Thread.sleep(200);
 		for (int k = 0; k < 2; k++) {
-			TimeSeries t = m.getOrCreateTimeSeries("value" + k, tags, 512, false, map);
+			TimeSeries t = m.getOrCreateTimeSeries("value" + k, tags, 512, false, map, false);
 			List<DataPoint> dps = t.queryDataPoints("", ts, ts + LIMIT * 10000, null);
 			assertEquals(10032, dps.size());
 		}
@@ -385,9 +385,7 @@ public class TestPersistentMeasurement {
 		Measurement m = new PersistentMeasurement();
 		m.configure(conf, engine, DBNAME, "m1", "target/db131/index", "target/db131/data", metadata, bgTaskPool);
 		TagIndex index = m.getTagIndex();
-		ByteString encodeTagsToString = m.encodeTagsToString(index, tags);
-		ByteString key = m.constructSeriesId(tags, index);
-		assertEquals(encodeTagsToString, key);
+		ByteString encodeTagsToString = m.constructSeriesId(index, tags);
 		assertEquals("Bad output:" + encodeTagsToString, new ByteString("test=1^test=2"), encodeTagsToString);
 		m.close();
 	}
@@ -399,7 +397,7 @@ public class TestPersistentMeasurement {
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("t").setTagValue("2").build());
 		m.configure(conf, engine, DBNAME, "m1", "target/db141/index", "target/db141/data", metadata, bgTaskPool);
-		TimeSeries ts = m.getOrCreateTimeSeries("vf1", tags, 4096, false, conf);
+		TimeSeries ts = m.getOrCreateTimeSeries("vf1", tags, 4096, false, conf, false);
 		long t = System.currentTimeMillis();
 		for (int i = 0; i < 100; i++) {
 			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i * 1000, i);
@@ -451,7 +449,7 @@ public class TestPersistentMeasurement {
 					long t = t1 + th * 3;
 					for (int j = 0; j < 100; j++) {
 						try {
-							TimeSeries ts = m.getOrCreateTimeSeries("vf1", tags, 4096, false, conf);
+							TimeSeries ts = m.getOrCreateTimeSeries("vf1", tags, 4096, false, conf, false);
 							long timestamp = t + j * 1000;
 							ts.addDataPoint(TimeUnit.MILLISECONDS, timestamp, j);
 						} catch (Exception e) {
@@ -463,7 +461,7 @@ public class TestPersistentMeasurement {
 			es.shutdown();
 			wait.set(true);
 			es.awaitTermination(100, TimeUnit.SECONDS);
-			TimeSeries ts = m.getOrCreateTimeSeries("vf1", tags, 4096, false, conf);
+			TimeSeries ts = m.getOrCreateTimeSeries("vf1", tags, 4096, false, conf, false);
 			List<DataPoint> dps = ts.queryDataPoints("vf1", t1 - 120, t1 + 1000_000, null);
 			assertEquals(200, dps.size());
 			assertEquals(1, ts.getBucketCount());
@@ -495,7 +493,7 @@ public class TestPersistentMeasurement {
 					long t = t1 + th * 3;
 					for (int j = 0; j < LIMIT; j++) {
 						try {
-							TimeSeries ts = m.getOrCreateTimeSeries("vf1", tags, 4096, false, conf);
+							TimeSeries ts = m.getOrCreateTimeSeries("vf1", tags, 4096, false, conf, false);
 							long timestamp = t + j * 1000;
 							ts.addDataPoint(TimeUnit.MILLISECONDS, timestamp, j);
 						} catch (Exception e) {
@@ -507,7 +505,7 @@ public class TestPersistentMeasurement {
 			es.shutdown();
 			wait.set(true);
 			es.awaitTermination(10, TimeUnit.SECONDS);
-			TimeSeries ts = m.getOrCreateTimeSeries("vf1", tags, 4096, false, conf);
+			TimeSeries ts = m.getOrCreateTimeSeries("vf1", tags, 4096, false, conf, false);
 			List<DataPoint> dps = ts.queryDataPoints("vf1", t1 - 100, t1 + 1000_0000, null);
 			assertEquals(LIMIT * 2, dps.size(), 10);
 			m.close();

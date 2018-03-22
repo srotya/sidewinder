@@ -134,9 +134,11 @@ public class PersistentMeasurement implements Measurement {
 
 	@Override
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
-			Map<String, String> conf) throws IOException {
-		Collections.sort(tags, TAG_COMPARATOR);
-		ByteString seriesId = constructSeriesId(tags, tagIndex);
+			Map<String, String> conf, boolean preSorted) throws IOException {
+		if (!preSorted) {
+			Collections.sort(tags, TAG_COMPARATOR);
+		}
+		ByteString seriesId = constructSeriesId(tagIndex, tags);
 		int index = 0;
 		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
 		if (seriesFieldMap == null) {

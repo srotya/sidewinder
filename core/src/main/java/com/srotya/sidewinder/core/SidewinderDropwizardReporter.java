@@ -58,7 +58,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 				try {
 					engine.writeDataPoint(_INTERNAL, name, entry.getKey(),
 							Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-							System.currentTimeMillis(), entry.getValue().getCount());
+							System.currentTimeMillis(), entry.getValue().getCount(), true);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -69,7 +69,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 				try {
 					engine.writeDataPoint(_INTERNAL, name, entry.getKey(),
 							Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-							System.currentTimeMillis(), entry.getValue().getCount());
+							System.currentTimeMillis(), entry.getValue().getCount(), true);
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -80,7 +80,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 				try {
 					engine.writeDataPoint(_INTERNAL, name, entry.getKey(),
 							Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-							System.currentTimeMillis(), entry.getValue().getSnapshot().getMean());
+							System.currentTimeMillis(), entry.getValue().getSnapshot().getMean(), true);
 				} catch (IOException e) {
 					e.printStackTrace();
 				}

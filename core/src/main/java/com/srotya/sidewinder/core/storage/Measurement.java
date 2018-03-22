@@ -72,7 +72,7 @@ public interface Measurement {
 	public void close() throws IOException;
 
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
-			Map<String, String> conf) throws IOException;
+			Map<String, String> conf, boolean preSorted) throws IOException;
 
 	@Deprecated
 	public static void indexRowKey(TagIndex tagIndex, String rowKey, List<Tag> tags) throws IOException {
@@ -96,7 +96,7 @@ public interface Measurement {
 		TimeSeries.compressionClass = CompressionFactory.getClassByName(compressionCodec);
 	}
 
-	public default ByteString encodeTagsToString(TagIndex tagIndex, List<Tag> tags) throws IOException {
+	public default ByteString constructSeriesId(TagIndex tagIndex, List<Tag> tags) throws IOException {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);
 		serializeTagForKey(builder, tags.get(0));
 		for (int i = 1; i < tags.size(); i++) {
@@ -112,10 +112,6 @@ public interface Measurement {
 		builder.append(tag.getTagKey());
 		builder.append(TAG_KV_SEPARATOR);
 		builder.append(tag.getTagValue());
-	}
-
-	public default ByteString constructSeriesId(List<Tag> tags, TagIndex index) throws IOException {
-		return encodeTagsToString(index, tags);
 	}
 
 	public static List<Tag> decodeStringToTags(TagIndex tagIndex, ByteString tagString) throws IOException {
@@ -223,7 +219,7 @@ public interface Measurement {
 
 	public default SeriesFieldMap getSeriesField(List<Tag> tags) throws IOException {
 		Collections.sort(tags, TAG_COMPARATOR);
-		ByteString rowKey = constructSeriesId(tags, getTagIndex());
+		ByteString rowKey = constructSeriesId(getTagIndex(), tags);
 		// check and create timeseries
 		SeriesFieldMap map = getSeriesFromKey(rowKey);
 		return map;
@@ -238,29 +234,6 @@ public interface Measurement {
 		}
 		return results;
 	}
-
-	// public default Set<String> getSeriesIdsWhereTags(List<String> tags) throws
-	// IOException {
-	// Set<String> series = new HashSet<>();
-	// if (tags != null) {
-	// for (String tag : tags) {
-	// String[] split = tag.split(TAG_KV_SEPARATOR);
-	// if (split.length != 2) {
-	// throw SEARCH_REJECT;
-	// }
-	// String tagKey = split[0];
-	// String tagValue = split[1];
-	// Collection<String> keys = getTagIndex().searchRowKeysForTag(tagKey,
-	// tagValue);
-	// if (keys != null) {
-	// series.addAll(keys);
-	// }
-	// }
-	// } else {
-	// series.addAll(getSeriesKeys());
-	// }
-	// return series;
-	// }
 
 	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime, TagFilter tagFilter,
 			Predicate valuePredicate, List<Series> resultMap) throws IOException {

@@ -34,7 +34,6 @@ import javax.ws.rs.core.MediaType;
 
 import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.model.ModelHandler;
-import org.apache.calcite.schema.Function;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
@@ -74,9 +73,6 @@ public class SqlApi {
 				"eval");
 		ModelHandler.create(calciteConnection.getRootSchema(), "datediff", Arrays.asList(""),
 				DateDiffFunction.class.getName(), "apply");
-		for (Function function : calciteConnection.getRootSchema().getFunctions("ts")) {
-			System.out.println(function.getParameters().get(0).getName());
-		}
 	}
 
 	public boolean checkAndAddSchema(String dbName) throws Exception {

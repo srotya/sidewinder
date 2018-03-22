@@ -98,11 +98,10 @@ public interface StorageEngine {
 	public void disconnect() throws IOException;
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, long value, boolean fp) throws IOException {
-		// valueFieldName = valueFieldName.intern();
+			long timestamp, long value, boolean fp, boolean preSorted) throws IOException {
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
 		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				getDefaultTimebucketSize(), fp);
+				getDefaultTimebucketSize(), fp, preSorted);
 		if (timeSeries.isFp() != fp) {
 			// drop this datapoint, mixed series are not allowed
 			throw FP_MISMATCH_EXCEPTION;
@@ -116,11 +115,11 @@ public interface StorageEngine {
 	}
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, long value) throws IOException {
+			long timestamp, long value, boolean preSorted) throws IOException {
 		// valueFieldName = valueFieldName.intern();
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
 		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				getDefaultTimebucketSize(), false);
+				getDefaultTimebucketSize(), false, preSorted);
 		if (timeSeries.isFp()) {
 			// drop this datapoint, mixed series are not allowed
 			throw FP_MISMATCH_EXCEPTION;
@@ -130,11 +129,11 @@ public interface StorageEngine {
 	}
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, double value) throws IOException {
+			long timestamp, double value, boolean preSorted) throws IOException {
 		// valueFieldName = valueFieldName.intern();
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
 		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				getDefaultTimebucketSize(), true);
+				getDefaultTimebucketSize(), true, preSorted);
 		if (!timeSeries.isFp()) {
 			// drop this datapoint, mixed series are not allowed
 			throw FP_MISMATCH_EXCEPTION;
@@ -398,10 +397,11 @@ public interface StorageEngine {
 	 * @param valueFieldName
 	 * @param tags
 	 * @param retentionHours
+	 * @param preSorted
 	 * @throws IOException
 	 */
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int retentionHours) throws IOException;
+			List<Tag> tags, int retentionHours, boolean preSorted) throws IOException;
 
 	/**
 	 * Update retention policy for measurement
@@ -481,11 +481,12 @@ public interface StorageEngine {
 	 * @param tags
 	 * @param timeBucketSize
 	 * @param fp
-	 * @return timeseries object
+	 * @param preSorted
+	 * @return
 	 * @throws IOException
 	 */
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int timeBucketSize, boolean fp) throws IOException;
+			List<Tag> tags, int timeBucketSize, boolean fp, boolean preSorted) throws IOException;
 
 	/**
 	 * Check if a measurement field is floating point
@@ -618,9 +619,9 @@ public interface StorageEngine {
 
 	public Counter getCounter();
 
-	public default void writeDataPoint(Point dp) throws IOException {
+	public default void writeDataPoint(Point dp, boolean preSorted) throws IOException {
 		writeDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
-				new ArrayList<>(dp.getTagsList()), dp.getTimestamp(), dp.getValue(), dp.getFp());
+				new ArrayList<>(dp.getTagsList()), dp.getTimestamp(), dp.getValue(), dp.getFp(), preSorted);
 	}
 
 	public Logger getLogger();

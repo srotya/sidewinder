@@ -152,9 +152,9 @@ public class DiskStorageEngine implements StorageEngine {
 
 	@Override
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int retentionHours) throws IOException {
+			List<Tag> tags, int retentionHours, boolean preSorted) throws IOException {
 		TimeSeries series = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, defaultTimebucketSize,
-				true);
+				true, preSorted);
 		if (series != null) {
 			series.setRetentionHours(retentionHours);
 		}
@@ -349,7 +349,7 @@ public class DiskStorageEngine implements StorageEngine {
 
 	@Override
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int timeBucketSize, boolean fp) throws IOException {
+			List<Tag> tags, int timeBucketSize, boolean fp, boolean preSorted) throws IOException {
 		// check and create database map
 		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
 
@@ -357,7 +357,7 @@ public class DiskStorageEngine implements StorageEngine {
 		Measurement measurement = getOrCreateMeasurement(dbMap, measurementName, dbName);
 
 		// check and create timeseries
-		return measurement.getOrCreateTimeSeries(valueFieldName, tags, timeBucketSize, fp, conf);
+		return measurement.getOrCreateTimeSeries(valueFieldName, tags, timeBucketSize, fp, conf, preSorted);
 	}
 
 	public static void writeLineToFile(String line, String filePath) throws IOException {

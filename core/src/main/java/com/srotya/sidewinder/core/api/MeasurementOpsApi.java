@@ -89,7 +89,7 @@ public class MeasurementOpsApi {
 		}
 		try {
 			engine.getOrCreateTimeSeries(dbName, measurementName, series.get("valueField").getAsString(), tags,
-					series.get("timeBucket").getAsInt(), series.get("floatingPoint").getAsBoolean());
+					series.get("timeBucket").getAsInt(), series.get("floatingPoint").getAsBoolean(), false);
 		} catch (IOException e) {
 			throw new InternalServerErrorException(e);
 		}

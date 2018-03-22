@@ -136,7 +136,7 @@ public class MockMeasurement implements Measurement {
 
 	@Override
 	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
-			Map<String, String> conf) throws IOException {
+			Map<String, String> conf, boolean preSorted) throws IOException {
 		return null;
 	}
 

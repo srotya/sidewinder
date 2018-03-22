@@ -50,7 +50,7 @@ public class TestDatabaseOpsApi {
 		dp.addAllTags(Arrays.asList(Tag.newBuilder().setTagKey("host").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("vm").setTagValue("1").build()));
 		dp.setValueFieldName("value");
-		engine.writeDataPoint(dp.build());
+		engine.writeDataPoint(dp.build(), true);
 
 		DatabaseOpsApi api = new DatabaseOpsApi(engine);
 		String querySeries = api.querySeries("test1",

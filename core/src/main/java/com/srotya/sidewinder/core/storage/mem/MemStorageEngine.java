@@ -144,9 +144,9 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int retentionHours) throws IOException {
+			List<Tag> tags, int retentionHours, boolean preSorted) throws IOException {
 		TimeSeries series = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, defaultTimebucketSize,
-				true);
+				true, preSorted);
 		series.setRetentionHours(retentionHours);
 	}
 
@@ -231,7 +231,7 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int timeBucketSize, boolean fp) throws IOException {
+			List<Tag> tags, int timeBucketSize, boolean fp, boolean preSorted) throws IOException {
 		// check and create database map
 		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
 
@@ -239,7 +239,7 @@ public class MemStorageEngine implements StorageEngine {
 		Measurement measurement = getOrCreateMeasurement(dbMap, dbName, measurementName);
 
 		// check and create timeseries
-		return measurement.getOrCreateTimeSeries(valueFieldName, tags, timeBucketSize, fp, conf);
+		return measurement.getOrCreateTimeSeries(valueFieldName, tags, timeBucketSize, fp, conf, preSorted);
 	}
 
 	@Override

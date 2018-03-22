@@ -43,7 +43,7 @@ public class CalciteTest {
 		TimeSeries s = engine.getOrCreateTimeSeries("db1", "m1", "v1",
 				Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),
 						Tag.newBuilder().setTagKey("t").setTagValue("2").build()),
-				1024, false);
+				1024, false, false);
 		for (int i = 0; i < 100; i++) {
 			s.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, i);
 		}

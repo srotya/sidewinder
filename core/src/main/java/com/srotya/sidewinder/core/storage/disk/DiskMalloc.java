@@ -168,6 +168,7 @@ public class DiskMalloc implements Malloc {
 					itr = 0;
 					logger.info("Rotating datafile for measurement:" + measurementName + " closing active file:"
 							+ filename);
+					memoryMappedBuffer.force();
 					rafActiveFile.close();
 					rafActiveFile = null;
 					return createNewBuffer(seriesId, tsBucket, newSize);
