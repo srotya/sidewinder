@@ -100,8 +100,6 @@ public class PersistentMeasurement implements Measurement {
 		}
 
 		this.metadata = metadata;
-		// this.seriesMap = (Map<String, Integer>)
-		// DBMaker.memoryDirectDB().make().hashMap(measurementName).create();
 		this.seriesMap = new ConcurrentHashMap<>(100_000);
 		this.seriesList = new ArrayList<>(100_000);
 		setCodecsForTimeseries(conf);
@@ -198,8 +196,9 @@ public class PersistentMeasurement implements Measurement {
 
 	protected void appendTimeseriesToMeasurementMetadata(ByteString seriesId, boolean fp, int timeBucketSize, int idx)
 			throws IOException {
-		String line = seriesId.toString() + MD_SEPARATOR + fp + MD_SEPARATOR + timeBucketSize + MD_SEPARATOR
-				+ Integer.toHexString(idx);
+		String series = seriesId.toString();
+		String line = series + MD_SEPARATOR + (fp ? "1" : "0") + MD_SEPARATOR + Integer.toHexString(timeBucketSize)
+				+ MD_SEPARATOR + Integer.toHexString(idx);
 		DiskStorageEngine.appendLineToFile(line, prMetadata);
 	}
 
@@ -235,12 +234,13 @@ public class PersistentMeasurement implements Measurement {
 	private void loadEntry(String entry) {
 		String[] split = entry.split(MD_SEPARATOR);
 		String seriesId = split[0];
-		logger.fine("Loading Timeseries:" + seriesId);
+		logger.info("Loading Timeseries:" + seriesId);
 		try {
 			String timeBucketSize = split[2];
 			String isFp = split[1];
-			TimeSeries timeSeries = new TimeSeries(this, new ByteString(seriesId), Integer.parseInt(timeBucketSize),
-					metadata, Boolean.parseBoolean(isFp), conf);
+			boolean fp = Integer.parseInt(isFp) == 1 ? true : false;
+			TimeSeries timeSeries = new TimeSeries(this, new ByteString(seriesId), Integer.parseInt(timeBucketSize, 16),
+					metadata, fp, conf);
 			String[] split2 = seriesId.split(SERIESID_SEPARATOR);
 
 			String valueField = split2[1];
