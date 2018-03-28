@@ -35,8 +35,13 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
+import com.codahale.metrics.Timer.Context;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Reader;
@@ -74,6 +79,9 @@ public class TimeSeries {
 	public static double compactionRatio;
 	public static Class<Writer> compressionClass;
 	public static Class<Writer> compactionClass;
+	private Timer timerGetCreateSeriesBuckets;
+	private Timer timerCreateWriter;
+	private Timer timerCollectGarbage;
 
 	/**
 	 * @param measurement
@@ -98,15 +106,30 @@ public class TimeSeries {
 				conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, StorageEngine.DEFAULT_COMPACTION_ENABLED));
 		compactionRatio = Double
 				.parseDouble(conf.getOrDefault(StorageEngine.COMPACTION_RATIO, StorageEngine.DEFAULT_COMPACTION_RATIO));
+		// check if metrics enabled
+		checkAndEnableMethodIndexing();
+	}
+
+	private void checkAndEnableMethodIndexing() {
+		if (StorageEngine.ENABLE_METHOD_METRICS && MetricsRegistryService.getInstance() != null) {
+			logger.finest(() -> "Enabling method metrics for:" + seriesId);
+			MetricRegistry methodMetrics = MetricsRegistryService.getInstance().getInstance("method-metrics");
+			timerGetCreateSeriesBuckets = methodMetrics.timer("getCreateSeriesBucket");
+			timerCreateWriter = methodMetrics.timer("createNewWriter");
+			timerCollectGarbage = methodMetrics.timer("collectGarbage");
+		}
 	}
 
 	public Writer getOrCreateSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
+		Context ctx = null;
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx = timerGetCreateSeriesBuckets.time();
+		}
 		int tsBucket = getTimeBucketInt(unit, timestamp, timeBucketSize);
 		List<Writer> list = bucketMap.get(tsBucket);
 		if (list == null) {
 			// potential opportunity to load bucket information from some other
-			// non-memory
-			// location
+			// non-memory location
 			synchronized (bucketMap) {
 				if ((list = bucketMap.get(tsBucket)) == null) {
 					list = Collections.synchronizedList(new ArrayList<>());
@@ -141,6 +164,9 @@ public class TimeSeries {
 					}
 				}
 			}
+			if (StorageEngine.ENABLE_METHOD_METRICS) {
+				ctx.stop();
+			}
 			return ans;
 			// Old code used for thread safety checks
 			// try {
@@ -166,6 +192,10 @@ public class TimeSeries {
 	}
 
 	private Writer createNewWriter(long timestamp, int tsBucket, List<Writer> list) throws IOException {
+		Context ctx = null;
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx = timerCreateWriter.time();
+		}
 		BufferObject bufPair = measurement.getMalloc().createNewBuffer(seriesId, tsBucket);
 		bufPair.getBuf().put((byte) CompressionFactory.getIdByClass(compressionClass));
 		bufPair.getBuf().put((byte) list.size());
@@ -179,6 +209,9 @@ public class TimeSeries {
 		bucketCount++;
 		logger.fine(() -> "Created new writer for:" + tsBucket + " timstamp:" + timestamp + " buckectInfo:"
 				+ bufPair.getBufferId());
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx.stop();
+		}
 		return writer;
 	}
 
@@ -318,8 +351,8 @@ public class TimeSeries {
 		return series;
 	}
 
-	public List<long[]> queryPoints(String appendFieldValueName, long startTime, long endTime,
-			Predicate valuePredicate) throws IOException {
+	public List<long[]> queryPoints(String appendFieldValueName, long startTime, long endTime, Predicate valuePredicate)
+			throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
 			startTime = startTime ^ endTime;
@@ -438,11 +471,11 @@ public class TimeSeries {
 		}
 	}
 
-	public void addDataPoints(TimeUnit unit, List<DataPoint> dps) throws IOException {
-		Map<Writer, List<DataPoint>> dpMap = new HashMap<>();
-		for (DataPoint dp : dps) {
+	public void addDataPoints(TimeUnit unit, List<Point> dps) throws IOException {
+		Map<Writer, List<Point>> dpMap = new HashMap<>();
+		for (Point dp : dps) {
 			Writer writer = getOrCreateSeriesBucket(unit, dp.getTimestamp());
-			List<DataPoint> dpx;
+			List<Point> dpx;
 			if (!dpMap.containsKey(writer)) {
 				dpMap.put(writer, dpx = new ArrayList<>());
 			} else {
@@ -450,8 +483,16 @@ public class TimeSeries {
 			}
 			dpx.add(dp);
 		}
-		for (Entry<Writer, List<DataPoint>> entry : dpMap.entrySet()) {
-			entry.getKey().write(entry.getValue());
+		for (Entry<Writer, List<Point>> entry : dpMap.entrySet()) {
+			List<Point> value = entry.getValue();
+			int count = entry.getKey().writePoint(value);
+			// if batch write fails because buffer filled up then revert
+			// to individual write mechanism
+			if (count < value.size() - 1) {
+				for (int i = count; i < value.size(); i++) {
+					addDataPoint(unit, value.get(i).getTimestamp(), value.get(i).getValue());
+				}
+			}
 		}
 	}
 
@@ -545,6 +586,10 @@ public class TimeSeries {
 	 * @throws IOException
 	 */
 	public Map<Integer, List<Writer>> collectGarbage() throws IOException {
+		Context ctx = null;
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx = timerCollectGarbage.time();
+		}
 		Map<Integer, List<Writer>> collectedGarbageMap = new HashMap<>();
 		logger.finer("Retention buckets:" + retentionBuckets.get());
 		while (bucketMap.size() > retentionBuckets.get()) {
@@ -565,6 +610,9 @@ public class TimeSeries {
 		if (collectedGarbageMap.size() > 0) {
 			logger.fine(() -> "GC," + measurement.getMeasurementName() + " buckets:" + collectedGarbageMap.size()
 					+ " retention size:" + retentionBuckets);
+		}
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx.stop();
 		}
 		return collectedGarbageMap;
 	}

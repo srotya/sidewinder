@@ -75,6 +75,7 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_ON_START = "false";
 	public static final String COMPACTION_RATIO = "compaction.ratio";
 	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
+	public static final boolean ENABLE_METHOD_METRICS = Boolean.parseBoolean(System.getProperty("debug.method.metrics", "false"));
 
 	/**
 	 * @param conf

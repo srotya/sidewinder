@@ -20,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
+import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.compression.Codec;
@@ -203,6 +204,16 @@ public class GorillaWriter implements Writer {
 	@Override
 	public LinkedByteString getBufferId() {
 		return bufferId;
+	}
+
+	@Override
+	public int writePoint(List<Point> dps) throws IOException {
+		int i;
+		for (i = 0; i < dps.size(); i++) {
+			Point point = dps.get(i);
+			addValue(point.getTimestamp(), point.getValue());
+		}
+		return i;
 	}
 
 }
