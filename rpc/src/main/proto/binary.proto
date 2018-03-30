@@ -150,10 +150,10 @@ message Point {
 
 	string dbName = 1;
 	string measurementName = 2;
-	string valueFieldName = 3;
+	repeated string valueFieldName = 3;
 	int64 timestamp = 4;
-	int64 value = 5;
-	bool fp = 6;
+	repeated int64 value = 5;
+	repeated bool fp = 6;
 	repeated Tag tags = 7;
 	int64 messageId = 8;
 

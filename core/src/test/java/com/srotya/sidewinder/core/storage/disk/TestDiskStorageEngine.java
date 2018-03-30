@@ -61,6 +61,7 @@ import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.Reader;
@@ -114,8 +115,9 @@ public class TestDiskStorageEngine {
 		engine.getOrCreateMeasurement("db1", "m1");
 		engine.updateDefaultTimeSeriesRetentionPolicy("db1", 10);
 		assertEquals(10, engine.getDbMetadataMap().get("db1").getRetentionHours());
-		TimeSeries ts = engine.getOrCreateTimeSeries("db1", "m1", "vf1",
-				Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()), 4096, false);
+		Measurement m = engine.getOrCreateMeasurement("db1", "m1");
+		SeriesFieldMap s = m.getOrCreateSeriesFieldMap(Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()));
+		TimeSeries ts = s.getOrCreateSeries("vf1", 4096, false, m);
 		int buckets = ts.getRetentionBuckets();
 		engine.updateDefaultTimeSeriesRetentionPolicy("db1", 30);
 		engine.updateTimeSeriesRetentionPolicy("db1", 30);
@@ -133,8 +135,11 @@ public class TestDiskStorageEngine {
 		conf.put("data.dir", "target/dst-3/data");
 		conf.put("index.dir", "target/dst-3/index");
 		engine.configure(conf, bgTasks);
-		engine.getOrCreateTimeSeries("db1", "m1", "vf1",
-				Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()), 4096, false);
+		
+		Measurement m = engine.getOrCreateMeasurement("db1", "m1");
+		SeriesFieldMap s = m.getOrCreateSeriesFieldMap(Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()));
+		s.getOrCreateSeries("vf1", 4096, false, m);
+		
 		assertEquals(1, engine.getAllMeasurementsForDb("db1").size());
 		assertEquals(1, engine.getTagKeysForMeasurement("db1", "m1").size());
 		assertEquals(1, engine.getTagsForMeasurement("db1", "m1", "vf1").size());
@@ -159,10 +164,13 @@ public class TestDiskStorageEngine {
 		conf.put("data.dir", "target/dst-4/data");
 		conf.put("index.dir", "target/dst-4/index");
 		engine.configure(conf, bgTasks);
-		engine.getOrCreateTimeSeries("db1", "m1", "vf1",
-				Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()), 4096, false);
-		engine.getOrCreateTimeSeries("db1", "t1", "vf1",
-				Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()), 4096, false);
+		Measurement m = engine.getOrCreateMeasurement("db1", "m1");
+		SeriesFieldMap s = m.getOrCreateSeriesFieldMap(Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()));
+		s.getOrCreateSeries("vf1", 4096, false, m);
+		m = engine.getOrCreateMeasurement("db1", "t1");
+		s = m.getOrCreateSeriesFieldMap(Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()));
+		s.getOrCreateSeries("vf1", 4096, false, m);
+		
 		Set<String> measurementsLike = engine.getMeasurementsLike("db1", "m.*");
 		assertEquals(1, measurementsLike.size());
 		assertEquals(2, engine.getAllMeasurementsForDb("db1").size());

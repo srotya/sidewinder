@@ -45,6 +45,7 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -88,8 +89,10 @@ public class MeasurementOpsApi {
 			tags.add(Tag.newBuilder().setTagKey(splits[0]).setTagValue(splits[1]).build());
 		}
 		try {
-			engine.getOrCreateTimeSeries(dbName, measurementName, series.get("valueField").getAsString(), tags,
-					series.get("timeBucket").getAsInt(), series.get("floatingPoint").getAsBoolean());
+			Measurement m = engine.getOrCreateMeasurement(dbName, measurementName);
+			SeriesFieldMap fm = m.getOrCreateSeriesFieldMap(tags);
+			fm.getOrCreateSeries(series.get("valueField").getAsString(), series.get("timeBucket").getAsInt(),
+					series.get("floatingPoint").getAsBoolean(), m);
 		} catch (IOException e) {
 			throw new InternalServerErrorException(e);
 		}

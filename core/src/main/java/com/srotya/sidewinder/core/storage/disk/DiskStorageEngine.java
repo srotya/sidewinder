@@ -36,7 +36,6 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.google.gson.Gson;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
-import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -148,16 +147,6 @@ public class DiskStorageEngine implements StorageEngine {
 		metricsDbCounter = metaops.counter("db-create");
 		metricsMeasurementCounter = metaops.counter("measurement-create");
 		metricsWriteCounter = reg.getInstance("ops").counter("write-counter");
-	}
-
-	@Override
-	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int retentionHours) throws IOException {
-		TimeSeries series = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, defaultTimebucketSize,
-				true);
-		if (series != null) {
-			series.setRetentionHours(retentionHours);
-		}
 	}
 
 	@Override
@@ -287,8 +276,8 @@ public class DiskStorageEngine implements StorageEngine {
 			synchronized (databaseMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					measurement = new PersistentMeasurement();
-					measurement.configure(conf, this, dbName, measurementName, dbIndexPath(dbName),
-							dbDirectoryPath(dbName), dbMetadataMap.get(dbName), bgTaskPool);
+					measurement.configure(conf, this, getDefaultTimebucketSize(), dbName, measurementName,
+							dbIndexPath(dbName), dbDirectoryPath(dbName), dbMetadataMap.get(dbName), bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
 					metricsMeasurementCounter.inc();
@@ -331,8 +320,8 @@ public class DiskStorageEngine implements StorageEngine {
 			logger.info("Loading measurements:" + measurementName);
 			futures.add(bgTaskPool.submit(() -> {
 				try {
-					measurement.configure(conf, this, dbName, measurementName, dbIndexPath(dbName),
-							dbDirectoryPath(dbName), metadata, bgTaskPool);
+					measurement.configure(conf, this, getDefaultTimebucketSize(), dbName, measurementName,
+							dbIndexPath(dbName), dbDirectoryPath(dbName), metadata, bgTaskPool);
 				} catch (IOException e) {
 					logger.log(Level.SEVERE, "Error recovering measurement:" + measurementName, e);
 				}
@@ -347,18 +336,21 @@ public class DiskStorageEngine implements StorageEngine {
 		}
 	}
 
-	@Override
-	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int timeBucketSize, boolean fp) throws IOException {
-		// check and create database map
-		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
-
-		// check and create measurement map
-		Measurement measurement = getOrCreateMeasurement(dbMap, measurementName, dbName);
-
-		// check and create timeseries
-		return measurement.getOrCreateTimeSeries(valueFieldName, tags, timeBucketSize, fp, conf);
-	}
+	// @Override
+	// public TimeSeries getOrCreateTimeSeries(String dbName, String
+	// measurementName, String valueFieldName,
+	// List<Tag> tags, int timeBucketSize, boolean fp) throws IOException {
+	// // check and create database map
+	// Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
+	//
+	// // check and create measurement map
+	// Measurement measurement = getOrCreateMeasurement(dbMap, measurementName,
+	// dbName);
+	//
+	// // check and create timeseries
+	// return measurement.getOrCreateSeriesFieldMap(valueFieldName, tags,
+	// timeBucketSize, fp, conf);
+	// }
 
 	public static void writeLineToFile(String line, String filePath) throws IOException {
 		File pth = new File(filePath);

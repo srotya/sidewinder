@@ -43,13 +43,13 @@ public class TestDatabaseOpsApi {
 
 		Builder dp = Point.newBuilder();
 		dp.setDbName("test1");
-		dp.setFp(false);
-		dp.setValue(1L);
+		dp.addFp(false);
+		dp.addValue(1L);
 		dp.setMeasurementName("cpu");
 		dp.setTimestamp(System.currentTimeMillis());
 		dp.addAllTags(Arrays.asList(Tag.newBuilder().setTagKey("host").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("vm").setTagValue("1").build()));
-		dp.setValueFieldName("value");
+		dp.addValueFieldName("value");
 		engine.writeDataPoint(dp.build());
 
 		DatabaseOpsApi api = new DatabaseOpsApi(engine);

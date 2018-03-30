@@ -143,21 +143,6 @@ public class MiscUtils {
 		return builder.toString();
 	}
 
-	public static DataPoint pointToDataPoint(Point point) {
-		DataPoint dp = new DataPoint();
-		pointToDataPoint(dp, point);
-		return dp;
-	}
-
-	public static void pointToDataPoint(DataPoint dp, Point point) {
-		if (point.getFp()) {
-			dp.setValue(Double.doubleToLongBits(point.getValue()));
-		} else {
-			dp.setLongValue(point.getValue());
-		}
-		dp.setTimestamp(point.getTimestamp());
-	}
-
 	public static TagFilter buildTagFilter(String tagFilter) throws InvalidFilterException {
 		String[] tagSet = tagFilter.split("(&|\\|)");
 		try {
@@ -296,27 +281,17 @@ public class MiscUtils {
 		return new TargetSeries(measurementName, valueFieldName, tagFilter, aggregationFunction, false);
 	}
 
-	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, long value) {
-		return buildDP(dbName, measurementName, valueFieldName, tags, timestamp, value, false);
-	}
-
-	public static Point buildDP(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, long value, boolean fp) {
+	public static Point buildDP(String dbName, String measurementName, List<String> valueFieldName, List<Tag> tags,
+			long timestamp, List<Long> value, List<Boolean> fp) {
 		Builder builder = Point.newBuilder();
 		builder.setDbName(dbName);
 		builder.setMeasurementName(measurementName);
-		builder.setValueFieldName(valueFieldName);
+		builder.addAllValueFieldName(valueFieldName);
 		builder.addAllTags(tags);
 		builder.setTimestamp(timestamp);
-		builder.setValue(value);
-		builder.setFp(fp);
+		builder.addAllValue(value);
+		builder.addAllFp(fp);
 		return builder.build();
-	}
-
-	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, double value) {
-		return buildDP(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true);
 	}
 
 	public static String printBuffer(ByteBuffer buffer, int counter) {
@@ -338,6 +313,27 @@ public class MiscUtils {
 		byte[] dst = new byte[length];
 		buf.get(dst);
 		return new String(dst);
+	}
+
+	public static Point buildDataPoint(String dbName, String measurementName, List<String> valueFieldName,
+			List<Tag> taglist, long timestamp, List<Long> values, List<Boolean> fp) {
+		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName)
+				.addAllValueFieldName(valueFieldName).addAllFp(fp).addAllTags(taglist).addAllValue(values)
+				.setTimestamp(timestamp).build();
+	}
+	
+	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName,
+			List<Tag> taglist, long timestamp, long value) {
+		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName)
+				.addValueFieldName(valueFieldName).addFp(false).addAllTags(taglist).addValue(value)
+				.setTimestamp(timestamp).build();
+	}
+	
+	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName,
+			List<Tag> taglist, long timestamp, double value) {
+		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName)
+				.addValueFieldName(valueFieldName).addFp(true).addAllTags(taglist).addValue(Double.doubleToLongBits(value))
+				.setTimestamp(timestamp).build();
 	}
 
 }

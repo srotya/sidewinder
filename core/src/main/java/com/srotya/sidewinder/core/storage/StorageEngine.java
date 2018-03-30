@@ -99,48 +99,26 @@ public interface StorageEngine {
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, long value, boolean fp) throws IOException {
-		// valueFieldName = valueFieldName.intern();
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
-		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				getDefaultTimebucketSize(), fp);
-		if (timeSeries.isFp() != fp) {
-			// drop this datapoint, mixed series are not allowed
-			throw FP_MISMATCH_EXCEPTION;
-		}
-		if (fp) {
-			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, Double.longBitsToDouble(value));
-		} else {
-			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
-		}
+		Measurement m = getOrCreateMeasurement(dbName, measurementName);
+		m.addDataPoint(valueFieldName, tags, timestamp, value, fp);
 		getCounter().inc();
 	}
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, long value) throws IOException {
-		// valueFieldName = valueFieldName.intern();
-		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
-		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				getDefaultTimebucketSize(), false);
-		if (timeSeries.isFp()) {
-			// drop this datapoint, mixed series are not allowed
-			throw FP_MISMATCH_EXCEPTION;
-		}
-		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
-		getCounter().inc();
+		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value, true);
 	}
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, double value) throws IOException {
-		// valueFieldName = valueFieldName.intern();
-		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
-		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				getDefaultTimebucketSize(), true);
-		if (!timeSeries.isFp()) {
-			// drop this datapoint, mixed series are not allowed
-			throw FP_MISMATCH_EXCEPTION;
-		}
-		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
-		getCounter().inc();
+		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), false);
+	}
+
+	public default void writeDataPoint(Point dp) throws IOException {
+		StorageEngine.validatePoint(dp);
+		Measurement m = getOrCreateMeasurement(dp.getDbName(), dp.getMeasurementName());
+		m.addPoint(dp);
 	}
 
 	/**
@@ -400,8 +378,15 @@ public interface StorageEngine {
 	 * @param retentionHours
 	 * @throws IOException
 	 */
-	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int retentionHours) throws IOException;
+	public default void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
+			List<Tag> tags, int retentionHours) throws IOException {
+		Measurement m = getOrCreateMeasurement(dbName, measurementName);
+		SeriesFieldMap s = m.getOrCreateSeriesFieldMap(tags);
+		TimeSeries series = s.getOrCreateSeries(valueFieldName, getDefaultTimebucketSize(), false, m);
+		if (series != null) {
+			series.setRetentionHours(retentionHours);
+		}
+	}
 
 	/**
 	 * Update retention policy for measurement
@@ -471,21 +456,6 @@ public interface StorageEngine {
 	 * @throws IOException
 	 */
 	public Measurement getOrCreateMeasurement(String dbName, String measurementName) throws IOException;
-
-	/**
-	 * Gets the Timeseries, creates it if it doesn't already exist
-	 * 
-	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
-	 * @param tags
-	 * @param timeBucketSize
-	 * @param fp
-	 * @return timeseries object
-	 * @throws IOException
-	 */
-	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int timeBucketSize, boolean fp) throws IOException;
 
 	/**
 	 * Check if a measurement field is floating point
@@ -609,7 +579,14 @@ public interface StorageEngine {
 
 	public static void validateDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			TimeUnit unit) throws RejectException {
-		if (dbName == null || measurementName == null || valueFieldName == null || tags == null || unit == null) {
+		if (dbName == null || measurementName == null || tags == null || unit == null) {
+			throw INVALID_DATAPOINT_EXCEPTION;
+		}
+	}
+
+	public static void validatePoint(Point dp) throws RejectException {
+		if (dp.getDbName() == null || dp.getMeasurementName() == null || dp.getTagsList() == null
+				|| dp.getValueFieldNameList() == null || dp.getFpList() == null || dp.getValueList() == null) {
 			throw INVALID_DATAPOINT_EXCEPTION;
 		}
 	}
@@ -617,11 +594,6 @@ public interface StorageEngine {
 	public int getDefaultTimebucketSize();
 
 	public Counter getCounter();
-
-	public default void writeDataPoint(Point dp) throws IOException {
-		writeDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
-				new ArrayList<>(dp.getTagsList()), dp.getTimestamp(), dp.getValue(), dp.getFp());
-	}
 
 	public Logger getLogger();
 

@@ -40,7 +40,7 @@ public class TestInfluxDecoder {
 		assertEquals(2, dp.getTagsList().size());
 		// assertTrue(dp.getTagsList().contains(Tag.newBuilder().setTagKey("host").setTagValue("server01").build()));
 		// assertTrue(dp.getTagsList().contains("region=uswest"));
-		assertEquals(1, dp.getValue());
+		assertEquals(1, dp.getValueList().get(0).longValue());
 		assertEquals(1434055562000000000L / (1000 * 1000), dp.getTimestamp());
 	}
 
@@ -51,7 +51,7 @@ public class TestInfluxDecoder {
 		for (Point dp : dps) {
 			assertEquals("cpu", dp.getMeasurementName());
 			assertEquals(2, dp.getTagsList().size());
-			assertEquals(1, dp.getValue());
+			assertEquals(1, dp.getValueList().get(0).longValue());
 			assertEquals(1434055562000000000L / (1000 * 1000), dp.getTimestamp());
 		}
 	}
@@ -61,19 +61,14 @@ public class TestInfluxDecoder {
 		String testPoints = "cpu value=1i,value1=2i 1434055562000000000";
 		List<Point> dps = InfluxDecoder.pointsFromString("test", testPoints);
 
-		assertEquals(2, dps.size());
+		assertEquals(1, dps.size());
 
 		Point dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
 		assertEquals(0, dp.getTagsList().size());
-		assertEquals(1, dp.getValue());
+		assertEquals(1, dp.getValueList().get(0).longValue());
 		assertEquals(1434055562000000000L / (1000 * 1000), dp.getTimestamp());
-
-		dp = dps.get(1);
-		assertEquals("cpu", dp.getMeasurementName());
-		assertEquals(0, dp.getTagsList().size());
-		assertEquals(2, dp.getValue());
-		assertEquals(1434055562000000000L / (1000 * 1000), dp.getTimestamp());
+		assertEquals(2, dp.getValueList().get(1).longValue());
 	}
 
 	@Test
@@ -84,7 +79,7 @@ public class TestInfluxDecoder {
 		Point dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
 		assertEquals(0, dp.getTagsList().size());
-		assertEquals(1, dp.getValue());
+		assertEquals(1, dp.getValueList().get(0).longValue());
 		assertEquals(1434055562000000000L / (1000 * 1000), dp.getTimestamp());
 	}
 
@@ -96,7 +91,7 @@ public class TestInfluxDecoder {
 		Point dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
 		assertEquals(0, dp.getTagsList().size());
-		assertEquals(1, dp.getValue());
+		assertEquals(1, dp.getValueList().get(0).longValue());
 		long ts = System.currentTimeMillis();
 		assertTrue(dp.getTimestamp() > 0);
 		assertEquals(1, (dp.getTimestamp() / ts), 1);
@@ -110,7 +105,7 @@ public class TestInfluxDecoder {
 		Point dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
 		assertEquals(0, dp.getTagsList().size());
-		assertEquals(1, dp.getValue());
+		assertEquals(1, dp.getValueList().get(0).longValue());
 		long ts = System.currentTimeMillis();
 		assertEquals(1, (dp.getTimestamp() / ts), 1);
 	}
@@ -123,7 +118,7 @@ public class TestInfluxDecoder {
 		Point dp = dps.get(0);
 		assertEquals("cpu", dp.getMeasurementName());
 		assertEquals(0, dp.getTagsList().size());
-		assertEquals(1.2, Double.longBitsToDouble(dp.getValue()), 0.01);
+		assertEquals(1.2, Double.longBitsToDouble(dp.getValueList().get(0).longValue()), 0.01);
 		long ts = System.currentTimeMillis();
 		assertEquals(1, (dp.getTimestamp() / ts), 1);
 	}

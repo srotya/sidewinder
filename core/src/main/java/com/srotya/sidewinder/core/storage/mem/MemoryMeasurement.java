@@ -38,7 +38,6 @@ import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
-import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
@@ -55,11 +54,15 @@ public class MemoryMeasurement implements Measurement {
 	private boolean useQueryPool;
 	private String dbName;
 	private Malloc malloc;
+	private int timeBucketSize;
+	private Map<String, String> conf;
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
-			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
-			throws IOException {
+	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
+			String measurementName, String baseIndexDirectory, String dataDirectory, DBMetadata metadata,
+			ScheduledExecutorService bgTaskPool) throws IOException {
+		this.conf = conf;
+		timeBucketSize = defaultTimeBucketSize;
 		this.dbName = dbName;
 		this.measurementName = measurementName;
 		this.metadata = metadata;
@@ -86,8 +89,7 @@ public class MemoryMeasurement implements Measurement {
 
 	@SuppressWarnings("deprecation")
 	@Override
-	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
-			Map<String, String> conf) throws IOException {
+	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags) throws IOException {
 		Collections.sort(tags, TAG_COMPARATOR);
 		ByteString seriesId = constructSeriesId(tags, tagIndex);
 		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
@@ -95,25 +97,12 @@ public class MemoryMeasurement implements Measurement {
 			lock.lock();
 			if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
 				Measurement.indexRowKey(tagIndex, seriesId.toString(), tags);
-				seriesFieldMap = new SeriesFieldMap(seriesId);
+				seriesFieldMap = new SeriesFieldMap(seriesId, 0);
 				seriesMap.put(seriesId, seriesFieldMap);
 			}
 			lock.unlock();
 		}
-		TimeSeries series = seriesFieldMap.get(valueFieldName);
-		if (series == null) {
-			lock.lock();
-			if ((series = seriesFieldMap.get(valueFieldName)) == null) {
-				ByteString seriesId2 = new ByteString(seriesId + SERIESID_SEPARATOR + valueFieldName);
-				series = new TimeSeries(this, seriesId2, timeBucketSize, metadata, fp, conf);
-				seriesFieldMap.addSeries(valueFieldName, series);
-				logger.fine("Created new timeseries:" + seriesFieldMap + " for measurement:" + measurementName + "\t"
-						+ seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesMap.size());
-			}
-			lock.unlock();
-		}
-
-		return series;
+		return seriesFieldMap;
 	}
 
 	@Override
@@ -179,5 +168,20 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public Collection<SeriesFieldMap> getSeriesList() {
 		return seriesMap.values();
+	}
+
+	@Override
+	public int getTimeBucketSize() {
+		return timeBucketSize;
+	}
+
+	@Override
+	public DBMetadata getMetadata() {
+		return metadata;
+	}
+
+	@Override
+	public Map<String, String> getConf() {
+		return conf;
 	}
 }

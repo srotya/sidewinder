@@ -64,7 +64,7 @@ public class TimeSeries {
 	private SortedMap<Integer, List<Writer>> bucketMap;
 	private boolean fp;
 	private AtomicInteger retentionBuckets;
-	private ByteString seriesId;
+	private ByteString fieldId;
 	private Measurement measurement;
 	private int timeBucketSize;
 	// used for unit tests only
@@ -77,22 +77,22 @@ public class TimeSeries {
 
 	/**
 	 * @param measurement
-	 * @param seriesId
+	 * @param fieldId
 	 * @param timeBucketSize
 	 * @param metadata
 	 * @param fp
 	 * @param conf
 	 * @throws IOException
 	 */
-	public TimeSeries(Measurement measurement, ByteString seriesId, int timeBucketSize, DBMetadata metadata, boolean fp,
+	public TimeSeries(Measurement measurement, ByteString fieldId, int timeBucketSize, DBMetadata metadata, boolean fp,
 			Map<String, String> conf) throws IOException {
 		this.measurement = measurement;
-		this.seriesId = seriesId;
+		this.fieldId = fieldId;
 		this.timeBucketSize = timeBucketSize;
 		retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(metadata.getRetentionHours());
 		this.fp = fp;
-		bucketMap = measurement.createNewBucketMap(seriesId);
+		bucketMap = measurement.createNewBucketMap(fieldId);
 		this.compactionCandidateSet = new HashMap<>();
 		compactionEnabled = Boolean.parseBoolean(
 				conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, StorageEngine.DEFAULT_COMPACTION_ENABLED));
@@ -107,57 +107,34 @@ public class TimeSeries {
 			// potential opportunity to load bucket information from some other
 			// non-memory
 			// location
-			synchronized (bucketMap) {
-				if ((list = bucketMap.get(tsBucket)) == null) {
-					list = Collections.synchronizedList(new ArrayList<>());
-					createNewWriter(timestamp, tsBucket, list);
-					bucketMap.put(tsBucket, list);
-					logger.fine(() -> "Creating new time series bucket:" + seriesId + ",measurement:"
-							+ measurement.getMeasurementName());
-				}
-			}
+			list = Collections.synchronizedList(new ArrayList<>());
+			createNewWriter(timestamp, tsBucket, list);
+			bucketMap.put(tsBucket, list);
+			logger.fine(() -> "Creating new time series bucket:" + fieldId + ",measurement:"
+					+ measurement.getMeasurementName());
 		}
 
-		synchronized (list) {
-			Writer ans = list.get(list.size() - 1);
-			if (ans.isFull()) {
-				if ((ans = list.get(list.size() - 1)).isFull()) {
-					final Writer ansTmp = ans;
-					logger.fine(() -> "Requesting new writer for:" + seriesId + ",measurement:"
-							+ measurement.getMeasurementName() + " bucketcount:" + bucketCount + " pos:"
-							+ ansTmp.getPosition());
-					ans = createNewWriter(timestamp, tsBucket, list);
-					// if there are more than 2 buffers in the list then it is a
-					// candidate for
-					// compaction else not because 2 or less buffers means there
-					// is at least 1
-					// writable buffer which can't be compacted
-					// #COMPACTHRESHOLD
-					if (compactionEnabled && list.size() > COMPACTION_THRESHOLD) {//
-						// add older bucket to compaction queue
-						final List<Writer> listTmp = list;
-						logger.fine(() -> "Adding bucket to compaction set:" + listTmp.size());
-						compactionCandidateSet.put(tsBucket, list);
-					}
-				}
+		Writer ans = list.get(list.size() - 1);
+		if (ans.isFull()) {
+			final Writer ansTmp = ans;
+			logger.fine(
+					() -> "Requesting new writer for:" + fieldId + ",measurement:" + measurement.getMeasurementName()
+							+ " bucketcount:" + bucketCount + " pos:" + ansTmp.getPosition());
+			ans = createNewWriter(timestamp, tsBucket, list);
+			// if there are more than 2 buffers in the list then it is a
+			// candidate for
+			// compaction else not because 2 or less buffers means there
+			// is at least 1
+			// writable buffer which can't be compacted
+			// #COMPACTHRESHOLD
+			if (compactionEnabled && list.size() > COMPACTION_THRESHOLD) {//
+				// add older bucket to compaction queue
+				final List<Writer> listTmp = list;
+				logger.fine(() -> "Adding bucket to compaction set:" + listTmp.size());
+				compactionCandidateSet.put(tsBucket, list);
 			}
-			return ans;
-			// Old code used for thread safety checks
-			// try {
-			// int idx = list.indexOf(ans);
-			// if (idx != (list.size() - 1)) {
-			// System.out.println("\n\nThread safety error\t" + idx + "\t" +
-			// list.size() +
-			// "\n\n");
-			// }
-			// } catch (Exception e) {
-			// logger.log(Level.SEVERE, "Create new:" + "\tList:" + list +
-			// "\tbucket:" +
-			// tsBucket + "\t" + bucketMap,
-			// e);
-			// throw e;
-			// }
 		}
+		return ans;
 	}
 
 	public static int getTimeBucketInt(TimeUnit unit, long timestamp, int timeBucketSize) {
@@ -166,7 +143,7 @@ public class TimeSeries {
 	}
 
 	private Writer createNewWriter(long timestamp, int tsBucket, List<Writer> list) throws IOException {
-		BufferObject bufPair = measurement.getMalloc().createNewBuffer(seriesId, tsBucket);
+		BufferObject bufPair = measurement.getMalloc().createNewBuffer(fieldId, tsBucket);
 		bufPair.getBuf().put((byte) CompressionFactory.getIdByClass(compressionClass));
 		bufPair.getBuf().put((byte) list.size());
 		Writer writer;
@@ -199,7 +176,7 @@ public class TimeSeries {
 	 * @throws IOException
 	 */
 	public void loadBucketMap(List<Entry<Integer, BufferObject>> bufferEntries) throws IOException {
-		logger.fine(() -> "Scanning buffer for:" + seriesId);
+		logger.fine(() -> "Scanning buffer for:" + fieldId);
 		for (Entry<Integer, BufferObject> entry : bufferEntries) {
 			ByteBuffer duplicate = entry.getValue().getBuf();
 			duplicate.rewind();
@@ -220,15 +197,15 @@ public class TimeSeries {
 			Writer writer = getWriterInstance(classById);
 			if (entry.getValue().getBufferId() == null) {
 				throw new IOException("Buffer id can't be read:" + measurement.getDbName() + ":"
-						+ measurement.getMeasurementName() + " series:" + getSeriesId());
+						+ measurement.getMeasurementName() + " series:" + getFieldId());
 			}
-			logger.fine(() -> "Loading bucketmap:" + seriesId + "\t" + tsBucket + " bufferid:"
+			logger.fine(() -> "Loading bucketmap:" + fieldId + "\t" + tsBucket + " bufferid:"
 					+ entry.getValue().getBufferId());
 			writer.setBufferId(entry.getValue().getBufferId());
 			writer.configure(slice, false, START_OFFSET, true);
 			list.add(writer);
 			bucketCount++;
-			logger.fine(() -> "Loaded bucketmap:" + seriesId + "\t" + tsBucket + " bufferid:"
+			logger.fine(() -> "Loaded bucketmap:" + fieldId + "\t" + tsBucket + " bufferid:"
 					+ entry.getValue().getBufferId());
 		}
 		sortBucketMap();
@@ -279,7 +256,7 @@ public class TimeSeries {
 			startTime = startTime ^ endTime;
 		}
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
-		logger.fine(getSeriesId() + " " + bucketMap.size() + " " + bucketCount + " " + startTime + "  " + endTime + " "
+		logger.fine(getFieldId() + " " + bucketMap.size() + " " + bucketCount + " " + startTime + "  " + endTime + " "
 				+ valuePredicate + " " + timeRangePredicate + " diff:" + (endTime - startTime));
 		SortedMap<Integer, List<Writer>> series = correctTimeRangeScan(startTime, endTime);
 		List<Reader> readers = new ArrayList<>();
@@ -318,8 +295,8 @@ public class TimeSeries {
 		return series;
 	}
 
-	public List<long[]> queryPoints(String appendFieldValueName, long startTime, long endTime,
-			Predicate valuePredicate) throws IOException {
+	public List<long[]> queryPoints(String appendFieldValueName, long startTime, long endTime, Predicate valuePredicate)
+			throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
 			startTime = startTime ^ endTime;
@@ -406,14 +383,7 @@ public class TimeSeries {
 	 * @throws IOException
 	 */
 	public void addDataPoint(TimeUnit unit, long timestamp, double value) throws IOException {
-		Writer writer = getOrCreateSeriesBucket(unit, timestamp);
-		try {
-			writer.addValue(timestamp, value);
-		} catch (RollOverException e) {
-			addDataPoint(unit, timestamp, value);
-		} catch (NullPointerException e) {
-			logger.log(Level.SEVERE, "\n\nNPE occurred for add datapoint operation\n\n", e);
-		}
+		addDataPoint(unit, timestamp, Double.doubleToLongBits(value));
 	}
 
 	/**
@@ -433,6 +403,17 @@ public class TimeSeries {
 			timeseriesBucket.addValue(timestamp, value);
 		} catch (RollOverException e) {
 			addDataPoint(unit, timestamp, value);
+		} catch (NullPointerException e) {
+			logger.log(Level.SEVERE, "\n\nNPE occurred for add datapoint operation\n\n", e);
+		}
+	}
+	
+	public void addDataPointLocked(TimeUnit unit, long timestamp, long value) throws IOException {
+		Writer timeseriesBucket = getOrCreateSeriesBucketLocked(unit, timestamp);
+		try {
+			timeseriesBucket.addValue(timestamp, value);
+		} catch (RollOverException e) {
+			addDataPointLocked(unit, timestamp, value);
 		} catch (NullPointerException e) {
 			logger.log(Level.SEVERE, "\n\nNPE occurred for add datapoint operation\n\n", e);
 		}
@@ -557,7 +538,7 @@ public class TimeSeries {
 				// bucket.close();
 				gcedBuckets.add(bucket);
 				logger.log(Level.FINEST,
-						"GC," + measurement.getMeasurementName() + ":" + seriesId + " removing bucket:" + key
+						"GC," + measurement.getMeasurementName() + ":" + fieldId + " removing bucket:" + key
 								+ ": as it passed retention period of:" + retentionBuckets.get() + ":old size:"
 								+ oldSize + ":newsize:" + bucketMap.size() + ":");
 			}
@@ -613,16 +594,16 @@ public class TimeSeries {
 	/**
 	 * @return the seriesId
 	 */
-	public ByteString getSeriesId() {
-		return seriesId;
+	public ByteString getFieldId() {
+		return fieldId;
 	}
 
 	/**
-	 * @param seriesId
+	 * @param fieldId
 	 *            the seriesId to set
 	 */
-	public void setSeriesId(ByteString seriesId) {
-		this.seriesId = seriesId;
+	public void setFieldId(ByteString fieldId) {
+		this.fieldId = fieldId;
 	}
 
 	/**
@@ -640,7 +621,7 @@ public class TimeSeries {
 	@Override
 	public String toString() {
 		return "TimeSeries [bucketMap=" + bucketMap + ", fp=" + fp + ", retentionBuckets=" + retentionBuckets
-				+ ", logger=" + logger + ", seriesId=" + seriesId + ", timeBucketSize=" + timeBucketSize + "]";
+				+ ", seriesId=" + fieldId + ", timeBucketSize=" + timeBucketSize + "]";
 	}
 
 	public void close() throws IOException {
@@ -730,7 +711,7 @@ public class TimeSeries {
 			}
 			rawBytes.rewind();
 			// create buffer in measurement
-			BufferObject newBuf = measurement.getMalloc().createNewBuffer(seriesId, entry.getKey(), size);
+			BufferObject newBuf = measurement.getMalloc().createNewBuffer(fieldId, entry.getKey(), size);
 			logger.fine("Compacted buffer size:" + size + " vs " + total);
 			LinkedByteString bufferId = newBuf.getBufferId();
 			buf = newBuf.getBuf();
@@ -825,7 +806,7 @@ public class TimeSeries {
 				garbageCollectWriters.add(removedWriter.getBufferId().toString());
 			}
 			Entry<Long, byte[]> bs = bufList.get(i);
-			BufferObject bufPair = measurement.getMalloc().createNewBuffer(seriesId, tsBucket, bs.getValue().length);
+			BufferObject bufPair = measurement.getMalloc().createNewBuffer(fieldId, tsBucket, bs.getValue().length);
 			ByteBuffer buf = bufPair.getBuf();
 			buf.put(bs.getValue());
 			buf.rewind();
@@ -836,6 +817,67 @@ public class TimeSeries {
 			list.add(i, writer);
 		}
 		return garbageCollectWriters;
+	}
+
+	// Old code used for thread safety checks
+	// try {
+	// int idx = list.indexOf(ans);
+	// if (idx != (list.size() - 1)) {
+	// System.out.println("\n\nThread safety error\t" + idx + "\t" +
+	// list.size() +
+	// "\n\n");
+	// }
+	// } catch (Exception e) {
+	// logger.log(Level.SEVERE, "Create new:" + "\tList:" + list +
+	// "\tbucket:" +
+	// tsBucket + "\t" + bucketMap,
+	// e);
+	// throw e;
+	// }
+
+	public Writer getOrCreateSeriesBucketLocked(TimeUnit unit, long timestamp) throws IOException {
+		int tsBucket = getTimeBucketInt(unit, timestamp, timeBucketSize);
+		List<Writer> list = bucketMap.get(tsBucket);
+		if (list == null) {
+			// potential opportunity to load bucket information from some other
+			// non-memory
+			// location
+			synchronized (bucketMap) {
+				if ((list = bucketMap.get(tsBucket)) == null) {
+					list = Collections.synchronizedList(new ArrayList<>());
+					createNewWriter(timestamp, tsBucket, list);
+					bucketMap.put(tsBucket, list);
+					logger.fine(() -> "Creating new time series bucket:" + fieldId + ",measurement:"
+							+ measurement.getMeasurementName());
+				}
+			}
+		}
+
+		synchronized (list) {
+			Writer ans = list.get(list.size() - 1);
+			if (ans.isFull()) {
+				if ((ans = list.get(list.size() - 1)).isFull()) {
+					final Writer ansTmp = ans;
+					logger.fine(() -> "Requesting new writer for:" + fieldId + ",measurement:"
+							+ measurement.getMeasurementName() + " bucketcount:" + bucketCount + " pos:"
+							+ ansTmp.getPosition());
+					ans = createNewWriter(timestamp, tsBucket, list);
+					// if there are more than 2 buffers in the list then it is a
+					// candidate for
+					// compaction else not because 2 or less buffers means there
+					// is at least 1
+					// writable buffer which can't be compacted
+					// #COMPACTHRESHOLD
+					if (compactionEnabled && list.size() > COMPACTION_THRESHOLD) {//
+						// add older bucket to compaction queue
+						final List<Writer> listTmp = list;
+						logger.fine(() -> "Adding bucket to compaction set:" + listTmp.size());
+						compactionCandidateSet.put(tsBucket, list);
+					}
+				}
+			}
+			return ans;
+		}
 	}
 
 }

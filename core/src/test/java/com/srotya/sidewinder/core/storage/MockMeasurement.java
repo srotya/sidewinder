@@ -76,9 +76,9 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
-			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
-			throws IOException {
+	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
+			String measurementName, String baseIndexDirectory, String dataDirectory, DBMetadata metadata,
+			ScheduledExecutorService bgTaskPool) throws IOException {
 	}
 
 	@Override
@@ -135,8 +135,26 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
-			Map<String, String> conf) throws IOException {
+	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags) throws IOException {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public int getTimeBucketSize() {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public DBMetadata getMetadata() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Map<String, String> getConf() {
+		// TODO Auto-generated method stub
 		return null;
 	}
 

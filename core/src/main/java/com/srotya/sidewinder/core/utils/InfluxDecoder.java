@@ -72,34 +72,28 @@ public class InfluxDecoder {
 				}
 				List<Tag> tags = new ArrayList<>(tTags);
 				List<String> fields = COMMA.splitToList(parts.get(1));
+				Builder builder = Point.newBuilder();
+				builder.setDbName(dbName);
+				builder.setMeasurementName(measurementName);
+				builder.addAllTags(tags);
+				builder.setTimestamp(timestamp);
 				for (String field : fields) {
 					String[] fv = field.split("=");
 					String valueFieldName = fv[0];
 					if (!fv[1].endsWith("i")) {
-						Builder builder = Point.newBuilder();
 						double value = Double.parseDouble(fv[1]);
-						builder.setDbName(dbName);
-						builder.setMeasurementName(measurementName);
-						builder.setValueFieldName(valueFieldName);
-						builder.setValue(Double.doubleToLongBits(value));
-						builder.addAllTags(tags);
-						builder.setTimestamp(timestamp);
-						builder.setFp(true);
-						dps.add(builder.build());
+						builder.addValueFieldName(valueFieldName);
+						builder.addValue(Double.doubleToLongBits(value));
+						builder.addFp(true);
 					} else {
-						Builder builder = Point.newBuilder();
 						fv[1] = fv[1].substring(0, fv[1].length() - 1);
 						long value = Long.parseLong(fv[1]);
-						builder.setDbName(dbName);
-						builder.setMeasurementName(measurementName);
-						builder.setValueFieldName(valueFieldName);
-						builder.setValue(value);
-						builder.addAllTags(tags);
-						builder.setTimestamp(timestamp);
-						builder.setFp(false);
-						dps.add(builder.build());
+						builder.addValueFieldName(valueFieldName);
+						builder.addValue(value);
+						builder.addFp(false);
 					}
 				}
+				dps.add(builder.build());
 			}
 		} catch (Exception e) {
 			e.printStackTrace();

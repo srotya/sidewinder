@@ -16,12 +16,10 @@
 package com.srotya.sidewinder.core.rpc;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 
 import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
@@ -30,8 +28,6 @@ import com.lmax.disruptor.RingBuffer;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.srotya.sidewinder.core.rpc.WriterServiceGrpc.WriterServiceImplBase;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.TimeSeries;
-import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.grpc.stub.StreamObserver;
@@ -78,16 +74,9 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		Ack ack = null;
 		try {
 			if (disruptorEnable) {
-				buffer.publishEvent(translator, point, point.getTimestamp(), null);
+				buffer.publishEvent(translator, point, request.getMessageId(), null);
 			} else {
-				if (point.getFp()) {
-					engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
-							new ArrayList<>(point.getTagsList()), point.getTimestamp(),
-							Double.doubleToLongBits(point.getValue()));
-				} else {
-					engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
-							new ArrayList<>(point.getTagsList()), point.getTimestamp(), point.getValue());
-				}
+				engine.writeDataPoint(point);
 			}
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
 		} catch (Exception e) {
@@ -105,16 +94,9 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			for (int i = 0; i < pointsList.size(); i++) {
 				Point point = pointsList.get(i);
 				if (disruptorEnable) {
-					buffer.publishEvent(translator, point, point.getTimestamp(), null);
+					buffer.publishEvent(translator, point, request.getMessageId(), null);
 				} else {
-					if (point.getFp()) {
-						engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
-								new ArrayList<>(point.getTagsList()), point.getTimestamp(),
-								Double.longBitsToDouble(point.getValue()));
-					} else {
-						engine.writeDataPoint(point.getDbName(), point.getMeasurementName(), point.getValueFieldName(),
-								new ArrayList<>(point.getTagsList()), point.getTimestamp(), point.getValue());
-					}
+					engine.writeDataPoint(point);
 				}
 			}
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
@@ -126,26 +108,32 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 		responseObserver.onCompleted();
 	}
 
-	@Override
-	public void writeSeriesPoint(RawTimeSeriesBucket request, StreamObserver<Ack> responseObserver) {
-		Ack ack;
-		try {
-			TimeSeries series = engine.getOrCreateTimeSeries(request.getDbName(), request.getMeasurementName(),
-					request.getValueFieldName(), new ArrayList<>(request.getTagsList()), request.getBucketSize(),
-					request.getFp());
-			for (Bucket bucket : request.getBucketsList()) {
-				Writer writer = series.getOrCreateSeriesBucket(TimeUnit.MILLISECONDS, bucket.getHeaderTimestamp());
-				writer.configure(null, false, 1, true);
-				writer.setCounter(bucket.getCount());
-				writer.bootstrap(bucket.getData().asReadOnlyByteBuffer());
-			}
-			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
-		} catch (Exception e) {
-			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(500).build();
-		}
-		responseObserver.onNext(ack);
-		responseObserver.onCompleted();
-	}
+	// @Override
+	// public void writeSeriesPoint(RawTimeSeriesBucket request, StreamObserver<Ack>
+	// responseObserver) {
+	// Ack ack;
+	// try {
+	// TimeSeries series = engine.getOrCreateTimeSeries(request.getDbName(),
+	// request.getMeasurementName(),
+	// request.getValueFieldName(), new ArrayList<>(request.getTagsList()),
+	// request.getBucketSize(),
+	// request.getFp());
+	// for (Bucket bucket : request.getBucketsList()) {
+	// Writer writer = series.getOrCreateSeriesBucket(TimeUnit.MILLISECONDS,
+	// bucket.getHeaderTimestamp());
+	// writer.configure(null, false, 1, true);
+	// writer.setCounter(bucket.getCount());
+	// writer.bootstrap(bucket.getData().asReadOnlyByteBuffer());
+	// }
+	// ack =
+	// Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
+	// } catch (Exception e) {
+	// ack =
+	// Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(500).build();
+	// }
+	// responseObserver.onNext(ack);
+	// responseObserver.onCompleted();
+	// }
 
 	@Override
 	public StreamObserver<SingleData> writeDataPointStream(final StreamObserver<Ack> responseObserver) {
@@ -239,13 +227,12 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 
 		@Override
 		public void onEvent(DPWrapper event, long sequence, boolean endOfBatch) throws Exception {
-			StringBuilder bufString = new StringBuilder();
 			Point dp = event.getDp();
-			bufString.append(dp.getDbName() + "\n");
-			bufString.append(dp.getMeasurementName() + "\n");
-			bufString.append(dp.getValueFieldName() + "\n");
-			bufString.append(dp.getTagsList().toString() + "\n");
-			event.setHashValue(bufString.toString().hashCode());
+			int hashCode = 0;
+			for (Tag tag : dp.getTagsList()) {
+				hashCode = hashCode * 31 + tag.hashCode();
+			}
+			event.setHashValue(hashCode);
 		}
 
 	}

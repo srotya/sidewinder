@@ -77,12 +77,12 @@ public class TestMappedSetTagIndex {
 		new File(indexDir).mkdirs();
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, "d", "m", "target/i7/i/bitmap", "target/i7/d/bitmap", new DBMetadata(), null);
+		m.configure(conf, engine, 4096, "d", "m", "target/i7/i/bitmap", "target/i7/d/bitmap", new DBMetadata(), null);
 		MappedSetTagIndex index = new MappedSetTagIndex("target/i7/i/bitmap", "s7", true, m);
 		for (int i = 0; i < 10_000; i++) {
 			String valueOf = String.valueOf(i);
 			index.index("key", valueOf, i);
-			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf));
+			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf, i));
 		}
 
 		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9");

@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -37,6 +38,7 @@ import java.util.stream.Stream;
 
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
@@ -57,7 +59,7 @@ public interface Measurement {
 	public static final TagComparator TAG_COMPARATOR = new TagComparator();
 	public static final Exception NOT_FOUND_EXCEPTION = null;
 
-	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
+	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName, String measurementName,
 			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
 			throws IOException;
 
@@ -71,8 +73,7 @@ public interface Measurement {
 
 	public void close() throws IOException;
 
-	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<Tag> tags, int timeBucketSize, boolean fp,
-			Map<String, String> conf) throws IOException;
+	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags) throws IOException;
 
 	@Deprecated
 	public static void indexRowKey(TagIndex tagIndex, String rowKey, List<Tag> tags) throws IOException {
@@ -149,6 +150,29 @@ public interface Measurement {
 		return getTagIndex().searchRowKeysForTagFilter(tagFilterTree);
 	}
 
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value, boolean fp)
+			throws IOException {
+		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(tags);
+		fieldMap.addDataPointLocked(valueFieldName, getTimeBucketSize(), fp, TimeUnit.MILLISECONDS, timestamp, value, this);
+	}
+	
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value)
+			throws IOException {
+		addDataPoint(valueFieldName, tags, timestamp, value, false);
+	}
+	
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, double value)
+			throws IOException {
+		addDataPoint(valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true);
+	}
+
+	public default void addPoint(Point dp) throws IOException {
+		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(new ArrayList<>(dp.getTagsList()));
+		fieldMap.addPointLocked(dp, getTimeBucketSize(), this);
+	}
+
+	public int getTimeBucketSize();
+
 	public default void collectGarbage(Archiver archiver) throws IOException {
 		runCleanupOperation("garbage collection", ts -> {
 			try {
@@ -160,11 +184,11 @@ public interface Measurement {
 						for (Writer writer : entry.getValue()) {
 							byte[] buf = Archiver.writerToByteArray(writer);
 							TimeSeriesArchivalObject archivalObject = new TimeSeriesArchivalObject(getDbName(),
-									getMeasurementName(), ts.getSeriesId(), entry.getKey(), buf);
+									getMeasurementName(), ts.getFieldId(), entry.getKey(), buf);
 							try {
 								archiver.archive(archivalObject);
 							} catch (ArchiveException e) {
-								getLogger().log(Level.SEVERE, "Series failed to archive, series:" + ts.getSeriesId()
+								getLogger().log(Level.SEVERE, "Series failed to archive, series:" + ts.getFieldId()
 										+ " db:" + getDbName() + " m:" + getMeasurementName(), e);
 							}
 							output.add(writer);
@@ -201,10 +225,10 @@ public interface Measurement {
 					}
 					for (Writer timeSeriesBucket : list) {
 						cleanupList.add(timeSeriesBucket.getBufferId().toString());
-						getLogger().fine("Adding buffer to cleanup " + operation + " for bucket:" + entry.getSeriesId()
+						getLogger().fine("Adding buffer to cleanup " + operation + " for bucket:" + entry.getFieldId()
 								+ " Offset:" + timeSeriesBucket.currentOffset());
 					}
-					getLogger().fine("Buffers " + operation + " for time series:" + entry.getSeriesId());
+					getLogger().fine("Buffers " + operation + " for time series:" + entry.getFieldId());
 				} catch (Exception e) {
 					getLogger().log(Level.SEVERE, "Error collecing " + operation, e);
 				}
@@ -313,8 +337,8 @@ public interface Measurement {
 		});
 	}
 
-	public default void populateDataPoints(List<String> valueFieldNames, ByteString rowKey, long startTime, long endTime,
-			Predicate valuePredicate, Pattern p, List<Series> resultMap) throws IOException {
+	public default void populateDataPoints(List<String> valueFieldNames, ByteString rowKey, long startTime,
+			long endTime, Predicate valuePredicate, Pattern p, List<Series> resultMap) throws IOException {
 		List<DataPoint> points = null;
 		List<Tag> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
 		for (String valueFieldName : valueFieldNames) {
@@ -420,5 +444,14 @@ public interface Measurement {
 			}
 		}
 	}
+
+	public DBMetadata getMetadata();
+
+	public default void appendTimeseriesToMeasurementMetadata(ByteString fieldId, boolean fp, int timeBucketSize,
+			int idx) throws IOException {
+		// do nothing default implementation
+	}
+
+	public Map<String, String> getConf();
 
 }

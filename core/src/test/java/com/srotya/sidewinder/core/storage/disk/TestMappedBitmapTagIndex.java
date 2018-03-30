@@ -61,13 +61,13 @@ public class TestMappedBitmapTagIndex {
 		new File(indexDir).mkdirs();
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, "d", "m", "target/s6/i/bitmap", "target/s6/d/bitmap", new DBMetadata(), null);
+		m.configure(conf, engine, 4096, "d", "m", "target/s6/i/bitmap", "target/s6/d/bitmap", new DBMetadata(), null);
 		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s6", m);
 		long ts = System.currentTimeMillis();
 		for (int i = 0; i < 10_000; i++) {
 			index.index("key", String.valueOf(i), i);
 			ByteString valueOf = new ByteString(String.valueOf(i));
-			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf));
+			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf, i));
 		}
 		ts = System.currentTimeMillis() - ts;
 		System.out.println("Time:" + ts);
@@ -85,12 +85,12 @@ public class TestMappedBitmapTagIndex {
 		new File(indexDir).mkdirs();
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, "d", "m", "target/s7/i/bitmap", "target/s7/d/bitmap", new DBMetadata(), null);
+		m.configure(conf, engine, 4096, "d", "m", "target/s7/i/bitmap", "target/s7/d/bitmap", new DBMetadata(), null);
 		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s7", m);
 		for (int i = 0; i < 10_000; i++) {
 			index.index("key", String.valueOf(i), i);
 			ByteString valueOf = new ByteString(String.valueOf(i));
-			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf));
+			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf, i));
 		}
 
 		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9");
@@ -118,12 +118,12 @@ public class TestMappedBitmapTagIndex {
 		new File(indexDir).mkdirs();
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, "d", "m", "target/s8/i/bitmap", "target/s8/d/bitmap", new DBMetadata(), null);
+		m.configure(conf, engine, 4096, "d", "m", "target/s8/i/bitmap", "target/s8/d/bitmap", new DBMetadata(), null);
 		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s8", m);
 		for (int i = 0; i < 10_000; i++) {
 			ByteString format = new ByteString(String.format("%04d", i));
 			index.index("key", format.toString(), i);
-			m.getSeriesListAsList().add(new SeriesFieldMap(format));
+			m.getSeriesListAsList().add(new SeriesFieldMap(format, i));
 		}
 
 		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9990");
@@ -180,12 +180,12 @@ public class TestMappedBitmapTagIndex {
 		new File(indexDir).mkdirs();
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, "d", "m", "target/s9/i/bitmap", "target/s9/d/bitmap", new DBMetadata(), null);
+		m.configure(conf, engine, 4096, "d", "m", "target/s9/i/bitmap", "target/s9/d/bitmap", new DBMetadata(), null);
 		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s9", m);
 		for (int i = 0; i < 10; i++) {
 			ByteString format = new ByteString(String.format("%04d", i));
 			index.index("key", format.toString(), i / 2);
-			m.getSeriesListAsList().add(new SeriesFieldMap(format));
+			m.getSeriesListAsList().add(new SeriesFieldMap(format, i));
 		}
 
 		TagFilter filter = new ComplexTagFilter(ComplexFilterType.AND,
@@ -214,13 +214,13 @@ public class TestMappedBitmapTagIndex {
 		new File(indexDir).mkdirs();
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, "d", "m", "target/s9/i/bitmap", "target/s9/d/bitmap", new DBMetadata(), null);
+		m.configure(conf, engine, 4096, "d", "m", "target/s9/i/bitmap", "target/s9/d/bitmap", new DBMetadata(), null);
 		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s9", m);
 		long ts = System.currentTimeMillis();
 		for (int i = 0; i < 10_000; i++) {
 			index.index("key", String.valueOf(i), i);
 			ByteString valueOf = new ByteString(String.valueOf(i));
-			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf));
+			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf, i));
 		}
 		ts = System.currentTimeMillis() - ts;
 		System.out.println("Time:" + ts);
@@ -246,12 +246,12 @@ public class TestMappedBitmapTagIndex {
 		new File(indexDir).mkdirs();
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, "d", "m", "target/s10/i/bitmap", "target/s10/d/bitmap", new DBMetadata(), null);
+		m.configure(conf, engine, 4096, "d", "m", "target/s10/i/bitmap", "target/s10/d/bitmap", new DBMetadata(), null);
 		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s10", m);
 		for (int i = 0; i < 10_000; i++) {
 			ByteString format = new ByteString(String.format("%05d", i));
 			index.index("key", format.toString(), i);
-			m.getSeriesListAsList().add(new SeriesFieldMap(format));
+			m.getSeriesListAsList().add(new SeriesFieldMap(format, i));
 		}
 
 		TagFilter filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "00000");

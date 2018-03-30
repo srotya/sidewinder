@@ -17,15 +17,11 @@ package com.srotya.sidewinder.core.sql.calcite;
 
 import java.io.IOException;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import com.srotya.sidewinder.core.api.SqlApi;
-import com.srotya.sidewinder.core.rpc.Tag;
-import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
@@ -39,16 +35,17 @@ public class CalciteTest {
 		SqlApi api = new SqlApi(engine);
 		api.initCalcite();
 
-		long ts = System.currentTimeMillis();
-		TimeSeries s = engine.getOrCreateTimeSeries("db1", "m1", "v1",
-				Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),
-						Tag.newBuilder().setTagKey("t").setTagValue("2").build()),
-				1024, false);
-		for (int i = 0; i < 100; i++) {
-			s.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, i);
-		}
-
-		String queryResults = api.queryResults("db1", "select * from db1.m1 where time_stamp>1519945488603");
-		System.out.println(queryResults);
+		// long ts = System.currentTimeMillis();
+		// TimeSeries s = engine.getOrCreateTimeSeries("db1", "m1", "v1",
+		// Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),
+		// Tag.newBuilder().setTagKey("t").setTagValue("2").build()),
+		// 1024, false);
+		// for (int i = 0; i < 100; i++) {
+		// s.addDataPoint(TimeUnit.MILLISECONDS, ts + i * 1000, i);
+		// }
+		//
+		// String queryResults = api.queryResults("db1", "select * from db1.m1 where
+		// time_stamp>1519945488603");
+		// System.out.println(queryResults);
 	}
 }

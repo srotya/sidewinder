@@ -16,7 +16,6 @@
 package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -29,7 +28,6 @@ import java.util.logging.Logger;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
-import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -143,14 +141,6 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int retentionHours) throws IOException {
-		TimeSeries series = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags, defaultTimebucketSize,
-				true);
-		series.setRetentionHours(retentionHours);
-	}
-
-	@Override
 	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, int retentionHours)
 			throws IOException {
 		if (!checkIfExists(dbName, measurementName)) {
@@ -218,8 +208,8 @@ public class MemStorageEngine implements StorageEngine {
 			synchronized (measurementMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					measurement = new MemoryMeasurement();
-					measurement.configure(conf, this, dbName, measurementName, "", "", dbMetadataMap.get(dbName),
-							bgTaskPool);
+					measurement.configure(conf, this, getDefaultTimebucketSize(), dbName, measurementName, "", "",
+							dbMetadataMap.get(dbName), bgTaskPool);
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
 					metricsMeasurementCounter.inc();
@@ -227,19 +217,6 @@ public class MemStorageEngine implements StorageEngine {
 			}
 		}
 		return measurement;
-	}
-
-	@Override
-	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int timeBucketSize, boolean fp) throws IOException {
-		// check and create database map
-		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
-
-		// check and create measurement map
-		Measurement measurement = getOrCreateMeasurement(dbMap, dbName, measurementName);
-
-		// check and create timeseries
-		return measurement.getOrCreateTimeSeries(valueFieldName, tags, timeBucketSize, fp, conf);
 	}
 
 	@Override

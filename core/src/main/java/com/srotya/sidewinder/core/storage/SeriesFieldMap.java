@@ -15,27 +15,83 @@
  */
 package com.srotya.sidewinder.core.storage;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
+import com.srotya.sidewinder.core.rpc.Point;
+
+/**
+ * @author ambud
+ */
 public class SeriesFieldMap {
-	
+
+	private static final Logger logger = Logger.getLogger(SeriesFieldMap.class.getName());
 	private Object seriesId;
 	private Map<String, TimeSeries> seriesMap;
-	
-	public SeriesFieldMap(Object seriesId) {
+	private int fieldMapIndex;
+
+	public SeriesFieldMap(Object seriesId, int fieldMapIndex) {
 		this.seriesId = seriesId;
+		this.fieldMapIndex = fieldMapIndex;
 		seriesMap = new ConcurrentHashMap<>();
 	}
-	
+
 	public Set<String> getFields() {
 		return seriesMap.keySet();
 	}
 
-	public void addSeries(String valueFieldName, TimeSeries series) {
-		seriesMap.put(valueFieldName, series);
+	public TimeSeries getOrCreateSeries(String valueFieldName, int timeBucketSize, boolean fp, Measurement measurement)
+			throws IOException {
+		TimeSeries series = get(valueFieldName);
+		if (series == null) {
+			synchronized (seriesId) {
+				if ((series = get(valueFieldName)) == null) {
+					ByteString fieldId = new ByteString(seriesId + Measurement.SERIESID_SEPARATOR + valueFieldName);
+					series = new TimeSeries(measurement, fieldId, timeBucketSize, measurement.getMetadata(), fp,
+							measurement.getConf());
+					seriesMap.put(valueFieldName, series);
+					measurement.appendTimeseriesToMeasurementMetadata(fieldId, fp, timeBucketSize, fieldMapIndex);
+					logger.info(
+							"Created new timeseries:" + series + " for measurement:" + measurement.getMeasurementName()
+									+ "\t" + seriesId + "\t" + measurement.getMetadata().getRetentionHours() + "\t"
+									+ measurement.getSeriesList().size());
+				} else {
+					// in case there was contention and we have to re-check the cache
+					series = get(valueFieldName);
+				}
+			}
+		}
+		return series;
+	}
+
+	public void addDataPointLocked(String valueFieldName, int timeBucketSize, boolean fp, TimeUnit unit, long timestamp,
+			long value, Measurement m) throws IOException {
+		TimeSeries ts = getOrCreateSeries(valueFieldName, timeBucketSize, fp, m);
+		if (ts.isFp() != fp) {
+			throw StorageEngine.FP_MISMATCH_EXCEPTION;
+		}
+		ts.addDataPointLocked(TimeUnit.MILLISECONDS, timestamp, value);
+	}
+
+	public void addPointUnlocked(Point dp, int timeBucketSize, Measurement m) throws IOException {
+		for (int i = 0; i < dp.getFpList().size(); i++) {
+			TimeSeries ts = getOrCreateSeries(dp.getValueFieldNameList().get(i), timeBucketSize, dp.getFpList().get(i),
+					m);
+			ts.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getValueList().get(i));
+		}
+	}
+
+	public synchronized void addPointLocked(Point dp, int timeBucketSize, Measurement m) throws IOException {
+		for (int i = 0; i < dp.getFpList().size(); i++) {
+			TimeSeries ts = getOrCreateSeries(dp.getValueFieldNameList().get(i), timeBucketSize, dp.getFpList().get(i),
+					m);
+			ts.addDataPoint(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getValueList().get(i));
+		}
 	}
 
 	public TimeSeries get(String valueFieldName) {
@@ -44,6 +100,7 @@ public class SeriesFieldMap {
 
 	/**
 	 * Must close before modifying this via iterator
+	 * 
 	 * @return
 	 */
 	public Collection<? extends TimeSeries> values() {
@@ -58,18 +115,21 @@ public class SeriesFieldMap {
 	}
 
 	/**
-	 * @param seriesId the seriesId to set
+	 * @param seriesId
+	 *            the seriesId to set
 	 */
 	public void setSeriesId(String seriesId) {
 		this.seriesId = seriesId;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
 	public String toString() {
-		return "SeriesFieldMap [seriesMap=" + seriesMap + "]";
+		return "SeriesFieldMap [seriesId=" + seriesId + " seriesMap=" + seriesMap + "]";
 	}
 
 }

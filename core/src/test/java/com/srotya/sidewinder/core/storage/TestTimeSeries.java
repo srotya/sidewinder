@@ -63,7 +63,7 @@ public class TestTimeSeries {
 		Measurement measurement = new MockMeasurement(100);
 		DBMetadata metadata = new DBMetadata(24);
 		TimeSeries series = new TimeSeries(measurement, new ByteString("2214abfa"), 4096, metadata, true, conf);
-		assertEquals("2214abfa", series.getSeriesId().toString());
+		assertEquals("2214abfa", series.getFieldId().toString());
 		assertEquals(4096, series.getTimeBucketSize());
 		assertEquals((24 * 3600) / 4096, series.getRetentionBuckets());
 	}
@@ -198,7 +198,7 @@ public class TestTimeSeries {
 			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i * 0.1);
 		}
 
-		assertEquals(SID2, ts.getSeriesId());
+		assertEquals(SID2, ts.getFieldId());
 		assertTrue(!ts.isFp());
 
 		// ts = new TimeSeries(measurement, SID2, 4096 *
@@ -228,7 +228,7 @@ public class TestTimeSeries {
 			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i);
 		}
 
-		assertEquals(SID2, ts.getSeriesId());
+		assertEquals(SID2, ts.getFieldId());
 		assertEquals(4, ts.getBucketMap().values().size());
 		assertTrue(!ts.isFp());
 
@@ -514,7 +514,7 @@ public class TestTimeSeries {
 					try {
 						long timestamp = curr + k * 4000;
 						if (timestamp < (1497720652566L + 4096 * 1000)) {
-							series.addDataPoint(TimeUnit.MILLISECONDS, timestamp, k);
+							series.addDataPointLocked(TimeUnit.MILLISECONDS, timestamp, k);
 						} else {
 							break;
 						}
