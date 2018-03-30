@@ -81,9 +81,9 @@ public class PersistentMeasurement implements Measurement {
 	private int timeBucketSize;
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName, String measurementName,
-			String indexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
-			throws IOException {
+	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
+			String measurementName, String indexDirectory, String dataDirectory, DBMetadata metadata,
+			ScheduledExecutorService bgTaskPool) throws IOException {
 		timeBucketSize = defaultTimeBucketSize;
 		this.dbName = dbName;
 		this.measurementName = measurementName;
@@ -136,8 +136,10 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags) throws IOException {
-		Collections.sort(tags, TAG_COMPARATOR);
+	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags, boolean preSorted) throws IOException {
+		if (!preSorted) {
+			Collections.sort(tags, TAG_COMPARATOR);
+		}
 		ByteString seriesId = constructSeriesId(tags, tagIndex);
 		int index = 0;
 		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);

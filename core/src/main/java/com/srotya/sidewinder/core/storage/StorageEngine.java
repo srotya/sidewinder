@@ -75,6 +75,7 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_ON_START = "false";
 	public static final String COMPACTION_RATIO = "compaction.ratio";
 	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
+	public static final boolean ENABLE_METHOD_METRICS = Boolean.parseBoolean(System.getProperty("debug.method.metrics", "false"));
 
 	/**
 	 * @param conf
@@ -98,27 +99,27 @@ public interface StorageEngine {
 	public void disconnect() throws IOException;
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, long value, boolean fp) throws IOException {
+			long timestamp, long value, boolean fp, boolean presorted) throws IOException {
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
 		Measurement m = getOrCreateMeasurement(dbName, measurementName);
-		m.addDataPoint(valueFieldName, tags, timestamp, value, fp);
+		m.addDataPoint(valueFieldName, tags, timestamp, value, fp, presorted);
 		getCounter().inc();
 	}
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, long value) throws IOException {
-		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value, true);
+			long timestamp, long value, boolean presorted) throws IOException {
+		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value, true, presorted);
 	}
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, double value) throws IOException {
-		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), false);
+			long timestamp, double value, boolean presorted) throws IOException {
+		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), false, presorted);
 	}
 
-	public default void writeDataPoint(Point dp) throws IOException {
+	public default void writeDataPoint(Point dp, boolean preSorted) throws IOException {
 		StorageEngine.validatePoint(dp);
 		Measurement m = getOrCreateMeasurement(dp.getDbName(), dp.getMeasurementName());
-		m.addPoint(dp);
+		m.addPoint(dp, preSorted);
 	}
 
 	/**
@@ -381,7 +382,7 @@ public interface StorageEngine {
 	public default void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
 			List<Tag> tags, int retentionHours) throws IOException {
 		Measurement m = getOrCreateMeasurement(dbName, measurementName);
-		SeriesFieldMap s = m.getOrCreateSeriesFieldMap(tags);
+		SeriesFieldMap s = m.getOrCreateSeriesFieldMap(tags, false);
 		TimeSeries series = s.getOrCreateSeries(valueFieldName, getDefaultTimebucketSize(), false, m);
 		if (series != null) {
 			series.setRetentionHours(retentionHours);

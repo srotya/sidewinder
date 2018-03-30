@@ -135,7 +135,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags) throws IOException {
+	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags, boolean preSorted) throws IOException {
 		// TODO Auto-generated method stub
 		return null;
 	}

@@ -21,7 +21,6 @@ import java.util.List;
 
 import javax.validation.constraints.NotNull;
 
-import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.RejectException;
@@ -79,7 +78,5 @@ public interface Writer {
 
 	@NotNull
 	public LinkedByteString getBufferId();
-
-	public int writePoint(List<Point> dps) throws IOException;
 
 }

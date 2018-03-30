@@ -73,7 +73,7 @@ public interface Measurement {
 
 	public void close() throws IOException;
 
-	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags) throws IOException;
+	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags, boolean preSorted) throws IOException;
 
 	@Deprecated
 	public static void indexRowKey(TagIndex tagIndex, String rowKey, List<Tag> tags) throws IOException {
@@ -150,24 +150,24 @@ public interface Measurement {
 		return getTagIndex().searchRowKeysForTagFilter(tagFilterTree);
 	}
 
-	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value, boolean fp)
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value, boolean fp, boolean presorted)
 			throws IOException {
-		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(tags);
+		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(tags, presorted);
 		fieldMap.addDataPointLocked(valueFieldName, getTimeBucketSize(), fp, TimeUnit.MILLISECONDS, timestamp, value, this);
 	}
 	
-	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value)
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value, boolean presorted)
 			throws IOException {
-		addDataPoint(valueFieldName, tags, timestamp, value, false);
+		addDataPoint(valueFieldName, tags, timestamp, value, false, presorted);
 	}
 	
-	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, double value)
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, double value, boolean fp, boolean presorted)
 			throws IOException {
-		addDataPoint(valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true);
+		addDataPoint(valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true, presorted);
 	}
 
-	public default void addPoint(Point dp) throws IOException {
-		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(new ArrayList<>(dp.getTagsList()));
+	public default void addPoint(Point dp, boolean preSorted) throws IOException {
+		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(new ArrayList<>(dp.getTagsList()), preSorted);
 		fieldMap.addPointLocked(dp, getTimeBucketSize(), this);
 	}
 

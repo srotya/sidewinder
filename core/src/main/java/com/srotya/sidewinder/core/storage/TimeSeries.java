@@ -35,6 +35,10 @@ import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
+import com.codahale.metrics.Timer.Context;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Tag;
@@ -74,6 +78,9 @@ public class TimeSeries {
 	public static double compactionRatio;
 	public static Class<Writer> compressionClass;
 	public static Class<Writer> compactionClass;
+	private Timer timerGetCreateSeriesBuckets;
+	private Timer timerCreateWriter;
+	private Timer timerCompaction;
 
 	/**
 	 * @param measurement
@@ -98,9 +105,24 @@ public class TimeSeries {
 				conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, StorageEngine.DEFAULT_COMPACTION_ENABLED));
 		compactionRatio = Double
 				.parseDouble(conf.getOrDefault(StorageEngine.COMPACTION_RATIO, StorageEngine.DEFAULT_COMPACTION_RATIO));
+		checkAndEnableMethodIndexing();
+	}
+
+	private void checkAndEnableMethodIndexing() {
+		if (StorageEngine.ENABLE_METHOD_METRICS && MetricsRegistryService.getInstance() != null) {
+			logger.finest(() -> "Enabling method metrics for:" + fieldId);
+			MetricRegistry methodMetrics = MetricsRegistryService.getInstance().getInstance("method-metrics");
+			timerGetCreateSeriesBuckets = methodMetrics.timer("getCreateSeriesBucket");
+			timerCreateWriter = methodMetrics.timer("createNewWriter");
+			timerCompaction = methodMetrics.timer("compact");
+		}
 	}
 
 	public Writer getOrCreateSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
+		Context ctx = null;
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx = timerGetCreateSeriesBuckets.time();
+		}
 		int tsBucket = getTimeBucketInt(unit, timestamp, timeBucketSize);
 		List<Writer> list = bucketMap.get(tsBucket);
 		if (list == null) {
@@ -134,6 +156,9 @@ public class TimeSeries {
 				compactionCandidateSet.put(tsBucket, list);
 			}
 		}
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx.stop();
+		}
 		return ans;
 	}
 
@@ -143,6 +168,10 @@ public class TimeSeries {
 	}
 
 	private Writer createNewWriter(long timestamp, int tsBucket, List<Writer> list) throws IOException {
+		Context ctx = null;
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx = timerCreateWriter.time();
+		}
 		BufferObject bufPair = measurement.getMalloc().createNewBuffer(fieldId, tsBucket);
 		bufPair.getBuf().put((byte) CompressionFactory.getIdByClass(compressionClass));
 		bufPair.getBuf().put((byte) list.size());
@@ -156,6 +185,9 @@ public class TimeSeries {
 		bucketCount++;
 		logger.fine(() -> "Created new writer for:" + tsBucket + " timstamp:" + timestamp + " buckectInfo:"
 				+ bufPair.getBufferId());
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx.stop();
+		}
 		return writer;
 	}
 
@@ -407,7 +439,7 @@ public class TimeSeries {
 			logger.log(Level.SEVERE, "\n\nNPE occurred for add datapoint operation\n\n", e);
 		}
 	}
-	
+
 	public void addDataPointLocked(TimeUnit unit, long timestamp, long value) throws IOException {
 		Writer timeseriesBucket = getOrCreateSeriesBucketLocked(unit, timestamp);
 		try {
@@ -645,6 +677,10 @@ public class TimeSeries {
 	 */
 	@SafeVarargs
 	public final List<Writer> compact(Consumer<List<Writer>>... functions) throws IOException {
+		Context ctx = null;
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx = timerCompaction.time();
+		}
 		// this loop only executes if there are any candidate buffers in the set
 		// buckets should be moved out of the compaction set once they are
 		// compacted
@@ -743,6 +779,9 @@ public class TimeSeries {
 								+ " compression ratio:" + rawBytes.position() + " original:" + total);
 			}
 		}
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx.stop();
+		}
 		return compactedWriter;
 	}
 
@@ -836,6 +875,10 @@ public class TimeSeries {
 	// }
 
 	public Writer getOrCreateSeriesBucketLocked(TimeUnit unit, long timestamp) throws IOException {
+		Context ctx = null;
+		if (StorageEngine.ENABLE_METHOD_METRICS) {
+			ctx = timerGetCreateSeriesBuckets.time();
+		}
 		int tsBucket = getTimeBucketInt(unit, timestamp, timeBucketSize);
 		List<Writer> list = bucketMap.get(tsBucket);
 		if (list == null) {
@@ -875,6 +918,9 @@ public class TimeSeries {
 						compactionCandidateSet.put(tsBucket, list);
 					}
 				}
+			}
+			if (StorageEngine.ENABLE_METHOD_METRICS) {
+				ctx.stop();
 			}
 			return ans;
 		}

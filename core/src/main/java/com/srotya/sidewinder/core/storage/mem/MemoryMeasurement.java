@@ -89,8 +89,10 @@ public class MemoryMeasurement implements Measurement {
 
 	@SuppressWarnings("deprecation")
 	@Override
-	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags) throws IOException {
-		Collections.sort(tags, TAG_COMPARATOR);
+	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags, boolean preSorted) throws IOException {
+		if (!preSorted) {
+			Collections.sort(tags, TAG_COMPARATOR);
+		}
 		ByteString seriesId = constructSeriesId(tags, tagIndex);
 		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
 		if (seriesFieldMap == null) {

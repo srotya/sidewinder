@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.compression.Codec;
@@ -118,23 +117,6 @@ public class ByzantineWriter implements Writer {
 		} finally {
 			write.unlock();
 		}
-	}
-
-	@Override
-	public int writePoint(List<Point> dps) {
-		write.lock();
-		int i = 0;
-		try {
-			for (i = 0; i < dps.size(); i++) {
-				Point point = dps.get(i);
-				writeDataPoint(point.getTimestamp(), point.getValue());
-			}
-		} catch (IOException e) {
-			// don't throw exception; simply return a count lower than excepted
-		} finally {
-			write.unlock();
-		}
-		return i;
 	}
 
 	/**
