@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.storage;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,7 +26,7 @@ public class LinkedByteString {
 	public LinkedByteString() {
 		stringList = new ArrayList<>();
 	}
-	
+
 	public LinkedByteString(int size) {
 		stringList = new ArrayList<>(size);
 	}
@@ -90,6 +91,18 @@ public class LinkedByteString {
 			builder.append(entry.toString());
 		}
 		return builder.toString();
+	}
+
+	public byte[] getBytes() {
+		int capacity = 0;
+		for (ByteString entry : stringList) {
+			capacity += entry.length();
+		}
+		ByteBuffer buf = ByteBuffer.allocate(capacity);
+		for (ByteString entry : stringList) {
+			buf.put(entry.getBytes());
+		}
+		return buf.array();
 	}
 
 }

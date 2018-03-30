@@ -27,13 +27,17 @@ public class ByteString implements Comparable<ByteString> {
 
 	private byte[] data;
 
+	public static ByteString get(String str) {
+		return new ByteString(str);
+	}
+
 	public ByteString(String str) {
 		data = new byte[str.length()];
 		for (int i = 0; i < str.length(); i++) {
 			data[i] = (byte) str.charAt(i);
 		}
 	}
-
+	
 	public ByteString(ByteString str) {
 		data = new byte[str.length()];
 		for (int i = 0; i < str.length(); i++) {
@@ -53,7 +57,7 @@ public class ByteString implements Comparable<ByteString> {
 		}
 	}
 
-	private ByteString(byte[] str) {
+	public ByteString(byte[] str) {
 		data = str;
 	}
 
@@ -167,6 +171,10 @@ public class ByteString implements Comparable<ByteString> {
 			return e;
 		}
 
+	}
+
+	public byte[] getBytes() {
+		return data;
 	}
 
 }

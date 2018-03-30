@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.compression.Codec;
@@ -66,8 +67,7 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void configure(ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
-			throws IOException {
+	public void configure(ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking) throws IOException {
 		this.startOffset = startOffset;
 		if (isLocking) {
 			ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
@@ -120,12 +120,30 @@ public class ByzantineWriter implements Writer {
 		}
 	}
 
+	@Override
+	public int writePoint(List<Point> dps) {
+		write.lock();
+		int i = 0;
+		try {
+			for (i = 0; i < dps.size(); i++) {
+				Point point = dps.get(i);
+				writeDataPoint(point.getTimestamp(), point.getValue());
+			}
+		} catch (IOException e) {
+			// don't throw exception; simply return a count lower than excepted
+		} finally {
+			write.unlock();
+		}
+		return i;
+	}
+
 	/**
 	 * 
 	 * @param dp
 	 * @throws IOException
 	 */
-	private void writeDataPoint(long timestamp, long value) throws IOException {
+	protected void writeDataPoint(long timestamp, long value) throws IOException {
+
 		if (readOnly) {
 			throw WRITE_REJECT_EXCEPTION;
 		}
@@ -134,6 +152,7 @@ public class ByzantineWriter implements Writer {
 		compressAndWriteValue(buf, value);
 		count++;
 		updateCount();
+
 	}
 
 	private void compressAndWriteValue(ByteBuffer tBuf, long value) {

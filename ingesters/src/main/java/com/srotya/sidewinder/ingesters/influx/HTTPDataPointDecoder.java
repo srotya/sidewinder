@@ -136,7 +136,7 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 						meter.inc(dps.size());
 						for (Point dp : dps) {
 							try {
-								engine.writeDataPoint(dp);
+								engine.writeDataPoint(dp, false);
 								logger.fine("Accepted:" + dp + "\t" + new Date(dp.getTimestamp()));
 							} catch (IOException e) {
 								logger.fine("Dropped:" + dp + "\t" + e.getMessage());

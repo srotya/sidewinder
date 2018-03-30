@@ -49,7 +49,8 @@ public class InfluxApi {
 
 	@POST
 	@Consumes({ MediaType.TEXT_PLAIN })
-	public void insertData(@QueryParam("db") String dbName, String payload) {
+	public void insertData(@QueryParam("db") String dbName, @QueryParam("preSorted") boolean preSorted,
+			String payload) {
 		if (payload == null) {
 			throw new BadRequestException("Empty request no acceptable");
 		}
@@ -60,7 +61,7 @@ public class InfluxApi {
 		meter.mark(dps.size());
 		for (Point dp : dps) {
 			try {
-				storageEngine.writeDataPoint(dp);
+				storageEngine.writeDataPoint(dp, preSorted);
 			} catch (IOException e) {
 				e.printStackTrace();
 				throw new BadRequestException(e);

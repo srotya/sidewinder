@@ -86,14 +86,14 @@ public class ResourceMonitor {
 		try {
 			storageEngine.writeDataPoint(DB, "gc", "count",
 					Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-					System.currentTimeMillis(), count);
+					System.currentTimeMillis(), count, true);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
 		try {
 			storageEngine.writeDataPoint(DB, "gc", "time",
 					Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-					System.currentTimeMillis(), time);
+					System.currentTimeMillis(), time, true);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
@@ -104,7 +104,7 @@ public class ResourceMonitor {
 		try {
 			storageEngine.writeDataPoint(DB, "cpu", "load",
 					Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-					System.currentTimeMillis(), systemLoadAverage);
+					System.currentTimeMillis(), systemLoadAverage, true);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
@@ -119,7 +119,7 @@ public class ResourceMonitor {
 		try {
 			storageEngine.writeDataPoint(DB, "memory", "used",
 					Arrays.asList(Tag.newBuilder().setTagKey("type").setTagValue(type).build()),
-					System.currentTimeMillis(), used);
+					System.currentTimeMillis(), used, true);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
@@ -127,7 +127,7 @@ public class ResourceMonitor {
 		try {
 			storageEngine.writeDataPoint(DB, "memory", "max",
 					Arrays.asList(Tag.newBuilder().setTagKey("type").setTagValue(type).build()),
-					System.currentTimeMillis(), used);
+					System.currentTimeMillis(), used, true);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}

@@ -20,7 +20,7 @@ public interface Malloc {
 	public Map<ByteString, List<Entry<Integer, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException;
 
 	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine,
-			ScheduledExecutorService bgTaskPool, ReentrantLock lock);
+			ScheduledExecutorService bgTaskPool, ReentrantLock lock) throws IOException;
 
 	public void close() throws IOException;
 

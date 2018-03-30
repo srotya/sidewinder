@@ -41,6 +41,7 @@ import com.srotya.sidewinder.core.functions.multiseries.ChainFunction;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**
@@ -306,6 +307,18 @@ public class MiscUtils {
 	public static void writeStringToBuffer(String str, ByteBuffer buf) {
 		buf.putShort((short) str.length());
 		buf.put(str.getBytes());
+	}
+
+	public static void writeByteStringToBuffer(byte[] str, ByteBuffer buf) {
+		buf.putShort((short) str.length);
+		buf.put(str);
+	}
+
+	public static ByteString getByteStringFromBuffer(ByteBuffer buf) {
+		short length = buf.getShort();
+		byte[] dst = new byte[length];
+		buf.get(dst);
+		return new ByteString(dst);
 	}
 
 	public static String getStringFromBuffer(ByteBuffer buf) {

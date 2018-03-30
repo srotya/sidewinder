@@ -22,13 +22,13 @@ import org.junit.Test;
 public class TestByteString {
 
 	@Test
-	public void testSubString() {
+	public void testSplits() {
 		ByteString str = new ByteString("abcdefg");
 		ByteString[] split = str.split("e");
 		assertEquals(2, split.length);
 		assertEquals("abcd", split[0].toString());
 		assertEquals("fg", split[1].toString());
-		
+
 		str = new ByteString("ab=cd=fg=asaa");
 		split = str.split("=");
 		assertEquals(4, split.length);
@@ -38,4 +38,17 @@ public class TestByteString {
 		assertEquals("asaa", split[3].toString());
 	}
 
+	@Test
+	public void testToBytes() {
+		ByteString str = new ByteString("abcdefg");
+		assertEquals(7, str.getBytes().length);
+		assertEquals(7, str.length());
+	}
+
+	@Test
+	public void testToBytesLinkedByteString() {
+		LinkedByteString bs = new LinkedByteString(ByteString.get("abcd"), ByteString.get("efgh"),
+				ByteString.get("ijkl"));
+		assertEquals(12, bs.getBytes().length);
+	}
 }
