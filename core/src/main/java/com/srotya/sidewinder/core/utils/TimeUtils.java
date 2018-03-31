@@ -144,4 +144,8 @@ public class TimeUtils {
 	public static long getTimeFromBucketString(String hexTimeInSeconds) {
 		return Integer.parseInt(hexTimeInSeconds, 16) * 1000;
 	}
+
+	public static long getTimeFromBucketString(int timeInSeconds) {
+		return timeInSeconds * 1000;
+	}
 }

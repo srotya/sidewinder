@@ -56,7 +56,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 public class DiskMalloc implements Malloc {
 
 	private static final int BUF_PARTS_LENGTH = 9;
-	protected static boolean debug = false;
+	public static boolean debug = false;
 	private static final int PTR_INCREMENT = 1048576;
 	private static final ByteString SEPARATOR = new ByteString(")");
 	private static final Logger logger = Logger.getLogger(DiskMalloc.class.getName());

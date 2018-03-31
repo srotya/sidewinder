@@ -93,7 +93,7 @@ public class TestByzantineReadWrite {
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 10; i++) {
-			writer.addValue(ts + i, i);
+			writer.addValueLocked(ts + i, i);
 		}
 		assertEquals(10, bwriter.getCount());
 		assertEquals(ts + 9, bwriter.getPrevTs());
@@ -112,7 +112,7 @@ public class TestByzantineReadWrite {
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
-			writer.addValue(ts + i * 10, i);
+			writer.addValueLocked(ts + i * 10, i);
 		}
 
 		Reader reader = writer.getReader();
@@ -145,7 +145,7 @@ public class TestByzantineReadWrite {
 		writer.setHeaderTimestamp(ts);
 		int LIMIT = 10000;
 		for (int i = 0; i < LIMIT; i++) {
-			writer.addValue(ts + i * 1000, i);
+			writer.addValueLocked(ts + i * 1000, i);
 		}
 		System.out.println("Compression Ratio:" + writer.getCompressionRatio());
 		Reader reader = writer.getReader();
@@ -160,7 +160,7 @@ public class TestByzantineReadWrite {
 		ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < LIMIT; i++) {
-			writer.addValue(ts + i * 1000, i * 1.1);
+			writer.addValueLocked(ts + i * 1000, i * 1.1);
 		}
 		reader = writer.getReader();
 		for (int i = 0; i < LIMIT; i++) {
@@ -222,7 +222,7 @@ public class TestByzantineReadWrite {
 				long t = ts + o;
 				for (int i = 0; i < LIMIT; i++) {
 					try {
-						writer.addValue(t + i * 100, i);
+						writer.addValueLocked(t + i * 100, i);
 					} catch (IOException e) {
 						throw new RuntimeException(e);
 					}
@@ -249,7 +249,7 @@ public class TestByzantineReadWrite {
 		writer.setHeaderTimestamp(ts);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
-			writer.addValue(ts + i * 1000, i);
+			writer.addValueLocked(ts + i * 1000, i);
 		}
 		System.out.println("Compression Ratio:" + writer.getCompressionRatio());
 		Reader reader = writer.getReader();
@@ -268,7 +268,7 @@ public class TestByzantineReadWrite {
 		writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValue(ots + i * 1000, i);
+			writer.addValueLocked(ots + i * 1000, i);
 		}
 		Reader reader = writer.getReader();
 		for (int i = 0; i < limit; i++) {
@@ -307,11 +307,11 @@ public class TestByzantineReadWrite {
 		writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValue(ots + i * 1000, i);
+			writer.addValueLocked(ots + i * 1000, i);
 		}
 		writer.makeReadOnly();
 		try {
-			writer.addValue(ots, 2L);
+			writer.addValueLocked(ots, 2L);
 			fail("Must throw exception once the buffer is marked as closed");
 		} catch (RejectException e) {
 		}
@@ -326,7 +326,7 @@ public class TestByzantineReadWrite {
 		writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValue(ots + i * 1000, i);
+			writer.addValueLocked(ots + i * 1000, i);
 		}
 		long ts = (System.currentTimeMillis() - ots);
 		System.out.println("==>Byzantine Write time:" + ts + " data size:" + writer.getBuf().position());
@@ -348,7 +348,7 @@ public class TestByzantineReadWrite {
 		buf.rewind();
 		writer.configure(buf, false, startOffset, true);
 		assertEquals(1000000, writer.getCount());
-		writer.addValue(ts + 10000, 1);
+		writer.addValueLocked(ts + 10000, 1);
 		try {
 			reader = writer.getReader();
 			for (int i = 0; i < limit; i++) {
@@ -373,7 +373,7 @@ public class TestByzantineReadWrite {
 		int limit = 1_000_000;
 		try {
 			for (int i = 0; i < limit; i++) {
-				writer.addValue(ots + i * 1000, i);
+				writer.addValueLocked(ots + i * 1000, i);
 			}
 			fail("Must fill up buffer");
 		} catch (RollOverException e) {
@@ -391,7 +391,7 @@ public class TestByzantineReadWrite {
 		assertEquals(ots, writer.getHeaderTimestamp());
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValue(ots + i * 1000, i);
+			writer.addValueLocked(ots + i * 1000, i);
 		}
 		ByzantineReader reader = writer.getReader();
 		int c = 0;
@@ -421,7 +421,7 @@ public class TestByzantineReadWrite {
 		writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValue(ots + i * 1000, i);
+			writer.addValueLocked(ots + i * 1000, i);
 		}
 		Reader reader = writer.getReader();
 		reader.setTimePredicate(new GreaterThanEqualsPredicate(ots + 1000));
@@ -534,7 +534,7 @@ public class TestByzantineReadWrite {
 		writer.setHeaderTimestamp(ts);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValue(ts + i * 1000, i);
+			writer.addValueLocked(ts + i * 1000, i);
 		}
 		ts = (System.currentTimeMillis() - ts);
 		System.out.println("Byzantine Write time:" + ts + " data size:" + writer.getBuf().position());

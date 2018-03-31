@@ -42,6 +42,8 @@ import com.srotya.sidewinder.core.rpc.GRPCServer;
 import com.srotya.sidewinder.core.security.AllowAllAuthorizer;
 import com.srotya.sidewinder.core.security.BasicAuthenticator;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.processor.PointProcessor;
+import com.srotya.sidewinder.core.storage.processor.PointProcessorABQ;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.dropwizard.Application;
@@ -157,7 +159,8 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		env.jersey().register(new DatabaseOpsApi(storageEngine));
 		env.jersey().register(new SqlApi(storageEngine));
 		if (Boolean.parseBoolean(conf.getOrDefault("jersey.influx", "true"))) {
-			env.jersey().register(new InfluxApi(storageEngine));
+			PointProcessor proc = new PointProcessorABQ(storageEngine, conf);
+			env.jersey().register(new InfluxApi(proc));
 		}
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
 

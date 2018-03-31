@@ -83,7 +83,7 @@ public class TestTimeSeries {
 				long t = ts + o;
 				try {
 					for (int j = 0; j < POINT_COUNT; j++) {
-						series.addDataPoint(TimeUnit.MILLISECONDS, t, j);
+						series.addDataPointUnlocked(TimeUnit.MILLISECONDS, t, j);
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -102,7 +102,7 @@ public class TestTimeSeries {
 		TimeSeries series = new TimeSeries(measurement, SID, 4096, metadata, true, conf);
 		long curr = System.currentTimeMillis();
 		for (int i = 1; i <= 3; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
 		}
 	}
 
@@ -113,7 +113,7 @@ public class TestTimeSeries {
 		TimeSeries series = new TimeSeries(measurement, SID, 4096, metadata, true, conf);
 		long curr = System.currentTimeMillis();
 		for (int i = 1; i <= 3; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
 		}
 		assertEquals(1, series.getBucketMap().size());
 		Writer writer = series.getBucketMap().values().iterator().next();
@@ -163,7 +163,7 @@ public class TestTimeSeries {
 		TimeSeries series = new TimeSeries(measurement, SID, 4096, metadata, true, conf);
 		long curr = 1484788896586L;
 		for (int i = 0; i <= 24; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
 		}
 		List<Reader> readers = series.queryReader("test", Arrays.asList(), curr, curr + (4096_000) * 23, null);
 		// should return 3 partitions
@@ -175,7 +175,7 @@ public class TestTimeSeries {
 		series = new TimeSeries(measurement, SID, 4096, metadata, true, conf);
 		curr = 1484788896586L;
 		for (int i = 0; i <= 24; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
 		}
 		readers = series.queryReader("test", Arrays.asList(), curr, curr + (4096_000) * 28, null);
 		// should return 25 partitions
@@ -195,7 +195,7 @@ public class TestTimeSeries {
 		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, metadata, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
-			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i * 0.1);
+			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i * 0.1);
 		}
 
 		assertEquals(SID2, ts.getFieldId());
@@ -225,7 +225,7 @@ public class TestTimeSeries {
 		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, metadata, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
-			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i);
+			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i);
 		}
 
 		assertEquals(SID2, ts.getFieldId());
@@ -255,7 +255,7 @@ public class TestTimeSeries {
 		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, metadata, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 10; i++) {
-			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i);
+			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i);
 		}
 		List<DataPoint> dps = ts.queryDataPoints("test", t, t + 1001, null);
 		assertEquals(10, dps.size());
@@ -275,7 +275,7 @@ public class TestTimeSeries {
 		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, metadata, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
-			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i);
+			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i);
 		}
 		List<DataPoint> dps = ts.queryDataPoints("test", t, t + 1001, null);
 		assertEquals(1000, dps.size());
@@ -303,7 +303,7 @@ public class TestTimeSeries {
 
 		String valueFieldName = "value";
 		for (int i = 1; i <= 10000; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
 
 		long ts = System.nanoTime();
@@ -362,7 +362,7 @@ public class TestTimeSeries {
 		String valueFieldName = "value";
 
 		for (int i = 1; i <= 10000; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
 
 		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
@@ -454,7 +454,7 @@ public class TestTimeSeries {
 		String valueFieldName = "value";
 
 		for (int i = 1; i <= 10000; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
 		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		int size = bucketRawMap.values().iterator().next().size();
@@ -554,7 +554,7 @@ public class TestTimeSeries {
 		String valueFieldName = "value";
 
 		for (int i = 1; i <= 10000; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
 
 		long ts = System.nanoTime();
@@ -589,7 +589,7 @@ public class TestTimeSeries {
 				}
 			}
 			try {
-				series.addDataPoint(TimeUnit.MILLISECONDS, curr + 1000 * 10001, 1.11);
+				series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + 1000 * 10001, 1.11);
 				bool.set(false);
 			} catch (IOException e) {
 				e.printStackTrace();

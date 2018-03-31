@@ -69,7 +69,7 @@ public class GorillaWriter implements Writer {
 	}
 
 	@Override
-	public void addValue(long timestamp, long value) throws IOException {
+	public void addValueLocked(long timestamp, long value) throws IOException {
 		compressor.addValue(timestamp, value);
 		counter++;
 	}
@@ -81,7 +81,7 @@ public class GorillaWriter implements Writer {
 	}
 
 	@Override
-	public void addValue(long timestamp, double value) throws IOException {
+	public void addValueLocked(long timestamp, double value) throws IOException {
 		compressor.addValue(timestamp, value);
 		counter++;
 	}

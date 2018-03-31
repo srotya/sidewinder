@@ -166,9 +166,14 @@ public interface Measurement {
 		addDataPoint(valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true, presorted);
 	}
 
-	public default void addPoint(Point dp, boolean preSorted) throws IOException {
+	public default void addPointLocked(Point dp, boolean preSorted) throws IOException {
 		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(new ArrayList<>(dp.getTagsList()), preSorted);
 		fieldMap.addPointLocked(dp, getTimeBucketSize(), this);
+	}
+	
+	public default void addPointUnlocked(Point dp, boolean preSorted) throws IOException {
+		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(new ArrayList<>(dp.getTagsList()), preSorted);
+		fieldMap.addPointUnlocked(dp, getTimeBucketSize(), this);
 	}
 
 	public int getTimeBucketSize();

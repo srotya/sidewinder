@@ -102,7 +102,7 @@ message RawTimeSeriesBucket {
 
 message Bucket {
 
-	string bucketId = 1;
+	int32 bucketId = 1;
 	int64 headerTimestamp = 2;
 	int32 count = 3;
 	bytes data = 4;

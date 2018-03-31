@@ -41,6 +41,7 @@ import com.srotya.sidewinder.core.storage.compression.Reader;
 /**
  * Interface for Timeseries Storage Engine
  * 
+ * 
  * @author ambud
  */
 public interface StorageEngine {
@@ -108,18 +109,26 @@ public interface StorageEngine {
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, long value, boolean presorted) throws IOException {
-		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value, true, presorted);
+		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value, false, presorted);
 	}
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, double value, boolean presorted) throws IOException {
-		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), false, presorted);
+		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true, presorted);
 	}
 
-	public default void writeDataPoint(Point dp, boolean preSorted) throws IOException {
+	public default void writeDataPointLocked(Point dp, boolean preSorted) throws IOException {
 		StorageEngine.validatePoint(dp);
 		Measurement m = getOrCreateMeasurement(dp.getDbName(), dp.getMeasurementName());
-		m.addPoint(dp, preSorted);
+		m.addPointLocked(dp, preSorted);
+		getCounter().inc(dp.getValueList().size());
+	}
+	
+	public default void writeDataPointUnlocked(Point dp, boolean preSorted) throws IOException {
+		StorageEngine.validatePoint(dp);
+		Measurement m = getOrCreateMeasurement(dp.getDbName(), dp.getMeasurementName());
+		m.addPointUnlocked(dp, preSorted);
+		getCounter().inc(dp.getValueList().size());
 	}
 
 	/**
@@ -383,7 +392,7 @@ public interface StorageEngine {
 			List<Tag> tags, int retentionHours) throws IOException {
 		Measurement m = getOrCreateMeasurement(dbName, measurementName);
 		SeriesFieldMap s = m.getOrCreateSeriesFieldMap(tags, false);
-		TimeSeries series = s.getOrCreateSeries(valueFieldName, getDefaultTimebucketSize(), false, m);
+		TimeSeries series = s.getOrCreateSeriesLocked(valueFieldName, getDefaultTimebucketSize(), false, m);
 		if (series != null) {
 			series.setRetentionHours(retentionHours);
 		}

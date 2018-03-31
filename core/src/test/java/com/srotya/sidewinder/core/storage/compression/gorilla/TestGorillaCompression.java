@@ -51,7 +51,7 @@ public class TestGorillaCompression {
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
-			writer.addValue(ts + i * 100, i);
+			writer.addValueLocked(ts + i * 100, i);
 		}
 		writer.makeReadOnly();
 		Reader reader = writer.getReader();
@@ -71,7 +71,7 @@ public class TestGorillaCompression {
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
-			writer.addValue(ts + i * 100, i * 1.1);
+			writer.addValueLocked(ts + i * 100, i * 1.1);
 		}
 		writer.makeReadOnly();
 		Reader reader = writer.getReader();
@@ -91,7 +91,7 @@ public class TestGorillaCompression {
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
-			writer.addValue(ts + i * 100, i * 1.1);
+			writer.addValueLocked(ts + i * 100, i * 1.1);
 		}
 		writer.makeReadOnly();
 		ByteBuffer rawBytes = writer.getRawBytes();

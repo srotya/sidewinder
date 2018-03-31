@@ -37,6 +37,9 @@ import io.grpc.stub.StreamObserver;
  */
 public class WriterServiceImpl extends WriterServiceImplBase {
 
+	private static final String GRPC_DISRUPTOR_ENABLED = "grpc.disruptor.enabled";
+	private static final String GRPC_DISRUPTOR_BUFFER_SIZE = "grpc.disruptor.buffer.size";
+	private static final String GRPC_DISRUPTOR_HANDLER_COUNT = "grpc.disruptor.handler.count";
 	private RingBuffer<DPWrapper> buffer;
 	private Disruptor<DPWrapper> disruptor;
 	private StorageEngine engine;
@@ -48,14 +51,14 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 	@SuppressWarnings("unchecked")
 	public WriterServiceImpl(StorageEngine engine, Map<String, String> conf) {
 		this.engine = engine;
-		disruptorEnable = Boolean.parseBoolean(conf.getOrDefault("grpc.disruptor.enabled", "false"));
+		disruptorEnable = Boolean.parseBoolean(conf.getOrDefault(GRPC_DISRUPTOR_ENABLED, "false"));
 		if (disruptorEnable) {
-			int bufferSize = Integer.parseInt(conf.getOrDefault("grpc.disruptor.buffer.size", "16384"));
+			int bufferSize = Integer.parseInt(conf.getOrDefault(GRPC_DISRUPTOR_BUFFER_SIZE, "65536"));
 			if (bufferSize % 2 != 0) {
 				throw new IllegalArgumentException("Disruptor buffers must always be power of 2");
 			}
 			translator = new DataPointTranslator();
-			handlerCount = Integer.parseInt(conf.getOrDefault("grpc.disruptor.handler.count", "2"));
+			handlerCount = Integer.parseInt(conf.getOrDefault(GRPC_DISRUPTOR_HANDLER_COUNT, "2"));
 			es = Executors.newFixedThreadPool(handlerCount + 2, new BackgrounThreadFactory("grpc-writers"));
 			disruptor = new Disruptor<>(new DPWrapperFactory(), bufferSize, es);
 			@SuppressWarnings("rawtypes")
@@ -76,7 +79,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			if (disruptorEnable) {
 				buffer.publishEvent(translator, point, request.getMessageId(), null);
 			} else {
-				engine.writeDataPoint(point, true);
+				engine.writeDataPointLocked(point, true);
 			}
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
 		} catch (Exception e) {
@@ -96,7 +99,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 				if (disruptorEnable) {
 					buffer.publishEvent(translator, point, request.getMessageId(), null);
 				} else {
-					engine.writeDataPoint(point, true);
+					engine.writeDataPointLocked(point, true);
 				}
 			}
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
@@ -254,7 +257,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			if (event.getHashValue() % handlerCount == handlerIndex) {
 				Ack ack = null;
 				try {
-					engine.writeDataPoint(event.getDp(), true);
+					engine.writeDataPointUnlocked(event.getDp(), true);
 					ack = Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(200).build();
 				} catch (IOException e) {
 					ack = Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(400).build();

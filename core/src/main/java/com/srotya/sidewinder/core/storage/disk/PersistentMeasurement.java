@@ -255,7 +255,7 @@ public class PersistentMeasurement implements Measurement {
 			} else {
 				fieldMap = seriesList.get(seriesIdx);
 			}
-			fieldMap.getOrCreateSeries(valueField, Integer.parseInt(timeBucketSize), Boolean.parseBoolean(isFp), this);
+			fieldMap.getOrCreateSeriesLocked(valueField, Integer.parseInt(timeBucketSize), Boolean.parseBoolean(isFp), this);
 			if (enableMetricsCapture) {
 				metricsTimeSeriesCounter.inc();
 			}

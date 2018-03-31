@@ -39,67 +39,74 @@ public class InfluxDecoder {
 	private static final int LENGTH_OF_MILLISECOND_TS = 13;
 	private static final Logger logger = Logger.getLogger(InfluxDecoder.class.getName());
 
+	public static List<String> lineFromPayLoad(String payload) {
+		return NEWLINE.splitToList(payload);
+	}
+
 	public static List<Point> pointsFromString(String dbName, String payload) {
 		List<Point> dps = new ArrayList<>();
 		try {
-			Iterable<String> splits = NEWLINE.splitToList(payload);
+			Iterable<String> splits = lineFromPayLoad(payload);
 			for (String split : splits) {
-				List<String> parts = SPACE.splitToList(split);
-				if (parts.size() < 2 || parts.size() > 3) {
-					// invalid datapoint => drop
-					continue;
+				Builder builder = pointFromLine(Point.newBuilder(), dbName, split);
+				if (builder != null) {
+					Point point = builder.build();
+					dps.add(point);
 				}
-				long timestamp = System.currentTimeMillis();
-				if (parts.size() == 3) {
-					timestamp = Long.parseLong(parts.get(2));
-					if (parts.get(2).length() > LENGTH_OF_MILLISECOND_TS) {
-						timestamp = timestamp / (1000 * 1000);
-					}
-				} else {
-					logger.info("Bad datapoint timestamp:" + parts.size());
-				}
-				List<String> key = COMMA.splitToList(parts.get(0));
-				String measurementName = key.get(0);
-				Set<Tag> tTags = new HashSet<>();
-				for (int i = 1; i < key.size(); i++) {
-					// Matcher matcher = TAG_PATTERN.matcher(key[i]);
-					// if (matcher.find()) {
-					// tTags.add(Tag.newBuilder().setTagKey(matcher.group(1)).setTagValue(matcher.group(2)).build());
-					// }
-
-					List<String> s = TAG.splitToList(key.get(i));
-					tTags.add(Tag.newBuilder().setTagKey(s.get(0)).setTagValue(s.get(1)).build());
-				}
-				List<Tag> tags = new ArrayList<>(tTags);
-				List<String> fields = COMMA.splitToList(parts.get(1));
-				Builder builder = Point.newBuilder();
-				builder.setDbName(dbName);
-				builder.setMeasurementName(measurementName);
-				builder.addAllTags(tags);
-				builder.setTimestamp(timestamp);
-				for (String field : fields) {
-					String[] fv = field.split("=");
-					String valueFieldName = fv[0];
-					if (!fv[1].endsWith("i")) {
-						double value = Double.parseDouble(fv[1]);
-						builder.addValueFieldName(valueFieldName);
-						builder.addValue(Double.doubleToLongBits(value));
-						builder.addFp(true);
-					} else {
-						fv[1] = fv[1].substring(0, fv[1].length() - 1);
-						long value = Long.parseLong(fv[1]);
-						builder.addValueFieldName(valueFieldName);
-						builder.addValue(value);
-						builder.addFp(false);
-					}
-				}
-				dps.add(builder.build());
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			logger.fine("Rejected:" + payload);
 		}
 		return dps;
+	}
+
+	public static Point.Builder pointFromLine(Point.Builder builder, String dbName, String line) {
+		builder.clear();
+		List<String> parts = SPACE.splitToList(line);
+		if (parts.size() < 2 || parts.size() > 3) {
+			// invalid datapoint => drop
+			return null;
+		}
+		long timestamp = System.currentTimeMillis();
+		if (parts.size() == 3) {
+			timestamp = Long.parseLong(parts.get(2));
+			if (parts.get(2).length() > LENGTH_OF_MILLISECOND_TS) {
+				timestamp = timestamp / (1000 * 1000);
+			}
+		} else {
+			logger.info("Bad datapoint timestamp:" + parts.size());
+		}
+		List<String> key = COMMA.splitToList(parts.get(0));
+		String measurementName = key.get(0);
+		Set<Tag> tTags = new HashSet<>();
+		for (int i = 1; i < key.size(); i++) {
+			List<String> s = TAG.splitToList(key.get(i));
+			tTags.add(Tag.newBuilder().setTagKey(s.get(0)).setTagValue(s.get(1)).build());
+		}
+		List<Tag> tags = new ArrayList<>(tTags);
+		List<String> fields = COMMA.splitToList(parts.get(1));
+		builder.setDbName(dbName);
+		builder.setMeasurementName(measurementName);
+		builder.addAllTags(tags);
+		builder.setTimestamp(timestamp);
+		for (String field : fields) {
+			String[] fv = field.split("=");
+			String valueFieldName = fv[0];
+			if (!fv[1].endsWith("i")) {
+				double value = Double.parseDouble(fv[1]);
+				builder.addValueFieldName(valueFieldName);
+				builder.addValue(Double.doubleToLongBits(value));
+				builder.addFp(true);
+			} else {
+				fv[1] = fv[1].substring(0, fv[1].length() - 1);
+				long value = Long.parseLong(fv[1]);
+				builder.addValueFieldName(valueFieldName);
+				builder.addValue(value);
+				builder.addFp(false);
+			}
+		}
+		return builder;
 	}
 
 }

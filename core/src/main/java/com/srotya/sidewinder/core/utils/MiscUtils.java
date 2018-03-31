@@ -349,4 +349,12 @@ public class MiscUtils {
 				.setTimestamp(timestamp).build();
 	}
 
+	public static int tagHashCode(List<Tag> tags) {
+		int hashCode = 0;
+		for (Tag tag : tags) {
+			hashCode = hashCode * 31 + tag.hashCode();
+		}
+		return hashCode;
+	}
+
 }

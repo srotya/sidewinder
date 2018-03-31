@@ -91,7 +91,7 @@ public class MeasurementOpsApi {
 		try {
 			Measurement m = engine.getOrCreateMeasurement(dbName, measurementName);
 			SeriesFieldMap fm = m.getOrCreateSeriesFieldMap(tags, false);
-			fm.getOrCreateSeries(series.get("valueField").getAsString(), series.get("timeBucket").getAsInt(),
+			fm.getOrCreateSeriesLocked(series.get("valueField").getAsString(), series.get("timeBucket").getAsInt(),
 					series.get("floatingPoint").getAsBoolean(), m);
 		} catch (IOException e) {
 			throw new InternalServerErrorException(e);

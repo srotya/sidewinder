@@ -33,9 +33,9 @@ public interface Writer {
 	public static final RollOverException BUF_ROLLOVER_EXCEPTION = new RollOverException();
 	public static final RejectException WRITE_REJECT_EXCEPTION = new RejectException();
 
-	public void addValue(long timestamp, long value) throws IOException;
+	public void addValueLocked(long timestamp, long value) throws IOException;
 
-	public void addValue(long timestamp, double value) throws IOException;
+	public void addValueLocked(long timestamp, double value) throws IOException;
 
 	// public void addValue(long timestamp, long[] value) throws IOException;
 

@@ -120,8 +120,8 @@ public class ByzantineWriter implements Writer {
 	}
 
 	/**
-	 * 
-	 * @param dp
+	 * @param timestamp
+	 * @param value
 	 * @throws IOException
 	 */
 	protected void writeDataPoint(long timestamp, long value) throws IOException {
@@ -185,8 +185,8 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void addValue(long timestamp, double value) throws IOException {
-		addValue(timestamp, Double.doubleToLongBits(value));
+	public void addValueLocked(long timestamp, double value) throws IOException {
+		addValueLocked(timestamp, Double.doubleToLongBits(value));
 	}
 
 	private void updateCount() {
@@ -204,7 +204,7 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void addValue(long timestamp, long value) throws IOException {
+	public void addValueLocked(long timestamp, long value) throws IOException {
 		try {
 			write.lock();
 			writeDataPoint(timestamp, value);

@@ -118,7 +118,7 @@ public class TimeSeries {
 		}
 	}
 
-	public Writer getOrCreateSeriesBucket(TimeUnit unit, long timestamp) throws IOException {
+	public Writer getOrCreateSeriesBucketUnlocked(TimeUnit unit, long timestamp) throws IOException {
 		Context ctx = null;
 		if (StorageEngine.ENABLE_METHOD_METRICS) {
 			ctx = timerGetCreateSeriesBuckets.time();
@@ -414,8 +414,8 @@ public class TimeSeries {
 	 *            of this data point
 	 * @throws IOException
 	 */
-	public void addDataPoint(TimeUnit unit, long timestamp, double value) throws IOException {
-		addDataPoint(unit, timestamp, Double.doubleToLongBits(value));
+	public void addDataPointUnlocked(TimeUnit unit, long timestamp, double value) throws IOException {
+		addDataPointUnlocked(unit, timestamp, Double.doubleToLongBits(value));
 	}
 
 	/**
@@ -429,12 +429,12 @@ public class TimeSeries {
 	 *            of this data point
 	 * @throws IOException
 	 */
-	public void addDataPoint(TimeUnit unit, long timestamp, long value) throws IOException {
-		Writer timeseriesBucket = getOrCreateSeriesBucket(unit, timestamp);
+	public void addDataPointUnlocked(TimeUnit unit, long timestamp, long value) throws IOException {
+		Writer timeseriesBucket = getOrCreateSeriesBucketUnlocked(unit, timestamp);
 		try {
-			timeseriesBucket.addValue(timestamp, value);
+			timeseriesBucket.addValueLocked(timestamp, value);
 		} catch (RollOverException e) {
-			addDataPoint(unit, timestamp, value);
+			addDataPointUnlocked(unit, timestamp, value);
 		} catch (NullPointerException e) {
 			logger.log(Level.SEVERE, "\n\nNPE occurred for add datapoint operation\n\n", e);
 		}
@@ -443,7 +443,7 @@ public class TimeSeries {
 	public void addDataPointLocked(TimeUnit unit, long timestamp, long value) throws IOException {
 		Writer timeseriesBucket = getOrCreateSeriesBucketLocked(unit, timestamp);
 		try {
-			timeseriesBucket.addValue(timestamp, value);
+			timeseriesBucket.addValueLocked(timestamp, value);
 		} catch (RollOverException e) {
 			addDataPointLocked(unit, timestamp, value);
 		} catch (NullPointerException e) {
@@ -454,7 +454,7 @@ public class TimeSeries {
 	public void addDataPoints(TimeUnit unit, List<DataPoint> dps) throws IOException {
 		Map<Writer, List<DataPoint>> dpMap = new HashMap<>();
 		for (DataPoint dp : dps) {
-			Writer writer = getOrCreateSeriesBucket(unit, dp.getTimestamp());
+			Writer writer = getOrCreateSeriesBucketUnlocked(unit, dp.getTimestamp());
 			List<DataPoint> dpx;
 			if (!dpMap.containsKey(writer)) {
 				dpMap.put(writer, dpx = new ArrayList<>());
@@ -725,7 +725,7 @@ public class TimeSeries {
 					Reader reader = input.getReader();
 					for (int k = 0; k < reader.getPairCount(); k++) {
 						long[] pair = reader.read();
-						writer.addValue(pair[0], pair[1]);
+						writer.addValueLocked(pair[0], pair[1]);
 						compactedPoints++;
 					}
 				}
