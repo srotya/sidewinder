@@ -63,10 +63,8 @@ public class DiskMalloc implements Malloc {
 	// 100MB default buffer increment size
 	private static final int DEFAULT_FILE_INCREMENT = 1048576;
 	private static final int DEFAULT_MAX_FILE_SIZE = Integer.MAX_VALUE;
-	private static final int DEFAULT_INCREMENT_SIZE = 32768;
 	public static final String CONF_MALLOC_PTRFILE_INCREMENT = "malloc.ptrfile.increment";
 	public static final String CONF_MEASUREMENT_FILE_MAX = "malloc.file.max";
-	public static final String CONF_MEASUREMENT_INCREMENT_SIZE = "malloc.buf.increment";
 	public static final String CONF_MEASUREMENT_FILE_INCREMENT = "malloc.file.increment";
 	private ReentrantLock lock;
 	private int ptrFileIncrement;

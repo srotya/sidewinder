@@ -222,7 +222,6 @@ public class TestMeasurement {
 				Tag.newBuilder().setTagKey("test2").setTagValue("2").build());
 		conf.put("disk.compression.class", ByzantineWriter.class.getName());
 		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
-		conf.put("buffer.size", String.valueOf(32768));
 		conf.put("malloc.ptrfile.increment", String.valueOf(1024));
 		conf.put("compaction.ratio", "1.2");
 		conf.put("compaction.enabled", "true");
@@ -363,7 +362,6 @@ public class TestMeasurement {
 		for (int p = 0; p < 100; p++) {
 			MiscUtils.delete(new File("target/measurement-common"));
 			final long t1 = 1497720452566L;
-			conf.put("buffer.size", String.valueOf(32768));
 			measurement.configure(conf, engine, 4096, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
 			ExecutorService es = Executors.newFixedThreadPool(2, new BackgrounThreadFactory("tlinear"));
 			final List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),

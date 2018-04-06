@@ -229,7 +229,7 @@ public class TestTimeSeries {
 		}
 
 		assertEquals(SID2, ts.getFieldId());
-		assertEquals(4, ts.getBucketMap().values().size());
+		assertEquals(1, ts.getBucketMap().values().size());
 		assertTrue(!ts.isFp());
 
 		// ts = new TimeSeries(measurement, SID2, 4096 *
