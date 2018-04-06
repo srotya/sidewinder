@@ -23,17 +23,13 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.Executors;
 
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.filters.ComplexTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
-import com.srotya.sidewinder.core.filters.TagFilter;
-import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
@@ -55,159 +51,6 @@ public class TestMappedBitmapTagIndex {
 	}
 
 	@Test
-	public void testDiskTagIndexBasic() throws IOException, InterruptedException {
-		MiscUtils.delete(new File("target/s6"));
-		String indexDir = "target/s6";
-		new File(indexDir).mkdirs();
-		PersistentMeasurement m = new PersistentMeasurement();
-		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, 4096, "d", "m", "target/s6/i/bitmap", "target/s6/d/bitmap", new DBMetadata(), null);
-		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s6", m);
-		long ts = System.currentTimeMillis();
-		for (int i = 0; i < 10_000; i++) {
-			index.index("key", String.valueOf(i), i);
-			ByteString valueOf = new ByteString(String.valueOf(i));
-			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf, i));
-		}
-		ts = System.currentTimeMillis() - ts;
-		System.out.println("Time:" + ts);
-
-		for (int i = 0; i < 10_000; i++) {
-			assertEquals(new HashSet<>(Arrays.asList(new ByteString(String.valueOf(i)))),
-					index.searchRowKeysForTagFilter(new SimpleTagFilter(FilterType.EQUALS, "key", String.valueOf(i))));
-		}
-	}
-
-	@Test
-	public void testDiskTagIndexFilterEvaluation() throws IOException, InterruptedException {
-		MiscUtils.delete(new File("target/s7"));
-		String indexDir = "target/s7";
-		new File(indexDir).mkdirs();
-		PersistentMeasurement m = new PersistentMeasurement();
-		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, 4096, "d", "m", "target/s7/i/bitmap", "target/s7/d/bitmap", new DBMetadata(), null);
-		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s7", m);
-		for (int i = 0; i < 10_000; i++) {
-			index.index("key", String.valueOf(i), i);
-			ByteString valueOf = new ByteString(String.valueOf(i));
-			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf, i));
-		}
-
-		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9");
-		Set<ByteString> keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(1110, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "9");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(1111, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "10");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(2, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "1000");
-		keys = index.searchRowKeysForTagFilter(filter);
-		// keys.stream().forEach(System.out::println);
-		assertEquals(5, keys.size());
-	}
-
-	@Test
-	public void testDiskTagIndexFilterEvaluationNormalized() throws IOException, InterruptedException {
-		MiscUtils.delete(new File("target/s8"));
-		String indexDir = "target/s8";
-		new File(indexDir).mkdirs();
-		PersistentMeasurement m = new PersistentMeasurement();
-		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, 4096, "d", "m", "target/s8/i/bitmap", "target/s8/d/bitmap", new DBMetadata(), null);
-		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s8", m);
-		for (int i = 0; i < 10_000; i++) {
-			ByteString format = new ByteString(String.format("%04d", i));
-			index.index("key", format.toString(), i);
-			m.getSeriesListAsList().add(new SeriesFieldMap(format, i));
-		}
-
-		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9990");
-		Set<ByteString> keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(9, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "9990");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(10, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "0010");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(10, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "0010");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(11, keys.size());
-
-		filter = new ComplexTagFilter(ComplexFilterType.AND,
-				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "9990"),
-						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
-
-		filter = new ComplexTagFilter(ComplexFilterType.AND,
-				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key1", "9990"),
-						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
-
-		filter = new ComplexTagFilter(ComplexFilterType.AND,
-				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "9990"),
-						new SimpleTagFilter(FilterType.EQUALS, "key1", "9991")));
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
-
-		filter = new ComplexTagFilter(ComplexFilterType.OR,
-				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key1", "9990"),
-						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(1, keys.size());
-
-		filter = new ComplexTagFilter(ComplexFilterType.OR,
-				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "9990"),
-						new SimpleTagFilter(FilterType.EQUALS, "key", "9991")));
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(2, keys.size());
-	}
-
-	@Test
-	public void testBitmapIndexMultiTags() throws IOException, InterruptedException {
-		MiscUtils.delete(new File("target/s9"));
-		String indexDir = "target/s9";
-		new File(indexDir).mkdirs();
-		PersistentMeasurement m = new PersistentMeasurement();
-		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, 4096, "d", "m", "target/s9/i/bitmap", "target/s9/d/bitmap", new DBMetadata(), null);
-		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s9", m);
-		for (int i = 0; i < 10; i++) {
-			ByteString format = new ByteString(String.format("%04d", i));
-			index.index("key", format.toString(), i / 2);
-			m.getSeriesListAsList().add(new SeriesFieldMap(format, i));
-		}
-
-		TagFilter filter = new ComplexTagFilter(ComplexFilterType.AND,
-				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "0000"),
-						new SimpleTagFilter(FilterType.EQUALS, "key", "0000")));
-		Set<ByteString> keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(1, keys.size());
-
-		filter = new ComplexTagFilter(ComplexFilterType.AND,
-				Arrays.asList(new SimpleTagFilter(FilterType.EQUALS, "key", "0000"),
-						new SimpleTagFilter(FilterType.EQUALS, "key", "0002")));
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
-
-		filter = new ComplexTagFilter(ComplexFilterType.AND,
-				Arrays.asList(new SimpleTagFilter(FilterType.LESS_THAN, "key", "0004"),
-						new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "0005")));
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(2, keys.size());
-	}
-
-	@Test
 	public void testIndexRecovery() throws IOException, InterruptedException {
 		MiscUtils.delete(new File("target/s9"));
 		String indexDir = "target/s9";
@@ -215,7 +58,8 @@ public class TestMappedBitmapTagIndex {
 		PersistentMeasurement m = new PersistentMeasurement();
 		Map<String, String> conf = new HashMap<>();
 		m.configure(conf, engine, 4096, "d", "m", "target/s9/i/bitmap", "target/s9/d/bitmap", new DBMetadata(), null);
-		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s9", m);
+		MappedBitmapTagIndex index = new MappedBitmapTagIndex();
+		index.configure(conf, "target/s9/i/bitmap", m);
 		long ts = System.currentTimeMillis();
 		for (int i = 0; i < 10_000; i++) {
 			index.index("key", String.valueOf(i), i);
@@ -231,56 +75,13 @@ public class TestMappedBitmapTagIndex {
 		}
 
 		for (int k = 0; k < 10; k++) {
-			index = new MappedBitmapTagIndex(indexDir, "s9", m);
+			index = new MappedBitmapTagIndex();
+			index.configure(conf, "target/s9/i/bitmap", m);
 			for (int i = 0; i < 10_000; i++) {
 				assertEquals(new HashSet<>(Arrays.asList(new ByteString(String.valueOf(i)))), index
 						.searchRowKeysForTagFilter(new SimpleTagFilter(FilterType.EQUALS, "key", String.valueOf(i))));
 			}
 		}
-	}
-
-	@Test
-	public void testDiskTagIndexFilterNegativeTests() throws IOException, InterruptedException {
-		MiscUtils.delete(new File("target/s10"));
-		String indexDir = "target/s10";
-		new File(indexDir).mkdirs();
-		PersistentMeasurement m = new PersistentMeasurement();
-		Map<String, String> conf = new HashMap<>();
-		m.configure(conf, engine, 4096, "d", "m", "target/s10/i/bitmap", "target/s10/d/bitmap", new DBMetadata(), null);
-		MappedBitmapTagIndex index = new MappedBitmapTagIndex(indexDir, "s10", m);
-		for (int i = 0; i < 10_000; i++) {
-			ByteString format = new ByteString(String.format("%05d", i));
-			index.index("key", format.toString(), i);
-			m.getSeriesListAsList().add(new SeriesFieldMap(format, i));
-		}
-
-		TagFilter filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "00000");
-		Set<ByteString> keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.LESS_THAN_EQUALS, "key", "-1");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.EQUALS, "key", "10000");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "09999");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "09999");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "10000");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
-
-		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "10000");
-		keys = index.searchRowKeysForTagFilter(filter);
-		assertEquals(0, keys.size());
 	}
 
 }

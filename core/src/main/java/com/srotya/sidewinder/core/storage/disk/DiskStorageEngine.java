@@ -427,14 +427,16 @@ public class DiskStorageEngine implements StorageEngine {
 
 	@Override
 	public void disconnect() throws IOException {
-		for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
-			for (Entry<String, Measurement> seriesMap : measurementMap.getValue().entrySet()) {
-				for (TimeSeries series : seriesMap.getValue().getTimeSeries()) {
-					series.close();
+		if (databaseMap != null) {
+			for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
+				for (Entry<String, Measurement> seriesMap : measurementMap.getValue().entrySet()) {
+					for (TimeSeries series : seriesMap.getValue().getTimeSeries()) {
+						series.close();
+					}
 				}
 			}
+			System.gc();
 		}
-		System.gc();
 	}
 
 	@Override

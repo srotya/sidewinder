@@ -42,6 +42,7 @@ import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
@@ -61,12 +62,12 @@ public class MappedBitmapTagIndex implements TagIndex {
 	private boolean enableMetrics;
 	private RandomAccessFile revRaf;
 	private MappedByteBuffer rev;
-	private PersistentMeasurement measurement;
+	private Measurement measurement;
 
-	public MappedBitmapTagIndex(String indexDir, String measurementName, PersistentMeasurement measurement)
-			throws IOException {
+	@Override
+	public void configure(Map<String, String> conf, String indexDir, Measurement measurement) throws IOException {
 		this.measurement = measurement;
-		this.indexPath = indexDir + "/" + measurementName;
+		this.indexPath = indexDir + "/" + measurement.getMeasurementName();
 		rowKeyIndex = new ConcurrentHashMap<>();
 		revIndex = new File(indexPath + ".rev");
 		MetricsRegistryService instance = MetricsRegistryService.getInstance();
@@ -126,7 +127,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 
 	private void bitmapToRowKeys(Collection<ByteString> rowKeys, MutableRoaringBitmap value) {
 		logger.finest(() -> "Requesting conversion from bitmap to value");
-		List<SeriesFieldMap> ref = measurement.getSeriesListAsList();
+		List<SeriesFieldMap> ref = measurement.getSeriesList();
 		for (Iterator<Integer> iterator = value.iterator(); iterator.hasNext();) {
 			Integer idx = iterator.next();
 			ByteString seriesId = (ByteString) ref.get(idx).getSeriesId();
@@ -303,12 +304,6 @@ public class MappedBitmapTagIndex implements TagIndex {
 			}
 		}
 		return total;
-	}
-
-	@Override
-	public void index(String tag, String value, String rowKey) throws IOException {
-		// not implemented
-		throw new UnsupportedOperationException("Bitmap index can't store string rowkeys");
 	}
 
 	@Override

@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.storage.disk;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.File;
@@ -36,8 +37,10 @@ import org.junit.Test;
 
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DBMetadata;
+import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -125,4 +128,79 @@ public class TestPersistentMeasurement {
 		measurement.close();
 	}
 
+	@Test
+	public void testCompaction() throws IOException {
+		final long ts = 1484788896586L;
+		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
+				Tag.newBuilder().setTagKey("test2").setTagValue("2").build());
+		conf.put("disk.compression.class", ByzantineWriter.class.getName());
+		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		conf.put("buffer.size", String.valueOf(32768));
+		conf.put("malloc.ptrfile.increment", String.valueOf(1024));
+		conf.put("compaction.ratio", "1.2");
+		conf.put("compaction.enabled", "true");
+		measurement.configure(conf, null, 1024, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
+		int LIMIT = 7000;
+		for (int i = 0; i < LIMIT; i++) {
+			measurement.addDataPoint("value1", tags, ts + i, 1.2 * i, true, false);
+		}
+		assertEquals(1, measurement.getTimeSeries().size());
+		TimeSeries series = measurement.getTimeSeries().iterator().next();
+		System.out.println("Series:" + series);
+		assertEquals(1, series.getBucketRawMap().size());
+		assertEquals(3, series.getBucketCount());
+		assertEquals(3, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
+		assertEquals(1, series.getCompactionSet().size());
+		int maxDp = series.getBucketRawMap().values().stream().flatMap(v -> v.stream()).mapToInt(l -> l.getCount())
+				.max().getAsInt();
+		// check and read datapoint count before
+		List<DataPoint> queryDataPoints = series.queryDataPoints("", ts, ts + LIMIT + 1, null);
+		assertEquals(LIMIT, queryDataPoints.size());
+		for (int i = 0; i < LIMIT; i++) {
+			DataPoint dp = queryDataPoints.get(i);
+			assertEquals(ts + i, dp.getTimestamp());
+			assertEquals(i * 1.2, dp.getValue(), 0.01);
+		}
+		measurement.compact();
+		assertEquals(2, series.getBucketCount());
+		assertEquals(2, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
+		assertEquals(0, series.getCompactionSet().size());
+		assertTrue(maxDp <= series.getBucketRawMap().values().stream().flatMap(v -> v.stream())
+				.mapToInt(l -> l.getCount()).max().getAsInt());
+		// validate query after compaction
+		queryDataPoints = series.queryDataPoints("", ts, ts + LIMIT + 1, null);
+		assertEquals(LIMIT, queryDataPoints.size());
+		for (int i = 0; i < LIMIT; i++) {
+			DataPoint dp = queryDataPoints.get(i);
+			assertEquals(ts + i, dp.getTimestamp());
+			assertEquals(i * 1.2, dp.getValue(), 0.01);
+		}
+		measurement.close();
+		// test buffer recovery after compaction, validate count
+		measurement.configure(conf, null, 4096, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
+		series = measurement.getTimeSeries().iterator().next();
+		queryDataPoints = series.queryDataPoints("", ts, ts + LIMIT + 1, null);
+		assertEquals(LIMIT, queryDataPoints.size());
+		for (int i = 0; i < LIMIT; i++) {
+			DataPoint dp = queryDataPoints.get(i);
+			assertEquals(ts + i, dp.getTimestamp());
+			assertEquals(i * 1.2, dp.getValue(), 0.01);
+		}
+		for (int i = 0; i < LIMIT; i++) {
+			measurement.addDataPoint("value1", tags, LIMIT + ts + i, 1.2, false, false);
+		}
+		series.getBucketRawMap().entrySet().iterator().next().getValue().stream()
+				.map(v -> "" + v.getCount() + ":" + v.isReadOnly() + ":" + (int) v.getRawBytes().get(1))
+				.forEach(System.out::println);
+		measurement.close();
+		// test recovery again
+		measurement.configure(conf, null, 4096, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
+		series = measurement.getTimeSeries().iterator().next();
+		queryDataPoints = series.queryDataPoints("", ts - 1, ts + 2 + (LIMIT * 2), null);
+		assertEquals(LIMIT * 2, queryDataPoints.size());
+		for (int i = 0; i < LIMIT * 2; i++) {
+			DataPoint dp = queryDataPoints.get(i);
+			assertEquals("Error:" + i + " " + (dp.getTimestamp() - ts - i), ts + i, dp.getTimestamp());
+		}
+	}
 }

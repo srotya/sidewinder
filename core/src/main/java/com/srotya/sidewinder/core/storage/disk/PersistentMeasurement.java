@@ -41,7 +41,6 @@ import java.util.logging.Logger;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
-import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DBMetadata;
@@ -84,7 +83,7 @@ public class PersistentMeasurement implements Measurement {
 	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
 			String measurementName, String indexDirectory, String dataDirectory, DBMetadata metadata,
 			ScheduledExecutorService bgTaskPool) throws IOException {
-		timeBucketSize = defaultTimeBucketSize;
+		this.timeBucketSize = defaultTimeBucketSize;
 		this.dbName = dbName;
 		this.measurementName = measurementName;
 		enableMetricsMonitoring(engine, bgTaskPool);
@@ -112,7 +111,8 @@ public class PersistentMeasurement implements Measurement {
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
 		// this.tagIndex = new MappedSetTagIndex(this.indexDirectory, measurementName,
 		// true, this);
-		this.tagIndex = new MappedBitmapTagIndex(this.indexDirectory, measurementName, this);
+		this.tagIndex = new MappedBitmapTagIndex();
+		this.tagIndex.configure(getConf(), indexDirectory, this);
 		malloc = new DiskMalloc();
 		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, mallocLock);
 		loadTimeseriesFromMeasurements();
@@ -136,52 +136,8 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags, boolean preSorted) throws IOException {
-		if (!preSorted) {
-			Collections.sort(tags, TAG_COMPARATOR);
-		}
-		ByteString seriesId = constructSeriesId(tags, tagIndex);
-		int index = 0;
-		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
-		if (seriesFieldMap == null) {
-			lock.lock();
-			try {
-				if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
-					index = seriesList.size();
-					Measurement.indexRowKey(tagIndex, index, tags);
-					seriesFieldMap = new SeriesFieldMap(seriesId, index);
-					seriesList.add(seriesFieldMap);
-					seriesMap.put(seriesId, index);
-					if (enableMetricsCapture) {
-						metricsTimeSeriesCounter.inc();
-					}
-					final ByteString tmp = seriesId;
-					logger.fine(() -> "Created new series:" + tmp + "\t");
-				} else {
-					index = seriesMap.get(seriesId);
-				}
-			} finally {
-				lock.unlock();
-			}
-		} else {
-			index = seriesMap.get(seriesId);
-		}
-
-		return seriesFieldMap;
-		/*
-		 * lock.lock(); try { if ((series = seriesFieldMap.get(valueFieldName)) == null)
-		 * { ByteString seriesId2 = new ByteString(seriesId + SERIESID_SEPARATOR +
-		 * valueFieldName); series = new TimeSeries(this, seriesId2, timeBucketSize,
-		 * metadata, fp, conf); if (enableMetricsCapture) {
-		 * metricsTimeSeriesCounter.inc(); }
-		 * seriesFieldMap.getOrCreateSeries(valueFieldName, series);
-		 * appendTimeseriesToMeasurementMetadata(seriesId2, fp, timeBucketSize, index);
-		 * final SeriesFieldMap tmp = seriesFieldMap; logger.fine(() ->
-		 * "Created new timeseries:" + tmp + " for measurement:" + measurementName +
-		 * "\t" + seriesId + "\t" + metadata.getRetentionHours() + "\t" +
-		 * seriesList.size()); } } finally { lock.unlock(); } }
-		 * 
-		 */
+	public Map<ByteString, Integer> getSeriesMap() {
+		return seriesMap;
 	}
 
 	@Override
@@ -361,16 +317,6 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public SeriesFieldMap getSeriesFromKey(ByteString key) {
-		Integer index = seriesMap.get(key);
-		if (index == null) {
-			return null;
-		} else {
-			return seriesList.get(index);
-		}
-	}
-
-	@Override
 	public String getDbName() {
 		return dbName;
 	}
@@ -385,7 +331,7 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public Collection<SeriesFieldMap> getSeriesList() {
+	public List<SeriesFieldMap> getSeriesList() {
 		return seriesList;
 	}
 
@@ -401,6 +347,16 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public Map<String, String> getConf() {
 		return conf;
+	}
+
+	@Override
+	public boolean isEnableMetricsCapture() {
+		return enableMetricsCapture;
+	}
+
+	@Override
+	public Counter getMetricsTimeSeriesCounter() {
+		return metricsTimeSeriesCounter;
 	}
 
 }

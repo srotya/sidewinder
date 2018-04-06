@@ -23,6 +23,7 @@ import java.nio.channels.FileChannel.MapMode;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.concurrent.ConcurrentSkipListSet;
@@ -36,6 +37,7 @@ import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
@@ -56,14 +58,12 @@ public class MappedSetTagIndex implements TagIndex {
 	private boolean enableMetrics;
 	private RandomAccessFile revRaf;
 	private MappedByteBuffer rev;
-	private boolean indexMode;
-	private PersistentMeasurement m;
+	private Measurement m;
 
-	public MappedSetTagIndex(String indexDir, String measurementName, boolean indexMode, PersistentMeasurement m)
-			throws IOException {
-		this.indexMode = indexMode;
-		this.m = m;
-		this.indexPath = indexDir + "/" + measurementName;
+	@Override
+	public void configure(Map<String, String> conf, String indexDir, Measurement measurement) throws IOException {
+		this.m = measurement;
+		this.indexPath = indexDir + "/" + measurement.getMeasurementName();
 		rowKeyIndex = new ConcurrentSkipListSet<>();
 		revIndex = new File(indexPath + ".rev");
 		MetricsRegistryService instance = MetricsRegistryService.getInstance();
@@ -106,29 +106,6 @@ public class MappedSetTagIndex implements TagIndex {
 			tags.add(split[0]);
 		}
 		return tags;
-	}
-
-	@Override
-	public void index(String tagKey, String tagValue, String rowKey) throws IOException {
-		rowKey = new StringBuilder(tagKey.length() + 1 + tagValue.length() + 1 + rowKey.length()).append(tagKey)
-				.append(SEPERATOR).append(tagValue).append(SEPERATOR).append(rowKey).toString();
-		if (rowKeyIndex.add(rowKey)) {
-			if (enableMetrics) {
-				metricIndexRow.inc();
-			}
-			synchronized (rowKeyIndex) {
-				byte[] str = rowKey.getBytes();
-				if (rev.remaining() < str.length + Integer.BYTES) {
-					// resize buffer
-					int temp = rev.position();
-					rev = revRaf.getChannel().map(MapMode.READ_WRITE, 0, rev.capacity() + INCREMENT_SIZE);
-					rev.position(temp);
-				}
-				rev.putInt(str.length);
-				rev.put(str);
-				rev.putInt(0, rev.position());
-			}
-		}
 	}
 
 	// @Override
@@ -189,18 +166,14 @@ public class MappedSetTagIndex implements TagIndex {
 	@Override
 	public Set<ByteString> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
 		Set<ByteString> hexKeys = TagIndex.stringSetToByteSet(evalFilterForTags(tagFilterTree), new HashSet<>());
-		if (indexMode) {
-			Set<ByteString> rowKeys = new HashSet<>();
-			List<SeriesFieldMap> list = m.getSeriesListAsList();
-			for (ByteString val : hexKeys) {
-				ByteString[] split = val.split(SEPERATOR);
-				rowKeys.add(new ByteString(
-						list.get(Integer.parseInt(split[split.length - 1].toString(), 16)).getSeriesId().toString()));
-			}
-			return rowKeys;
-		} else {
-			return hexKeys;
+		Set<ByteString> rowKeys = new HashSet<>();
+		List<SeriesFieldMap> list = m.getSeriesList();
+		for (ByteString val : hexKeys) {
+			ByteString[] split = val.split(SEPERATOR);
+			rowKeys.add(new ByteString(
+					list.get(Integer.parseInt(split[split.length - 1].toString(), 16)).getSeriesId().toString()));
 		}
+		return rowKeys;
 	}
 
 	public Set<String> evalFilterForTags(TagFilter filterTree) {

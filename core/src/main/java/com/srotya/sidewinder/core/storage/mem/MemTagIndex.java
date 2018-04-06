@@ -33,7 +33,10 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter;
 import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
+import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.Measurement;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
 /**
@@ -43,59 +46,26 @@ import com.srotya.sidewinder.core.storage.TagIndex;
  */
 public class MemTagIndex implements TagIndex {
 
-	private Map<String, SortedMap<String, Set<String>>> rowKeyIndex;
+	private Map<String, SortedMap<String, Set<Integer>>> rowKeyIndex;
 	private Counter metricIndexRow;
+	private Measurement m;
+	@SuppressWarnings("unused")
+	private boolean enableMetrics;
 
-	public MemTagIndex(MetricRegistry registry) {
+	@Override
+	public void configure(Map<String, String> conf, String indexDir, Measurement measurement) throws IOException {
+		m = measurement;
 		rowKeyIndex = new ConcurrentHashMap<>();
-		if (registry != null) {
+		MetricsRegistryService instance = MetricsRegistryService.getInstance();
+		if (instance != null) {
+			MetricRegistry registry = instance.getInstance("requests");
 			metricIndexRow = registry.counter("index-row");
+			enableMetrics = true;
 		}
 	}
 
 	public Set<String> getTagKeys() {
 		return new HashSet<>(rowKeyIndex.keySet());
-	}
-
-	/**
-	 * Indexes tag in the row key, creating an adjacency list
-	 * 
-	 * @param tagKey
-	 * @param tagValue
-	 * @param rowKey
-	 */
-	public void index(String tagKey, String tagValue, String rowKey) {
-		SortedMap<String, Set<String>> map = rowKeyIndex.get(tagKey);
-
-		if (map == null) {
-			map = new ConcurrentSkipListMap<>();
-			rowKeyIndex.put(tagKey, map);
-		}
-
-		Set<String> rowKeySet = map.get(tagValue);
-		if (rowKeySet == null) {
-			synchronized (rowKeyIndex) {
-				if ((rowKeySet = map.get(tagValue)) == null) {
-					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<String, Boolean>());
-					map.put(tagValue, rowKeySet);
-				}
-			}
-		}
-		if (!rowKeySet.contains(rowKey)) {
-			rowKeySet.add(rowKey);
-			if (metricIndexRow != null) {
-				metricIndexRow.inc();
-			}
-		}
-	}
-
-	public Set<String> searchRowKeysForTag(String tagKey, String tagValue) {
-		Map<String, Set<String>> map = rowKeyIndex.get(tagKey);
-		if (map == null) {
-			return null;
-		} else {
-			return map.get(tagValue);
-		}
 	}
 
 	@Override
@@ -109,20 +79,48 @@ public class MemTagIndex implements TagIndex {
 
 	@Override
 	public void index(String tag, String value, int rowIndex) throws IOException {
-		// not implemented
-		throw new UnsupportedOperationException();
+		SortedMap<String, Set<Integer>> map = rowKeyIndex.get(tag);
+
+		if (map == null) {
+			map = new ConcurrentSkipListMap<>();
+			rowKeyIndex.put(tag, map);
+		}
+
+		Set<Integer> rowKeySet = map.get(value);
+		if (rowKeySet == null) {
+			synchronized (rowKeyIndex) {
+				if ((rowKeySet = map.get(value)) == null) {
+					rowKeySet = Collections.newSetFromMap(new ConcurrentHashMap<Integer, Boolean>());
+					map.put(value, rowKeySet);
+				}
+			}
+		}
+		if (!rowKeySet.contains(rowIndex)) {
+			rowKeySet.add(rowIndex);
+			if (metricIndexRow != null) {
+				metricIndexRow.inc();
+			}
+		}
 	}
 
 	@Override
 	public Set<ByteString> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
-		return TagIndex.stringSetToByteSet(evalFilterForTags(tagFilterTree), new HashSet<>());
+		Set<Integer> e = evalFilterForTags(tagFilterTree);
+		Set<ByteString> rowKeys = new HashSet<>();
+		List<SeriesFieldMap> list = m.getSeriesList();
+		if (e != null) {
+			for (Integer val : e) {
+				rowKeys.add(new ByteString(list.get(val).getSeriesId().toString()));
+			}
+		}
+		return rowKeys;
 	}
 
-	public Set<String> evalFilterForTags(TagFilter filterTree) {
+	public Set<Integer> evalFilterForTags(TagFilter filterTree) {
 		// either it's a simple tag filter or a complex tag filter
 		if (filterTree instanceof SimpleTagFilter) {
 			SimpleTagFilter simpleFilter = (SimpleTagFilter) filterTree;
-			SortedMap<String, Set<String>> sortedMap = rowKeyIndex.get(simpleFilter.getTagKey());
+			SortedMap<String, Set<Integer>> sortedMap = rowKeyIndex.get(simpleFilter.getTagKey());
 			if (sortedMap == null) {
 				return null;
 			}
@@ -131,10 +129,10 @@ public class MemTagIndex implements TagIndex {
 			// if it's a complex tag filter then get individual units of return
 			ComplexTagFilter complexFilter = (ComplexTagFilter) filterTree;
 			List<TagFilter> filters = complexFilter.getFilters();
-			Set<String> set = new HashSet<>();
+			Set<Integer> set = new HashSet<>();
 			ComplexFilterType type = complexFilter.getType();
 			for (TagFilter tagFilter : filters) {
-				Set<String> r = evalFilterForTags(tagFilter);
+				Set<Integer> r = evalFilterForTags(tagFilter);
 				if (r == null) {
 					// no match found from evaluation of this filter
 					if (type == ComplexFilterType.AND) {
@@ -160,34 +158,34 @@ public class MemTagIndex implements TagIndex {
 		}
 	}
 
-	private Set<String> evalSimpleTagFilter(SimpleTagFilter simpleFilter, SortedMap<String, Set<String>> map) {
+	private Set<Integer> evalSimpleTagFilter(SimpleTagFilter simpleFilter, SortedMap<String, Set<Integer>> map) {
 		switch (simpleFilter.getFilterType()) {
 		case EQUALS:
 			return map.get(simpleFilter.getComparedValue());
 		case GREATER_THAN:
-			SortedMap<String, Set<String>> tailMap = map.tailMap(simpleFilter.getComparedValue());
+			SortedMap<String, Set<Integer>> tailMap = map.tailMap(simpleFilter.getComparedValue());
 			if (tailMap == null || tailMap.isEmpty()) {
 				return null;
 			}
-			Iterator<Set<String>> iterator = tailMap.values().iterator();
+			Iterator<Set<Integer>> iterator = tailMap.values().iterator();
 			// skip the first one since the condition is greater than
 			iterator.next();
 			return combineMaps(iterator);
 		case LESS_THAN:
-			SortedMap<String, Set<String>> headMap = map.headMap(simpleFilter.getComparedValue());
+			SortedMap<String, Set<Integer>> headMap = map.headMap(simpleFilter.getComparedValue());
 			if (headMap == null || headMap.isEmpty()) {
 				return null;
 			}
 			return combineMaps(headMap.values().iterator());
 		case GREATER_THAN_EQUALS:
-			SortedMap<String, Set<String>> tailMap1 = map.tailMap(simpleFilter.getComparedValue());
+			SortedMap<String, Set<Integer>> tailMap1 = map.tailMap(simpleFilter.getComparedValue());
 			if (tailMap1 == null || tailMap1.isEmpty()) {
 				return null;
 			}
-			Iterator<Set<String>> iterator1 = tailMap1.values().iterator();
+			Iterator<Set<Integer>> iterator1 = tailMap1.values().iterator();
 			return combineMaps(iterator1);
 		case LESS_THAN_EQUALS:
-			SortedMap<String, Set<String>> headMap1 = map
+			SortedMap<String, Set<Integer>> headMap1 = map
 					.headMap(simpleFilter.getComparedValue() + Character.MAX_VALUE);
 			if (headMap1 == null || headMap1.isEmpty()) {
 				return null;
@@ -197,8 +195,8 @@ public class MemTagIndex implements TagIndex {
 		return null;
 	}
 
-	private Set<String> combineMaps(Iterator<Set<String>> itr) {
-		Set<String> uberSet = new HashSet<>();
+	private Set<Integer> combineMaps(Iterator<Set<Integer>> itr) {
+		Set<Integer> uberSet = new HashSet<>();
 		while (itr.hasNext()) {
 			uberSet.addAll(itr.next());
 		}
@@ -207,7 +205,7 @@ public class MemTagIndex implements TagIndex {
 
 	@Override
 	public Collection<String> getTagValues(String tagKey) {
-		SortedMap<String, Set<String>> map = rowKeyIndex.get(tagKey);
+		SortedMap<String, Set<Integer>> map = rowKeyIndex.get(tagKey);
 		if (map != null) {
 			return map.keySet();
 		} else {

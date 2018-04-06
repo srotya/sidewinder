@@ -32,17 +32,17 @@ public class SeriesFieldMap {
 
 	private static final Logger logger = Logger.getLogger(SeriesFieldMap.class.getName());
 	private Object seriesId;
-	private Map<String, TimeSeries> seriesMap;
+	private Map<String, TimeSeries> fieldMap;
 	private int fieldMapIndex;
 
 	public SeriesFieldMap(Object seriesId, int fieldMapIndex) {
 		this.seriesId = seriesId;
 		this.fieldMapIndex = fieldMapIndex;
-		seriesMap = new ConcurrentHashMap<>();
+		fieldMap = new ConcurrentHashMap<>();
 	}
 
 	public Set<String> getFields() {
-		return seriesMap.keySet();
+		return fieldMap.keySet();
 	}
 
 	public TimeSeries getOrCreateSeriesLocked(String valueFieldName, int timeBucketSize, boolean fp, Measurement measurement)
@@ -54,7 +54,7 @@ public class SeriesFieldMap {
 					ByteString fieldId = new ByteString(seriesId + Measurement.SERIESID_SEPARATOR + valueFieldName);
 					series = new TimeSeries(measurement, fieldId, timeBucketSize, measurement.getMetadata(), fp,
 							measurement.getConf());
-					seriesMap.put(valueFieldName, series);
+					fieldMap.put(valueFieldName, series);
 					measurement.appendTimeseriesToMeasurementMetadata(fieldId, fp, timeBucketSize, fieldMapIndex);
 					final TimeSeries tmp = series;
 					logger.fine(() -> "Created new timeseries:" + tmp + " for measurement:"
@@ -96,7 +96,7 @@ public class SeriesFieldMap {
 	}
 
 	public TimeSeries get(String valueFieldName) {
-		return seriesMap.get(valueFieldName);
+		return fieldMap.get(valueFieldName);
 	}
 
 	/**
@@ -105,7 +105,7 @@ public class SeriesFieldMap {
 	 * @return
 	 */
 	public Collection<? extends TimeSeries> values() {
-		return seriesMap.values();
+		return fieldMap.values();
 	}
 
 	/**
@@ -130,7 +130,7 @@ public class SeriesFieldMap {
 	 */
 	@Override
 	public String toString() {
-		return "SeriesFieldMap [seriesId=" + seriesId + " seriesMap=" + seriesMap + "]";
+		return "SeriesFieldMap [seriesId=" + seriesId + " seriesMap=" + fieldMap + "]";
 	}
 
 }

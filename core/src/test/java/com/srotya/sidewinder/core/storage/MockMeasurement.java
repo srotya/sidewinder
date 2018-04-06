@@ -28,6 +28,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
+import com.codahale.metrics.Counter;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.mem.MemMalloc;
@@ -130,7 +131,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public Collection<SeriesFieldMap> getSeriesList() {
+	public List<SeriesFieldMap> getSeriesList() {
 		return null;
 	}
 
@@ -154,6 +155,24 @@ public class MockMeasurement implements Measurement {
 
 	@Override
 	public Map<String, String> getConf() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public Map<ByteString, Integer> getSeriesMap() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public boolean isEnableMetricsCapture() {
+		// TODO Auto-generated method stub
+		return false;
+	}
+
+	@Override
+	public Counter getMetricsTimeSeriesCounter() {
 		// TODO Auto-generated method stub
 		return null;
 	}

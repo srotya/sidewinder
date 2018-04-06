@@ -36,6 +36,7 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import com.codahale.metrics.Counter;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
@@ -65,7 +66,14 @@ public interface Measurement {
 
 	public Set<ByteString> getSeriesKeys();
 
-	public SeriesFieldMap getSeriesFromKey(ByteString key);
+	public default SeriesFieldMap getSeriesFromKey(ByteString key) {
+		Integer index = getSeriesMap().get(key);
+		if (index == null) {
+			return null;
+		} else {
+			return getSeriesList().get(index);
+		}
+	}
 
 	public TagIndex getTagIndex();
 
@@ -73,13 +81,52 @@ public interface Measurement {
 
 	public void close() throws IOException;
 
-	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags, boolean preSorted) throws IOException;
-
-	@Deprecated
-	public static void indexRowKey(TagIndex tagIndex, String rowKey, List<Tag> tags) throws IOException {
-		for (Tag tag : tags) {
-			tagIndex.index(tag.getTagKey(), tag.getTagValue(), rowKey);
+	public default SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags, boolean preSorted) throws IOException {
+		if (!preSorted) {
+			Collections.sort(tags, TAG_COMPARATOR);
 		}
+		ByteString seriesId = constructSeriesId(tags, getTagIndex());
+		int index = 0;
+		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
+		if (seriesFieldMap == null) {
+			getLock().lock();
+			try {
+				if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
+					index = getSeriesList().size();
+					Measurement.indexRowKey(getTagIndex(), index, tags);
+					seriesFieldMap = new SeriesFieldMap(seriesId, index);
+					getSeriesList().add(seriesFieldMap);
+					getSeriesMap().put(seriesId, index);
+					if (isEnableMetricsCapture()) {
+						getMetricsTimeSeriesCounter().inc();
+					}
+					final ByteString tmp = seriesId;
+					getLogger().fine(() -> "Created new series:" + tmp + "\t");
+				} else {
+					index = getSeriesMap().get(seriesId);
+				}
+			} finally {
+				getLock().unlock();
+			}
+		} else {
+			index = getSeriesMap().get(seriesId);
+		}
+
+		return seriesFieldMap;
+		/*
+		 * lock.lock(); try { if ((series = seriesFieldMap.get(valueFieldName)) == null)
+		 * { ByteString seriesId2 = new ByteString(seriesId + SERIESID_SEPARATOR +
+		 * valueFieldName); series = new TimeSeries(this, seriesId2, timeBucketSize,
+		 * metadata, fp, conf); if (enableMetricsCapture) {
+		 * metricsTimeSeriesCounter.inc(); }
+		 * seriesFieldMap.getOrCreateSeries(valueFieldName, series);
+		 * appendTimeseriesToMeasurementMetadata(seriesId2, fp, timeBucketSize, index);
+		 * final SeriesFieldMap tmp = seriesFieldMap; logger.fine(() ->
+		 * "Created new timeseries:" + tmp + " for measurement:" + measurementName +
+		 * "\t" + seriesId + "\t" + metadata.getRetentionHours() + "\t" +
+		 * seriesList.size()); } } finally { lock.unlock(); } }
+		 * 
+		 */
 	}
 
 	public static void indexRowKey(TagIndex tagIndex, int rowIdx, List<Tag> tags) throws IOException {
@@ -409,7 +456,7 @@ public interface Measurement {
 	 * 
 	 * @return
 	 */
-	public Collection<SeriesFieldMap> getSeriesList();
+	public List<SeriesFieldMap> getSeriesList();
 
 	public Logger getLogger();
 
@@ -458,5 +505,11 @@ public interface Measurement {
 	}
 
 	public Map<String, String> getConf();
+
+	Map<ByteString, Integer> getSeriesMap();
+
+	boolean isEnableMetricsCapture();
+
+	Counter getMetricsTimeSeriesCounter();
 
 }

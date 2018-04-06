@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 
 import com.srotya.sidewinder.core.filters.TagFilter;
@@ -26,10 +27,9 @@ import com.srotya.sidewinder.core.filters.TagFilter;
  */
 public interface TagIndex {
 
-	public Collection<String> getTagKeys() throws IOException;
+	public void configure(Map<String, String> conf, String indexDir, Measurement measurement) throws IOException;
 
-	@Deprecated
-	public void index(String tag, String value, String rowKey) throws IOException;
+	public Collection<String> getTagKeys() throws IOException;
 
 	/**
 	 * Indexes tag in the row key

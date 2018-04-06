@@ -92,6 +92,7 @@ public class TestMeasurement {
 
 	@Before
 	public void before() throws InstantiationException, IllegalAccessException, IOException {
+		MiscUtils.delete(new File("target/measurement-common"));
 		engine = new MemStorageEngine();
 		engine.configure(new HashMap<>(), bgTaskPool);
 		dataDir = "target/measurement-common/data";
@@ -174,7 +175,6 @@ public class TestMeasurement {
 	@Test
 	public void testOptimizationsLambdaInvoke() throws IOException {
 		long ts = System.currentTimeMillis();
-		MiscUtils.delete(new File("target/db42/"));
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
 		conf.put("disk.compression.class", ByzantineWriter.class.getName());
@@ -193,7 +193,6 @@ public class TestMeasurement {
 	@Test
 	public void testCompactionEmptyLineValidation() throws IOException {
 		final long ts = 1484788896586L;
-		MiscUtils.delete(new File("target/db46/"));
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
 		conf.put("disk.compression.class", ByzantineWriter.class.getName());
@@ -219,21 +218,22 @@ public class TestMeasurement {
 	@Test
 	public void testCompaction() throws IOException {
 		final long ts = 1484788896586L;
-		MiscUtils.delete(new File("target/db45/"));
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
-				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
+				Tag.newBuilder().setTagKey("test2").setTagValue("2").build());
 		conf.put("disk.compression.class", ByzantineWriter.class.getName());
 		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		conf.put("buffer.size", String.valueOf(32768));
 		conf.put("malloc.ptrfile.increment", String.valueOf(1024));
 		conf.put("compaction.ratio", "1.2");
 		conf.put("compaction.enabled", "true");
-		measurement.configure(conf, null, 1024, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
+		measurement.configure(conf, null, 1024, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 7000;
 		for (int i = 0; i < LIMIT; i++) {
 			measurement.addDataPoint("value1", tags, ts + i, 1.2 * i, true, false);
 		}
 		assertEquals(1, measurement.getTimeSeries().size());
 		TimeSeries series = measurement.getTimeSeries().iterator().next();
+		System.out.println("Series:" + series);
 		assertEquals(1, series.getBucketRawMap().size());
 		assertEquals(3, series.getBucketCount());
 		assertEquals(3, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
@@ -263,32 +263,6 @@ public class TestMeasurement {
 			assertEquals(i * 1.2, dp.getValue(), 0.01);
 		}
 		measurement.close();
-		// test buffer recovery after compaction, validate count
-		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
-		series = measurement.getTimeSeries().iterator().next();
-		queryDataPoints = series.queryDataPoints("", ts, ts + LIMIT + 1, null);
-		assertEquals(LIMIT, queryDataPoints.size());
-		for (int i = 0; i < LIMIT; i++) {
-			DataPoint dp = queryDataPoints.get(i);
-			assertEquals(ts + i, dp.getTimestamp());
-			assertEquals(i * 1.2, dp.getValue(), 0.01);
-		}
-		for (int i = 0; i < LIMIT; i++) {
-			measurement.addDataPoint("value1", tags, LIMIT + ts + i, 1.2, false, false);
-		}
-		series.getBucketRawMap().entrySet().iterator().next().getValue().stream()
-				.map(v -> "" + v.getCount() + ":" + v.isReadOnly() + ":" + (int) v.getRawBytes().get(1))
-				.forEach(System.out::println);
-		measurement.close();
-		// test recovery again
-		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
-		series = measurement.getTimeSeries().iterator().next();
-		queryDataPoints = series.queryDataPoints("", ts - 1, ts + 2 + (LIMIT * 2), null);
-		assertEquals(LIMIT * 2, queryDataPoints.size());
-		for (int i = 0; i < LIMIT * 2; i++) {
-			DataPoint dp = queryDataPoints.get(i);
-			assertEquals("Error:" + i + " " + (dp.getTimestamp() - ts - i), ts + i, dp.getTimestamp());
-		}
 	}
 
 	@Test
@@ -389,6 +363,7 @@ public class TestMeasurement {
 		for (int p = 0; p < 100; p++) {
 			MiscUtils.delete(new File("target/measurement-common"));
 			final long t1 = 1497720452566L;
+			conf.put("buffer.size", String.valueOf(32768));
 			measurement.configure(conf, engine, 4096, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
 			ExecutorService es = Executors.newFixedThreadPool(2, new BackgrounThreadFactory("tlinear"));
 			final List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),
