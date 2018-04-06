@@ -110,6 +110,7 @@ public class TestStorageEngine {
 	@Before
 	public void before() throws InstantiationException, IllegalAccessException, IOException {
 		conf = new HashMap<>();
+		MiscUtils.delete(new File("target/se-common-test/"));
 		conf.put("data.dir", "target/se-common-test/data");
 		conf.put("index.dir", "target/se-common-test/index");
 		engine = clazz.newInstance();

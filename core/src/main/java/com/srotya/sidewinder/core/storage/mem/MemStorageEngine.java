@@ -179,7 +179,7 @@ public class MemStorageEngine implements StorageEngine {
 					DBMetadata metadata = new DBMetadata();
 					metadata.setRetentionHours(defaultRetentionHours);
 					dbMetadataMap.put(dbName, metadata);
-					logger.info("Created new database:" + dbName + "\t with retention period:" + defaultRetentionHours
+					logger.info("Created new database:" + dbName + " with retention period:" + defaultRetentionHours
 							+ " hours");
 					metricsDbCounter.inc();
 				}
