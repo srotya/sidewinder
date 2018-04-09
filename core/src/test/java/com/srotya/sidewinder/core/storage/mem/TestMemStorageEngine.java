@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ public class TestMemStorageEngine {
 	public void testBaseTimeSeriesWrites() throws Exception {
 		MemStorageEngine engine = new MemStorageEngine();
 		engine.configure(new HashMap<>(), bgTasks);
-		engine.connect();
+		engine.startup();
 
 		final long ts1 = System.currentTimeMillis();
 		ExecutorService es = Executors.newCachedThreadPool();
@@ -121,7 +121,6 @@ public class TestMemStorageEngine {
 				long ts = System.currentTimeMillis();
 				for (int i = 0; i < 1000; i++) {
 					try {
-						;
 						engine.writeDataPointLocked(MiscUtils.buildDataPoint("test", "helo" + p, Arrays.asList("value"),
 								Arrays.asList(Tag.newBuilder().setTagKey("k").setTagValue("2").build()), ts + i * 60,
 								Arrays.asList(ts + i), Arrays.asList(false)), false);

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,8 +26,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
@@ -232,6 +234,18 @@ public class MappedSetTagIndex implements TagIndex {
 		case LESS_THAN_EQUALS:
 			String key4 = simpleFilter.getTagKey() + SEPERATOR + simpleFilter.getComparedValue();
 			return rowKeyIndex.headSet(key4 + Character.MAX_VALUE);
+		case LIKE:
+			SortedSet<String> tagKeySet = rowKeyIndex.subSet(simpleFilter.getTagKey(),
+					simpleFilter.getTagKey() + SEPERATOR + Character.MAX_VALUE);
+			SortedSet<String> output = new TreeSet<>();
+			Pattern p = Pattern.compile(simpleFilter.getComparedValue());
+			for (String e : tagKeySet) {
+				String[] split = e.split(SEPERATOR);
+				if (p.matcher(split[1]).matches()) {
+					output.add(e);
+				}
+			}
+			return output;
 		}
 		return null;
 	}

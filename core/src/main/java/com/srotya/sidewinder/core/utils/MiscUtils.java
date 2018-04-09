@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,14 +35,15 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.filters.TagFilter;
+import com.srotya.sidewinder.core.functions.ChainFunction;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.functions.FunctionTable;
-import com.srotya.sidewinder.core.functions.multiseries.ChainFunction;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.TimeSeries;
 
 /**
  * Miscellaneous utility functions.
@@ -52,13 +53,22 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 public class MiscUtils {
 
 	private static final Pattern NUMBER = Pattern.compile("\\d+(\\.\\d+)?");
-	private static final Pattern EXPRESSION = Pattern.compile("([a-zA-Z0-9\\-\\_]+)(=|<=|>=|<|>)([a-zA-Z0-9\\-\\_]+)");
+	private static final Pattern EXPRESSION = Pattern.compile("([a-zA-Z0-9\\-\\_\\.]+)(=|<=|>=|<|>|~)(.*)");
 
 	private MiscUtils() {
 	}
 
+	public static long bucketCounter(TimeSeries s) {
+		return s.getBucketRawMap().entrySet().stream().mapToInt(e -> e.getValue().size()).sum();
+	}
+
 	public static String[] splitAndNormalizeString(String input) {
-		return input.split(",\\s+");
+		String[] split = input.split(",");
+		for (int i = 0; i < split.length; i++) {
+			String str = split[i];
+			split[i] = str.trim();
+		}
+		return split;
 	}
 
 	public static List<String> readAllLines(File file) throws IOException {
@@ -174,16 +184,17 @@ public class MiscUtils {
 			} else {
 				return predicateStack.pop();
 			}
+		} catch (InvalidFilterException e) {
+			throw e;
 		} catch (Exception e) {
-			e.printStackTrace();
-			throw new InvalidFilterException();
+			throw new InvalidFilterException(e.getMessage());
 		}
 	}
 
-	public static SimpleTagFilter buildSimpleFilter(String item) {
+	public static SimpleTagFilter buildSimpleFilter(String item) throws InvalidFilterException {
 		Matcher matcher = EXPRESSION.matcher(item);
 		if (!matcher.matches()) {
-			throw new IllegalArgumentException("Invalid expression:" + item);
+			throw new InvalidFilterException("Invalid expression:" + item);
 		}
 		FilterType type = null;
 		switch (matcher.group(2)) {
@@ -201,6 +212,9 @@ public class MiscUtils {
 			break;
 		case "<=":
 			type = FilterType.LESS_THAN_EQUALS;
+			break;
+		case "~":
+			type = FilterType.LIKE;
 			break;
 		}
 		SimpleTagFilter filter = new SimpleTagFilter(type, matcher.group(1), matcher.group(3));
@@ -334,19 +348,19 @@ public class MiscUtils {
 				.addAllValueFieldName(valueFieldName).addAllFp(fp).addAllTags(taglist).addAllValue(values)
 				.setTimestamp(timestamp).build();
 	}
-	
-	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<Tag> taglist, long timestamp, long value) {
+
+	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> taglist,
+			long timestamp, long value) {
 		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName)
 				.addValueFieldName(valueFieldName).addFp(false).addAllTags(taglist).addValue(value)
 				.setTimestamp(timestamp).build();
 	}
-	
-	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<Tag> taglist, long timestamp, double value) {
+
+	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> taglist,
+			long timestamp, double value) {
 		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName)
-				.addValueFieldName(valueFieldName).addFp(true).addAllTags(taglist).addValue(Double.doubleToLongBits(value))
-				.setTimestamp(timestamp).build();
+				.addValueFieldName(valueFieldName).addFp(true).addAllTags(taglist)
+				.addValue(Double.doubleToLongBits(value)).setTimestamp(timestamp).build();
 	}
 
 	public static int tagHashCode(List<Tag> tags) {

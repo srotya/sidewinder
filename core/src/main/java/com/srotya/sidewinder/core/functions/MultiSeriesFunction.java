@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,14 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.multiseries;
+package com.srotya.sidewinder.core.functions;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import com.srotya.sidewinder.core.functions.Function;
-import com.srotya.sidewinder.core.functions.FunctionName;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;

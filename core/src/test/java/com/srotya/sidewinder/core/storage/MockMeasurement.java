@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
@@ -41,8 +42,10 @@ public class MockMeasurement implements Measurement {
 	private ReentrantLock lock = new ReentrantLock();
 	private MemMalloc memMalloc;
 	private List<String> list;
+	private int rentionBuckets;
 
-	public MockMeasurement(int bufSize) {
+	public MockMeasurement(int bufSize, int rentionBuckets) {
+		this.rentionBuckets = rentionBuckets;
 		list = new ArrayList<>();
 		memMalloc = new MemMalloc(list);
 		Map<String, String> conf = new HashMap<>();
@@ -175,6 +178,11 @@ public class MockMeasurement implements Measurement {
 	public Counter getMetricsTimeSeriesCounter() {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	@Override
+	public AtomicInteger getRetentionBuckets() {
+		return new AtomicInteger(rentionBuckets);
 	}
 
 }

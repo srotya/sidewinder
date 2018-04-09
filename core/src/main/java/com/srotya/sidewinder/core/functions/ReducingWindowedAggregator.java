@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.windowed;
+package com.srotya.sidewinder.core.functions;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 
-import com.srotya.sidewinder.core.functions.FunctionTable;
-import com.srotya.sidewinder.core.functions.ReduceFunction;
-import com.srotya.sidewinder.core.functions.WindowedFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 /**

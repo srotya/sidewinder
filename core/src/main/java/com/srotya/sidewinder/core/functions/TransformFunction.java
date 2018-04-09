@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,42 +13,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.multiseries;
+package com.srotya.sidewinder.core.functions;
 
-import java.util.ArrayList;
 import java.util.List;
 
-import com.srotya.sidewinder.core.functions.Function;
+import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
 
-/**
- * @author ambud
- */
-public class ChainFunction implements Function {
-
-	private List<Function> chain;
+public abstract class TransformFunction implements Function {
 
 	@Override
-	public List<Series> apply(List<Series> t) {
-		List<Series> output = t;
-		for(Function f:chain) {
-			output = f.apply(output);
+	public List<Series> apply(List<Series> series) {
+		for (Series s : series) {
+			List<DataPoint> dps = s.getDataPoints();
+			for (DataPoint dp : dps) {
+				if (s.isFp()) {
+					dp.setValue(transform(dp.getValue()));
+				} else {
+					dp.setLongValue(transform(dp.getLongValue()));
+				}
+			}
 		}
-		return output;
+		return series;
 	}
+
+	public abstract long transform(long value);
+
+	public abstract double transform(double value);
 
 	@Override
 	public void init(Object[] args) throws Exception {
-		chain = new ArrayList<>();
-		for (int i = 0; i < args.length; i++) {
-			Object object = args[i];
-			chain.add((Function) object);
-		}
 	}
 
 	@Override
 	public int getNumberOfArgs() {
-		return -1;
+		return 0;
 	}
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,8 @@ public class TestTagIndices {
 	@Before
 	public void before() throws IOException, InstantiationException, IllegalAccessException {
 		m = new MemoryMeasurement();
-		m.configure(new HashMap<>(), engine, 1024, "", "", "", "", null, null);
+		DBMetadata md = new DBMetadata(10);
+		m.configure(new HashMap<>(), engine, 1024, "", "", "", "", md, null);
 		index = clazz.newInstance();
 		new File("target/index-common").mkdirs();
 		index.configure(new HashMap<>(), "target/index-common", m);
@@ -224,6 +225,13 @@ public class TestTagIndices {
 			m.getSeriesList().add(new SeriesFieldMap(format, i));
 		}
 
+		// reindex everything
+		for (int i = 0; i < 10_000; i++) {
+			ByteString format = new ByteString(String.format("%05d", i));
+			index.index("key", format.toString(), i);
+			m.getSeriesList().add(new SeriesFieldMap(format, i));
+		}
+
 		TagFilter filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "00000");
 		Set<ByteString> keys = index.searchRowKeysForTagFilter(filter);
 		assertEquals(0, keys.size());
@@ -251,6 +259,10 @@ public class TestTagIndices {
 		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "10000");
 		keys = index.searchRowKeysForTagFilter(filter);
 		assertEquals(0, keys.size());
+
+		filter = new SimpleTagFilter(FilterType.LIKE, "key", "02.*");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1000, keys.size());
 	}
 
 }

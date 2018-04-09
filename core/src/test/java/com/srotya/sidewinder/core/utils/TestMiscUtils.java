@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,10 +76,17 @@ public class TestMiscUtils {
 
 	@Test
 	public void testSplitNormalizeString() {
-		String[] splits = MiscUtils.splitAndNormalizeString("/data/drive1, /data/drive2,/data/drive3");
+		String[] splits = MiscUtils.splitAndNormalizeString("/data/drive1, /data/drive2,   /data/drive3");
 		for (String split : splits) {
 			assertTrue(!split.contains(" "));
 		}
+		assertEquals(3, splits.length);
+		
+		splits = MiscUtils.splitAndNormalizeString("/data/drive1,/data/drive2,/data/drive3");
+		for (String split : splits) {
+			assertTrue(!split.contains(" "));
+		}
+		assertEquals(3, splits.length);
 	}
 
 	@Test
@@ -95,7 +102,7 @@ public class TestMiscUtils {
 
 	@Test
 	public void testBuildTagFilter() throws InvalidFilterException {
-		TagFilter filter = MiscUtils.buildTagFilter("host=1&test=2|tree=1");
+		TagFilter filter = MiscUtils.buildTagFilter("host=1&test=2|tree=LTS.12");
 		assertEquals(ComplexTagFilter.class, filter.getClass());
 		ComplexTagFilter complex = ((ComplexTagFilter) filter);
 		assertEquals(ComplexFilterType.OR, complex.getType());
@@ -103,26 +110,26 @@ public class TestMiscUtils {
 		assertEquals(ComplexTagFilter.class, complex.getFilters().get(0).getClass());
 		assertEquals(SimpleTagFilter.class, complex.getFilters().get(1).getClass());
 
-		filter = MiscUtils.buildTagFilter("user>=1&test<1");
+		filter = MiscUtils.buildTagFilter("user>=test@sss&test<LTS.212");
 		complex = ((ComplexTagFilter) filter);
 		assertEquals(ComplexFilterType.AND, complex.getType());
 		assertEquals(2, complex.getFilters().size());
 		SimpleTagFilter sfilter = ((SimpleTagFilter) complex.getFilters().get(0));
 		assertEquals("user", sfilter.getTagKey());
-		assertEquals("1", sfilter.getComparedValue());
+		assertEquals("test@sss", sfilter.getComparedValue());
 		assertEquals(FilterType.GREATER_THAN_EQUALS, sfilter.getFilterType());
 		sfilter = ((SimpleTagFilter) complex.getFilters().get(1));
 		assertEquals(FilterType.LESS_THAN, sfilter.getFilterType());
 		assertEquals("test", sfilter.getTagKey());
-		assertEquals("1", sfilter.getComparedValue());
+		assertEquals("LTS.212", sfilter.getComparedValue());
 
-		filter = MiscUtils.buildTagFilter("user<=1|test>1");
+		filter = MiscUtils.buildTagFilter("user<=1_2122|test>1");
 		complex = ((ComplexTagFilter) filter);
 		assertEquals(ComplexFilterType.OR, complex.getType());
 		assertEquals(2, complex.getFilters().size());
 		sfilter = ((SimpleTagFilter) complex.getFilters().get(0));
 		assertEquals("user", sfilter.getTagKey());
-		assertEquals("1", sfilter.getComparedValue());
+		assertEquals("1_2122", sfilter.getComparedValue());
 		assertEquals(FilterType.LESS_THAN_EQUALS, sfilter.getFilterType());
 		sfilter = ((SimpleTagFilter) complex.getFilters().get(1));
 		assertEquals(FilterType.GREATER_THAN, sfilter.getFilterType());

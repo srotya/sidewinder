@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,10 +55,10 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class DiskMalloc implements Malloc {
 
-	private static final int BUF_PARTS_LENGTH = 9;
+	public static final int BUF_PARTS_LENGTH = 9;
 	public static boolean debug = false;
 	private static final int PTR_INCREMENT = 1048576;
-	private static final ByteString SEPARATOR = new ByteString(")");
+	public static final ByteString SEPARATOR = new ByteString(")");
 	private static final Logger logger = Logger.getLogger(DiskMalloc.class.getName());
 	// 100MB default buffer increment size
 	private static final int DEFAULT_FILE_INCREMENT = 1048576;
@@ -136,7 +136,7 @@ public class DiskMalloc implements Malloc {
 
 	@Override
 	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket, int newSize) throws IOException {
-		logger.fine("Seriesid:" + seriesId + " requesting buffer of size:" + newSize);
+		logger.fine(() -> "Seriesid:" + seriesId + " requesting buffer of size:" + newSize);
 		if (rafActiveFile == null) {
 			lock.lock();
 			if (rafActiveFile == null) {
@@ -159,8 +159,7 @@ public class DiskMalloc implements Malloc {
 				itr++;
 				offset = (((long) (fileMapIncrement)) * itr);
 				// close the current data file, increment the filename by 1 so
-				// that
-				// a new data file will be created next time a buffer is
+				// that a new data file will be created next time a buffer is
 				// requested
 				if (offset >= maxFileSize) {
 					itr = 0;
@@ -182,13 +181,12 @@ public class DiskMalloc implements Malloc {
 					metricsBufferSize.inc(fileMapIncrement);
 				}
 			}
-			LinkedByteString ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset, newSize);
-			MiscUtils.writeStringToBuffer(Integer.toHexString(tsBucket), memoryMappedBuffer);
+			LinkedByteString ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset, newSize, tsBucket);
 			ByteBuffer buf = memoryMappedBuffer.slice();
 			buf.limit(newSize);
 			curr = curr + newSize;
 			memoryMappedBuffer.position(curr);
-			logger.fine("Position:" + buf.position() + "\t" + buf.limit() + "\t" + buf.capacity());
+			logger.fine(() -> "Position:" + buf.position() + "\t" + buf.limit() + "\t" + buf.capacity());
 			if (enableMetricsCapture) {
 				metricsBufferCounter.inc();
 			}
@@ -246,10 +244,10 @@ public class DiskMalloc implements Malloc {
 		ptrCounter = 0;
 		initializePtrFile();
 		for (int i = 0; i < ptrCounter; i++) {
-			String line = MiscUtils.getStringFromBuffer(ptrBuf);
+			String line = MiscUtils.getStringFromBuffer(ptrBuf).trim();
 			String[] splits = line.split("\\" + SEPARATOR);
 			LinkedByteString bsLine = new LinkedByteString(BUF_PARTS_LENGTH);
-			logger.finer("reading line:" + Arrays.toString(splits));
+			logger.finer("Reading line:" + Arrays.toString(splits));
 			String fileName = splits[1];
 			int positionOffset = Integer.parseInt(splits[3]);
 			String seriesIdStr = splits[0];
@@ -258,15 +256,14 @@ public class DiskMalloc implements Malloc {
 			MappedByteBuffer buf = bufferMap.get(fileName);
 			int position = positionOffset + pointer;
 			buf.position(position);
-			String tsBucket = MiscUtils.getStringFromBuffer(buf);
+			String tsBucket = splits[5];
 			ByteBuffer slice = buf.slice();
 			slice.limit(size);
 
 			ByteString seriesId = cache.get(new ByteString(seriesIdStr));
-			bsLine.concat(seriesId).concat(SEPARATOR).concat(cache.get(new ByteString(splits[1])))
-					.concat(SEPARATOR).concat(new ByteString(splits[2])).concat(SEPARATOR)
-					.concat(cache.get(new ByteString(splits[3]))).concat(SEPARATOR)
-					.concat(cache.get(new ByteString(splits[4])));
+			bsLine.concat(seriesId).concat(SEPARATOR).concat(cache.get(new ByteString(splits[1]))).concat(SEPARATOR)
+					.concat(new ByteString(splits[2])).concat(SEPARATOR).concat(cache.get(new ByteString(splits[3])))
+					.concat(SEPARATOR).concat(cache.get(new ByteString(splits[4])));
 
 			List<Entry<Integer, BufferObject>> list = seriesBuffers.get(seriesId);
 			if (list == null) {
@@ -293,14 +290,14 @@ public class DiskMalloc implements Malloc {
 	}
 
 	protected LinkedByteString appendBufferPointersToDisk(ByteString seriesId, ByteString filename, int curr,
-			long offset, int size) throws IOException {
+			long offset, int size, Integer tsBucket) throws IOException {
 		lock.lock();
 		try {
 			ByteString[] split = filename.split("/");
 			LinkedByteString line = new LinkedByteString(BUF_PARTS_LENGTH);
 			line.concat(seriesId).concat(SEPARATOR).concat(cache.get(split[split.length - 1])).concat(SEPARATOR)
 					.concat(String.valueOf(curr)).concat(SEPARATOR).concat(String.valueOf(offset)).concat(SEPARATOR)
-					.concat(String.valueOf(size));
+					.concat(String.valueOf(size)).concat(SEPARATOR).concat(Integer.toHexString(tsBucket)).concat("\n");
 			logger.fine("Measurement(" + measurementName + ")Appending pointer information to ptr file:" + line);
 			// resize
 			String strLine = line.toString();
@@ -318,7 +315,7 @@ public class DiskMalloc implements Malloc {
 			}
 			MiscUtils.writeStringToBuffer(strLine, ptrBuf);
 			ptrBuf.putInt(0, ++ptrCounter);
-			logger.fine("Measurement(" + measurementName + ")Appending pointer information to ptr file:" + line
+			logger.fine(() -> "Measurement(" + measurementName + ") appending pointer information to ptr file:" + line
 					+ " pos:" + ptrBuf.position());
 			return line;
 		} finally {

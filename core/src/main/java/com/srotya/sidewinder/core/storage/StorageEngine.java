@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
 /**
@@ -76,7 +77,8 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_ON_START = "false";
 	public static final String COMPACTION_RATIO = "compaction.ratio";
 	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
-	public static final boolean ENABLE_METHOD_METRICS = Boolean.parseBoolean(System.getProperty("debug.method.metrics", "false"));
+	public static final boolean ENABLE_METHOD_METRICS = Boolean
+			.parseBoolean(System.getProperty("debug.method.metrics", "false"));
 
 	/**
 	 * @param conf
@@ -90,14 +92,14 @@ public interface StorageEngine {
 	 * 
 	 * @throws IOException
 	 */
-	public void connect() throws IOException;
+	public void startup() throws IOException;
 
 	/**
 	 * Disconnect from the storage engine
 	 * 
 	 * @throws IOException
 	 */
-	public void disconnect() throws IOException;
+	public void shutdown() throws IOException;
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, long value, boolean fp, boolean presorted) throws IOException {
@@ -114,7 +116,8 @@ public interface StorageEngine {
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, double value, boolean presorted) throws IOException {
-		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true, presorted);
+		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true,
+				presorted);
 	}
 
 	public default void writeDataPointLocked(Point dp, boolean preSorted) throws IOException {
@@ -123,7 +126,7 @@ public interface StorageEngine {
 		m.addPointLocked(dp, preSorted);
 		getCounter().inc(dp.getValueList().size());
 	}
-	
+
 	public default void writeDataPointUnlocked(Point dp, boolean preSorted) throws IOException {
 		StorageEngine.validatePoint(dp);
 		Measurement m = getOrCreateMeasurement(dp.getDbName(), dp.getMeasurementName());
@@ -377,27 +380,6 @@ public interface StorageEngine {
 		}
 	}
 
-	// retention policy update methods
-	/**
-	 * Update retention policy for a specific time series
-	 * 
-	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
-	 * @param tags
-	 * @param retentionHours
-	 * @throws IOException
-	 */
-	public default void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags, int retentionHours) throws IOException {
-		Measurement m = getOrCreateMeasurement(dbName, measurementName);
-		SeriesFieldMap s = m.getOrCreateSeriesFieldMap(tags, false);
-		TimeSeries series = s.getOrCreateSeriesLocked(valueFieldName, getDefaultTimebucketSize(), false, m);
-		if (series != null) {
-			series.setRetentionHours(retentionHours);
-		}
-	}
-
 	/**
 	 * Update retention policy for measurement
 	 * 
@@ -596,7 +578,8 @@ public interface StorageEngine {
 
 	public static void validatePoint(Point dp) throws RejectException {
 		if (dp.getDbName() == null || dp.getMeasurementName() == null || dp.getTagsList() == null
-				|| dp.getValueFieldNameList() == null || dp.getFpList() == null || dp.getValueList() == null) {
+				|| dp.getValueFieldNameList() == null || dp.getFpList() == null || dp.getValueList() == null
+				|| dp.getValueCount() != dp.getFpCount() || dp.getFpCount() != dp.getValueFieldNameCount()) {
 			throw INVALID_DATAPOINT_EXCEPTION;
 		}
 	}
@@ -606,5 +589,21 @@ public interface StorageEngine {
 	public Counter getCounter();
 
 	public Logger getLogger();
+
+	public default void setCodecsForTimeseries(Map<String, String> conf) {
+		String compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
+				StorageEngine.DEFAULT_COMPRESSION_CODEC);
+		String compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
+				StorageEngine.DEFAULT_COMPACTION_CODEC);
+		TimeSeries.compactionClass = CompressionFactory.getClassByName(compactionCodec);
+		TimeSeries.compressionClass = CompressionFactory.getClassByName(compressionCodec);
+	}
+
+	public default void setCompactionConfig(Map<String, String> conf) {
+		TimeSeries.compactionEnabled = Boolean.parseBoolean(
+				conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, StorageEngine.DEFAULT_COMPACTION_ENABLED));
+		TimeSeries.compactionRatio = Double
+				.parseDouble(conf.getOrDefault(StorageEngine.COMPACTION_RATIO, StorageEngine.DEFAULT_COMPACTION_RATIO));
+	}
 
 }

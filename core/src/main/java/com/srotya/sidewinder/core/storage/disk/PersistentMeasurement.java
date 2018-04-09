@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,7 @@ import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -78,6 +79,7 @@ public class PersistentMeasurement implements Measurement {
 	private Malloc malloc;
 	private boolean compactOnStart;
 	private int timeBucketSize;
+	private AtomicInteger retentionBuckets;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
@@ -104,13 +106,14 @@ public class PersistentMeasurement implements Measurement {
 		// DBMaker.memoryDirectDB().make().hashMap(measurementName).create();
 		this.seriesMap = new ConcurrentHashMap<>(100_000);
 		this.seriesList = new ArrayList<>(100_000);
-		setCodecsForTimeseries(conf);
 		this.compactOnStart = Boolean.parseBoolean(
 				conf.getOrDefault(StorageEngine.COMPACTION_ON_START, StorageEngine.DEFAULT_COMPACTION_ON_START));
 		this.measurementName = measurementName;
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
-		// this.tagIndex = new MappedSetTagIndex(this.indexDirectory, measurementName,
-		// true, this);
+
+		this.retentionBuckets = new AtomicInteger(0);
+		setRetentionHours(metadata.getRetentionHours());
+
 		this.tagIndex = new MappedBitmapTagIndex();
 		this.tagIndex.configure(getConf(), indexDirectory, this);
 		malloc = new DiskMalloc();
@@ -205,13 +208,14 @@ public class PersistentMeasurement implements Measurement {
 			SeriesFieldMap fieldMap = null;
 			if (seriesIdx == null) {
 				seriesIdx = Integer.parseInt(split[3], 16);
-				fieldMap = new SeriesFieldMap(seriesId, seriesIdx);
+				fieldMap = new SeriesFieldMap(new ByteString(seriesId), seriesIdx);
 				seriesMap.put(key, seriesIdx);
 				seriesList.add(seriesIdx, fieldMap);
 			} else {
 				fieldMap = seriesList.get(seriesIdx);
 			}
-			fieldMap.getOrCreateSeriesLocked(valueField, Integer.parseInt(timeBucketSize), Boolean.parseBoolean(isFp), this);
+			fieldMap.getOrCreateSeriesLocked(valueField, Integer.parseInt(timeBucketSize), Boolean.parseBoolean(isFp),
+					this);
 			if (enableMetricsCapture) {
 				metricsTimeSeriesCounter.inc();
 			}
@@ -357,6 +361,11 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public Counter getMetricsTimeSeriesCounter() {
 		return metricsTimeSeriesCounter;
+	}
+
+	@Override
+	public AtomicInteger getRetentionBuckets() {
+		return retentionBuckets;
 	}
 
 }

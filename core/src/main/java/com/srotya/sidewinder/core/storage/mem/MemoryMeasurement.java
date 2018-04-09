@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
@@ -59,6 +60,7 @@ public class MemoryMeasurement implements Measurement {
 	private Map<String, String> conf;
 	private boolean enableMetricsCapture;
 	private Counter metricsTimeSeriesCounter;
+	private AtomicInteger retentionBuckets;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
@@ -82,7 +84,8 @@ public class MemoryMeasurement implements Measurement {
 		this.tagIndex = new MemTagIndex();
 		tagIndex.configure(getConf(), null, this);
 		this.seriesMap = new ConcurrentHashMap<>();
-		setCodecsForTimeseries(conf);
+		this.retentionBuckets = new AtomicInteger(0);
+		setRetentionHours(metadata.getRetentionHours());
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
 		this.malloc = new MemMalloc();
 		this.malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, lock);
@@ -189,5 +192,10 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public Counter getMetricsTimeSeriesCounter() {
 		return metricsTimeSeriesCounter;
+	}
+
+	@Override
+	public AtomicInteger getRetentionBuckets() {
+		return retentionBuckets;
 	}
 }

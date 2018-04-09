@@ -1,5 +1,5 @@
 /**
-s * Copyright 2017 Ambud Sharma
+s * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,7 +39,7 @@ public class TestDatabaseOpsApi {
 	public void testQuerySeries() throws IOException {
 		MemStorageEngine engine = new MemStorageEngine();
 		engine.configure(new HashMap<>(), null);
-		engine.connect();
+		engine.startup();
 
 		Builder dp = Point.newBuilder();
 		dp.setDbName("test1");

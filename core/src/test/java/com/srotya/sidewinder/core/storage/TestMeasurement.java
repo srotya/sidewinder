@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -75,6 +75,7 @@ public class TestMeasurement {
 
 	@BeforeClass
 	public static void beforeClass() throws IOException {
+		TimeSeries.compactionEnabled = false;
 	}
 
 	@AfterClass
@@ -102,7 +103,7 @@ public class TestMeasurement {
 
 	@After
 	public void after() throws IOException {
-		engine.disconnect();
+		engine.shutdown();
 		measurement.close();
 		MiscUtils.delete(new File("target/measurement-common"));
 	}
@@ -224,7 +225,7 @@ public class TestMeasurement {
 		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
 		conf.put("malloc.ptrfile.increment", String.valueOf(1024));
 		conf.put("compaction.ratio", "1.2");
-		conf.put("compaction.enabled", "true");
+		TimeSeries.compactionEnabled = true;
 		measurement.configure(conf, null, 1024, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 7000;
 		for (int i = 0; i < LIMIT; i++) {
@@ -234,7 +235,7 @@ public class TestMeasurement {
 		TimeSeries series = measurement.getTimeSeries().iterator().next();
 		System.out.println("Series:" + series);
 		assertEquals(1, series.getBucketRawMap().size());
-		assertEquals(3, series.getBucketCount());
+		assertEquals(3, MiscUtils.bucketCounter(series));
 		assertEquals(3, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
 		assertEquals(1, series.getCompactionSet().size());
 		int maxDp = series.getBucketRawMap().values().stream().flatMap(v -> v.stream()).mapToInt(l -> l.getCount())
@@ -248,7 +249,8 @@ public class TestMeasurement {
 			assertEquals(i * 1.2, dp.getValue(), 0.01);
 		}
 		measurement.compact();
-		assertEquals(2, series.getBucketCount());
+
+		assertEquals(2, MiscUtils.bucketCounter(series));
 		assertEquals(2, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
 		assertEquals(0, series.getCompactionSet().size());
 		assertTrue(maxDp <= series.getBucketRawMap().values().stream().flatMap(v -> v.stream())
@@ -394,7 +396,7 @@ public class TestMeasurement {
 			TimeSeries ts = s.getOrCreateSeriesLocked(valueFieldName, 4096, false, measurement);
 			List<DataPoint> dps = ts.queryDataPoints(valueFieldName, t1 - 120, t1 + 1000_000, null);
 			assertEquals(200, dps.size());
-			assertEquals(1, ts.getBucketCount());
+			assertEquals(1, MiscUtils.bucketCounter(ts));
 			measurement.close();
 		}
 	}

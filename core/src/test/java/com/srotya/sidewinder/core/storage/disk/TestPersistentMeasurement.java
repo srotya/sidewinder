@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,22 +27,27 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
+import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -50,7 +55,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class TestPersistentMeasurement {
 
-	private static final String TARGET_MEASUREMENT_COMMON = "target/measurement-common";
+	private static final String TARGET_MEASUREMENT_COMMON = "target/measurement-persistent";
 	private Map<String, String> conf = new HashMap<>();
 	private DBMetadata metadata = new DBMetadata(28);
 	private String dataDir;
@@ -63,6 +68,7 @@ public class TestPersistentMeasurement {
 	@BeforeClass
 	public static void beforeClass() throws IOException {
 		engine.configure(new HashMap<>(), bgTaskPool);
+		TimeSeries.compactionEnabled = false;
 	}
 
 	@Before
@@ -125,6 +131,13 @@ public class TestPersistentMeasurement {
 		measurement.queryDataPoints("value", ts, ts + 1000 * LIMIT, null, null, resultMap);
 		Iterator<Series> iterator = resultMap.iterator();
 		assertEquals(LIMIT, iterator.next().getDataPoints().size());
+
+		resultMap.clear();
+		TagFilter filter = MiscUtils.buildTagFilter("test=1&test=2");
+		measurement.queryDataPoints("value", ts, ts + 1000 * LIMIT, filter, null, resultMap);
+		iterator = resultMap.iterator();
+		assertEquals(LIMIT, iterator.next().getDataPoints().size());
+		
 		measurement.close();
 	}
 
@@ -137,8 +150,8 @@ public class TestPersistentMeasurement {
 		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
 		conf.put("buffer.size", String.valueOf(32768));
 		conf.put("malloc.ptrfile.increment", String.valueOf(1024));
-		conf.put("compaction.ratio", "1.2");
-		conf.put("compaction.enabled", "true");
+		TimeSeries.compactionRatio = 1.2;
+		TimeSeries.compactionEnabled = true;
 		measurement.configure(conf, null, 1024, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 7000;
 		for (int i = 0; i < LIMIT; i++) {
@@ -148,7 +161,7 @@ public class TestPersistentMeasurement {
 		TimeSeries series = measurement.getTimeSeries().iterator().next();
 		System.out.println("Series:" + series);
 		assertEquals(1, series.getBucketRawMap().size());
-		assertEquals(3, series.getBucketCount());
+		assertEquals(3, MiscUtils.bucketCounter(series));
 		assertEquals(3, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
 		assertEquals(1, series.getCompactionSet().size());
 		int maxDp = series.getBucketRawMap().values().stream().flatMap(v -> v.stream()).mapToInt(l -> l.getCount())
@@ -162,7 +175,7 @@ public class TestPersistentMeasurement {
 			assertEquals(i * 1.2, dp.getValue(), 0.01);
 		}
 		measurement.compact();
-		assertEquals(2, series.getBucketCount());
+		assertEquals(2, MiscUtils.bucketCounter(series));
 		assertEquals(2, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
 		assertEquals(0, series.getCompactionSet().size());
 		assertTrue(maxDp <= series.getBucketRawMap().values().stream().flatMap(v -> v.stream())
@@ -202,5 +215,40 @@ public class TestPersistentMeasurement {
 			DataPoint dp = queryDataPoints.get(i);
 			assertEquals("Error:" + i + " " + (dp.getTimestamp() - ts - i), ts + i, dp.getTimestamp());
 		}
+	}
+	
+	@Test
+	public void testHyperThreading() throws Exception {
+		measurement.configure(conf, engine, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
+		int nThreads = 20;
+		ExecutorService es = Executors.newFixedThreadPool(nThreads, new BackgrounThreadFactory("tlinear2"));
+		final List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("host").setTagValue("ll1.eew.wwe.com").build(),
+				Tag.newBuilder().setTagKey("dc").setTagValue("2").build());
+		final int LIMIT = 1000;
+		final long t1 = 1497720452566L;
+		for (int i = 0; i < nThreads * 2; i++) {
+			final int th = i;
+			es.submit(() -> {
+				long t = t1 + th * 4096;
+				for (int j = 0; j < LIMIT; j++) {
+					try {
+						long timestamp = t + j * 1000;
+						measurement.addDataPoint("vf1", tags, timestamp, j, false);
+					} catch (Exception e) {
+						e.printStackTrace();
+					}
+				}
+			});
+		}
+
+		es.shutdown();
+		es.awaitTermination(10, TimeUnit.SECONDS);
+
+		measurement.configure(conf, engine, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
+		SeriesFieldMap s = measurement.getOrCreateSeriesFieldMap(tags, false);
+		TimeSeries ts = s.getOrCreateSeriesLocked("vf1", 4096, false, measurement);
+		List<DataPoint> dps = ts.queryDataPoints("vf1", t1 - 100, t1 + 1000_0000, null);
+		assertEquals(LIMIT * nThreads * 2, dps.size(), 10);
+		measurement.close();
 	}
 }

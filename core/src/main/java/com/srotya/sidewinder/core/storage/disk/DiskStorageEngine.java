@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,7 +40,6 @@ import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.archival.NoneArchiver;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -52,7 +51,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 public class DiskStorageEngine implements StorageEngine {
 
 	private static final String TMP_SIDEWINDER_INDEX = "/tmp/sidewinder/index";
-	private static final String TMP_SIDEWINDER_METADATA = "/tmp/sidewinder/data";
+	private static final String TMP_SIDEWINDER_DATA = "/tmp/sidewinder/data";
 	private static final String INDEX_DIR = "index.dir";
 	private static final String DATA_DIRS = "data.dir";
 	private static final Logger logger = Logger.getLogger(DiskStorageEngine.class.getName());
@@ -76,7 +75,7 @@ public class DiskStorageEngine implements StorageEngine {
 		this.defaultRetentionHours = Integer
 				.parseInt(conf.getOrDefault(RETENTION_HOURS, String.valueOf(DEFAULT_RETENTION_HOURS)));
 		logger.info("Setting default timeseries retention hours policy to:" + defaultRetentionHours);
-		dataDirs = MiscUtils.splitAndNormalizeString(conf.getOrDefault(DATA_DIRS, TMP_SIDEWINDER_METADATA));
+		dataDirs = MiscUtils.splitAndNormalizeString(conf.getOrDefault(DATA_DIRS, TMP_SIDEWINDER_DATA));
 		baseIndexDirectory = conf.getOrDefault(INDEX_DIR, TMP_SIDEWINDER_INDEX);
 		for (String dataDir : dataDirs) {
 			new File(dataDir).mkdirs();
@@ -84,6 +83,9 @@ public class DiskStorageEngine implements StorageEngine {
 		new File(baseIndexDirectory).mkdirs();
 		databaseMap = new ConcurrentHashMap<>();
 		dbMetadataMap = new ConcurrentHashMap<>();
+		
+		setCodecsForTimeseries(conf);
+		setCompactionConfig(conf);
 
 		try {
 			archiver = (Archiver) Class.forName(conf.getOrDefault(ARCHIVER_CLASS, NoneArchiver.class.getName()))
@@ -154,11 +156,9 @@ public class DiskStorageEngine implements StorageEngine {
 		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
 		synchronized (dbMetadataMap) {
 			if (measurementMap != null) {
-				Measurement seriesMap = measurementMap.get(measurementName);
-				if (seriesMap != null) {
-					for (TimeSeries series : seriesMap.getTimeSeries()) {
-						series.setRetentionHours(retentionHours);
-					}
+				Measurement m = measurementMap.get(measurementName);
+				if (m != null) {
+					m.setRetentionHours(retentionHours);
 				}
 			}
 		}
@@ -172,10 +172,8 @@ public class DiskStorageEngine implements StorageEngine {
 			saveDBMetadata(dbName, metadata);
 			Map<String, Measurement> measurementMap = databaseMap.get(dbName);
 			if (measurementMap != null) {
-				for (Measurement sortedMap : measurementMap.values()) {
-					for (TimeSeries timeSeries : sortedMap.getTimeSeries()) {
-						timeSeries.setRetentionHours(retentionHours);
-					}
+				for (Measurement m : measurementMap.values()) {
+					m.setRetentionHours(retentionHours);
 				}
 			}
 		}
@@ -336,22 +334,6 @@ public class DiskStorageEngine implements StorageEngine {
 		}
 	}
 
-	// @Override
-	// public TimeSeries getOrCreateTimeSeries(String dbName, String
-	// measurementName, String valueFieldName,
-	// List<Tag> tags, int timeBucketSize, boolean fp) throws IOException {
-	// // check and create database map
-	// Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
-	//
-	// // check and create measurement map
-	// Measurement measurement = getOrCreateMeasurement(dbMap, measurementName,
-	// dbName);
-	//
-	// // check and create timeseries
-	// return measurement.getOrCreateSeriesFieldMap(valueFieldName, tags,
-	// timeBucketSize, fp, conf);
-	// }
-
 	public static void writeLineToFile(String line, String filePath) throws IOException {
 		File pth = new File(filePath);
 		PrintWriter pr = new PrintWriter(new FileOutputStream(pth, false));
@@ -422,17 +404,15 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public void connect() throws IOException {
+	public void startup() throws IOException {
 	}
 
 	@Override
-	public void disconnect() throws IOException {
+	public void shutdown() throws IOException {
 		if (databaseMap != null) {
 			for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
-				for (Entry<String, Measurement> seriesMap : measurementMap.getValue().entrySet()) {
-					for (TimeSeries series : seriesMap.getValue().getTimeSeries()) {
-						series.close();
-					}
+				for (Measurement m : measurementMap.getValue().values()) {
+					m.close();
 				}
 			}
 			System.gc();

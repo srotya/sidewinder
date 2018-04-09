@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -32,12 +32,12 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -67,7 +67,6 @@ public class TestDiskStorageEngine {
 		MiscUtils.delete(new File("targer/db10221/"));
 		map.put("index.dir", "target/db10221/index");
 		map.put("data.dir", "target/db10221/data1, target/db10221/data2");
-		map.put(StorageEngine.PERSISTENCE_DISK, "true");
 		List<Tag> tagd = Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("e").build());
 		try {
 			engine.configure(map, bgTasks);
@@ -86,6 +85,35 @@ public class TestDiskStorageEngine {
 		}
 		assertEquals(5, new File("target/db10221/data1").listFiles().length);
 		assertEquals(5, new File("target/db10221/data2").listFiles().length);
+		engine.shutdown();
+	}
+	
+	@Test
+	public void testMultipleDrives2() throws ItemNotFoundException, IOException {
+		StorageEngine engine = new DiskStorageEngine();
+		HashMap<String, String> map = new HashMap<>();
+		MiscUtils.delete(new File("targer/db10221/"));
+		map.put("index.dir", "target/db10221/index");
+		map.put("data.dir", "target/db10221/data1,target/db10221/data2");
+		List<Tag> tagd = Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("e").build());
+		try {
+			engine.configure(map, bgTasks);
+		} catch (IOException e) {
+			e.printStackTrace();
+			fail("No IOException should be thrown");
+		}
+		long ts = System.currentTimeMillis();
+		try {
+			for (int i = 0; i < 10; i++) {
+				engine.writeDataPointLocked(MiscUtils.buildDataPoint("test" + i, "ss", "value", tagd, ts, 2.2), false);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
+		}
+		assertEquals(5, new File("target/db10221/data1").listFiles().length);
+		assertEquals(5, new File("target/db10221/data2").listFiles().length);
+		engine.shutdown();
 	}
 	
 	@Test
@@ -99,7 +127,6 @@ public class TestDiskStorageEngine {
 			Map<String, String> map = new HashMap<>();
 			map.put("index.dir", "target/db201/index");
 			map.put("data.dir", "target/db201/data");
-			map.put("disk.compression.class", ByzantineWriter.class.getName());
 			engine.configure(map, bgTasks);
 			long ts = System.currentTimeMillis();
 			Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
@@ -125,6 +152,20 @@ public class TestDiskStorageEngine {
 			assertEquals(2, queryDataPoints.iterator().next().getDataPoints().size());
 			assertEquals(ts, queryDataPoints.iterator().next().getDataPoints().get(0).getTimestamp());
 			assertEquals(ts + (400 * 60000), queryDataPoints.iterator().next().getDataPoints().get(1).getTimestamp());
+			
+			TagFilter filter = MiscUtils.buildTagFilter("test=e");
+			queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000), filter,
+					null);
+			assertEquals(1, queryDataPoints.size());
+			assertEquals(2, queryDataPoints.iterator().next().getDataPoints().size());
+			assertEquals(ts, queryDataPoints.iterator().next().getDataPoints().get(0).getTimestamp());
+			assertEquals(ts + (400 * 60000), queryDataPoints.iterator().next().getDataPoints().get(1).getTimestamp());
+			
+			filter = MiscUtils.buildTagFilter("test=2");
+			queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000), filter,
+					null);
+			assertEquals(0, queryDataPoints.size());
+			
 			try {
 				engine.dropDatabase("test3");
 			} catch (Exception e) {
@@ -133,6 +174,7 @@ public class TestDiskStorageEngine {
 			}
 			assertTrue(!new File("target/db201/data/test3").exists());
 			assertEquals(0, engine.getOrCreateMeasurement("test3", "cpu").getSeriesKeys().size());
+			engine.shutdown();
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw e;

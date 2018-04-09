@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,22 +45,21 @@ public class SeriesFieldMap {
 		return fieldMap.keySet();
 	}
 
-	public TimeSeries getOrCreateSeriesLocked(String valueFieldName, int timeBucketSize, boolean fp, Measurement measurement)
-			throws IOException {
+	public TimeSeries getOrCreateSeriesLocked(String valueFieldName, int timeBucketSize, boolean fp,
+			Measurement measurement) throws IOException {
 		TimeSeries series = get(valueFieldName);
 		if (series == null) {
 			synchronized (seriesId) {
 				if ((series = get(valueFieldName)) == null) {
 					ByteString fieldId = new ByteString(seriesId + Measurement.SERIESID_SEPARATOR + valueFieldName);
-					series = new TimeSeries(measurement, fieldId, timeBucketSize, measurement.getMetadata(), fp,
-							measurement.getConf());
+					series = new TimeSeries(measurement, fieldId, timeBucketSize, fp, measurement.getConf());
 					fieldMap.put(valueFieldName, series);
 					measurement.appendTimeseriesToMeasurementMetadata(fieldId, fp, timeBucketSize, fieldMapIndex);
 					final TimeSeries tmp = series;
 					logger.fine(() -> "Created new timeseries:" + tmp + " for measurement:"
 							+ measurement.getMeasurementName() + "\t" + seriesId + "\t"
-							+ measurement.getMetadata().getRetentionHours() + "\t"
-							+ measurement.getSeriesList().size());
+							+ measurement.getMetadata().getRetentionHours() + "\t" + measurement.getSeriesList().size()
+							+ " field:" + valueFieldName);
 				} else {
 					// in case there was contention and we have to re-check the cache
 					series = get(valueFieldName);
@@ -81,16 +80,16 @@ public class SeriesFieldMap {
 
 	public void addPointUnlocked(Point dp, int timeBucketSize, Measurement m) throws IOException {
 		for (int i = 0; i < dp.getFpList().size(); i++) {
-			TimeSeries ts = getOrCreateSeriesLocked(dp.getValueFieldNameList().get(i), timeBucketSize, dp.getFpList().get(i),
-					m);
+			TimeSeries ts = getOrCreateSeriesLocked(dp.getValueFieldNameList().get(i), timeBucketSize,
+					dp.getFpList().get(i), m);
 			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getValueList().get(i));
 		}
 	}
 
 	public synchronized void addPointLocked(Point dp, int timeBucketSize, Measurement m) throws IOException {
 		for (int i = 0; i < dp.getFpList().size(); i++) {
-			TimeSeries ts = getOrCreateSeriesLocked(dp.getValueFieldNameList().get(i), timeBucketSize, dp.getFpList().get(i),
-					m);
+			TimeSeries ts = getOrCreateSeriesLocked(dp.getValueFieldNameList().get(i), timeBucketSize,
+					dp.getFpList().get(i), m);
 			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, dp.getTimestamp(), dp.getValueList().get(i));
 		}
 	}

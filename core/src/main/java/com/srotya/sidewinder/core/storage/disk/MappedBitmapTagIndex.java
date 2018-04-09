@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -31,6 +32,7 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.roaringbitmap.buffer.MutableRoaringBitmap;
 
@@ -138,7 +140,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 	}
 
 	protected MutableRoaringBitmap evalFilterForTags(TagFilter filterTree) {
-		logger.finer(() -> "Evaluating filter tree:" + measurement.getMeasurementName() + " " + filterTree);
+		logger.fine(() -> "Evaluating filter tree:" + measurement.getMeasurementName() + " " + filterTree);
 		// either it's a simple tag filter or a complex tag filter
 		if (filterTree instanceof SimpleTagFilter) {
 			SimpleTagFilter simpleFilter = (SimpleTagFilter) filterTree;
@@ -222,6 +224,15 @@ public class MappedBitmapTagIndex implements TagIndex {
 				return null;
 			}
 			return combineMaps(headMap1.values().iterator());
+		case LIKE:
+			List<MutableRoaringBitmap> filteredOutput = new ArrayList<>();
+			Pattern p = Pattern.compile(simpleFilter.getComparedValue());
+			for (Entry<String, MutableRoaringBitmap> v : map.entrySet()) {
+				if (p.matcher(v.getKey()).matches()) {
+					filteredOutput.add(v.getValue());
+				}
+			}
+			return combineMaps(filteredOutput.iterator());
 		}
 		// should always be unreachable
 		return null;
@@ -308,10 +319,14 @@ public class MappedBitmapTagIndex implements TagIndex {
 
 	@Override
 	public Set<ByteString> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
+		logger.fine(() -> "Tag query:" + tagFilterTree);
 		Set<ByteString> rowKeys = new HashSet<>();
 		MutableRoaringBitmap evalFilterForTags = evalFilterForTags(tagFilterTree);
 		if (evalFilterForTags != null) {
 			bitmapToRowKeys(rowKeys, evalFilterForTags);
+		} else {
+			logger.fine(() -> "Tag query failed:" + tagFilterTree + " measurement:" + measurement.getDbName() + ":"
+					+ measurement.getMeasurementName());
 		}
 		return rowKeys;
 	}

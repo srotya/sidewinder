@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		logger.info("Using Storage Engine:" + storageEngineClass);
 		storageEngine = (StorageEngine) Class.forName(storageEngineClass).newInstance();
 		storageEngine.configure(conf, bgTasks);
-		storageEngine.connect();
+		storageEngine.startup();
 	}
 
 	private void registerWebAPIs(Environment env, Map<String, String> conf, ScheduledExecutorService bgTasks)

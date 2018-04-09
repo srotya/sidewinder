@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.filters.TagFilter;
+import com.srotya.sidewinder.core.utils.InvalidFilterException;
 
 /**
  * @author ambud
@@ -36,7 +37,7 @@ import com.srotya.sidewinder.core.filters.TagFilter;
 public class TestGrafanaUtils {
 
 	@Test
-	public void testExtractTargetsFromJson() {
+	public void testExtractTargetsFromJson() throws InvalidFilterException {
 		List<TargetSeries> targetSeries = new ArrayList<>();
 		String query = "{\"panelId\":3,\"range\":{\"from\":\"2017-02-09T21:20:53.328Z\",\"to\":\"2017-02-10T00:20:53.328Z\",\"raw\":{\"from\":\"now-3h\",\"to\":\"now\"}},\"rangeRaw\":{\"from\":\"now-3h\",\"to\":\"now\"},\"interval\":\"15s\",\"intervalMs\":15000,\"targets\":[{\"target\":\"interface\",\"filters\":[{}],\"correlate\":false,\"field\":\"if_octets_rx\",\"refId\":\"A\",\"type\":\"timeserie\"}],\"format\":\"json\",\"maxDataPoints\":640}";
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
@@ -55,7 +56,7 @@ public class TestGrafanaUtils {
 	}
 
 	@Test
-	public void testFilterExtractor() {
+	public void testFilterExtractor() throws InvalidFilterException {
 		JsonObject element = new JsonObject();
 		element.addProperty("target", "ticker");
 		JsonArray array = new JsonArray();
@@ -87,7 +88,7 @@ public class TestGrafanaUtils {
 	}
 
 	@Test
-	public void testMultiFilterExtractor() {
+	public void testMultiFilterExtractor() throws InvalidFilterException {
 		JsonObject element = new JsonObject();
 		element.addProperty("target", "ticker");
 		JsonArray array = new JsonArray();

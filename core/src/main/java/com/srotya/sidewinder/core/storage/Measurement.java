@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -42,7 +43,6 @@ import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
-import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
@@ -60,9 +60,9 @@ public interface Measurement {
 	public static final TagComparator TAG_COMPARATOR = new TagComparator();
 	public static final Exception NOT_FOUND_EXCEPTION = null;
 
-	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName, String measurementName,
-			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
-			throws IOException;
+	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
+			String measurementName, String baseIndexDirectory, String dataDirectory, DBMetadata metadata,
+			ScheduledExecutorService bgTaskPool) throws IOException;
 
 	public Set<ByteString> getSeriesKeys();
 
@@ -135,15 +135,6 @@ public interface Measurement {
 		}
 	}
 
-	public default void setCodecsForTimeseries(Map<String, String> conf) {
-		String compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
-				StorageEngine.DEFAULT_COMPRESSION_CODEC);
-		String compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
-				StorageEngine.DEFAULT_COMPACTION_CODEC);
-		TimeSeries.compactionClass = CompressionFactory.getClassByName(compactionCodec);
-		TimeSeries.compressionClass = CompressionFactory.getClassByName(compressionCodec);
-	}
-
 	public default ByteString encodeTagsToString(TagIndex tagIndex, List<Tag> tags) throws IOException {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);
 		serializeTagForKey(builder, tags.get(0));
@@ -197,19 +188,20 @@ public interface Measurement {
 		return getTagIndex().searchRowKeysForTagFilter(tagFilterTree);
 	}
 
-	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value, boolean fp, boolean presorted)
-			throws IOException {
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value, boolean fp,
+			boolean presorted) throws IOException {
 		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(tags, presorted);
-		fieldMap.addDataPointLocked(valueFieldName, getTimeBucketSize(), fp, TimeUnit.MILLISECONDS, timestamp, value, this);
+		fieldMap.addDataPointLocked(valueFieldName, getTimeBucketSize(), fp, TimeUnit.MILLISECONDS, timestamp, value,
+				this);
 	}
-	
-	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value, boolean presorted)
-			throws IOException {
+
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value,
+			boolean presorted) throws IOException {
 		addDataPoint(valueFieldName, tags, timestamp, value, false, presorted);
 	}
-	
-	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, double value, boolean fp, boolean presorted)
-			throws IOException {
+
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, double value, boolean fp,
+			boolean presorted) throws IOException {
 		addDataPoint(valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true, presorted);
 	}
 
@@ -217,7 +209,7 @@ public interface Measurement {
 		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(new ArrayList<>(dp.getTagsList()), preSorted);
 		fieldMap.addPointLocked(dp, getTimeBucketSize(), this);
 	}
-	
+
 	public default void addPointUnlocked(Point dp, boolean preSorted) throws IOException {
 		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(new ArrayList<>(dp.getTagsList()), preSorted);
 		fieldMap.addPointUnlocked(dp, getTimeBucketSize(), this);
@@ -315,29 +307,6 @@ public interface Measurement {
 		return results;
 	}
 
-	// public default Set<String> getSeriesIdsWhereTags(List<String> tags) throws
-	// IOException {
-	// Set<String> series = new HashSet<>();
-	// if (tags != null) {
-	// for (String tag : tags) {
-	// String[] split = tag.split(TAG_KV_SEPARATOR);
-	// if (split.length != 2) {
-	// throw SEARCH_REJECT;
-	// }
-	// String tagKey = split[0];
-	// String tagValue = split[1];
-	// Collection<String> keys = getTagIndex().searchRowKeysForTag(tagKey,
-	// tagValue);
-	// if (keys != null) {
-	// series.addAll(keys);
-	// }
-	// }
-	// } else {
-	// series.addAll(getSeriesKeys());
-	// }
-	// return series;
-	// }
-
 	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime, TagFilter tagFilter,
 			Predicate valuePredicate, List<Series> resultMap) throws IOException {
 		final Set<ByteString> rowKeys;
@@ -360,6 +329,7 @@ public interface Measurement {
 			for (ByteString key : rowKeys) {
 				List<String> fieldMap = new ArrayList<>();
 				Set<String> fieldSet = getSeriesFromKey(key).getFields();
+				getLogger().fine(() -> "Row key:" + key + " Fields:" + fieldSet);
 				for (String fieldSetEntry : fieldSet) {
 					if (p.matcher(fieldSetEntry).matches()) {
 						fieldMap.add(fieldSetEntry);
@@ -371,10 +341,12 @@ public interface Measurement {
 				}
 			}
 		}
+
 		Stream<ByteString> stream = outputKeys.stream();
 		if (useQueryPool()) {
 			stream = stream.parallel();
 		}
+		getLogger().fine(() -> "Output keys:" + outputKeys.size());
 		stream.forEach(entry -> {
 			try {
 				List<String> valueFieldNames = fields.get(entry);
@@ -393,7 +365,8 @@ public interface Measurement {
 			long endTime, Predicate valuePredicate, Pattern p, List<Series> resultMap) throws IOException {
 		List<DataPoint> points = null;
 		List<Tag> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
-		for (String valueFieldName : valueFieldNames) {
+		for (final String valueFieldName : valueFieldNames) {
+			getLogger().fine(() -> "Reading datapoints for:" + valueFieldName);
 			TimeSeries value = getSeriesFromKey(rowKey).get(valueFieldName);
 			if (value == null) {
 				getLogger().severe("Invalid time series value " + rowKey + "\t" + "\t" + "\n\n");
@@ -511,5 +484,22 @@ public interface Measurement {
 	boolean isEnableMetricsCapture();
 
 	Counter getMetricsTimeSeriesCounter();
+
+	/**
+	 * Update retention hours for this TimeSeries
+	 * 
+	 * @param retentionHours
+	 */
+	public default void setRetentionHours(int retentionHours) {
+		int val = (int) (((long) retentionHours * 3600) / getTimeBucketSize());
+		if (val < 1) {
+			getLogger().fine("Incorrect bucket(" + getTimeBucketSize() + ") or retention(" + retentionHours
+					+ ") configuration; correcting to 1 bucket for measurement:" + getMeasurementName());
+			val = 1;
+		}
+		getRetentionBuckets().set(val);
+	}
+
+	public AtomicInteger getRetentionBuckets();
 
 }
