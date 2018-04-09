@@ -32,6 +32,7 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -125,6 +126,20 @@ public class TestDiskStorageEngine {
 			assertEquals(2, queryDataPoints.iterator().next().getDataPoints().size());
 			assertEquals(ts, queryDataPoints.iterator().next().getDataPoints().get(0).getTimestamp());
 			assertEquals(ts + (400 * 60000), queryDataPoints.iterator().next().getDataPoints().get(1).getTimestamp());
+			
+			TagFilter filter = MiscUtils.buildTagFilter("test=e");
+			queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000), filter,
+					null);
+			assertEquals(1, queryDataPoints.size());
+			assertEquals(2, queryDataPoints.iterator().next().getDataPoints().size());
+			assertEquals(ts, queryDataPoints.iterator().next().getDataPoints().get(0).getTimestamp());
+			assertEquals(ts + (400 * 60000), queryDataPoints.iterator().next().getDataPoints().get(1).getTimestamp());
+			
+			filter = MiscUtils.buildTagFilter("test=2");
+			queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000), filter,
+					null);
+			assertEquals(0, queryDataPoints.size());
+			
 			try {
 				engine.dropDatabase("test3");
 			} catch (Exception e) {

@@ -52,7 +52,7 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 public class MiscUtils {
 
 	private static final Pattern NUMBER = Pattern.compile("\\d+(\\.\\d+)?");
-	private static final Pattern EXPRESSION = Pattern.compile("([a-zA-Z0-9\\-\\_]+)(=|<=|>=|<|>)([a-zA-Z0-9\\-\\_]+)");
+	private static final Pattern EXPRESSION = Pattern.compile("([a-zA-Z0-9\\-\\_\\.]+)(=|<=|>=|<|>|~)(.*)");
 
 	private MiscUtils() {
 	}
@@ -174,16 +174,17 @@ public class MiscUtils {
 			} else {
 				return predicateStack.pop();
 			}
+		} catch (InvalidFilterException e) {
+			throw e;
 		} catch (Exception e) {
-			e.printStackTrace();
-			throw new InvalidFilterException();
+			throw new InvalidFilterException(e.getMessage());
 		}
 	}
 
-	public static SimpleTagFilter buildSimpleFilter(String item) {
+	public static SimpleTagFilter buildSimpleFilter(String item) throws InvalidFilterException {
 		Matcher matcher = EXPRESSION.matcher(item);
 		if (!matcher.matches()) {
-			throw new IllegalArgumentException("Invalid expression:" + item);
+			throw new InvalidFilterException("Invalid expression:" + item);
 		}
 		FilterType type = null;
 		switch (matcher.group(2)) {
@@ -201,6 +202,9 @@ public class MiscUtils {
 			break;
 		case "<=":
 			type = FilterType.LESS_THAN_EQUALS;
+			break;
+		case "~":
+			type = FilterType.LIKE;
 			break;
 		}
 		SimpleTagFilter filter = new SimpleTagFilter(type, matcher.group(1), matcher.group(3));
@@ -334,19 +338,19 @@ public class MiscUtils {
 				.addAllValueFieldName(valueFieldName).addAllFp(fp).addAllTags(taglist).addAllValue(values)
 				.setTimestamp(timestamp).build();
 	}
-	
-	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<Tag> taglist, long timestamp, long value) {
+
+	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> taglist,
+			long timestamp, long value) {
 		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName)
 				.addValueFieldName(valueFieldName).addFp(false).addAllTags(taglist).addValue(value)
 				.setTimestamp(timestamp).build();
 	}
-	
-	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<Tag> taglist, long timestamp, double value) {
+
+	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> taglist,
+			long timestamp, double value) {
 		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName)
-				.addValueFieldName(valueFieldName).addFp(true).addAllTags(taglist).addValue(Double.doubleToLongBits(value))
-				.setTimestamp(timestamp).build();
+				.addValueFieldName(valueFieldName).addFp(true).addAllTags(taglist)
+				.addValue(Double.doubleToLongBits(value)).setTimestamp(timestamp).build();
 	}
 
 	public static int tagHashCode(List<Tag> tags) {

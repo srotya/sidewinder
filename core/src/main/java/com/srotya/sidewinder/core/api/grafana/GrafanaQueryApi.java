@@ -53,6 +53,7 @@ import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.InvalidFilterException;
 
 /**
  * API specifically for designed for Grafana Sidewinder Datasource. This API is
@@ -96,7 +97,7 @@ public class GrafanaQueryApi {
 		grafanaQueryCounter.mark();
 		Context time = grafanaQueryLatency.time();
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
-		logger.log(Level.FINE,
+		logger.log(Level.INFO,
 				() -> "Grafana query:" + dbName + "\t" + gson.toJson(gson.fromJson(query, JsonObject.class)));
 		JsonObject json = gson.fromJson(query, JsonObject.class);
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
@@ -111,8 +112,8 @@ public class GrafanaQueryApi {
 		List<Target> output = new ArrayList<>();
 		try {
 			GrafanaUtils.extractTargetsFromJson(json, targetSeries);
-		} catch (IllegalArgumentException e) {
-			return output;
+		} catch (InvalidFilterException e) {
+			throw new BadRequestException(e.getMessage());
 		}
 
 		logger.log(Level.FINE,
@@ -244,7 +245,7 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryOperatorTypes() {
-		return new HashSet<>(Arrays.asList("=", ">", "<", ">=", "<="));
+		return new HashSet<>(Arrays.asList("=", ">", "<", ">=", "<=", "~"));
 	}
 
 	@Path("/query/aggregators")

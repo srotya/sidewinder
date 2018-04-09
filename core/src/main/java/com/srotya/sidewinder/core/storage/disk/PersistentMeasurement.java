@@ -205,7 +205,7 @@ public class PersistentMeasurement implements Measurement {
 			SeriesFieldMap fieldMap = null;
 			if (seriesIdx == null) {
 				seriesIdx = Integer.parseInt(split[3], 16);
-				fieldMap = new SeriesFieldMap(seriesId, seriesIdx);
+				fieldMap = new SeriesFieldMap(new ByteString(seriesId), seriesIdx);
 				seriesMap.put(key, seriesIdx);
 				seriesList.add(seriesIdx, fieldMap);
 			} else {

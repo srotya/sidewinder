@@ -15,10 +15,14 @@
  */
 package com.srotya.sidewinder.core.filters;
 
+/**
+ * @author ambud
+ *
+ */
 public class SimpleTagFilter implements TagFilter {
 
 	public static enum FilterType {
-		EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, LESS_THAN, LESS_THAN_EQUALS
+		EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, LESS_THAN, LESS_THAN_EQUALS, LIKE
 	}
 
 	private FilterType filterType;

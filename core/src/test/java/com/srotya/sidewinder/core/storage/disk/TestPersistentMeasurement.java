@@ -35,6 +35,7 @@ import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -125,6 +126,13 @@ public class TestPersistentMeasurement {
 		measurement.queryDataPoints("value", ts, ts + 1000 * LIMIT, null, null, resultMap);
 		Iterator<Series> iterator = resultMap.iterator();
 		assertEquals(LIMIT, iterator.next().getDataPoints().size());
+
+		resultMap.clear();
+		TagFilter filter = MiscUtils.buildTagFilter("test=1&test=2");
+		measurement.queryDataPoints("value", ts, ts + 1000 * LIMIT, filter, null, resultMap);
+		iterator = resultMap.iterator();
+		assertEquals(LIMIT, iterator.next().getDataPoints().size());
+		
 		measurement.close();
 	}
 

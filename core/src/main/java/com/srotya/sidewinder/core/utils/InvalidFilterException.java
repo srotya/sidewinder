@@ -19,4 +19,11 @@ public class InvalidFilterException extends Exception {
 
 	private static final long serialVersionUID = 1L;
 	
+	public InvalidFilterException() {
+	}
+	
+	public InvalidFilterException(String string) {
+		super(string);
+	}
+
 }

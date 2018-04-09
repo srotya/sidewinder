@@ -16,16 +16,19 @@
 package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.regex.Pattern;
 
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
@@ -191,6 +194,15 @@ public class MemTagIndex implements TagIndex {
 				return null;
 			}
 			return combineMaps(headMap1.values().iterator());
+		case LIKE:
+			List<Set<Integer>> filteredOutput = new ArrayList<>();
+			Pattern p = Pattern.compile(simpleFilter.getComparedValue());
+			for (Entry<String, Set<Integer>> v : map.entrySet()) {
+				if (p.matcher(v.getKey()).matches()) {
+					filteredOutput.add(v.getValue());
+				}
+			}
+			return combineMaps(filteredOutput.iterator());
 		}
 		return null;
 	}

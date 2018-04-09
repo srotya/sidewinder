@@ -71,6 +71,7 @@ import com.srotya.sidewinder.core.storage.disk.DiskMalloc;
 import com.srotya.sidewinder.core.storage.disk.DiskStorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
+import com.srotya.sidewinder.core.utils.InvalidFilterException;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 import com.srotya.sidewinder.core.utils.TimeUtils;
 
@@ -867,4 +868,108 @@ public class TestStorageEngine {
 		assertTrue(!bool.get());
 	}
 
+	@Test
+	public void testWriteIndexAndQuery() throws IOException, InvalidFilterException {
+		final long curr = 1497720652566L;
+		conf.put("default.bucket.size", "409600");
+		conf.put("compaction.enabled", "true");
+		conf.put("use.query.pool", "false");
+		engine.configure(conf, bgTasks);
+		Point dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr)
+				.addValueFieldName("user").addValue(20).addFp(false).addValueFieldName("system").addValue(11)
+				.addFp(false).addTags(Tag.newBuilder().setTagKey("host").setTagValue("test1.xyz.com").build()).build();
+		engine.writeDataPointLocked(dp, true);
+
+		dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr).addValueFieldName("user")
+				.addValue(24).addFp(false).addValueFieldName("system").addValue(12).addFp(false)
+				.addTags(Tag.newBuilder().setTagKey("host").setTagValue("test2.xyz.com").build()).build();
+		engine.writeDataPointLocked(dp, true);
+
+		dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr).addValueFieldName("user")
+				.addValue(21).addFp(false).addValueFieldName("system").addValue(10).addFp(false)
+				.addTags(Tag.newBuilder().setTagKey("host").setTagValue("test3.xyz.com").build()).build();
+		engine.writeDataPointLocked(dp, true);
+
+		TagFilter filter = MiscUtils.buildTagFilter("host=test1.xyz.com");
+		List<Series> series = engine.queryDataPoints("db1", "cpu", "system", curr - 1, curr + 10, filter);
+		assertEquals(1, series.size());
+		assertEquals(1, series.get(0).getDataPoints().size());
+		assertEquals(curr, series.get(0).getDataPoints().get(0).getTimestamp());
+		assertEquals(11, series.get(0).getDataPoints().get(0).getLongValue());
+
+		series = engine.queryDataPoints("db1", "cpu", ".*", curr - 1, curr + 10, filter);
+		assertEquals(2, series.size());
+		assertEquals(1, series.get(0).getDataPoints().size());
+		assertEquals(1, series.get(1).getDataPoints().size());
+		assertEquals(curr, series.get(0).getDataPoints().get(0).getTimestamp());
+		assertEquals(curr, series.get(1).getDataPoints().get(0).getTimestamp());
+		assertEquals(11, series.get(0).getDataPoints().get(0).getLongValue());
+		assertEquals(20, series.get(1).getDataPoints().get(0).getLongValue());
+
+		dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr + 1000)
+				.addValueFieldName("user").addValue(20).addFp(false).addValueFieldName("system").addValue(11)
+				.addFp(false).addTags(Tag.newBuilder().setTagKey("host").setTagValue("test1.xyz.com").build()).build();
+		engine.writeDataPointLocked(dp, true);
+
+		dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr + 1000)
+				.addValueFieldName("user").addValue(24).addFp(false).addValueFieldName("system").addValue(12)
+				.addFp(false).addTags(Tag.newBuilder().setTagKey("host").setTagValue("test2.xyz.com").build()).build();
+		engine.writeDataPointLocked(dp, true);
+
+		dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr + 1000)
+				.addValueFieldName("user").addValue(21).addFp(false).addValueFieldName("system").addValue(10)
+				.addFp(false).addTags(Tag.newBuilder().setTagKey("host").setTagValue("test3.xyz.com").build()).build();
+		engine.writeDataPointLocked(dp, true);
+
+		series = engine.queryDataPoints("db1", "cpu", ".*", curr, curr + 10, filter);
+		assertEquals(2, series.size());
+		assertEquals(1, series.get(0).getDataPoints().size());
+		assertEquals(1, series.get(1).getDataPoints().size());
+		assertEquals(curr, series.get(0).getDataPoints().get(0).getTimestamp());
+		assertEquals(curr, series.get(1).getDataPoints().get(0).getTimestamp());
+		assertEquals(11, series.get(0).getDataPoints().get(0).getLongValue());
+		assertEquals(20, series.get(1).getDataPoints().get(0).getLongValue());
+
+		series = engine.queryDataPoints("db1", "cpu", ".*", curr, curr + 1001, filter);
+		assertEquals(2, series.size());
+		assertEquals(2, series.get(0).getDataPoints().size());
+		assertEquals(2, series.get(1).getDataPoints().size());
+		assertEquals(curr, series.get(0).getDataPoints().get(0).getTimestamp());
+		assertEquals(curr, series.get(1).getDataPoints().get(0).getTimestamp());
+		assertEquals(11, series.get(0).getDataPoints().get(0).getLongValue());
+		assertEquals(20, series.get(1).getDataPoints().get(0).getLongValue());
+
+		assertEquals(curr + 1000, series.get(0).getDataPoints().get(1).getTimestamp());
+		assertEquals(curr + 1000, series.get(1).getDataPoints().get(1).getTimestamp());
+		assertEquals(11, series.get(0).getDataPoints().get(1).getLongValue());
+		assertEquals(20, series.get(1).getDataPoints().get(1).getLongValue());
+
+		filter = MiscUtils.buildTagFilter("host=test1.xyz.com|host=test2.xyz.com");
+		series = engine.queryDataPoints("db1", "cpu", "system", curr - 1, curr + 10, filter);
+		assertEquals(2, series.size());
+		assertEquals(1, series.get(0).getDataPoints().size());
+		assertEquals(1, series.get(1).getDataPoints().size());
+		assertEquals(curr, series.get(0).getDataPoints().get(0).getTimestamp());
+		assertEquals(11, series.get(0).getDataPoints().get(0).getLongValue());
+		assertEquals(curr, series.get(1).getDataPoints().get(0).getTimestamp());
+		assertEquals(12, series.get(1).getDataPoints().get(0).getLongValue());
+
+		// test bad queries
+
+		// tag filter contains a space therefore it
+		filter = MiscUtils.buildTagFilter("host=test1.xyz.com host=test2.xyz.com");
+		series = engine.queryDataPoints("db1", "cpu", "system", curr - 1, curr + 10, filter);
+		assertEquals(0, series.size());
+
+		try {
+			filter = MiscUtils.buildTagFilter("host332&=test1");
+			series = engine.queryDataPoints("db1", "cpu", "system", curr - 1, curr + 10, filter);
+			fail("Bad tag filter can't succeed the query");
+		} catch (Exception e) {
+		}
+
+		filter = MiscUtils.buildTagFilter("host~.*.xyz.com");
+		series = engine.queryDataPoints("db1", "cpu", "system", curr - 1, curr + 10, filter);
+		assertEquals(3, series.size());
+	}
 }

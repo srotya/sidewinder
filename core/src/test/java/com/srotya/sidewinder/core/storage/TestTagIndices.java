@@ -223,6 +223,13 @@ public class TestTagIndices {
 			index.index("key", format.toString(), i);
 			m.getSeriesList().add(new SeriesFieldMap(format, i));
 		}
+		
+		// reindex everything
+		for (int i = 0; i < 10_000; i++) {
+			ByteString format = new ByteString(String.format("%05d", i));
+			index.index("key", format.toString(), i);
+			m.getSeriesList().add(new SeriesFieldMap(format, i));
+		}
 
 		TagFilter filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "00000");
 		Set<ByteString> keys = index.searchRowKeysForTagFilter(filter);
@@ -251,6 +258,10 @@ public class TestTagIndices {
 		filter = new SimpleTagFilter(FilterType.GREATER_THAN_EQUALS, "key", "10000");
 		keys = index.searchRowKeysForTagFilter(filter);
 		assertEquals(0, keys.size());
-	}
 
+		filter = new SimpleTagFilter(FilterType.LIKE, "key", "02.*");
+		keys = index.searchRowKeysForTagFilter(filter);
+		assertEquals(1000, keys.size());
+	}
+	
 }

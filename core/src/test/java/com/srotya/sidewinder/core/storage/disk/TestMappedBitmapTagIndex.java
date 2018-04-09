@@ -84,4 +84,44 @@ public class TestMappedBitmapTagIndex {
 		}
 	}
 
+	@Test
+	public void testMultiIndexRecovery() throws IOException, InterruptedException {
+		MiscUtils.delete(new File("target/s9"));
+		String indexDir = "target/s9";
+		new File(indexDir).mkdirs();
+		PersistentMeasurement m = new PersistentMeasurement();
+		Map<String, String> conf = new HashMap<>();
+		m.configure(conf, engine, 4096, "d", "m", "target/s9/i/bitmap", "target/s9/d/bitmap", new DBMetadata(), null);
+		MappedBitmapTagIndex index = new MappedBitmapTagIndex();
+		index.configure(conf, "target/s9/i/bitmap", m);
+		long ts = System.currentTimeMillis();
+		for (int i = 0; i < 10_000; i++) {
+			index.index("key", String.valueOf(i), i);
+			index.index("key", String.valueOf(i - 1), i);
+			ByteString valueOf = new ByteString(String.valueOf(i));
+			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf, i));
+		}
+		ts = System.currentTimeMillis() - ts;
+		System.out.println("Time:" + ts);
+
+		for (int i = 0; i < 9999; i++) {
+			assertEquals(
+					new HashSet<>(
+							Arrays.asList(new ByteString(String.valueOf(i)), new ByteString(String.valueOf(i + 1)))),
+					index.searchRowKeysForTagFilter(new SimpleTagFilter(FilterType.EQUALS, "key", String.valueOf(i))));
+		}
+
+		for (int k = 0; k < 10; k++) {
+			index = new MappedBitmapTagIndex();
+			index.configure(conf, "target/s9/i/bitmap", m);
+			for (int i = 1; i < 9999; i++) {
+				assertEquals(
+						new HashSet<>(Arrays.asList(new ByteString(String.valueOf(i)),
+								new ByteString(String.valueOf(i + 1)))),
+						index.searchRowKeysForTagFilter(
+								new SimpleTagFilter(FilterType.EQUALS, "key", String.valueOf(i))));
+			}
+		}
+	}
+
 }

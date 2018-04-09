@@ -76,7 +76,8 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_ON_START = "false";
 	public static final String COMPACTION_RATIO = "compaction.ratio";
 	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
-	public static final boolean ENABLE_METHOD_METRICS = Boolean.parseBoolean(System.getProperty("debug.method.metrics", "false"));
+	public static final boolean ENABLE_METHOD_METRICS = Boolean
+			.parseBoolean(System.getProperty("debug.method.metrics", "false"));
 
 	/**
 	 * @param conf
@@ -114,7 +115,8 @@ public interface StorageEngine {
 
 	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
 			long timestamp, double value, boolean presorted) throws IOException {
-		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true, presorted);
+		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true,
+				presorted);
 	}
 
 	public default void writeDataPointLocked(Point dp, boolean preSorted) throws IOException {
@@ -123,7 +125,7 @@ public interface StorageEngine {
 		m.addPointLocked(dp, preSorted);
 		getCounter().inc(dp.getValueList().size());
 	}
-	
+
 	public default void writeDataPointUnlocked(Point dp, boolean preSorted) throws IOException {
 		StorageEngine.validatePoint(dp);
 		Measurement m = getOrCreateMeasurement(dp.getDbName(), dp.getMeasurementName());
@@ -596,7 +598,8 @@ public interface StorageEngine {
 
 	public static void validatePoint(Point dp) throws RejectException {
 		if (dp.getDbName() == null || dp.getMeasurementName() == null || dp.getTagsList() == null
-				|| dp.getValueFieldNameList() == null || dp.getFpList() == null || dp.getValueList() == null) {
+				|| dp.getValueFieldNameList() == null || dp.getFpList() == null || dp.getValueList() == null
+				|| dp.getValueCount() != dp.getFpCount() || dp.getFpCount() != dp.getValueFieldNameCount()) {
 			throw INVALID_DATAPOINT_EXCEPTION;
 		}
 	}

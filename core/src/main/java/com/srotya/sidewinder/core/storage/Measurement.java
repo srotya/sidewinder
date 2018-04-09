@@ -60,9 +60,9 @@ public interface Measurement {
 	public static final TagComparator TAG_COMPARATOR = new TagComparator();
 	public static final Exception NOT_FOUND_EXCEPTION = null;
 
-	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName, String measurementName,
-			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
-			throws IOException;
+	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
+			String measurementName, String baseIndexDirectory, String dataDirectory, DBMetadata metadata,
+			ScheduledExecutorService bgTaskPool) throws IOException;
 
 	public Set<ByteString> getSeriesKeys();
 
@@ -197,19 +197,20 @@ public interface Measurement {
 		return getTagIndex().searchRowKeysForTagFilter(tagFilterTree);
 	}
 
-	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value, boolean fp, boolean presorted)
-			throws IOException {
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value, boolean fp,
+			boolean presorted) throws IOException {
 		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(tags, presorted);
-		fieldMap.addDataPointLocked(valueFieldName, getTimeBucketSize(), fp, TimeUnit.MILLISECONDS, timestamp, value, this);
+		fieldMap.addDataPointLocked(valueFieldName, getTimeBucketSize(), fp, TimeUnit.MILLISECONDS, timestamp, value,
+				this);
 	}
-	
-	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value, boolean presorted)
-			throws IOException {
+
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, long value,
+			boolean presorted) throws IOException {
 		addDataPoint(valueFieldName, tags, timestamp, value, false, presorted);
 	}
-	
-	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, double value, boolean fp, boolean presorted)
-			throws IOException {
+
+	public default void addDataPoint(String valueFieldName, List<Tag> tags, long timestamp, double value, boolean fp,
+			boolean presorted) throws IOException {
 		addDataPoint(valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true, presorted);
 	}
 
@@ -217,7 +218,7 @@ public interface Measurement {
 		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(new ArrayList<>(dp.getTagsList()), preSorted);
 		fieldMap.addPointLocked(dp, getTimeBucketSize(), this);
 	}
-	
+
 	public default void addPointUnlocked(Point dp, boolean preSorted) throws IOException {
 		SeriesFieldMap fieldMap = getOrCreateSeriesFieldMap(new ArrayList<>(dp.getTagsList()), preSorted);
 		fieldMap.addPointUnlocked(dp, getTimeBucketSize(), this);
@@ -360,6 +361,7 @@ public interface Measurement {
 			for (ByteString key : rowKeys) {
 				List<String> fieldMap = new ArrayList<>();
 				Set<String> fieldSet = getSeriesFromKey(key).getFields();
+				getLogger().fine(() -> "Row key:" + key + " Fields:" + fieldSet);
 				for (String fieldSetEntry : fieldSet) {
 					if (p.matcher(fieldSetEntry).matches()) {
 						fieldMap.add(fieldSetEntry);
@@ -375,6 +377,7 @@ public interface Measurement {
 		if (useQueryPool()) {
 			stream = stream.parallel();
 		}
+		getLogger().fine(() -> "Output keys:" + outputKeys.size());
 		stream.forEach(entry -> {
 			try {
 				List<String> valueFieldNames = fields.get(entry);
@@ -393,7 +396,8 @@ public interface Measurement {
 			long endTime, Predicate valuePredicate, Pattern p, List<Series> resultMap) throws IOException {
 		List<DataPoint> points = null;
 		List<Tag> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
-		for (String valueFieldName : valueFieldNames) {
+		for (final String valueFieldName : valueFieldNames) {
+			getLogger().fine(() -> "Reading datapoints for:" + valueFieldName);
 			TimeSeries value = getSeriesFromKey(rowKey).get(valueFieldName);
 			if (value == null) {
 				getLogger().severe("Invalid time series value " + rowKey + "\t" + "\t" + "\n\n");
