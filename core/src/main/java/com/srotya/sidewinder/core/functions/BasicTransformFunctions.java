@@ -13,9 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.transform;
-
-import com.srotya.sidewinder.core.functions.FunctionName;
+package com.srotya.sidewinder.core.functions;
 
 public class BasicTransformFunctions {
 

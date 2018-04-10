@@ -23,7 +23,7 @@ import java.util.List;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.functions.ReduceFunction;
-import com.srotya.sidewinder.core.functions.single.BasicSingleFunctions.*;
+import com.srotya.sidewinder.core.functions.BasicSingleFunctions.*;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.utils.MiscUtils;

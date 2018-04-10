@@ -22,8 +22,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.functions.windowed.ReducingWindowedAggregator;
-import com.srotya.sidewinder.core.functions.windowed.BasicWindowedFunctions.*;
+import com.srotya.sidewinder.core.functions.BasicWindowedFunctions.*;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.utils.MiscUtils;

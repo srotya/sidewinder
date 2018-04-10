@@ -22,7 +22,8 @@ import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Test;
-import com.srotya.sidewinder.core.functions.transform.BasicTransformFunctions.*;
+
+import com.srotya.sidewinder.core.functions.BasicTransformFunctions.*;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
 

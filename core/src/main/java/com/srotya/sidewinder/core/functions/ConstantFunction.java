@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.transform;
+package com.srotya.sidewinder.core.functions;
 
 public abstract class ConstantFunction extends TransformFunction {
 

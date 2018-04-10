@@ -13,11 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.transform;
+package com.srotya.sidewinder.core.functions;
 
 import java.util.List;
 
-import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
 

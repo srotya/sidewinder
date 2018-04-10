@@ -23,9 +23,7 @@ import java.util.List;
 
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.functions.multiseries.ChainFunction;
-import com.srotya.sidewinder.core.functions.windowed.BasicWindowedFunctions.WindowedMean;
-import com.srotya.sidewinder.core.functions.windowed.ReducingWindowedAggregator;
+import com.srotya.sidewinder.core.functions.BasicWindowedFunctions.WindowedMean;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;

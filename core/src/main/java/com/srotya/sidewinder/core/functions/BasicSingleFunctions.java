@@ -13,14 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.single;
+package com.srotya.sidewinder.core.functions;
 
 import java.util.Iterator;
 import java.util.List;
 
 import com.srotya.sidewinder.core.analytics.MathUtils;
-import com.srotya.sidewinder.core.functions.FunctionName;
-import com.srotya.sidewinder.core.functions.ReduceFunction;
 import com.srotya.sidewinder.core.storage.DataPoint;
 
 public class BasicSingleFunctions {
