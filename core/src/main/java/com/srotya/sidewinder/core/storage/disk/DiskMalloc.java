@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,10 +55,10 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class DiskMalloc implements Malloc {
 
-	private static final int BUF_PARTS_LENGTH = 9;
+	public static final int BUF_PARTS_LENGTH = 9;
 	public static boolean debug = false;
 	private static final int PTR_INCREMENT = 1048576;
-	private static final ByteString SEPARATOR = new ByteString(")");
+	public static final ByteString SEPARATOR = new ByteString(")");
 	private static final Logger logger = Logger.getLogger(DiskMalloc.class.getName());
 	// 100MB default buffer increment size
 	private static final int DEFAULT_FILE_INCREMENT = 1048576;

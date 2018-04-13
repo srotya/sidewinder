@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +51,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class TestPersistentMeasurement {
 
-	private static final String TARGET_MEASUREMENT_COMMON = "target/measurement-common";
+	private static final String TARGET_MEASUREMENT_COMMON = "target/measurement-persistent";
 	private Map<String, String> conf = new HashMap<>();
 	private DBMetadata metadata = new DBMetadata(28);
 	private String dataDir;

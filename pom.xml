@@ -18,6 +18,7 @@
     <module>rpc</module>
     <module>ingesters</module>
     <module>dist</module>
+    <module>tools</module>
   </modules>
   <properties>
     <grpc.version>1.2.0</grpc.version>
