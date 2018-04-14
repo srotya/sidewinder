@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
 
-import com.srotya.sidewinder.core.filters.Tag;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.compression.Reader;
@@ -67,6 +67,10 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 		this.measurementName = measurementName;
 		this.fieldNames = new ArrayList<>(fieldNames);
 		this.tagKeys = new ArrayList<>(tagKeys);
+	}
+
+	public List<String> getTagKeys() {
+		return tagKeys;
 	}
 
 	@Override

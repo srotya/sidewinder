@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 package com.srotya.sidewinder.core.api;
 
-import java.io.IOException;
 import java.util.List;
 
 import javax.ws.rs.BadRequestException;
@@ -29,7 +28,7 @@ import com.codahale.metrics.Meter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.rpc.Point;
-import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.processor.PointProcessor;
 import com.srotya.sidewinder.core.utils.InfluxDecoder;
 
 /**
@@ -38,18 +37,19 @@ import com.srotya.sidewinder.core.utils.InfluxDecoder;
 @Path("/influx")
 public class InfluxApi {
 
-	private StorageEngine storageEngine;
 	private Meter meter;
+	private PointProcessor proc;
 
-	public InfluxApi(StorageEngine storageEngine) {
-		this.storageEngine = storageEngine;
+	public InfluxApi(PointProcessor proc) {
+		this.proc = proc;
 		MetricRegistry registry = MetricsRegistryService.getInstance().getInstance("requests");
 		meter = registry.meter("influx-writes");
 	}
 
 	@POST
 	@Consumes({ MediaType.TEXT_PLAIN })
-	public void insertData(@QueryParam("db") String dbName, String payload) {
+	public void insertData(@QueryParam("db") String dbName, @QueryParam("preSorted") boolean preSorted,
+			String payload) {
 		if (payload == null) {
 			throw new BadRequestException("Empty request no acceptable");
 		}
@@ -60,8 +60,9 @@ public class InfluxApi {
 		meter.mark(dps.size());
 		for (Point dp : dps) {
 			try {
-				storageEngine.writeDataPoint(dp);
-			} catch (IOException e) {
+				proc.writeDataPoint(dbName, dp);
+			} catch (Exception e) {
+				e.printStackTrace();
 				throw new BadRequestException(e);
 			}
 		}

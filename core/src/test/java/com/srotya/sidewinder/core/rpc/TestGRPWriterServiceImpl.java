@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,8 +76,9 @@ public class TestGRPWriterServiceImpl {
 	public void testSingleDataPointWrites() throws Exception {
 		WriterServiceBlockingStub client = WriterServiceGrpc.newBlockingStub(channel);
 		long sts = 1497720452566L;
-		Point point = Point.newBuilder().setDbName("test").setFp(false).setMeasurementName("cpu").addTags("host=1")
-				.setTimestamp(sts).setValue(1L).setValueFieldName("usage").build();
+		Point point = Point.newBuilder().setDbName("test").addFp(false).setMeasurementName("cpu")
+				.addTags(Tag.newBuilder().setTagKey("host").setTagValue("1").build()).setTimestamp(sts).addValue(1L)
+				.addValueFieldName("usage").build();
 		client.writeSingleDataPoint(SingleData.newBuilder().setMessageId(point.getTimestamp()).setPoint(point).build());
 		assertTrue(engine.checkIfExists("test"));
 		assertTrue(engine.checkIfExists("test", "cpu"));
@@ -96,10 +97,12 @@ public class TestGRPWriterServiceImpl {
 		String dbName = "test2";
 		String measurementName = "cpu";
 		List<Point> points = Arrays.asList(
-				Point.newBuilder().setDbName(dbName).setFp(false).setMeasurementName(measurementName).addTags("host=1")
-						.setTimestamp(sts).setValue(1L).setValueFieldName("usage").build(),
-				Point.newBuilder().setDbName(dbName).setFp(false).setMeasurementName(measurementName).addTags("host=1")
-						.setTimestamp(sts + 1).setValue(2L).setValueFieldName("usage").build());
+				Point.newBuilder().setDbName(dbName).addFp(false).setMeasurementName(measurementName)
+						.addTags(Tag.newBuilder().setTagKey("host").setTagValue("1").build()).setTimestamp(sts)
+						.addValue(1L).addValueFieldName("usage").build(),
+				Point.newBuilder().setDbName(dbName).addFp(false).setMeasurementName(measurementName)
+						.addTags(Tag.newBuilder().setTagKey("host").setTagValue("1").build()).setTimestamp(sts + 1)
+						.addValue(2L).addValueFieldName("usage").build());
 		client.writeBatchDataPoint(BatchData.newBuilder().setMessageId(sts).addAllPoints(points).build());
 		assertTrue(engine.checkIfExists(dbName));
 		assertTrue(engine.checkIfExists(dbName, measurementName));
@@ -118,25 +121,26 @@ public class TestGRPWriterServiceImpl {
 		String dbName = "test3";
 		String measurementName = "cpu4";
 		List<Point> points = Arrays.asList(
-				Point.newBuilder().setDbName(dbName).setFp(false).setMeasurementName(measurementName).addTags("host=1")
-						.setTimestamp(sts).setValue(1L).setValueFieldName("usage").build(),
-				Point.newBuilder().setDbName(dbName).setFp(true).setMeasurementName(measurementName).addTags("host=1")
-						.setTimestamp(sts + 1).setValue(2L).setValueFieldName("usage").build());
+				Point.newBuilder().setDbName(dbName).addFp(false).setMeasurementName(measurementName)
+						.addTags(Tag.newBuilder().setTagKey("host").setTagValue("1").build()).setTimestamp(sts)
+						.addValue(1L).addValueFieldName("usage").build(),
+				Point.newBuilder().setDbName(dbName).addFp(false).setMeasurementName(measurementName)
+						.addTags(Tag.newBuilder().setTagKey("host").setTagValue("1").build()).setTimestamp(sts + 1)
+						.addValue(2L).addValueFieldName("usage").build());
 		try {
 			Ack response = client
 					.writeBatchDataPoint(BatchData.newBuilder().setMessageId(sts).addAllPoints(points).build());
-			if (response.getResponseCode() == 200) {
-				fail("Exception must be thrown");
+			if (response.getResponseCode() != 200) {
+				fail("Must return 200");
 			}
 		} catch (Exception e) {
 		}
-		// second data point should have been rejected
 		assertTrue(engine.checkIfExists(dbName));
 		assertTrue(engine.checkIfExists(dbName, measurementName));
 		assertEquals("host", engine.getTagKeysForMeasurement(dbName, measurementName).iterator().next());
 		List<Series> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1, null);
 		assertEquals(1, result.size());
-		assertEquals(1, result.iterator().next().getDataPoints().size());
+		assertEquals(2, result.iterator().next().getDataPoints().size());
 		assertEquals(1L, result.iterator().next().getDataPoints().iterator().next().getLongValue());
 	}
 

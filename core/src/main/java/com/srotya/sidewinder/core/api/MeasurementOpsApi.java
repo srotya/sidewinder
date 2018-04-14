@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -40,10 +40,12 @@ import com.google.gson.Gson;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -80,13 +82,17 @@ public class MeasurementOpsApi {
 			@PathParam(MEASUREMENT) String measurementName, String seriesConfig) {
 		Gson gson = new Gson();
 		JsonObject series = gson.fromJson(seriesConfig, JsonObject.class);
-		List<String> tags = new ArrayList<>();
+		List<Tag> tags = new ArrayList<>();
 		for (JsonElement jsonElement : series.get("tags").getAsJsonArray()) {
-			tags.add(jsonElement.getAsString());
+			String tagStr = jsonElement.getAsString();
+			String[] splits = tagStr.split(Measurement.TAG_KV_SEPARATOR);
+			tags.add(Tag.newBuilder().setTagKey(splits[0]).setTagValue(splits[1]).build());
 		}
 		try {
-			engine.getOrCreateTimeSeries(dbName, measurementName, series.get("valueField").getAsString(), tags,
-					series.get("timeBucket").getAsInt(), series.get("floatingPoint").getAsBoolean());
+			Measurement m = engine.getOrCreateMeasurement(dbName, measurementName);
+			SeriesFieldMap fm = m.getOrCreateSeriesFieldMap(tags, false);
+			fm.getOrCreateSeriesLocked(series.get("valueField").getAsString(), series.get("timeBucket").getAsInt(),
+					series.get("floatingPoint").getAsBoolean(), m);
 		} catch (IOException e) {
 			throw new InternalServerErrorException(e);
 		}
@@ -160,8 +166,8 @@ public class MeasurementOpsApi {
 		}
 		Gson gson = new Gson();
 		try {
-			List<Series> output = engine.queryDataPoints(dbName, measurementName, valueField, startTime,
-					endTime, null, null, null);
+			List<Series> output = engine.queryDataPoints(dbName, measurementName, valueField, startTime, endTime, null,
+					null, null);
 			return gson.toJson(output);
 		} catch (ItemNotFoundException e) {
 			throw new NotFoundException(e.getMessage());
@@ -231,8 +237,7 @@ public class MeasurementOpsApi {
 				startTs = sdf.parse(startTime).getTime();
 				endTs = sdf.parse(endTime).getTime();
 			}
-			List<Series> points = engine.queryDataPoints(dbName, measurementName, valueFieldName, startTs,
-					endTs, null);
+			List<Series> points = engine.queryDataPoints(dbName, measurementName, valueFieldName, startTs, endTs, null);
 			List<Number[]> response = new ArrayList<>();
 			for (Series entry : points) {
 				for (DataPoint dataPoint : entry.getDataPoints()) {

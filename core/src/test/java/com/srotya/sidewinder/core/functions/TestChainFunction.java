@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,8 @@ import java.util.List;
 
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.filters.Tag;
-import com.srotya.sidewinder.core.functions.multiseries.ChainFunction;
-import com.srotya.sidewinder.core.functions.windowed.ReducingWindowedAggregator;
-import com.srotya.sidewinder.core.functions.windowed.BasicWindowedFunctions.*;
+import com.srotya.sidewinder.core.functions.BasicWindowedFunctions.WindowedMean;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
 
@@ -34,7 +32,9 @@ public class TestChainFunction {
 
 	@Test
 	public void testSingleFunction() throws Exception {
-		Series series = new Series("cpu", "test", Arrays.asList(new Tag("t", "1"), new Tag("t", "2")));
+		Series series = new Series("cpu", "test",
+				Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),
+						Tag.newBuilder().setTagKey("t").setTagValue("2").build()));
 		List<DataPoint> dps = new ArrayList<>();
 		long baseTs = 1486617103629L;
 		for (int i = 0; i < 4; i++) {
@@ -56,7 +56,8 @@ public class TestChainFunction {
 
 	@Test
 	public void testTwoFunctions() throws Exception {
-		Series series = new Series("cpu", "test", Arrays.asList(new Tag("t", "1"), new Tag("t", "2")));
+		Series series = new Series("cpu", "test", Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),
+				Tag.newBuilder().setTagKey("t").setTagValue("2").build()));
 		List<DataPoint> dps = new ArrayList<>();
 		long baseTs = 1486617103629L;
 		for (int i = 0; i < 4; i++) {

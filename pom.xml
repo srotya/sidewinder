@@ -18,6 +18,7 @@
     <module>rpc</module>
     <module>ingesters</module>
     <module>dist</module>
+    <module>tools</module>
   </modules>
   <properties>
     <grpc.version>1.2.0</grpc.version>
@@ -102,6 +103,14 @@
         <artifactId>apache-rat-plugin</artifactId>
         <version>0.12</version>
         <configuration>
+          <executions>
+            <execution>
+              <phase>verify</phase>
+              <goals>
+                <goal>check</goal>
+              </goals>
+            </execution>
+          </executions>
           <excludes>
             <exclude>**/*.txt</exclude>
             <exclude>**/*.json</exclude>

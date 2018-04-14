@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Map;
 import java.util.Set;
 
 import com.srotya.sidewinder.core.filters.TagFilter;
@@ -25,28 +26,45 @@ import com.srotya.sidewinder.core.filters.TagFilter;
  * @author ambud
  */
 public interface TagIndex {
-	
+
+	public void configure(Map<String, String> conf, String indexDir, Measurement measurement) throws IOException;
+
 	public Collection<String> getTagKeys() throws IOException;
-	
+
 	/**
-	 * Indexes tag in the row key, creating an adjacency list
+	 * Indexes tag in the row key
 	 * 
 	 * @param tag
 	 * @param value
-	 * @param rowKey
+	 * @param rowIndex
 	 * @throws IOException
 	 */
-	public void index(String tag, String value, String rowKey) throws IOException;
-	
 	public void index(String tag, String value, int rowIndex) throws IOException;
 
 	public void close() throws IOException;
-	
+
 	public int getSize();
 
-
-	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree);
+	public Set<ByteString> searchRowKeysForTagFilter(TagFilter tagFilterTree);
 
 	public Collection<String> getTagValues(String tagKey);
+
+	public static Set<ByteString> stringSetToByteSet(Set<String> input, Set<ByteString> output) {
+		if (input != null) {
+			for (String s : input) {
+				output.add(new ByteString(s));
+			}
+		}
+		return output;
+	}
+
+	public static Set<String> byteToStringSet(Set<ByteString> input, Set<String> output) {
+		if (input != null) {
+			for (ByteString s : input) {
+				output.add(s.toString());
+			}
+		}
+		return output;
+	}
 
 }

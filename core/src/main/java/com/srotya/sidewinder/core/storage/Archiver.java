@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,8 +39,8 @@ public interface Archiver {
 	public static void serializeToStream(DataOutputStream bos, TimeSeriesArchivalObject blob) throws IOException {
 		bos.writeUTF(blob.getDb());
 		bos.writeUTF(blob.getMeasurement());
-		bos.writeUTF(blob.getSeriesKey());
-		bos.writeUTF(blob.getTsBucket());
+		bos.writeUTF(blob.getSeriesKey().toString());
+		bos.writeInt(blob.getTsBucket());
 		bos.writeInt(blob.getData().length);
 		bos.write(blob.getData());
 		bos.flush();
@@ -50,8 +50,8 @@ public interface Archiver {
 		TimeSeriesArchivalObject bucketWraper = new TimeSeriesArchivalObject();
 		bucketWraper.setDb(bis.readUTF());
 		bucketWraper.setMeasurement(bis.readUTF());
-		bucketWraper.setSeriesKey(bis.readUTF());
-		bucketWraper.setTsBucket(bis.readUTF());
+		bucketWraper.setSeriesKey(new ByteString(bis.readUTF()));
+		bucketWraper.setTsBucket(bis.readInt());
 		byte[] buf = new byte[bis.readInt()];
 		bis.read(buf);
 		bucketWraper.setData(buf);

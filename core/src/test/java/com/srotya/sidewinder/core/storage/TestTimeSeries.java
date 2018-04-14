@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,8 +34,10 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.junit.BeforeClass;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.mem.MemMalloc;
@@ -45,27 +47,31 @@ import com.srotya.sidewinder.core.storage.mem.MemMalloc;
  */
 public class TestTimeSeries {
 
-	private static final String compression = "byzantine";
-	private static final String compaction = "byzantine";
+	private static final ByteString SID = new ByteString("43232");
+	private static final ByteString SID2 = new ByteString("test12312");
+	private static final ByteString SID3 = new ByteString("asdasasd");
 	private Map<String, String> conf = new HashMap<>();
+
+	@BeforeClass
+	public static void beforeClass() {
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionEnabled = true;
+		TimeSeries.compactionRatio = 1.1;
+	}
 
 	@Test
 	public void testTimeSeries() throws IOException {
-		Measurement measurement = new MockMeasurement(100);
-		DBMetadata metadata = new DBMetadata(24);
-		TimeSeries series = new TimeSeries(measurement, compression, compaction, "2214abfa", 4096, metadata, true,
-				conf);
-		assertEquals("2214abfa", series.getSeriesId());
+		Measurement measurement = new MockMeasurement(100, 28);
+		TimeSeries series = new TimeSeries(measurement, new ByteString("2214abfa"), 4096, true, conf);
+		assertEquals("2214abfa", series.getFieldId().toString());
 		assertEquals(4096, series.getTimeBucketSize());
-		assertEquals((24 * 3600) / 4096, series.getRetentionBuckets());
 	}
 
 	@Test
 	public void testThreadSafety() throws Exception {
-		Measurement measurement = new MockMeasurement(1024);
-		DBMetadata metadata = new DBMetadata(24);
-		final TimeSeries series = new TimeSeries(measurement, compression, compaction, "2214abfa", 4096, metadata, true,
-				conf);
+		Measurement measurement = new MockMeasurement(1024, 24);
+		final TimeSeries series = new TimeSeries(measurement, new ByteString("2214abfa"), 4096, true, conf);
 		final int THREAD_COUNT = 1;
 		final int POINT_COUNT = 4_000_000;
 		ExecutorService es = Executors.newFixedThreadPool(THREAD_COUNT);
@@ -76,7 +82,7 @@ public class TestTimeSeries {
 				long t = ts + o;
 				try {
 					for (int j = 0; j < POINT_COUNT; j++) {
-						series.addDataPoint(TimeUnit.MILLISECONDS, t, j);
+						series.addDataPointUnlocked(TimeUnit.MILLISECONDS, t, j);
 					}
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -89,14 +95,22 @@ public class TestTimeSeries {
 		assertEquals(THREAD_COUNT * POINT_COUNT, dps.size());
 	}
 
-	@Test
-	public void testAddAndReadDataPoints() throws IOException {
-		Measurement measurement = new MockMeasurement(100);
-		DBMetadata metadata = new DBMetadata(24);
-		TimeSeries series = new TimeSeries(measurement, compression, compaction, "43232", 4096, metadata, true, conf);
+	public void testTimeSeriesRecovery() throws IOException {
+		Measurement measurement = new MockMeasurement(100, 24);
+		TimeSeries series = new TimeSeries(measurement, SID, 4096, true, conf);
 		long curr = System.currentTimeMillis();
 		for (int i = 1; i <= 3; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
+		}
+	}
+
+	@Test
+	public void testAddAndReadDataPoints() throws IOException {
+		Measurement measurement = new MockMeasurement(100, 24);
+		TimeSeries series = new TimeSeries(measurement, SID, 4096, true, conf);
+		long curr = System.currentTimeMillis();
+		for (int i = 1; i <= 3; i++) {
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
 		}
 		assertEquals(1, series.getBucketMap().size());
 		Writer writer = series.getBucketMap().values().iterator().next();
@@ -119,6 +133,14 @@ public class TestTimeSeries {
 			assertEquals("Value mismatch:" + dp.getValue() + "\t" + (2.2 * i) + "\t" + i, dp.getValue(), 2.2 * i, 0.01);
 		}
 
+		List<long[]> values1 = series.queryPoints("value", curr + 3, curr, null);
+		assertEquals(3, values1.size());
+		for (int i = 1; i <= 3; i++) {
+			long[] dp = values1.get(i - 1);
+			assertEquals("Value mismatch:" + Double.longBitsToDouble(dp[1]) + "\t" + (2.2 * i) + "\t" + i,
+					Double.longBitsToDouble(dp[1]), 2.2 * i, 0.01);
+		}
+
 		List<Reader> queryReaders = series.queryReader("value", Arrays.asList(), curr + 3, curr, null);
 		assertEquals(1, queryReaders.size());
 		reader = queryReaders.get(0);
@@ -133,29 +155,28 @@ public class TestTimeSeries {
 
 	@Test
 	public void testGarbageCollector() throws IOException {
-		Measurement measurement = new MockMeasurement(100);
-		DBMetadata metadata = new DBMetadata(24);
-		TimeSeries series = new TimeSeries(measurement, compression, compaction, "43232", 4096, metadata, true, conf);
+		Measurement measurement = new MockMeasurement(100, 21);
+		TimeSeries series = new TimeSeries(measurement, SID, 4096, true, conf);
 		long curr = 1484788896586L;
 		for (int i = 0; i <= 24; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
 		}
-		List<Reader> readers = series.queryReader("test", Arrays.asList(), curr, curr +  (4096_000) * 23, null);
+		List<Reader> readers = series.queryReader("test", Arrays.asList(), curr, curr + (4096_000) * 23, null);
 		// should return 3 partitions
 		assertEquals(24, readers.size());
 		series.collectGarbage();
-		readers = series.queryReader("test", Arrays.asList(), curr-1, curr + (4096_000) * 27, null);
+		readers = series.queryReader("test", Arrays.asList(), curr - 1, curr + (4096_000) * 27, null);
 		assertEquals(21, readers.size());
 
-		series = new TimeSeries(measurement, compression, compaction, "43232", 4096, metadata, true, conf);
+		series = new TimeSeries(measurement, SID, 4096, true, conf);
 		curr = 1484788896586L;
 		for (int i = 0; i <= 24; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
 		}
 		readers = series.queryReader("test", Arrays.asList(), curr, curr + (4096_000) * 28, null);
 		// should return 25 partitions
 		assertEquals(25, readers.size());
-		List<Writer> collectGarbage = series.collectGarbage();
+		Map<Integer, List<Writer>> collectGarbage = series.collectGarbage();
 		assertEquals(4, collectGarbage.size());
 		readers = series.queryReader("test", Arrays.asList(), curr, curr + (4096_000) * 28, null);
 		assertEquals(21, readers.size());
@@ -164,21 +185,19 @@ public class TestTimeSeries {
 	@Test
 	public void testTimeSeriesBucketRecoverDouble() throws IOException {
 		Map<String, String> conf = new HashMap<>();
-		MockMeasurement measurement = new MockMeasurement(100);
-		DBMetadata metadata = new DBMetadata(28);
+		MockMeasurement measurement = new MockMeasurement(100, 24);
 
-		TimeSeries ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 * 10, metadata, false,
-				conf);
+		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
-			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i * 0.1);
+			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i * 0.1);
 		}
 
-		assertEquals("test12312", ts.getSeriesId());
+		assertEquals(SID2, ts.getFieldId());
 		assertTrue(!ts.isFp());
 
-		// ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 *
-		// 10, metadata, false, conf);
+		// ts = new TimeSeries(measurement, SID2, 4096 *
+		// 10, false, conf);
 		// ts.loadBucketMap(measurement.getMalloc().getBufTracker());
 		// assertEquals(size, measurement.getBufferRenewCounter());
 		// List<DataPoint> dps = ts.queryDataPoints("test", t,
@@ -195,22 +214,20 @@ public class TestTimeSeries {
 	@Test
 	public void testTimeSeriesBucketRecover() throws IOException {
 		Map<String, String> conf = new HashMap<>();
-		MockMeasurement measurement = new MockMeasurement(1024);
-		DBMetadata metadata = new DBMetadata(28);
+		MockMeasurement measurement = new MockMeasurement(1024, 24);
 
-		TimeSeries ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 * 10, metadata, false,
-				conf);
+		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
-			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i);
+			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i);
 		}
 
-		assertEquals("test12312", ts.getSeriesId());
-		assertEquals(4, ts.getBucketMap().values().size());
+		assertEquals(SID2, ts.getFieldId());
+		assertEquals(1, ts.getBucketMap().values().size());
 		assertTrue(!ts.isFp());
 
-		// ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 *
-		// 10, metadata, false, conf);
+		// ts = new TimeSeries(measurement, SID2, 4096 *
+		// 10, false, conf);
 		// ts.loadBucketMap(measurement.getBufTracker());
 		// assertEquals(4, measurement.getBufferRenewCounter());
 		// List<DataPoint> dps = ts.queryDataPoints("test", t,
@@ -226,14 +243,12 @@ public class TestTimeSeries {
 	@Test
 	public void testReadWriteSingle() throws IOException {
 		Map<String, String> conf = new HashMap<>();
-		MockMeasurement measurement = new MockMeasurement(100);
-		DBMetadata metadata = new DBMetadata(28);
+		MockMeasurement measurement = new MockMeasurement(100, 24);
 
-		TimeSeries ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 * 10, metadata, false,
-				conf);
+		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 10; i++) {
-			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i);
+			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i);
 		}
 		List<DataPoint> dps = ts.queryDataPoints("test", t, t + 1001, null);
 		assertEquals(10, dps.size());
@@ -247,14 +262,12 @@ public class TestTimeSeries {
 	@Test
 	public void testReadWriteExpand() throws IOException {
 		Map<String, String> conf = new HashMap<>();
-		MockMeasurement measurement = new MockMeasurement(1024);
-		DBMetadata metadata = new DBMetadata(28);
+		MockMeasurement measurement = new MockMeasurement(1024, 24);
 
-		TimeSeries ts = new TimeSeries(measurement, compression, compaction, "test12312", 4096 * 10, metadata, false,
-				conf);
+		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
-			ts.addDataPoint(TimeUnit.MILLISECONDS, t + i, i);
+			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i);
 		}
 		List<DataPoint> dps = ts.queryDataPoints("test", t, t + 1001, null);
 		assertEquals(1000, dps.size());
@@ -267,21 +280,21 @@ public class TestTimeSeries {
 
 	@Test
 	public void testCompaction() throws IOException {
-		DBMetadata metadata = new DBMetadata(28);
-		MockMeasurement measurement = new MockMeasurement(1024);
+		MockMeasurement measurement = new MockMeasurement(1024, 28);
 		HashMap<String, String> conf = new HashMap<>();
 		conf.put("default.bucket.size", "409600");
-		conf.put("compaction.enabled", "true");
+		TimeSeries.compactionEnabled = true;
 		conf.put("use.query.pool", "false");
 		conf.put("compaction.ratio", "1.1");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("byzantine");
 
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "byzantine", "asdasasd", 409600, metadata,
-				true, conf);
+		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, true, conf);
 		final long curr = 1497720652566L;
 
 		String valueFieldName = "value";
 		for (int i = 1; i <= 10000; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
 
 		long ts = System.nanoTime();
@@ -294,7 +307,7 @@ public class TestTimeSeries {
 			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
 			assertEquals(dp.getValue(), i * 1.1, 0.001);
 		}
-		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		assertEquals(1, bucketRawMap.size());
 		int size = bucketRawMap.values().iterator().next().size();
 		assertTrue(series.getCompactionSet().size() < size);
@@ -324,25 +337,25 @@ public class TestTimeSeries {
 
 	@Test
 	public void testCompactionGorilla() throws IOException {
-		DBMetadata metadata = new DBMetadata(28);
-		MockMeasurement measurement = new MockMeasurement(1024);
+		MockMeasurement measurement = new MockMeasurement(1024, 24);
 		HashMap<String, String> conf = new HashMap<>();
 		conf.put("default.bucket.size", "409600");
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
 		conf.put("compaction.ratio", "1.1");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("gorilla");
 
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "gorilla", "asdasasd", 409600, metadata,
-				true, conf);
+		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, true, conf);
 		final long curr = 1497720652566L;
 
 		String valueFieldName = "value";
 
 		for (int i = 1; i <= 10000; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
 
-		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		assertEquals(1, bucketRawMap.size());
 		int size = bucketRawMap.values().iterator().next().size();
 		assertTrue(series.getCompactionSet().size() < size);
@@ -369,7 +382,7 @@ public class TestTimeSeries {
 
 	// @Test
 	// public void testCompactionGzip() throws IOException {
-	// DBMetadata metadata = new DBMetadata(28);
+	//
 	// MockMeasurement measurement = new MockMeasurement(1024);
 	// HashMap<String, String> conf = new HashMap<>();
 	// conf.put("default.bucket.size", "409600");
@@ -379,7 +392,7 @@ public class TestTimeSeries {
 	// conf.put("zip.block.size", "8");
 	//
 	// final TimeSeries series = new TimeSeries(measurement, "byzantine", "bzip",
-	// "asdasasd", 409600, metadata, true,
+	// SID3, 409600, metadata, true,
 	// conf);
 	// final long curr = 1497720652566L;
 	//
@@ -417,22 +430,22 @@ public class TestTimeSeries {
 
 	@Test
 	public void testReplaceSeries() throws IOException {
-		DBMetadata metadata = new DBMetadata(28);
-		MockMeasurement measurement = new MockMeasurement(1024);
+		MockMeasurement measurement = new MockMeasurement(1024, 24);
 		HashMap<String, String> conf = new HashMap<>();
 		conf.put("default.bucket.size", "409600");
-		conf.put("compaction.enabled", "true");
+		TimeSeries.compactionEnabled = true;
 		conf.put("use.query.pool", "false");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("gorilla");
 
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "gorilla", "asdasasd", 409600, metadata,
-				true, conf);
+		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, true, conf);
 		final long curr = 1497720652566L;
 		String valueFieldName = "value";
 
 		for (int i = 1; i <= 10000; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
-		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		int size = bucketRawMap.values().iterator().next().size();
 		assertTrue(series.getCompactionSet().size() < size);
 		assertTrue(size > 2);
@@ -470,15 +483,15 @@ public class TestTimeSeries {
 
 	@Test(timeout = 10000)
 	public void testConcurrentSeriesCreate() throws IOException, InterruptedException {
-		DBMetadata metadata = new DBMetadata(28);
-		MockMeasurement measurement = new MockMeasurement(4096);
+		MockMeasurement measurement = new MockMeasurement(4096, 24);
 		HashMap<String, String> conf = new HashMap<>();
 		conf.put("default.bucket.size", "4096");
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("gorilla");
 
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "gorilla", "asdasasd", 4096, metadata, true,
-				conf);
+		final TimeSeries series = new TimeSeries(measurement, SID3, 4096, true, conf);
 		final AtomicBoolean control = new AtomicBoolean(true);
 		ExecutorService c = Executors.newCachedThreadPool();
 		final long curr = 1497720652566L;
@@ -489,7 +502,7 @@ public class TestTimeSeries {
 					try {
 						long timestamp = curr + k * 4000;
 						if (timestamp < (1497720652566L + 4096 * 1000)) {
-							series.addDataPoint(TimeUnit.MILLISECONDS, timestamp, k);
+							series.addDataPointLocked(TimeUnit.MILLISECONDS, timestamp, k);
 						} else {
 							break;
 						}
@@ -504,7 +517,7 @@ public class TestTimeSeries {
 		Thread.sleep(1000);
 		control.set(false);
 		assertEquals(2, series.getBucketRawMap().size());
-		for (Entry<String, List<Writer>> entry : series.getBucketRawMap().entrySet()) {
+		for (Entry<Integer, List<Writer>> entry : series.getBucketRawMap().entrySet()) {
 			for (int i = 0; i < entry.getValue().size() - 1; i++) {
 				Writer writer = entry.getValue().get(i);
 				assertTrue(writer.isFull());
@@ -514,21 +527,21 @@ public class TestTimeSeries {
 
 	@Test
 	public void testCompactionThreadSafety() throws IOException, InterruptedException {
-		DBMetadata metadata = new DBMetadata(28);
-		MockMeasurement measurement = new MockMeasurement(1024);
+		MockMeasurement measurement = new MockMeasurement(1024, 24);
 		HashMap<String, String> conf = new HashMap<>();
 		conf.put("default.bucket.size", "409600");
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
+		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
+		TimeSeries.compactionClass = CompressionFactory.getClassByName("byzantine");
 
-		final TimeSeries series = new TimeSeries(measurement, "byzantine", "byzantine", "asdasasd", 409600, metadata,
-				true, conf);
+		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, true, conf);
 		final long curr = 1497720652566L;
 
 		String valueFieldName = "value";
 
 		for (int i = 1; i <= 10000; i++) {
-			series.addDataPoint(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
+			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
 
 		long ts = System.nanoTime();
@@ -541,7 +554,7 @@ public class TestTimeSeries {
 			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
 			assertEquals(dp.getValue(), i * 1.1, 0.001);
 		}
-		SortedMap<String, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
 		assertEquals(1, bucketRawMap.size());
 		int size = bucketRawMap.values().iterator().next().size();
 		assertTrue(series.getCompactionSet().size() < size);
@@ -563,7 +576,7 @@ public class TestTimeSeries {
 				}
 			}
 			try {
-				series.addDataPoint(TimeUnit.MILLISECONDS, curr + 1000 * 10001, 1.11);
+				series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + 1000 * 10001, 1.11);
 				bool.set(false);
 			} catch (IOException e) {
 				e.printStackTrace();

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -136,7 +136,7 @@ public class HTTPDataPointDecoder extends SimpleChannelInboundHandler<Object> {
 						meter.inc(dps.size());
 						for (Point dp : dps) {
 							try {
-								engine.writeDataPoint(dp);
+								engine.writeDataPointLocked(dp, false);
 								logger.fine("Accepted:" + dp + "\t" + new Date(dp.getTimestamp()));
 							} catch (IOException e) {
 								logger.fine("Dropped:" + dp + "\t" + e.getMessage());

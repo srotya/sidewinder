@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package com.srotya.sidewinder.core.storage;
 
 import java.util.List;
 
-import com.srotya.sidewinder.core.filters.Tag;
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.InvalidFilterException;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -86,8 +87,9 @@ public class GrafanaUtils {
 	 * 
 	 * @param json
 	 * @param targetSeries
+	 * @throws InvalidFilterException 
 	 */
-	public static void extractTargetsFromJson(JsonObject json, List<TargetSeries> targetSeries) {
+	public static void extractTargetsFromJson(JsonObject json, List<TargetSeries> targetSeries) throws InvalidFilterException {
 		JsonArray targets = json.get("targets").getAsJsonArray();
 		for (int i = 0; i < targets.size(); i++) {
 			JsonObject jsonElement = targets.get(i).getAsJsonObject();
@@ -169,7 +171,7 @@ public class GrafanaUtils {
 		return null;
 	}
 
-	public static TagFilter extractGrafanaFilter(JsonObject element) {
+	public static TagFilter extractGrafanaFilter(JsonObject element) throws InvalidFilterException {
 		Stack<TagFilter> predicateStack = new Stack<>();
 		JsonArray array = element.get("filters").getAsJsonArray();
 		for (int i = 0; i < array.size(); i++) {

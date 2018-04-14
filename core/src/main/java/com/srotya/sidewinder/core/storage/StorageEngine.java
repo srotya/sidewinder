@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,15 +31,17 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import com.codahale.metrics.Counter;
-import com.srotya.sidewinder.core.filters.Tag;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
+import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
 /**
  * Interface for Timeseries Storage Engine
+ * 
  * 
  * @author ambud
  */
@@ -75,6 +77,8 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_ON_START = "false";
 	public static final String COMPACTION_RATIO = "compaction.ratio";
 	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
+	public static final boolean ENABLE_METHOD_METRICS = Boolean
+			.parseBoolean(System.getProperty("debug.method.metrics", "false"));
 
 	/**
 	 * @param conf
@@ -88,56 +92,46 @@ public interface StorageEngine {
 	 * 
 	 * @throws IOException
 	 */
-	public void connect() throws IOException;
+	public void startup() throws IOException;
 
 	/**
 	 * Disconnect from the storage engine
 	 * 
 	 * @throws IOException
 	 */
-	public void disconnect() throws IOException;
+	public void shutdown() throws IOException;
 
-	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
-			long timestamp, long value, boolean fp) throws IOException {
+	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
+			long timestamp, long value, boolean fp, boolean presorted) throws IOException {
 		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
-		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				getDefaultTimebucketSize(), fp);
-		if (timeSeries.isFp() != fp) {
-			// drop this datapoint, mixed series are not allowed
-			throw FP_MISMATCH_EXCEPTION;
-		}
-		if (fp) {
-			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, Double.longBitsToDouble(value));
-		} else {
-			timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
-		}
+		Measurement m = getOrCreateMeasurement(dbName, measurementName);
+		m.addDataPoint(valueFieldName, tags, timestamp, value, fp, presorted);
 		getCounter().inc();
 	}
 
-	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
-			long timestamp, long value) throws IOException {
-		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
-		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				getDefaultTimebucketSize(), false);
-		if (timeSeries.isFp()) {
-			// drop this datapoint, mixed series are not allowed
-			throw FP_MISMATCH_EXCEPTION;
-		}
-		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
-		getCounter().inc();
+	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
+			long timestamp, long value, boolean presorted) throws IOException {
+		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value, false, presorted);
 	}
 
-	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<String> tags,
-			long timestamp, double value) throws IOException {
-		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
-		TimeSeries timeSeries = getOrCreateTimeSeries(dbName, measurementName, valueFieldName, tags,
-				getDefaultTimebucketSize(), true);
-		if (!timeSeries.isFp()) {
-			// drop this datapoint, mixed series are not allowed
-			throw FP_MISMATCH_EXCEPTION;
-		}
-		timeSeries.addDataPoint(TimeUnit.MILLISECONDS, timestamp, value);
-		getCounter().inc();
+	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
+			long timestamp, double value, boolean presorted) throws IOException {
+		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true,
+				presorted);
+	}
+
+	public default void writeDataPointLocked(Point dp, boolean preSorted) throws IOException {
+		StorageEngine.validatePoint(dp);
+		Measurement m = getOrCreateMeasurement(dp.getDbName(), dp.getMeasurementName());
+		m.addPointLocked(dp, preSorted);
+		getCounter().inc(dp.getValueList().size());
+	}
+
+	public default void writeDataPointUnlocked(Point dp, boolean preSorted) throws IOException {
+		StorageEngine.validatePoint(dp);
+		Measurement m = getOrCreateMeasurement(dp.getDbName(), dp.getMeasurementName());
+		m.addPointUnlocked(dp, preSorted);
+		getCounter().inc(dp.getValueList().size());
 	}
 
 	/**
@@ -386,20 +380,6 @@ public interface StorageEngine {
 		}
 	}
 
-	// retention policy update methods
-	/**
-	 * Update retention policy for a specific time series
-	 * 
-	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
-	 * @param tags
-	 * @param retentionHours
-	 * @throws IOException
-	 */
-	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, int retentionHours) throws IOException;
-
 	/**
 	 * Update retention policy for measurement
 	 * 
@@ -470,21 +450,6 @@ public interface StorageEngine {
 	public Measurement getOrCreateMeasurement(String dbName, String measurementName) throws IOException;
 
 	/**
-	 * Gets the Timeseries, creates it if it doesn't already exist
-	 * 
-	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
-	 * @param tags
-	 * @param timeBucketSize
-	 * @param fp
-	 * @return timeseries object
-	 * @throws IOException
-	 */
-	public TimeSeries getOrCreateTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, int timeBucketSize, boolean fp) throws IOException;
-
-	/**
 	 * Check if a measurement field is floating point
 	 * 
 	 * @param dbName
@@ -540,7 +505,7 @@ public interface StorageEngine {
 	 * @throws Exception
 	 */
 	public default boolean checkTimeSeriesExists(String dbName, String measurementName, String valueFieldName,
-			List<String> tags) throws Exception {
+			List<Tag> tags) throws Exception {
 		if (!checkIfExists(dbName, measurementName)) {
 			return false;
 		}
@@ -561,7 +526,7 @@ public interface StorageEngine {
 	 * @throws IOException
 	 */
 	public default TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<String> tags) throws IOException {
+			List<Tag> tags) throws IOException {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -598,14 +563,23 @@ public interface StorageEngine {
 		getLogger().log(Level.FINER, "Get tag filtered rowkeys for db" + dbName + " measurement:" + measurementName
 				+ " filter:" + tagFilter);
 		Measurement measurement = getDatabaseMap().get(dbName).get(measurementName);
-		return measurement.getTagFilteredRowKeys(tagFilter);
+		Set<ByteString> tagFilteredRowKeys = measurement.getTagFilteredRowKeys(tagFilter);
+		return TagIndex.byteToStringSet(tagFilteredRowKeys, new HashSet<>());
 	}
 
 	public Map<String, Map<String, Measurement>> getDatabaseMap();
 
-	public static void validateDataPoint(String dbName, String measurementName, String valueFieldName,
-			List<String> tags, TimeUnit unit) throws RejectException {
-		if (dbName == null || measurementName == null || valueFieldName == null || tags == null || unit == null) {
+	public static void validateDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
+			TimeUnit unit) throws RejectException {
+		if (dbName == null || measurementName == null || tags == null || unit == null) {
+			throw INVALID_DATAPOINT_EXCEPTION;
+		}
+	}
+
+	public static void validatePoint(Point dp) throws RejectException {
+		if (dp.getDbName() == null || dp.getMeasurementName() == null || dp.getTagsList() == null
+				|| dp.getValueFieldNameList() == null || dp.getFpList() == null || dp.getValueList() == null
+				|| dp.getValueCount() != dp.getFpCount() || dp.getFpCount() != dp.getValueFieldNameCount()) {
 			throw INVALID_DATAPOINT_EXCEPTION;
 		}
 	}
@@ -614,11 +588,22 @@ public interface StorageEngine {
 
 	public Counter getCounter();
 
-	public default void writeDataPoint(Point dp) throws IOException {
-		writeDataPoint(dp.getDbName(), dp.getMeasurementName(), dp.getValueFieldName(),
-				new ArrayList<>(dp.getTagsList()), dp.getTimestamp(), dp.getValue(), dp.getFp());
+	public Logger getLogger();
+
+	public default void setCodecsForTimeseries(Map<String, String> conf) {
+		String compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
+				StorageEngine.DEFAULT_COMPRESSION_CODEC);
+		String compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
+				StorageEngine.DEFAULT_COMPACTION_CODEC);
+		TimeSeries.compactionClass = CompressionFactory.getClassByName(compactionCodec);
+		TimeSeries.compressionClass = CompressionFactory.getClassByName(compressionCodec);
 	}
 
-	public Logger getLogger();
+	public default void setCompactionConfig(Map<String, String> conf) {
+		TimeSeries.compactionEnabled = Boolean.parseBoolean(
+				conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, StorageEngine.DEFAULT_COMPACTION_ENABLED));
+		TimeSeries.compactionRatio = Double
+				.parseDouble(conf.getOrDefault(StorageEngine.COMPACTION_RATIO, StorageEngine.DEFAULT_COMPACTION_RATIO));
+	}
 
 }

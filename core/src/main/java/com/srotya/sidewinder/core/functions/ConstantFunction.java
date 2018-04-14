@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,42 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions.multiseries;
+package com.srotya.sidewinder.core.functions;
 
-import java.util.ArrayList;
-import java.util.List;
+public abstract class ConstantFunction extends TransformFunction {
 
-import com.srotya.sidewinder.core.functions.Function;
-import com.srotya.sidewinder.core.storage.Series;
-
-/**
- * @author ambud
- */
-public class ChainFunction implements Function {
-
-	private List<Function> chain;
-
-	@Override
-	public List<Series> apply(List<Series> t) {
-		List<Series> output = t;
-		for(Function f:chain) {
-			output = f.apply(output);
-		}
-		return output;
-	}
+	protected double constant;
 
 	@Override
 	public void init(Object[] args) throws Exception {
-		chain = new ArrayList<>();
-		for (int i = 0; i < args.length; i++) {
-			Object object = args[i];
-			chain.add((Function) object);
+		if (args[0] instanceof Integer) {
+			constant = (int) args[0];
+		} else {
+			constant = (double) args[0];
 		}
 	}
 
 	@Override
 	public int getNumberOfArgs() {
-		return -1;
+		return 1;
 	}
 
 }

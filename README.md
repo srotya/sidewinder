@@ -27,7 +27,7 @@ Sidewinder is a timeseries database designed for speed and scalability. It's pur
 Sidewinder uses either pure in-memory buffers or memory mapped disk storage providing fast reads and writes without any need for expensive disks.
 
 ### Integrations
-Provides integrations with collectd, telegraf, influx db etc.
+Provides integrations with collectd, influx etc.
 
 ### REST API
 Sidewinder offers a standard REST API to query and perform database operations.

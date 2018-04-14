@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,11 +26,14 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
 
 import com.srotya.sidewinder.core.storage.BufferObject;
+import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 public class MemMalloc implements Malloc {
 
+	private static final ByteString STR2 = new ByteString("\t");
 	private int size;
 	private List<String> cleanupCallback;
 
@@ -41,13 +44,15 @@ public class MemMalloc implements Malloc {
 		this.cleanupCallback = cleanupCallback;
 	}
 
-	public BufferObject createNewBuffer(String seriesId, String tsBucket) throws IOException {
+	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket) throws IOException {
 		return createNewBuffer(seriesId, tsBucket, size);
 	}
 
-	public BufferObject createNewBuffer(String seriesId, String tsBucket, int newSize) throws IOException {
+	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket, int newSize) throws IOException {
 		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(newSize);
-		return new BufferObject(seriesId + "\t" + tsBucket, allocateDirect);
+		LinkedByteString str = new LinkedByteString(seriesId);
+		str.concat(STR2).concat(String.valueOf(tsBucket));
+		return new BufferObject(str, allocateDirect);
 	}
 
 	@Override
@@ -58,14 +63,15 @@ public class MemMalloc implements Malloc {
 	}
 
 	@Override
-	public Map<String, List<Entry<String, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException {
+	public Map<ByteString, List<Entry<Integer, BufferObject>>> seriesBufferMap() throws FileNotFoundException, IOException {
 		return null;
 	}
 
 	@Override
 	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine,
 			ScheduledExecutorService bgTaskPool, ReentrantLock lock) {
-		this.size = Integer.parseInt(conf.getOrDefault("buffer.size", "1024"));
+		this.size = Integer
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_INCREMENT_SIZE, String.valueOf(DEFAULT_INCREMENT_SIZE)));
 	}
 
 	@Override

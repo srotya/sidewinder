@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -53,6 +53,7 @@ import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.InvalidFilterException;
 
 /**
  * API specifically for designed for Grafana Sidewinder Datasource. This API is
@@ -111,8 +112,8 @@ public class GrafanaQueryApi {
 		List<Target> output = new ArrayList<>();
 		try {
 			GrafanaUtils.extractTargetsFromJson(json, targetSeries);
-		} catch (IllegalArgumentException e) {
-			return output;
+		} catch (InvalidFilterException e) {
+			throw new BadRequestException(e.getMessage());
 		}
 
 		logger.log(Level.FINE,
@@ -244,7 +245,7 @@ public class GrafanaQueryApi {
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
 	public Set<String> queryOperatorTypes() {
-		return new HashSet<>(Arrays.asList("=", ">", "<", ">=", "<="));
+		return new HashSet<>(Arrays.asList("=", ">", "<", ">=", "<=", "~"));
 	}
 
 	@Path("/query/aggregators")

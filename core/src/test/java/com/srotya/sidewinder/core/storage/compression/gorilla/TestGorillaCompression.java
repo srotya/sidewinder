@@ -1,5 +1,5 @@
 /**
- * Copyright 2018 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,11 +15,10 @@
  */
 package com.srotya.sidewinder.core.storage.compression.gorilla;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.HashMap;
 
 import org.junit.Test;
 
@@ -48,11 +47,11 @@ public class TestGorillaCompression {
 	public void testCompressUncompress() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
 		GorillaWriter writer = new GorillaWriter();
-		writer.configure(new HashMap<>(), buf, true, 0, false);
+		writer.configure(buf, true, 0, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
-			writer.addValue(ts + i * 100, i);
+			writer.addValueLocked(ts + i * 100, i);
 		}
 		writer.makeReadOnly();
 		Reader reader = writer.getReader();
@@ -68,11 +67,11 @@ public class TestGorillaCompression {
 	public void testCompressUncompressFloating() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
 		GorillaWriter writer = new GorillaWriter();
-		writer.configure(new HashMap<>(), buf, true, 0, false);
+		writer.configure(buf, true, 0, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
-			writer.addValue(ts + i * 100, i * 1.1);
+			writer.addValueLocked(ts + i * 100, i * 1.1);
 		}
 		writer.makeReadOnly();
 		Reader reader = writer.getReader();
@@ -88,17 +87,17 @@ public class TestGorillaCompression {
 	public void testRecovery() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
 		GorillaWriter writer = new GorillaWriter();
-		writer.configure(new HashMap<>(), buf, true, 0, false);
+		writer.configure(buf, true, 0, false);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
-			writer.addValue(ts + i * 100, i * 1.1);
+			writer.addValueLocked(ts + i * 100, i * 1.1);
 		}
 		writer.makeReadOnly();
 		ByteBuffer rawBytes = writer.getRawBytes();
 
 		writer = new GorillaWriter();
-		writer.configure(new HashMap<>(), rawBytes, false, 0, false);
+		writer.configure(rawBytes, false, 0, false);
 		Reader reader = writer.getReader();
 		assertEquals(100, reader.getPairCount());
 		for (int i = 0; i < 100; i++) {

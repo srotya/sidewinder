@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -143,5 +143,9 @@ public class TimeUtils {
 
 	public static long getTimeFromBucketString(String hexTimeInSeconds) {
 		return Integer.parseInt(hexTimeInSeconds, 16) * 1000;
+	}
+
+	public static long getTimeFromBucketString(int timeInSeconds) {
+		return timeInSeconds * 1000;
 	}
 }
