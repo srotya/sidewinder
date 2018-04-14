@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import java.util.List;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.functions.ReduceFunction;
-import com.srotya.sidewinder.core.functions.single.BasicSingleFunctions.*;
+import com.srotya.sidewinder.core.functions.BasicSingleFunctions.*;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.utils.MiscUtils;

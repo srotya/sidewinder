@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -83,14 +84,16 @@ public class ResourceMonitor {
 			time += bean.getCollectionTime();
 		}
 		try {
-			storageEngine.writeDataPoint(DB, "gc", "count", Arrays.asList("node=local"), System.currentTimeMillis(),
-					count);
+			storageEngine.writeDataPoint(DB, "gc", "count",
+					Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
+					System.currentTimeMillis(), count, true);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
 		try {
-			storageEngine.writeDataPoint(DB, "gc", "time", Arrays.asList("node=local"), System.currentTimeMillis(),
-					time);
+			storageEngine.writeDataPoint(DB, "gc", "time",
+					Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
+					System.currentTimeMillis(), time, true);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
@@ -99,8 +102,9 @@ public class ResourceMonitor {
 	private void validateCPUUsage() {
 		double systemLoadAverage = ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage();
 		try {
-			storageEngine.writeDataPoint(DB, "cpu", "load", Arrays.asList("node=local"), System.currentTimeMillis(),
-					systemLoadAverage);
+			storageEngine.writeDataPoint(DB, "cpu", "load",
+					Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
+					System.currentTimeMillis(), systemLoadAverage, true);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
@@ -113,15 +117,17 @@ public class ResourceMonitor {
 		}
 		long used = mem.getUsed();
 		try {
-			storageEngine.writeDataPoint(DB, "memory", "used", Arrays.asList("type=" + type),
-					System.currentTimeMillis(), used);
+			storageEngine.writeDataPoint(DB, "memory", "used",
+					Arrays.asList(Tag.newBuilder().setTagKey("type").setTagValue(type).build()),
+					System.currentTimeMillis(), used, true);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
 
 		try {
-			storageEngine.writeDataPoint(DB, "memory", "max", Arrays.asList("type=" + type), System.currentTimeMillis(),
-					used);
+			storageEngine.writeDataPoint(DB, "memory", "max",
+					Arrays.asList(Tag.newBuilder().setTagKey("type").setTagValue(type).build()),
+					System.currentTimeMillis(), used, true);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}

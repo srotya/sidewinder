@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,8 @@ import com.srotya.sidewinder.core.rpc.GRPCServer;
 import com.srotya.sidewinder.core.security.AllowAllAuthorizer;
 import com.srotya.sidewinder.core.security.BasicAuthenticator;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.processor.PointProcessor;
+import com.srotya.sidewinder.core.storage.processor.PointProcessorABQ;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.dropwizard.Application;
@@ -147,7 +149,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		logger.info("Using Storage Engine:" + storageEngineClass);
 		storageEngine = (StorageEngine) Class.forName(storageEngineClass).newInstance();
 		storageEngine.configure(conf, bgTasks);
-		storageEngine.connect();
+		storageEngine.startup();
 	}
 
 	private void registerWebAPIs(Environment env, Map<String, String> conf, ScheduledExecutorService bgTasks)
@@ -157,7 +159,8 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		env.jersey().register(new DatabaseOpsApi(storageEngine));
 		env.jersey().register(new SqlApi(storageEngine));
 		if (Boolean.parseBoolean(conf.getOrDefault("jersey.influx", "true"))) {
-			env.jersey().register(new InfluxApi(storageEngine));
+			PointProcessor proc = new PointProcessorABQ(storageEngine, conf);
+			env.jersey().register(new InfluxApi(proc));
 		}
 		env.healthChecks().register("restapi", new RestAPIHealthCheck());
 

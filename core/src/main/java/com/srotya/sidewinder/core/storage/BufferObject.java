@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,23 +19,23 @@ import java.nio.ByteBuffer;
 
 public class BufferObject {
 
-	private String bufferId;
+	private LinkedByteString bufferId;
 	private ByteBuffer buf;
 	
-	public BufferObject(String bufferId, ByteBuffer buf) {
-		this.bufferId = bufferId;
+	public BufferObject(LinkedByteString ptrKey, ByteBuffer buf) {
+		this.bufferId = ptrKey;
 		this.buf = buf;
 	}
 	/**
 	 * @return the bufferId
 	 */
-	public String getBufferId() {
+	public LinkedByteString getBufferId() {
 		return bufferId;
 	}
 	/**
 	 * @param bufferId the bufferId to set
 	 */
-	public void setBufferId(String bufferId) {
+	public void setBufferId(LinkedByteString bufferId) {
 		this.bufferId = bufferId;
 	}
 	/**

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
  */
 package com.srotya.sidewinder.core.storage.archival;
 
+import com.srotya.sidewinder.core.storage.ByteString;
+
 /**
  * @author ambud
  */
@@ -22,14 +24,14 @@ public class TimeSeriesArchivalObject {
 
 	private String db;
 	private String measurement;
-	private String seriesKey;
-	private String tsBucket;
+	private ByteString seriesKey;
+	private Integer tsBucket;
 	private byte[] data;
 	
 	public TimeSeriesArchivalObject() {
 	}
 
-	public TimeSeriesArchivalObject(String db, String measurement, String seriesKey, String tsBucket, byte[] data) {
+	public TimeSeriesArchivalObject(String db, String measurement, ByteString seriesKey, Integer tsBucket, byte[] data) {
 		this.db = db;
 		this.measurement = measurement;
 		this.seriesKey = seriesKey;
@@ -70,14 +72,14 @@ public class TimeSeriesArchivalObject {
 	/**
 	 * @return the seriesKey
 	 */
-	public String getSeriesKey() {
+	public ByteString getSeriesKey() {
 		return seriesKey;
 	}
 
 	/**
 	 * @param seriesKey the seriesKey to set
 	 */
-	public void setSeriesKey(String seriesKey) {
+	public void setSeriesKey(ByteString seriesKey) {
 		this.seriesKey = seriesKey;
 	}
 
@@ -98,14 +100,14 @@ public class TimeSeriesArchivalObject {
 	/**
 	 * @return the tsBucket
 	 */
-	public String getTsBucket() {
+	public Integer getTsBucket() {
 		return tsBucket;
 	}
 
 	/**
 	 * @param tsBucket the tsBucket to set
 	 */
-	public void setTsBucket(String tsBucket) {
+	public void setTsBucket(Integer tsBucket) {
 		this.tsBucket = tsBucket;
 	}
 

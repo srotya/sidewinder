@@ -1,5 +1,5 @@
 /**
- * Copyright 2018 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ package com.srotya.sidewinder.core.filters;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * @author ambud
+ */
 public class ComplexTagFilter implements TagFilter {
 
 	public enum ComplexFilterType {
@@ -47,6 +50,11 @@ public class ComplexTagFilter implements TagFilter {
 	
 	public ComplexFilterType getType() {
 		return type;
+	}
+
+	@Override
+	public String toString() {
+		return "ComplexTagFilter [type=" + type + ", filters=" + filters + "]";
 	}
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,17 +25,20 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Logger;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
-import com.srotya.sidewinder.core.storage.TimeSeries;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
@@ -47,30 +50,45 @@ public class MemoryMeasurement implements Measurement {
 	private ReentrantLock lock = new ReentrantLock(false);
 	private String measurementName;
 	private DBMetadata metadata;
-	private Map<String, SeriesFieldMap> seriesMap;
+	private Map<ByteString, Integer> seriesMap;
+	private List<SeriesFieldMap> seriesList;
 	private MemTagIndex tagIndex;
-	private String compressionCodec;
-	private String compactionCodec;
 	private boolean useQueryPool;
 	private String dbName;
 	private Malloc malloc;
+	private int timeBucketSize;
+	private Map<String, String> conf;
+	private boolean enableMetricsCapture;
+	private Counter metricsTimeSeriesCounter;
+	private AtomicInteger retentionBuckets;
 
 	@Override
-	public void configure(Map<String, String> conf, StorageEngine engine, String dbName, String measurementName,
-			String baseIndexDirectory, String dataDirectory, DBMetadata metadata, ScheduledExecutorService bgTaskPool)
-			throws IOException {
+	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
+			String measurementName, String baseIndexDirectory, String dataDirectory, DBMetadata metadata,
+			ScheduledExecutorService bgTaskPool) throws IOException {
+		MetricsRegistryService reg = null;
+		if (engine == null || bgTaskPool == null) {
+			enableMetricsCapture = false;
+		} else {
+			reg = MetricsRegistryService.getInstance(engine, bgTaskPool);
+			MetricRegistry metaops = reg.getInstance("metaops");
+			metricsTimeSeriesCounter = metaops.counter("timeseries-counter");
+			enableMetricsCapture = true;
+		}
+		this.conf = conf;
+		this.timeBucketSize = defaultTimeBucketSize;
 		this.dbName = dbName;
 		this.measurementName = measurementName;
 		this.metadata = metadata;
-		this.tagIndex = new MemTagIndex(MetricsRegistryService.getInstance(engine, bgTaskPool).getInstance("request"));
+		this.seriesList = new ArrayList<>(10_000);
+		this.tagIndex = new MemTagIndex();
+		tagIndex.configure(getConf(), null, this);
 		this.seriesMap = new ConcurrentHashMap<>();
-		this.compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
-				StorageEngine.DEFAULT_COMPRESSION_CODEC);
-		this.compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
-				StorageEngine.DEFAULT_COMPACTION_CODEC);
+		this.retentionBuckets = new AtomicInteger(0);
+		setRetentionHours(metadata.getRetentionHours());
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
-		malloc = new MemMalloc();
-		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, lock);
+		this.malloc = new MemMalloc();
+		this.malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, lock);
 	}
 
 	@Override
@@ -84,38 +102,6 @@ public class MemoryMeasurement implements Measurement {
 
 	@Override
 	public void close() throws IOException {
-	}
-
-	@Override
-	public TimeSeries getOrCreateTimeSeries(String valueFieldName, List<String> tags, int timeBucketSize, boolean fp,
-			Map<String, String> conf) throws IOException {
-		Collections.sort(tags);
-		String seriesId = constructSeriesId(tags, tagIndex);
-		SeriesFieldMap seriesFieldMap = getSeriesFromKey(seriesId);
-		if (seriesFieldMap == null) {
-			lock.lock();
-			if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
-				Measurement.indexRowKey(tagIndex, seriesId, tags);
-				seriesFieldMap = new SeriesFieldMap(seriesId);
-				seriesMap.put(seriesId, seriesFieldMap);
-			}
-			lock.unlock();
-		}
-		TimeSeries series = seriesFieldMap.get(valueFieldName);
-		if (series == null) {
-			lock.lock();
-			if ((series = seriesFieldMap.get(valueFieldName)) == null) {
-				String seriesId2 = seriesId + SERIESID_SEPARATOR + valueFieldName;
-				series = new TimeSeries(this, compressionCodec, compactionCodec, seriesId2, timeBucketSize, metadata,
-						fp, conf);
-				seriesFieldMap.addSeries(valueFieldName, series);
-				logger.fine("Created new timeseries:" + seriesFieldMap + " for measurement:" + measurementName + "\t"
-						+ seriesId + "\t" + metadata.getRetentionHours() + "\t" + seriesMap.size());
-			}
-			lock.unlock();
-		}
-
-		return series;
 	}
 
 	@Override
@@ -136,11 +122,11 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public String toString() {
 		return "MemoryMeasurement [measurementName=" + measurementName + ", metadata=" + metadata + ", seriesMap="
-				+ seriesMap + ", tagIndex=" + tagIndex + ", compressionClass=" + compressionCodec + "]";
+				+ seriesMap + ", tagIndex=" + tagIndex + "]";
 	}
 
 	@Override
-	public SortedMap<String, List<Writer>> createNewBucketMap(String seriesId) {
+	public SortedMap<Integer, List<Writer>> createNewBucketMap(ByteString seriesId) {
 		return new ConcurrentSkipListMap<>();
 	}
 
@@ -155,13 +141,12 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public Set<String> getSeriesKeys() {
-		return seriesMap.keySet();
-	}
-
-	@Override
-	public SeriesFieldMap getSeriesFromKey(String key) {
-		return seriesMap.get(key);
+	public Set<ByteString> getSeriesKeys() {
+		Set<ByteString> set = new HashSet<>();
+		for (ByteString str : seriesMap.keySet()) {
+			set.add(str);
+		}
+		return set;
 	}
 
 	@Override
@@ -175,7 +160,42 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public Collection<SeriesFieldMap> getSeriesList() {
-		return seriesMap.values();
+	public List<SeriesFieldMap> getSeriesList() {
+		return seriesList;
+	}
+
+	@Override
+	public int getTimeBucketSize() {
+		return timeBucketSize;
+	}
+
+	@Override
+	public DBMetadata getMetadata() {
+		return metadata;
+	}
+
+	@Override
+	public Map<String, String> getConf() {
+		return conf;
+	}
+
+	@Override
+	public Map<ByteString, Integer> getSeriesMap() {
+		return seriesMap;
+	}
+
+	@Override
+	public boolean isEnableMetricsCapture() {
+		return enableMetricsCapture;
+	}
+
+	@Override
+	public Counter getMetricsTimeSeriesCounter() {
+		return metricsTimeSeriesCounter;
+	}
+
+	@Override
+	public AtomicInteger getRetentionBuckets() {
+		return retentionBuckets;
 	}
 }

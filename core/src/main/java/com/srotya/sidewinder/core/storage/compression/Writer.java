@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,11 @@ package com.srotya.sidewinder.core.storage.compression;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
 
 import javax.validation.constraints.NotNull;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.RejectException;
 
 /**
@@ -33,9 +33,9 @@ public interface Writer {
 	public static final RollOverException BUF_ROLLOVER_EXCEPTION = new RollOverException();
 	public static final RejectException WRITE_REJECT_EXCEPTION = new RejectException();
 
-	public void addValue(long timestamp, long value) throws IOException;
+	public void addValueLocked(long timestamp, long value) throws IOException;
 
-	public void addValue(long timestamp, double value) throws IOException;
+	public void addValueLocked(long timestamp, double value) throws IOException;
 
 	// public void addValue(long timestamp, long[] value) throws IOException;
 
@@ -49,7 +49,7 @@ public interface Writer {
 
 	public double getCompressionRatio();
 
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
+	public void configure(ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
 			throws IOException;
 
 	public void bootstrap(ByteBuffer buf) throws IOException;
@@ -72,15 +72,11 @@ public interface Writer {
 
 	public void setHeaderTimestamp(long timestamp) throws IOException;
 
-	public void setTsBucket(String tsBucket);
-
-	public String getTsBucket();
-
 	public int getPosition();
 
-	public void setBufferId(String key);
+	public void setBufferId(LinkedByteString key);
 
 	@NotNull
-	public String getBufferId();
+	public LinkedByteString getBufferId();
 
 }

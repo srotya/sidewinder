@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel.MapMode;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -31,6 +32,7 @@ import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import org.roaringbitmap.buffer.MutableRoaringBitmap;
 
@@ -41,6 +43,8 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
+import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
@@ -60,12 +64,12 @@ public class MappedBitmapTagIndex implements TagIndex {
 	private boolean enableMetrics;
 	private RandomAccessFile revRaf;
 	private MappedByteBuffer rev;
-	private PersistentMeasurement measurement;
+	private Measurement measurement;
 
-	public MappedBitmapTagIndex(String indexDir, String measurementName, PersistentMeasurement measurement)
-			throws IOException {
+	@Override
+	public void configure(Map<String, String> conf, String indexDir, Measurement measurement) throws IOException {
 		this.measurement = measurement;
-		this.indexPath = indexDir + "/" + measurementName;
+		this.indexPath = indexDir + "/" + measurement.getMeasurementName();
 		rowKeyIndex = new ConcurrentHashMap<>();
 		revIndex = new File(indexPath + ".rev");
 		MetricsRegistryService instance = MetricsRegistryService.getInstance();
@@ -123,12 +127,12 @@ public class MappedBitmapTagIndex implements TagIndex {
 		return set;
 	}
 
-	private void bitmapToRowKeys(Collection<String> rowKeys, MutableRoaringBitmap value) {
+	private void bitmapToRowKeys(Collection<ByteString> rowKeys, MutableRoaringBitmap value) {
 		logger.finest(() -> "Requesting conversion from bitmap to value");
-		List<SeriesFieldMap> ref = measurement.getSeriesListAsList();
+		List<SeriesFieldMap> ref = measurement.getSeriesList();
 		for (Iterator<Integer> iterator = value.iterator(); iterator.hasNext();) {
 			Integer idx = iterator.next();
-			String seriesId = ref.get(idx).getSeriesId();
+			ByteString seriesId = (ByteString) ref.get(idx).getSeriesId();
 			rowKeys.add(seriesId);
 			logger.finest(
 					() -> "Adding idx:" + idx + " resolving to seriesId:" + seriesId + " for bitmap extrapolation");
@@ -136,7 +140,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 	}
 
 	protected MutableRoaringBitmap evalFilterForTags(TagFilter filterTree) {
-		logger.finer(() -> "Evaluating filter tree:" + measurement.getMeasurementName() + " " + filterTree);
+		logger.fine(() -> "Evaluating filter tree:" + measurement.getMeasurementName() + " " + filterTree);
 		// either it's a simple tag filter or a complex tag filter
 		if (filterTree instanceof SimpleTagFilter) {
 			SimpleTagFilter simpleFilter = (SimpleTagFilter) filterTree;
@@ -220,7 +224,17 @@ public class MappedBitmapTagIndex implements TagIndex {
 				return null;
 			}
 			return combineMaps(headMap1.values().iterator());
+		case LIKE:
+			List<MutableRoaringBitmap> filteredOutput = new ArrayList<>();
+			Pattern p = Pattern.compile(simpleFilter.getComparedValue());
+			for (Entry<String, MutableRoaringBitmap> v : map.entrySet()) {
+				if (p.matcher(v.getKey()).matches()) {
+					filteredOutput.add(v.getValue());
+				}
+			}
+			return combineMaps(filteredOutput.iterator());
 		}
+		// should always be unreachable
 		return null;
 	}
 
@@ -304,17 +318,15 @@ public class MappedBitmapTagIndex implements TagIndex {
 	}
 
 	@Override
-	public void index(String tag, String value, String rowKey) throws IOException {
-		// not implemented
-		throw new UnsupportedOperationException("Bitmap index can't store string rowkeys");
-	}
-
-	@Override
-	public Set<String> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
-		Set<String> rowKeys = new HashSet<>();
+	public Set<ByteString> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
+		logger.fine(() -> "Tag query:" + tagFilterTree);
+		Set<ByteString> rowKeys = new HashSet<>();
 		MutableRoaringBitmap evalFilterForTags = evalFilterForTags(tagFilterTree);
 		if (evalFilterForTags != null) {
 			bitmapToRowKeys(rowKeys, evalFilterForTags);
+		} else {
+			logger.fine(() -> "Tag query failed:" + tagFilterTree + " measurement:" + measurement.getDbName() + ":"
+					+ measurement.getMeasurementName());
 		}
 		return rowKeys;
 	}

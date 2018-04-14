@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,11 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
@@ -45,8 +45,7 @@ public class ByzantineWriter implements Writer {
 	private boolean readOnly;
 	private volatile boolean full;
 	private int startOffset;
-	private String tsBucket;
-	private String bufferId;
+	private LinkedByteString bufferId;
 
 	public ByzantineWriter() {
 	}
@@ -67,8 +66,7 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
-			throws IOException {
+	public void configure(ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking) throws IOException {
 		this.startOffset = startOffset;
 		if (isLocking) {
 			ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
@@ -122,11 +120,12 @@ public class ByzantineWriter implements Writer {
 	}
 
 	/**
-	 * 
-	 * @param dp
+	 * @param timestamp
+	 * @param value
 	 * @throws IOException
 	 */
-	private void writeDataPoint(long timestamp, long value) throws IOException {
+	protected void writeDataPoint(long timestamp, long value) throws IOException {
+
 		if (readOnly) {
 			throw WRITE_REJECT_EXCEPTION;
 		}
@@ -135,6 +134,7 @@ public class ByzantineWriter implements Writer {
 		compressAndWriteValue(buf, value);
 		count++;
 		updateCount();
+
 	}
 
 	private void compressAndWriteValue(ByteBuffer tBuf, long value) {
@@ -185,8 +185,8 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void addValue(long timestamp, double value) throws IOException {
-		addValue(timestamp, Double.doubleToLongBits(value));
+	public void addValueLocked(long timestamp, double value) throws IOException {
+		addValueLocked(timestamp, Double.doubleToLongBits(value));
 	}
 
 	private void updateCount() {
@@ -204,7 +204,7 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void addValue(long timestamp, long value) throws IOException {
+	public void addValueLocked(long timestamp, long value) throws IOException {
 		try {
 			write.lock();
 			writeDataPoint(timestamp, value);
@@ -337,20 +337,10 @@ public class ByzantineWriter implements Writer {
 		return full;
 	}
 
-	@Override
-	public String getTsBucket() {
-		return tsBucket;
-	}
-
-	@Override
-	public void setTsBucket(String tsBucket) {
-		this.tsBucket = tsBucket;
-	}
-
 	/**
 	 * @return the bufferId
 	 */
-	public String getBufferId() {
+	public LinkedByteString getBufferId() {
 		return bufferId;
 	}
 
@@ -358,7 +348,7 @@ public class ByzantineWriter implements Writer {
 	 * @param bufferId
 	 *            the bufferId to set
 	 */
-	public void setBufferId(String bufferId) {
+	public void setBufferId(LinkedByteString bufferId) {
 		this.bufferId = bufferId;
 	}
 

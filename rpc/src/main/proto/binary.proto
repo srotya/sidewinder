@@ -45,6 +45,13 @@ service MetaService {
 	
 }
 
+message Tag {
+
+	string tagKey = 1;
+	string tagValue = 2;
+	
+}
+
 message Null {
 
 	int64 messageId = 1;
@@ -86,7 +93,7 @@ message RawTimeSeriesBucket {
 	string dbName = 2;
 	string measurementName = 3;
 	string valueFieldName = 4;
-	repeated string tags = 5;
+	repeated Tag tags = 5;
 	bool fp = 6;
 	int32 bucketSize = 7;	
 	repeated Bucket buckets = 8;
@@ -95,7 +102,7 @@ message RawTimeSeriesBucket {
 
 message Bucket {
 
-	string bucketId = 1;
+	int32 bucketId = 1;
 	int64 headerTimestamp = 2;
 	int32 count = 3;
 	bytes data = 4;
@@ -143,11 +150,11 @@ message Point {
 
 	string dbName = 1;
 	string measurementName = 2;
-	string valueFieldName = 3;
+	repeated string valueFieldName = 3;
 	int64 timestamp = 4;
-	int64 value = 5;
-	bool fp = 6;
-	repeated string tags = 7;
+	repeated int64 value = 5;
+	repeated bool fp = 6;
+	repeated Tag tags = 7;
 	int64 messageId = 8;
 
 }

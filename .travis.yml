@@ -29,3 +29,4 @@ env:
 cache:
   directories:
   - $HOME/.m2
+  - /usr/local/lib/node_modules

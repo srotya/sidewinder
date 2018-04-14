@@ -1,5 +1,5 @@
 /**
- * Copyright 2018 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,14 @@
  */
 package com.srotya.sidewinder.core.filters;
 
+/**
+ * @author ambud
+ *
+ */
 public class SimpleTagFilter implements TagFilter {
 
 	public static enum FilterType {
-		EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, LESS_THAN, LESS_THAN_EQUALS
+		EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, LESS_THAN, LESS_THAN_EQUALS, LIKE
 	}
 
 	private FilterType filterType;

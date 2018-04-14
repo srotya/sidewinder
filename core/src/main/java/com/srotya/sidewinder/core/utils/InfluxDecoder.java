@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,78 +20,93 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
+import com.google.common.base.Splitter;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
+import com.srotya.sidewinder.core.rpc.Tag;
 
 /**
  * @author ambud
  */
 public class InfluxDecoder {
 
+	private static final Splitter TAG = Splitter.on('=');
+	private static final Splitter SPACE = Splitter.on(Pattern.compile("\\s+"));
+	private static final Splitter COMMA = Splitter.on(',');
+	private static final Splitter NEWLINE = Splitter.on('\n');
 	private static final int LENGTH_OF_MILLISECOND_TS = 13;
 	private static final Logger logger = Logger.getLogger(InfluxDecoder.class.getName());
 
+	public static List<String> lineFromPayLoad(String payload) {
+		return NEWLINE.splitToList(payload);
+	}
+
 	public static List<Point> pointsFromString(String dbName, String payload) {
 		List<Point> dps = new ArrayList<>();
-		String[] splits = payload.split("[\\r\\n]+");
-		for (String split : splits) {
-			try {
-				String[] parts = split.split("\\s+");
-				if (parts.length < 2 || parts.length > 3) {
-					// invalid datapoint => drop
-					continue;
+		try {
+			Iterable<String> splits = lineFromPayLoad(payload);
+			for (String split : splits) {
+				Builder builder = pointFromLine(Point.newBuilder(), dbName, split);
+				if (builder != null) {
+					Point point = builder.build();
+					dps.add(point);
 				}
-				long timestamp = System.currentTimeMillis();
-				if (parts.length == 3) {
-					timestamp = Long.parseLong(parts[2]);
-					if (parts[2].length() > LENGTH_OF_MILLISECOND_TS) {
-						timestamp = timestamp / (1000 * 1000);
-					}
-				} else {
-					logger.finest("Bad datapoint parts:" + parts.length);
-				}
-				String[] key = parts[0].split(",");
-				String measurementName = key[0];
-				Set<String> tTags = new HashSet<>();
-				for (int i = 1; i < key.length; i++) {
-					tTags.add(key[i]);
-				}
-				List<String> tags = new ArrayList<>(tTags);
-				String[] fields = parts[1].split(",");
-				for (String field : fields) {
-					String[] fv = field.split("=");
-					String valueFieldName = fv[0];
-					if (!fv[1].endsWith("i")) {
-						Builder builder = Point.newBuilder();
-						double value = Double.parseDouble(fv[1]);
-						builder.setDbName(dbName);
-						builder.setMeasurementName(measurementName);
-						builder.setValueFieldName(valueFieldName);
-						builder.setValue(Double.doubleToLongBits(value));
-						builder.addAllTags(tags);
-						builder.setTimestamp(timestamp);
-						builder.setFp(true);
-						dps.add(builder.build());
-					} else {
-						Builder builder = Point.newBuilder();
-						fv[1] = fv[1].substring(0, fv[1].length() - 1);
-						long value = Long.parseLong(fv[1]);
-						builder.setDbName(dbName);
-						builder.setMeasurementName(measurementName);
-						builder.setValueFieldName(valueFieldName);
-						builder.setValue(value);
-						builder.addAllTags(tags);
-						builder.setTimestamp(timestamp);
-						builder.setFp(false);
-						dps.add(builder.build());
-					}
-				}
-			} catch (Exception e) {
-				logger.fine("Rejected:" + split);
 			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.fine("Rejected:" + payload);
 		}
 		return dps;
+	}
+
+	public static Point.Builder pointFromLine(Point.Builder builder, String dbName, String line) {
+		builder.clear();
+		List<String> parts = SPACE.splitToList(line);
+		if (parts.size() < 2 || parts.size() > 3) {
+			// invalid datapoint => drop
+			return null;
+		}
+		long timestamp = System.currentTimeMillis();
+		if (parts.size() == 3) {
+			timestamp = Long.parseLong(parts.get(2));
+			if (parts.get(2).length() > LENGTH_OF_MILLISECOND_TS) {
+				timestamp = timestamp / (1000 * 1000);
+			}
+		} else {
+			logger.info("Bad datapoint timestamp:" + parts.size());
+		}
+		List<String> key = COMMA.splitToList(parts.get(0));
+		String measurementName = key.get(0);
+		Set<Tag> tTags = new HashSet<>();
+		for (int i = 1; i < key.size(); i++) {
+			List<String> s = TAG.splitToList(key.get(i));
+			tTags.add(Tag.newBuilder().setTagKey(s.get(0)).setTagValue(s.get(1)).build());
+		}
+		List<Tag> tags = new ArrayList<>(tTags);
+		List<String> fields = COMMA.splitToList(parts.get(1));
+		builder.setDbName(dbName);
+		builder.setMeasurementName(measurementName);
+		builder.addAllTags(tags);
+		builder.setTimestamp(timestamp);
+		for (String field : fields) {
+			String[] fv = field.split("=");
+			String valueFieldName = fv[0];
+			if (!fv[1].endsWith("i")) {
+				double value = Double.parseDouble(fv[1]);
+				builder.addValueFieldName(valueFieldName);
+				builder.addValue(Double.doubleToLongBits(value));
+				builder.addFp(true);
+			} else {
+				fv[1] = fv[1].substring(0, fv[1].length() - 1);
+				long value = Long.parseLong(fv[1]);
+				builder.addValueFieldName(valueFieldName);
+				builder.addValue(value);
+				builder.addFp(false);
+			}
+		}
+		return builder;
 	}
 
 }

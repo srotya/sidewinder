@@ -1,5 +1,5 @@
 /**
- * Copyright 2018 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
-import java.util.Map;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
@@ -32,8 +32,7 @@ public class GorillaWriter implements Writer {
 
 	public static final int MD5_PADDING = 32;
 	private boolean full;
-	private String bufferId;
-	private String tsBucket;
+	private LinkedByteString bufferId;
 	private ByteBuffer buf;
 	private GorillaCompressor compressor;
 	private int counter;
@@ -44,7 +43,7 @@ public class GorillaWriter implements Writer {
 	private int checkSumLocaltion;
 
 	@Override
-	public void configure(Map<String, String> conf, ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
+	public void configure(ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
 			throws IOException {
 		this.buf = buf;
 		this.checkSumLocaltion = startOffset;
@@ -70,7 +69,7 @@ public class GorillaWriter implements Writer {
 	}
 
 	@Override
-	public void addValue(long timestamp, long value) throws IOException {
+	public void addValueLocked(long timestamp, long value) throws IOException {
 		compressor.addValue(timestamp, value);
 		counter++;
 	}
@@ -82,7 +81,7 @@ public class GorillaWriter implements Writer {
 	}
 
 	@Override
-	public void addValue(long timestamp, double value) throws IOException {
+	public void addValueLocked(long timestamp, double value) throws IOException {
 		compressor.addValue(timestamp, value);
 		counter++;
 	}
@@ -192,27 +191,17 @@ public class GorillaWriter implements Writer {
 	}
 
 	@Override
-	public void setTsBucket(String tsBucket) {
-		this.tsBucket = tsBucket;
-	}
-
-	@Override
-	public String getTsBucket() {
-		return tsBucket;
-	}
-
-	@Override
 	public int getPosition() {
 		return position;
 	}
 
 	@Override
-	public void setBufferId(String key) {
+	public void setBufferId(LinkedByteString key) {
 		bufferId = key;
 	}
 
 	@Override
-	public String getBufferId() {
+	public LinkedByteString getBufferId() {
 		return bufferId;
 	}
 
