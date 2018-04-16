@@ -4,7 +4,7 @@
 printf "Master branch will cut a release to Maven central"
 mkdir -p "/tmp/secrets"
 printf "Extracting SSH Key"
-openssl aes-256-cbc -K $encrypted_959f2a1bc75a_key -iv $encrypted_959f2a1bc75a_key -in build/secrets.tar.enc -out /tmp/secrets/secrets.tar -d
+openssl aes-256-cbc -K $encrypted_77485d179e0e_key -iv $encrypted_77485d179e0e_iv -in build/secrets.tar.enc -out /tmp/secrets/secrets.tar -d
 tar xf /tmp/secrets/secrets.tar -C /tmp/secrets/
 
 mkdir -p ~/.ssh
@@ -52,8 +52,8 @@ if [ "master" == "$TRAVIS_BRANCH" ]; then
     mvn -T2 -B -Darguments=-Dgpg.passphrase=$passphrase release:clean release:prepare release:perform --settings settings.xml
 
 	# Trigger Docker Build
-	TAG=$(git describe --abbrev=0 --tags)
-	curl -H "Content-Type: application/json" --data "{\"source_type\": \"Tag\", \"source_name\": \"$TAG\"}" -X POST https://registry.hub.docker.com/u/srotya/sidewinder/trigger/$BUILD_TOKEN/
+	# TAG=$(git describe --abbrev=0 --tags)
+	# curl -H "Content-Type: application/json" --data "{\"source_type\": \"Tag\", \"source_name\": \"$TAG\"}" -X POST https://registry.hub.docker.com/u/srotya/sidewinder/trigger/$BUILD_TOKEN/
 
 	#echo "Cleaning up commits"
 	#git checkout master || git checkout -b master
