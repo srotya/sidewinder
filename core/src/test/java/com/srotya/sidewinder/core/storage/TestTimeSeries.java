@@ -38,8 +38,9 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
-import com.srotya.sidewinder.core.storage.compression.Reader;
+import com.srotya.sidewinder.core.storage.compression.ValueReader;
 import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.storage.compression.byzantine.NoLock;
 import com.srotya.sidewinder.core.storage.mem.MemMalloc;
 
 /**
@@ -54,61 +55,24 @@ public class TestTimeSeries {
 
 	@BeforeClass
 	public static void beforeClass() {
-		TimeSeries.compactionClass = CompressionFactory.getClassByName("byzantine");
-		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
-		TimeSeries.compactionEnabled = true;
-		TimeSeries.compactionRatio = 1.1;
+		ValueField.compactionClass = CompressionFactory.getValueClassByName("byzantine");
+		ValueField.compressionClass = CompressionFactory.getValueClassByName("byzantine");
+		ValueField.compactionEnabled = true;
+		ValueField.compactionRatio = 1.1;
 	}
 
 	@Test
 	public void testTimeSeries() throws IOException {
 		Measurement measurement = new MockMeasurement(100, 28);
-		TimeSeries series = new TimeSeries(measurement, new ByteString("2214abfa"), 4096, true, conf);
+		ValueField series = new ValueField(measurement, new ByteString("2214abfa"), 4096, true, conf);
 		assertEquals("2214abfa", series.getFieldId().toString());
 		assertEquals(4096, series.getTimeBucketSize());
 	}
 
 	@Test
-	public void testThreadSafety() throws Exception {
-		Measurement measurement = new MockMeasurement(1024, 24);
-		final TimeSeries series = new TimeSeries(measurement, new ByteString("2214abfa"), 4096, true, conf);
-		final int THREAD_COUNT = 1;
-		final int POINT_COUNT = 4_000_000;
-		ExecutorService es = Executors.newFixedThreadPool(THREAD_COUNT);
-		long ts = System.currentTimeMillis();
-		for (int i = 0; i < THREAD_COUNT; i++) {
-			final int o = i;
-			es.submit(() -> {
-				long t = ts + o;
-				try {
-					for (int j = 0; j < POINT_COUNT; j++) {
-						series.addDataPointUnlocked(TimeUnit.MILLISECONDS, t, j);
-					}
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
-			});
-		}
-		es.shutdown();
-		es.awaitTermination(100, TimeUnit.SECONDS);
-		List<DataPoint> dps = series.queryDataPoints("", 0, Long.MAX_VALUE, null);
-		assertEquals(THREAD_COUNT * POINT_COUNT, dps.size());
-	}
-
-	public void testTimeSeriesRecovery() throws IOException {
-		Measurement measurement = new MockMeasurement(100, 24);
-		TimeSeries series = new TimeSeries(measurement, SID, 4096, true, conf);
-		long curr = System.currentTimeMillis();
-		for (int i = 1; i <= 3; i++) {
-			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
-		}
-	}
-
-	@Test
 	public void testAddAndReadDataPoints() throws IOException {
 		Measurement measurement = new MockMeasurement(100, 24);
-		TimeSeries series = new TimeSeries(measurement, SID, 4096, true, conf);
-		long curr = System.currentTimeMillis();
+		ValueField series = new ValueField(measurement, SID, 4096, true, conf);
 		for (int i = 1; i <= 3; i++) {
 			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i, 2.2 * i);
 		}
@@ -116,7 +80,7 @@ public class TestTimeSeries {
 		Writer writer = series.getBucketMap().values().iterator().next();
 		assertEquals(3, writer.getCount());
 
-		Reader reader = TimeSeries.getReader(writer, null, null);
+		ValueReader reader = ValueField.getReader(writer, null, null);
 		for (int i = 0; i < 3; i++) {
 			reader.readPair();
 		}
@@ -126,14 +90,14 @@ public class TestTimeSeries {
 		} catch (IOException e) {
 		}
 
-		List<DataPoint> values = series.queryDataPoints("value", curr + 3, curr, null);
+		List<DataPoint> values = series.queryDataPoints(curr + 3, curr, null, new NoLock());
 		assertEquals(3, values.size());
 		for (int i = 1; i <= 3; i++) {
 			DataPoint dp = values.get(i - 1);
 			assertEquals("Value mismatch:" + dp.getValue() + "\t" + (2.2 * i) + "\t" + i, dp.getValue(), 2.2 * i, 0.01);
 		}
 
-		List<long[]> values1 = series.queryPoints("value", curr + 3, curr, null);
+		List<long[]> values1 = series.queryPoints(curr + 3, curr, null, new NoLock());
 		assertEquals(3, values1.size());
 		for (int i = 1; i <= 3; i++) {
 			long[] dp = values1.get(i - 1);
@@ -141,7 +105,7 @@ public class TestTimeSeries {
 					Double.longBitsToDouble(dp[1]), 2.2 * i, 0.01);
 		}
 
-		List<Reader> queryReaders = series.queryReader("value", Arrays.asList(), curr + 3, curr, null);
+		List<ValueReader> queryReaders = series.queryReader("value", Arrays.asList(), curr + 3, curr, null);
 		assertEquals(1, queryReaders.size());
 		reader = queryReaders.get(0);
 		for (int i = 1; i <= 3; i++) {
@@ -149,26 +113,26 @@ public class TestTimeSeries {
 			assertEquals("Value mismatch:" + dp.getValue() + "\t" + (2.2 * i) + "\t" + i, dp.getValue(), 2.2 * i, 0.01);
 		}
 
-		values = series.queryDataPoints("value", curr - 1, curr - 1, null);
+		values = series.queryDataPoints(curr - 1, curr - 1, null, new NoLock());
 		assertEquals(0, values.size());
 	}
 
 	@Test
 	public void testGarbageCollector() throws IOException {
 		Measurement measurement = new MockMeasurement(100, 21);
-		TimeSeries series = new TimeSeries(measurement, SID, 4096, true, conf);
+		ValueField series = new ValueField(measurement, SID, 4096, true, conf);
 		long curr = 1484788896586L;
 		for (int i = 0; i <= 24; i++) {
 			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
 		}
-		List<Reader> readers = series.queryReader("test", Arrays.asList(), curr, curr + (4096_000) * 23, null);
+		List<ValueReader> readers = series.queryReader("test", Arrays.asList(), curr, curr + (4096_000) * 23, null);
 		// should return 3 partitions
 		assertEquals(24, readers.size());
 		series.collectGarbage();
 		readers = series.queryReader("test", Arrays.asList(), curr - 1, curr + (4096_000) * 27, null);
 		assertEquals(21, readers.size());
 
-		series = new TimeSeries(measurement, SID, 4096, true, conf);
+		series = new ValueField(measurement, SID, 4096, true, conf);
 		curr = 1484788896586L;
 		for (int i = 0; i <= 24; i++) {
 			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + (4096_000 * i), 2.2 * i);
@@ -187,7 +151,7 @@ public class TestTimeSeries {
 		Map<String, String> conf = new HashMap<>();
 		MockMeasurement measurement = new MockMeasurement(100, 24);
 
-		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, false, conf);
+		ValueField ts = new ValueField(measurement, SID2, 4096 * 10, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
 			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i * 0.1);
@@ -216,7 +180,7 @@ public class TestTimeSeries {
 		Map<String, String> conf = new HashMap<>();
 		MockMeasurement measurement = new MockMeasurement(1024, 24);
 
-		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, false, conf);
+		ValueField ts = new ValueField(measurement, SID2, 4096 * 10, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
 			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i);
@@ -245,12 +209,12 @@ public class TestTimeSeries {
 		Map<String, String> conf = new HashMap<>();
 		MockMeasurement measurement = new MockMeasurement(100, 24);
 
-		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, false, conf);
+		ValueField ts = new ValueField(measurement, SID2, 4096 * 10, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 10; i++) {
 			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i);
 		}
-		List<DataPoint> dps = ts.queryDataPoints("test", t, t + 1001, null);
+		List<DataPoint> dps = ts.queryDataPoints(t, t + 1001, null, new NoLock());
 		assertEquals(10, dps.size());
 		for (int j = 0; j < dps.size(); j++) {
 			DataPoint dataPoint = dps.get(j);
@@ -264,12 +228,12 @@ public class TestTimeSeries {
 		Map<String, String> conf = new HashMap<>();
 		MockMeasurement measurement = new MockMeasurement(1024, 24);
 
-		TimeSeries ts = new TimeSeries(measurement, SID2, 4096 * 10, false, conf);
+		ValueField ts = new ValueField(measurement, SID2, 4096 * 10, false, conf);
 		long t = 1497720442566L;
 		for (int i = 0; i < 1000; i++) {
 			ts.addDataPointUnlocked(TimeUnit.MILLISECONDS, t + i, i);
 		}
-		List<DataPoint> dps = ts.queryDataPoints("test", t, t + 1001, null);
+		List<DataPoint> dps = ts.queryDataPoints(t, t + 1001, null, new NoLock());
 		assertEquals(1000, dps.size());
 		for (int j = 0; j < dps.size(); j++) {
 			DataPoint dataPoint = dps.get(j);
@@ -283,22 +247,21 @@ public class TestTimeSeries {
 		MockMeasurement measurement = new MockMeasurement(1024, 28);
 		HashMap<String, String> conf = new HashMap<>();
 		conf.put("default.bucket.size", "409600");
-		TimeSeries.compactionEnabled = true;
+		ValueField.compactionEnabled = true;
 		conf.put("use.query.pool", "false");
 		conf.put("compaction.ratio", "1.1");
-		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
-		TimeSeries.compactionClass = CompressionFactory.getClassByName("byzantine");
+		ValueField.compressionClass = CompressionFactory.getValueClassByName("byzantine");
+		ValueField.compactionClass = CompressionFactory.getValueClassByName("byzantine");
 
-		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, true, conf);
+		final ValueField series = new ValueField(measurement, SID3, 409600, true, conf);
 		final long curr = 1497720652566L;
 
-		String valueFieldName = "value";
 		for (int i = 1; i <= 10000; i++) {
 			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
 
 		long ts = System.nanoTime();
-		List<DataPoint> dataPoints = series.queryDataPoints(valueFieldName, curr - 1000, curr + 10000 * 1000 + 1, null);
+		List<DataPoint> dataPoints = series.queryDataPoints(curr - 1000, curr + 10000 * 1000 + 1, null, new NoLock());
 		ts = System.nanoTime() - ts;
 		System.out.println("Before compaction:" + ts / 1000 + "us");
 		assertEquals(10000, dataPoints.size());
@@ -314,7 +277,7 @@ public class TestTimeSeries {
 		assertTrue(size > 2);
 		series.compact();
 		ts = System.nanoTime();
-		dataPoints = series.queryDataPoints(valueFieldName, curr - 1000, curr + 10000 * 1000 + 1, null);
+		dataPoints = series.queryDataPoints(curr - 1000, curr + 10000 * 1000 + 1, null, new NoLock());
 		ts = System.nanoTime() - ts;
 		System.out.println("After compaction:" + ts / 1000 + "us");
 		bucketRawMap = series.getBucketRawMap();
@@ -322,8 +285,8 @@ public class TestTimeSeries {
 		int count = 0;
 		for (List<Writer> list : bucketRawMap.values()) {
 			for (Writer writer : list) {
-				Reader reader = writer.getReader();
-				count += reader.getPairCount();
+				ValueReader reader = writer.getReader();
+				count += reader.getCount();
 			}
 		}
 		assertEquals(10000, count);
@@ -343,13 +306,11 @@ public class TestTimeSeries {
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
 		conf.put("compaction.ratio", "1.1");
-		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
-		TimeSeries.compactionClass = CompressionFactory.getClassByName("gorilla");
+		ValueField.compressionClass = CompressionFactory.getValueClassByName("byzantine");
+		ValueField.compactionClass = CompressionFactory.getValueClassByName("gorilla");
 
-		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, true, conf);
+		final ValueField series = new ValueField(measurement, SID3, 409600, true, conf);
 		final long curr = 1497720652566L;
-
-		String valueFieldName = "value";
 
 		for (int i = 1; i <= 10000; i++) {
 			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
@@ -361,14 +322,14 @@ public class TestTimeSeries {
 		assertTrue(series.getCompactionSet().size() < size);
 		assertTrue(size > 2);
 		series.compact();
-		List<DataPoint> dataPoints = series.queryDataPoints(valueFieldName, curr - 1000, curr + 10000 * 1000 + 1, null);
+		List<DataPoint> dataPoints = series.queryDataPoints(curr - 1000, curr + 10000 * 1000 + 1, null, new NoLock());
 		bucketRawMap = series.getBucketRawMap();
 		assertEquals(2, bucketRawMap.values().iterator().next().size());
 		int count = 0;
 		for (List<Writer> list : bucketRawMap.values()) {
 			for (Writer writer : list) {
-				Reader reader = writer.getReader();
-				count += reader.getPairCount();
+				ValueReader reader = writer.getReader();
+				count += reader.getCount();
 			}
 		}
 		assertEquals(10000, count);
@@ -433,14 +394,13 @@ public class TestTimeSeries {
 		MockMeasurement measurement = new MockMeasurement(1024, 24);
 		HashMap<String, String> conf = new HashMap<>();
 		conf.put("default.bucket.size", "409600");
-		TimeSeries.compactionEnabled = true;
+		ValueField.compactionEnabled = true;
 		conf.put("use.query.pool", "false");
-		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
-		TimeSeries.compactionClass = CompressionFactory.getClassByName("gorilla");
+		ValueField.compressionClass = CompressionFactory.getValueClassByName("byzantine");
+		ValueField.compactionClass = CompressionFactory.getValueClassByName("gorilla");
 
-		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, true, conf);
+		final ValueField series = new ValueField(measurement, SID3, 409600, true, conf);
 		final long curr = 1497720652566L;
-		String valueFieldName = "value";
 
 		for (int i = 1; i <= 10000; i++) {
 			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
@@ -473,7 +433,7 @@ public class TestTimeSeries {
 			fail(e.getMessage());
 		}
 		assertEquals(1, allocator.getCleanupCallback().size());
-		List<DataPoint> dataPoints = series.queryDataPoints(valueFieldName, curr - 1000, curr + 10000 * 1000 + 1, null);
+		List<DataPoint> dataPoints = series.queryDataPoints(curr - 1000, curr + 10000 * 1000 + 1, null, new NoLock());
 		for (int i = 1; i <= 10000; i++) {
 			DataPoint dp = dataPoints.get(i - 1);
 			assertEquals("Bad ts:" + i, curr + i * 1000, dp.getTimestamp());
@@ -488,10 +448,10 @@ public class TestTimeSeries {
 		conf.put("default.bucket.size", "4096");
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
-		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
-		TimeSeries.compactionClass = CompressionFactory.getClassByName("gorilla");
+		ValueField.compressionClass = CompressionFactory.getValueClassByName("byzantine");
+		ValueField.compactionClass = CompressionFactory.getValueClassByName("gorilla");
 
-		final TimeSeries series = new TimeSeries(measurement, SID3, 4096, true, conf);
+		final ValueField series = new ValueField(measurement, SID3, 4096, true, conf);
 		final AtomicBoolean control = new AtomicBoolean(true);
 		ExecutorService c = Executors.newCachedThreadPool();
 		final long curr = 1497720652566L;
@@ -532,20 +492,18 @@ public class TestTimeSeries {
 		conf.put("default.bucket.size", "409600");
 		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
-		TimeSeries.compressionClass = CompressionFactory.getClassByName("byzantine");
-		TimeSeries.compactionClass = CompressionFactory.getClassByName("byzantine");
+		ValueField.compressionClass = CompressionFactory.getValueClassByName("byzantine");
+		ValueField.compactionClass = CompressionFactory.getValueClassByName("byzantine");
 
-		final TimeSeries series = new TimeSeries(measurement, SID3, 409600, true, conf);
+		final ValueField series = new ValueField(measurement, SID3, 409600, true, conf);
 		final long curr = 1497720652566L;
-
-		String valueFieldName = "value";
 
 		for (int i = 1; i <= 10000; i++) {
 			series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + i * 1000, i * 1.1);
 		}
 
 		long ts = System.nanoTime();
-		List<DataPoint> dataPoints = series.queryDataPoints(valueFieldName, curr - 1000, curr + 10000 * 1000 + 1, null);
+		List<DataPoint> dataPoints = series.queryDataPoints(curr - 1000, curr + 10000 * 1000 + 1, null, new NoLock());
 		ts = System.nanoTime() - ts;
 		System.out.println("Before compaction:" + ts / 1000 + "us");
 		assertEquals(10000, dataPoints.size());
@@ -563,7 +521,7 @@ public class TestTimeSeries {
 		System.out.println("Compacted series:" + compact.size() + "\toriginalsize:" + size + " newsize:"
 				+ bucketRawMap.values().iterator().next().size());
 		ts = System.nanoTime();
-		dataPoints = series.queryDataPoints(valueFieldName, curr - 1000, curr + 10000 * 1000 + 1, null);
+		dataPoints = series.queryDataPoints(curr - 1000, curr + 10000 * 1000 + 1, null, new NoLock());
 		ts = System.nanoTime() - ts;
 		System.out.println("After compaction:" + ts / 1000 + "us");
 		final AtomicBoolean bool = new AtomicBoolean(false);

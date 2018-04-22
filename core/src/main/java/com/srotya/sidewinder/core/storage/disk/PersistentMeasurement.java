@@ -47,7 +47,7 @@ import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.SeriesFieldMap;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.compression.Writer;
@@ -63,7 +63,7 @@ public class PersistentMeasurement implements Measurement {
 	private ReentrantLock lock = new ReentrantLock(false);
 	private ReentrantLock mallocLock = new ReentrantLock(false);
 	private Map<ByteString, Integer> seriesMap;
-	private List<SeriesFieldMap> seriesList;
+	private List<Series> seriesList;
 	private TagIndex tagIndex;
 	private String dataDirectory;
 	private DBMetadata metadata;
@@ -205,17 +205,18 @@ public class PersistentMeasurement implements Measurement {
 			ByteString key = new ByteString(seriesId);
 
 			Integer seriesIdx = seriesMap.get(key);
-			SeriesFieldMap fieldMap = null;
+			Series fieldMap = null;
 			if (seriesIdx == null) {
 				seriesIdx = Integer.parseInt(split[3], 16);
-				fieldMap = new SeriesFieldMap(new ByteString(seriesId), seriesIdx);
+				fieldMap = new Series(this, new ByteString(seriesId), seriesIdx);
 				seriesMap.put(key, seriesIdx);
 				seriesList.add(seriesIdx, fieldMap);
 			} else {
 				fieldMap = seriesList.get(seriesIdx);
 			}
-			fieldMap.getOrCreateSeriesLocked(valueField, Integer.parseInt(timeBucketSize), Boolean.parseBoolean(isFp),
-					this);
+			// fieldMap.getOrCreateSeries(Integer.parseInt(timeBucketSize), valueField,
+			// Boolean.parseBoolean(isFp),
+			// this);
 			if (enableMetricsCapture) {
 				metricsTimeSeriesCounter.inc();
 			}
@@ -247,7 +248,7 @@ public class PersistentMeasurement implements Measurement {
 		for (Entry<ByteString, List<Entry<Integer, BufferObject>>> entry : seriesBuffers.entrySet()) {
 			ByteString[] split = entry.getKey().split(SERIESID_SEPARATOR);
 			Integer seriesId = seriesMap.get(new ByteString(split[0]));
-			SeriesFieldMap ts = seriesList.get(seriesId);
+			Series ts = seriesList.get(seriesId);
 			List<Entry<Integer, BufferObject>> list = entry.getValue();
 			if (list != null) {
 				try {
@@ -297,11 +298,6 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public SortedMap<Integer, List<Writer>> createNewBucketMap(ByteString seriesId) {
-		return new ConcurrentSkipListMap<>();
-	}
-
-	@Override
 	public ReentrantLock getLock() {
 		return lock;
 	}
@@ -335,11 +331,11 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public List<SeriesFieldMap> getSeriesList() {
+	public List<Series> getSeriesList() {
 		return seriesList;
 	}
 
-	public List<SeriesFieldMap> getSeriesListAsList() {
+	public List<Series> getSeriesListAsList() {
 		return seriesList;
 	}
 

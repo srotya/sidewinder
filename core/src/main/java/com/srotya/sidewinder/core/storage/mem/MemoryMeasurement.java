@@ -36,7 +36,7 @@ import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.SeriesFieldMap;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.compression.Writer;
@@ -51,7 +51,7 @@ public class MemoryMeasurement implements Measurement {
 	private String measurementName;
 	private DBMetadata metadata;
 	private Map<ByteString, Integer> seriesMap;
-	private List<SeriesFieldMap> seriesList;
+	private List<Series> seriesList;
 	private MemTagIndex tagIndex;
 	private boolean useQueryPool;
 	private String dbName;
@@ -160,7 +160,7 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public List<SeriesFieldMap> getSeriesList() {
+	public List<Series> getSeriesList() {
 		return seriesList;
 	}
 

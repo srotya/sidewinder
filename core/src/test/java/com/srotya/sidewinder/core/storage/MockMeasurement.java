@@ -17,7 +17,6 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,21 +57,12 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public Collection<TimeSeries> getTimeSeries() {
-		return null;
-	}
-
-	@Override
 	public TagIndex getTagIndex() {
 		return null;
 	}
 
 	@Override
 	public void close() throws IOException {
-	}
-
-	@Override
-	public void collectGarbage(Archiver archiver) throws IOException {
 	}
 
 	@Override
@@ -129,17 +119,17 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public SeriesFieldMap getSeriesFromKey(ByteString key) {
+	public Series getSeriesFromKey(ByteString key) {
 		return null;
 	}
 
 	@Override
-	public List<SeriesFieldMap> getSeriesList() {
+	public List<Series> getSeriesList() {
 		return null;
 	}
 
 	@Override
-	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags, boolean preSorted) throws IOException {
+	public Series getOrCreateSeriesFieldMap(List<Tag> tags, boolean preSorted) throws IOException {
 		// TODO Auto-generated method stub
 		return null;
 	}

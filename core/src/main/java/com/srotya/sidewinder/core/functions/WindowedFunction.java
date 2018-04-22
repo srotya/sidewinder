@@ -21,7 +21,7 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 
 /**
  * @author ambud
@@ -42,8 +42,8 @@ public abstract class WindowedFunction extends SingleSeriesFunction {
 	}
 	
 	@Override
-	public Series apply(Series t) {
-		Series output = new Series(t.getMeasurementName(), t.getValueFieldName(), t.getTags());
+	public SeriesOutput apply(SeriesOutput t) {
+		SeriesOutput output = new SeriesOutput(t.getMeasurementName(), t.getValueFieldName(), t.getTags());
 		output.setFp(t.isFp());
 		SortedMap<Long, List<DataPoint>> map = new TreeMap<>();
 		for (DataPoint dataPoint : t.getDataPoints()) {

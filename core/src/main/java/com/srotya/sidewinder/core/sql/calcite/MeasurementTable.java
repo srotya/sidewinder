@@ -44,7 +44,7 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.compression.Reader;
+import com.srotya.sidewinder.core.storage.compression.ValueReader;
 
 /**
  * @author ambud
@@ -112,10 +112,10 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 			public Enumerator<Object[]> enumerator() {
 				return new Enumerator<Object[]>() {
 
-					private LinkedHashMap<Reader, List<Tag>> readers;
+					private LinkedHashMap<ValueReader, List<Tag>> readers;
 					private DataPoint dataPoint;
-					private Iterator<Entry<Reader, List<Tag>>> iterator;
-					private Entry<Reader, List<Tag>> next;
+					private Iterator<Entry<ValueReader, List<Tag>>> iterator;
+					private Entry<ValueReader, List<Tag>> next;
 
 					@Override
 					public void reset() {

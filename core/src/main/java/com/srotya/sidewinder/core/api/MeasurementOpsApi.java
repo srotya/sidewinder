@@ -44,8 +44,8 @@ import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.storage.Series;
-import com.srotya.sidewinder.core.storage.SeriesFieldMap;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -90,7 +90,7 @@ public class MeasurementOpsApi {
 		}
 		try {
 			Measurement m = engine.getOrCreateMeasurement(dbName, measurementName);
-			SeriesFieldMap fm = m.getOrCreateSeriesFieldMap(tags, false);
+			Series fm = m.getOrCreateSeriesFieldMap(tags, false);
 			fm.getOrCreateSeriesLocked(series.get("valueField").getAsString(), series.get("timeBucket").getAsInt(),
 					series.get("floatingPoint").getAsBoolean(), m);
 		} catch (IOException e) {
@@ -166,7 +166,7 @@ public class MeasurementOpsApi {
 		}
 		Gson gson = new Gson();
 		try {
-			List<Series> output = engine.queryDataPoints(dbName, measurementName, valueField, startTime, endTime, null,
+			List<SeriesOutput> output = engine.queryDataPoints(dbName, measurementName, valueField, startTime, endTime, null,
 					null, null);
 			return gson.toJson(output);
 		} catch (ItemNotFoundException e) {
@@ -237,9 +237,9 @@ public class MeasurementOpsApi {
 				startTs = sdf.parse(startTime).getTime();
 				endTs = sdf.parse(endTime).getTime();
 			}
-			List<Series> points = engine.queryDataPoints(dbName, measurementName, valueFieldName, startTs, endTs, null);
+			List<SeriesOutput> points = engine.queryDataPoints(dbName, measurementName, valueFieldName, startTs, endTs, null);
 			List<Number[]> response = new ArrayList<>();
-			for (Series entry : points) {
+			for (SeriesOutput entry : points) {
 				for (DataPoint dataPoint : entry.getDataPoints()) {
 					if (entry.isFp()) {
 						response.add(new Number[] { dataPoint.getLongValue(), dataPoint.getTimestamp() });

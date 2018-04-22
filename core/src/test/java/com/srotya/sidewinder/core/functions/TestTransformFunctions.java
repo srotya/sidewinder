@@ -25,17 +25,17 @@ import org.junit.Test;
 
 import com.srotya.sidewinder.core.functions.BasicTransformFunctions.*;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 
 public class TestTransformFunctions {
 	
 	@Test
 	public void testCubeRoot() {
 		Function f = new CbrtFunction();
-		List<Series> series = new ArrayList<>();
-		Series s = new Series(Arrays.asList(new DataPoint(1L, 27), new DataPoint(1L, 64)));
+		List<SeriesOutput> series = new ArrayList<>();
+		SeriesOutput s = new SeriesOutput(Arrays.asList(new DataPoint(1L, 27), new DataPoint(1L, 64)));
 		series.add(s);
-		List<Series> apply = f.apply(series);
+		List<SeriesOutput> apply = f.apply(series);
 		assertEquals(2, apply.get(0).getDataPoints().size());
 		assertEquals(3, apply.get(0).getDataPoints().get(0).getLongValue());
 		assertEquals(4, apply.get(0).getDataPoints().get(1).getLongValue());
@@ -44,10 +44,10 @@ public class TestTransformFunctions {
 	@Test
 	public void testSquareRoot() {
 		Function f = new SqrtFunction();
-		List<Series> series = new ArrayList<>();
-		Series s = new Series(Arrays.asList(new DataPoint(1L, 9), new DataPoint(1L, 16)));
+		List<SeriesOutput> series = new ArrayList<>();
+		SeriesOutput s = new SeriesOutput(Arrays.asList(new DataPoint(1L, 9), new DataPoint(1L, 16)));
 		series.add(s);
-		List<Series> apply = f.apply(series);
+		List<SeriesOutput> apply = f.apply(series);
 		assertEquals(2, apply.get(0).getDataPoints().size());
 		assertEquals(3, apply.get(0).getDataPoints().get(0).getLongValue());
 		assertEquals(4, apply.get(0).getDataPoints().get(1).getLongValue());
@@ -56,10 +56,10 @@ public class TestTransformFunctions {
 	@Test
 	public void testSquare() {
 		Function f = new SquareFunction();
-		List<Series> series = new ArrayList<>();
-		Series s = new Series(Arrays.asList(new DataPoint(1L, 3), new DataPoint(1L, 4)));
+		List<SeriesOutput> series = new ArrayList<>();
+		SeriesOutput s = new SeriesOutput(Arrays.asList(new DataPoint(1L, 3), new DataPoint(1L, 4)));
 		series.add(s);
-		List<Series> apply = f.apply(series);
+		List<SeriesOutput> apply = f.apply(series);
 		assertEquals(2, apply.get(0).getDataPoints().size());
 		assertEquals(9, apply.get(0).getDataPoints().get(0).getLongValue());
 		assertEquals(16, apply.get(0).getDataPoints().get(1).getLongValue());
@@ -68,10 +68,10 @@ public class TestTransformFunctions {
 	@Test
 	public void testCube() {
 		Function f = new CubeFunction();
-		List<Series> series = new ArrayList<>();
-		Series s = new Series(Arrays.asList(new DataPoint(1L, 3), new DataPoint(1L, 4)));
+		List<SeriesOutput> series = new ArrayList<>();
+		SeriesOutput s = new SeriesOutput(Arrays.asList(new DataPoint(1L, 3), new DataPoint(1L, 4)));
 		series.add(s);
-		List<Series> apply = f.apply(series);
+		List<SeriesOutput> apply = f.apply(series);
 		assertEquals(2, apply.get(0).getDataPoints().size());
 		assertEquals(27, apply.get(0).getDataPoints().get(0).getLongValue());
 		assertEquals(64, apply.get(0).getDataPoints().get(1).getLongValue());
@@ -80,10 +80,10 @@ public class TestTransformFunctions {
 	@Test
 	public void testCeil() {
 		Function f = new CeilFunction();
-		List<Series> series = new ArrayList<>();
-		Series s = new Series(Arrays.asList(new DataPoint(1L, 3.2), new DataPoint(1L, 4.7)));
+		List<SeriesOutput> series = new ArrayList<>();
+		SeriesOutput s = new SeriesOutput(Arrays.asList(new DataPoint(1L, 3.2), new DataPoint(1L, 4.7)));
 		series.add(s);
-		List<Series> apply = f.apply(series);
+		List<SeriesOutput> apply = f.apply(series);
 		assertEquals(2, apply.get(0).getDataPoints().size());
 		assertEquals(3.2, apply.get(0).getDataPoints().get(0).getValue(), 0.1);
 		assertEquals(4.7, apply.get(0).getDataPoints().get(1).getValue(), 0.1);
@@ -92,10 +92,10 @@ public class TestTransformFunctions {
 	@Test
 	public void testLog10() {
 		Function f = new Log10Function();
-		List<Series> series = new ArrayList<>();
-		Series s = new Series(Arrays.asList(new DataPoint(1L, 100), new DataPoint(1L, 1000)));
+		List<SeriesOutput> series = new ArrayList<>();
+		SeriesOutput s = new SeriesOutput(Arrays.asList(new DataPoint(1L, 100), new DataPoint(1L, 1000)));
 		series.add(s);
-		List<Series> apply = f.apply(series);
+		List<SeriesOutput> apply = f.apply(series);
 		assertEquals(2, apply.get(0).getDataPoints().size());
 		assertEquals(2, apply.get(0).getDataPoints().get(0).getLongValue(), 0.1);
 		assertEquals(3, apply.get(0).getDataPoints().get(1).getLongValue(), 0.1);
@@ -104,10 +104,10 @@ public class TestTransformFunctions {
 	@Test
 	public void testLog() {
 		Function f = new LogFunction();
-		List<Series> series = new ArrayList<>();
-		Series s = new Series(Arrays.asList(new DataPoint(1L, 100), new DataPoint(1L, 1000)));
+		List<SeriesOutput> series = new ArrayList<>();
+		SeriesOutput s = new SeriesOutput(Arrays.asList(new DataPoint(1L, 100), new DataPoint(1L, 1000)));
 		series.add(s);
-		List<Series> apply = f.apply(series);
+		List<SeriesOutput> apply = f.apply(series);
 		assertEquals(2, apply.get(0).getDataPoints().size());
 		assertEquals(4.0, apply.get(0).getDataPoints().get(0).getLongValue(), 0.1);
 		assertEquals(6.0, apply.get(0).getDataPoints().get(1).getLongValue(), 0.1);

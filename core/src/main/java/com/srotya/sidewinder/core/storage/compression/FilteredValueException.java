@@ -13,16 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.functions;
+package com.srotya.sidewinder.core.storage.compression;
 
-import java.util.List;
+import java.io.IOException;
 
-import com.srotya.sidewinder.core.storage.SeriesOutput;
+/**
+ * @author ambud
+ */
+public class FilteredValueException extends IOException {
 
-public interface Function extends java.util.function.Function<List<SeriesOutput>, List<SeriesOutput>> {
+	private static final long serialVersionUID = 1L;
 
-	public void init(Object[] args) throws Exception;
-	
-	public int getNumberOfArgs(); 
-	
+	@Override
+	public synchronized Throwable fillInStackTrace() {
+		return this;
+	}
+
 }

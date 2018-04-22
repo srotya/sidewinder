@@ -18,23 +18,21 @@ package com.srotya.sidewinder.core.storage.compression.gorilla;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
-import java.util.List;
 
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
-import com.srotya.sidewinder.core.storage.compression.Codec;
 import com.srotya.sidewinder.core.storage.compression.Reader;
-import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.storage.compression.TimeCodec;
+import com.srotya.sidewinder.core.storage.compression.TimeWriter;
 import com.srotya.sidewinder.core.utils.ByteUtils;
 
-@Codec(id = 4, name = "gorilla")
-public class GorillaWriter implements Writer {
+@TimeCodec(id = 4, name = "gorilla")
+public class GorillaTimestampWriter implements TimeWriter {
 
 	public static final int MD5_PADDING = 32;
 	private boolean full;
 	private LinkedByteString bufferId;
 	private ByteBuffer buf;
-	private GorillaCompressor compressor;
+	private GorillaTimestampCompressor compressor;
 	private int counter;
 	private long timestamp;
 	private ByteBufferBitOutput output;
@@ -43,8 +41,7 @@ public class GorillaWriter implements Writer {
 	private int checkSumLocaltion;
 
 	@Override
-	public void configure(ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
-			throws IOException {
+	public void configure(ByteBuffer buf, boolean isNew, int startOffset) throws IOException {
 		this.buf = buf;
 		this.checkSumLocaltion = startOffset;
 		this.startOffset = startOffset + MD5_PADDING;
@@ -62,15 +59,15 @@ public class GorillaWriter implements Writer {
 
 	@SuppressWarnings("unused")
 	private void forwardToEnd() throws IOException {
-		GorillaReader reader = new GorillaReader(buf, startOffset, MD5_PADDING);
+		GorillaValueReader reader = new GorillaValueReader(buf, startOffset, MD5_PADDING);
 		for (int i = 0; i < counter; i++) {
-			reader.readPair();
+			reader.read();
 		}
 	}
 
 	@Override
-	public void addValueLocked(long timestamp, long value) throws IOException {
-		compressor.addValue(timestamp, value);
+	public void add(long timestamp) throws IOException {
+		compressor.addValue(timestamp);
 		counter++;
 	}
 
@@ -81,30 +78,10 @@ public class GorillaWriter implements Writer {
 	}
 
 	@Override
-	public void addValueLocked(long timestamp, double value) throws IOException {
-		compressor.addValue(timestamp, value);
-		counter++;
-	}
-
-	@Override
-	public void write(DataPoint dp) throws IOException {
-		compressor.addValue(dp.getTimestamp(), dp.getLongValue());
-		counter++;
-	}
-
-	@Override
-	public void write(List<DataPoint> dp) throws IOException {
-		for (DataPoint d : dp) {
-			write(d);
-			counter++;
-		}
-	}
-
-	@Override
 	public Reader getReader() throws IOException {
 		ByteBuffer duplicate = buf.duplicate();
 		duplicate.rewind();
-		GorillaReader reader = new GorillaReader(duplicate, startOffset, checkSumLocaltion);
+		GorillaTimestampReader reader = new GorillaTimestampReader(duplicate, startOffset, checkSumLocaltion);
 		return reader;
 	}
 
@@ -187,7 +164,7 @@ public class GorillaWriter implements Writer {
 	public void setHeaderTimestamp(long timestamp) throws IOException {
 		this.timestamp = timestamp;
 		this.output = new ByteBufferBitOutput(buf);
-		compressor = new GorillaCompressor(timestamp, output);
+		compressor = new GorillaTimestampCompressor(timestamp, output);
 	}
 
 	@Override

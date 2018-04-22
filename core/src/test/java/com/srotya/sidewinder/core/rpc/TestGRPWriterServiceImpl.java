@@ -31,7 +31,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.rpc.WriterServiceGrpc.WriterServiceBlockingStub;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 
@@ -83,7 +83,7 @@ public class TestGRPWriterServiceImpl {
 		assertTrue(engine.checkIfExists("test"));
 		assertTrue(engine.checkIfExists("test", "cpu"));
 		assertEquals("host=1", engine.getTagKeysForMeasurement("test", "cpu").iterator().next());
-		List<Series> result = engine.queryDataPoints("test", "cpu", "usage", sts, sts + 1, null);
+		List<SeriesOutput> result = engine.queryDataPoints("test", "cpu", "usage", sts, sts + 1, null);
 		assertEquals(1, result.size());
 		assertEquals(1, result.iterator().next().getDataPoints().size());
 		assertEquals(1L, result.iterator().next().getDataPoints().iterator().next().getLongValue());
@@ -107,7 +107,7 @@ public class TestGRPWriterServiceImpl {
 		assertTrue(engine.checkIfExists(dbName));
 		assertTrue(engine.checkIfExists(dbName, measurementName));
 		assertEquals("host=1", engine.getTagKeysForMeasurement(dbName, measurementName).iterator().next());
-		List<Series> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1, null);
+		List<SeriesOutput> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1, null);
 		assertEquals(1, result.size());
 		assertEquals(2, result.iterator().next().getDataPoints().size());
 		assertEquals(1L, result.iterator().next().getDataPoints().iterator().next().getLongValue());
@@ -138,7 +138,7 @@ public class TestGRPWriterServiceImpl {
 		assertTrue(engine.checkIfExists(dbName));
 		assertTrue(engine.checkIfExists(dbName, measurementName));
 		assertEquals("host", engine.getTagKeysForMeasurement(dbName, measurementName).iterator().next());
-		List<Series> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1, null);
+		List<SeriesOutput> result = engine.queryDataPoints(dbName, measurementName, "usage", sts, sts + 1, null);
 		assertEquals(1, result.size());
 		assertEquals(2, result.iterator().next().getDataPoints().size());
 		assertEquals(1L, result.iterator().next().getDataPoints().iterator().next().getLongValue());

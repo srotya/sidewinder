@@ -43,7 +43,7 @@ import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.TimeSeries;
+import com.srotya.sidewinder.core.storage.Series;
 
 /**
  * Miscellaneous utility functions.
@@ -58,8 +58,8 @@ public class MiscUtils {
 	private MiscUtils() {
 	}
 
-	public static long bucketCounter(TimeSeries s) {
-		return s.getBucketRawMap().entrySet().stream().mapToInt(e -> e.getValue().size()).sum();
+	public static long bucketCounter(Series series) {
+		return series.getBucketFieldMap().entrySet().stream().mapToInt(e -> e.getValue().size()).sum();
 	}
 
 	public static String[] splitAndNormalizeString(String input) {

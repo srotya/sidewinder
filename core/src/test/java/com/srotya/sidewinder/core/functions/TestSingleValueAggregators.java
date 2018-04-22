@@ -25,7 +25,7 @@ import org.junit.Test;
 import com.srotya.sidewinder.core.functions.ReduceFunction;
 import com.srotya.sidewinder.core.functions.BasicSingleFunctions.*;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -42,9 +42,9 @@ public class TestSingleValueAggregators {
 		for (long d : values) {
 			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
-		Series result = f.apply(series);
+		SeriesOutput result = f.apply(series);
 		assertEquals(2, result.getDataPoints().get(0).getLongValue());
 
 	}
@@ -58,9 +58,9 @@ public class TestSingleValueAggregators {
 		for (long d : values) {
 			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
-		Series result = f.apply(series);
+		SeriesOutput result = f.apply(series);
 		assertEquals(4, result.getDataPoints().get(0).getLongValue());
 	}
 
@@ -73,9 +73,9 @@ public class TestSingleValueAggregators {
 		for (long d : values) {
 			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
-		Series result = f.apply(series);
+		SeriesOutput result = f.apply(series);
 		assertEquals(1, result.getDataPoints().get(0).getLongValue());
 	}
 
@@ -88,9 +88,9 @@ public class TestSingleValueAggregators {
 		for (double d : values) {
 			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
-		Series result = f.apply(series);
+		SeriesOutput result = f.apply(series);
 		assertEquals(2.2, result.getDataPoints().get(0).getValue(), 0);
 
 		// List<long[]> data = new ArrayList<>();
@@ -111,9 +111,9 @@ public class TestSingleValueAggregators {
 		for (double d : values) {
 			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
-		Series result = f.apply(series);
+		SeriesOutput result = f.apply(series);
 		assertEquals(4.4, result.getDataPoints().get(0).getValue(), 0);
 	}
 
@@ -126,10 +126,10 @@ public class TestSingleValueAggregators {
 		for (double d : values) {
 			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
 		series.setFp(true);
-		Series result = f.apply(series);
+		SeriesOutput result = f.apply(series);
 		assertEquals(4.4, result.getDataPoints().get(0).getValue(), 0);
 	}
 
@@ -142,9 +142,9 @@ public class TestSingleValueAggregators {
 		for (double d : values) {
 			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
-		Series result = f.apply(series);
+		SeriesOutput result = f.apply(series);
 
 		assertEquals(1.1, result.getDataPoints().get(0).getValue(), 0);
 	}
@@ -158,10 +158,10 @@ public class TestSingleValueAggregators {
 			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
 		ReduceFunction sva = new SumFunction();
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setFp(true);
 		series.setDataPoints(dps);
-		Series result = sva.apply(series);
+		SeriesOutput result = sva.apply(series);
 		assertEquals(11, result.getDataPoints().get(0).getValue(), 0.01);
 
 		dps.clear();
@@ -184,10 +184,10 @@ public class TestSingleValueAggregators {
 			dps.add(MiscUtils.buildDataPoint(ts, d));
 		}
 		ReduceFunction sva = new MeanFunction();
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setFp(true);
 		series.setDataPoints(dps);
-		Series result = sva.apply(series);
+		SeriesOutput result = sva.apply(series);
 		assertEquals(2.75, result.getDataPoints().get(0).getValue(), 0.01);
 
 		dps.clear();

@@ -19,7 +19,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 
 public abstract class ReduceFunction extends SingleSeriesFunction {
 
@@ -28,8 +28,8 @@ public abstract class ReduceFunction extends SingleSeriesFunction {
 	}
 
 	@Override
-	public Series apply(Series dataPoints) {
-		Series output = new Series(dataPoints.getMeasurementName(), dataPoints.getValueFieldName(),
+	public SeriesOutput apply(SeriesOutput dataPoints) {
+		SeriesOutput output = new SeriesOutput(dataPoints.getMeasurementName(), dataPoints.getValueFieldName(),
 				dataPoints.getTags());
 		output.setFp(dataPoints.isFp());
 		DataPoint single = new DataPoint();

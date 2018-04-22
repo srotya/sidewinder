@@ -28,40 +28,73 @@ import org.reflections.Reflections;
 public class CompressionFactory {
 
 	private static final Logger logger = Logger.getLogger(CompressionFactory.class.getName());
-	private static Map<Integer, Class<Writer>> codecMap = new HashMap<>();
-	private static Map<Class<Writer>, Integer> idMap = new HashMap<>();
-	private static Map<String, Class<Writer>> codecNameMap = new HashMap<>();
+	private static Map<Integer, Class<ValueWriter>> valueCodecMap = new HashMap<>();
+	private static Map<Class<ValueWriter>, Integer> valueIdMap = new HashMap<>();
+	private static Map<String, Class<ValueWriter>> valueCodecNameMap = new HashMap<>();
+
+	private static Map<Integer, Class<TimeWriter>> timeCodecMap = new HashMap<>();
+	private static Map<Class<TimeWriter>, Integer> timeIdMap = new HashMap<>();
+	private static Map<String, Class<TimeWriter>> timeCodecNameMap = new HashMap<>();
 
 	static {
 		String compressionPackages = System.getProperty("compression.lib", "com.srotya.sidewinder.core.storage");
-		findAndRegisterCompressorsWithPackageName(compressionPackages);
+		findAndRegisterTimeCompressorsWithPackageName(compressionPackages);
+		findAndRegisterValueCompressorsWithPackageName(compressionPackages);
 	}
-
+	
 	@SuppressWarnings("unchecked")
-	public static void findAndRegisterCompressorsWithPackageName(String packageName) {
+	public static void findAndRegisterTimeCompressorsWithPackageName(String packageName) {
 		Reflections reflections = new Reflections(packageName.trim());
-		Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(Codec.class);
-		logger.info("Found " + annotatedClasses.size() + " compression classes");
+		Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(TimeCodec.class);
+		logger.info("Found " + annotatedClasses.size() + " compression classes for time fields");
 		for (Class<?> annotatedClass : annotatedClasses) {
-			Codec compressor = annotatedClass.getAnnotation(Codec.class);
+			TimeCodec compressor = annotatedClass.getAnnotation(TimeCodec.class);
 			int id = compressor.id();
 			String alias = compressor.name();
-			codecNameMap.put(alias, (Class<Writer>) annotatedClass);
-			codecMap.put(id, (Class<Writer>) annotatedClass);
-			idMap.put((Class<Writer>) annotatedClass, id);
+			timeCodecNameMap.put(alias, (Class<TimeWriter>) annotatedClass);
+			timeCodecMap.put(id, (Class<TimeWriter>) annotatedClass);
+			timeIdMap.put((Class<TimeWriter>) annotatedClass, id);
 			logger.fine("Registering compression class with alias:" + alias);
 		}
 	}
 
-	public static Class<Writer> getClassById(int id) {
-		return codecMap.get(id);
+	@SuppressWarnings("unchecked")
+	public static void findAndRegisterValueCompressorsWithPackageName(String packageName) {
+		Reflections reflections = new Reflections(packageName.trim());
+		Set<Class<?>> annotatedClasses = reflections.getTypesAnnotatedWith(ValueCodec.class);
+		logger.info("Found " + annotatedClasses.size() + " compression classes for value fields");
+		for (Class<?> annotatedClass : annotatedClasses) {
+			ValueCodec compressor = annotatedClass.getAnnotation(ValueCodec.class);
+			int id = compressor.id();
+			String alias = compressor.name();
+			valueCodecNameMap.put(alias, (Class<ValueWriter>) annotatedClass);
+			valueCodecMap.put(id, (Class<ValueWriter>) annotatedClass);
+			valueIdMap.put((Class<ValueWriter>) annotatedClass, id);
+			logger.fine("Registering compression class with alias:" + alias);
+		}
+	}
+	
+	public static Class<TimeWriter> getTimeClassById(int id) {
+		return timeCodecMap.get(id);
 	}
 
-	public static Class<Writer> getClassByName(String name) {
-		return codecNameMap.get(name);
+	public static Class<TimeWriter> getTimeClassByName(String name) {
+		return timeCodecNameMap.get(name);
 	}
 
-	public static int getIdByClass(Class<Writer> classObj) {
-		return idMap.get(classObj);
+	public static int getIdByTimeClass(Class<TimeWriter> classObj) {
+		return timeIdMap.get(classObj);
+	}
+
+	public static Class<ValueWriter> getValueClassById(int id) {
+		return valueCodecMap.get(id);
+	}
+
+	public static Class<ValueWriter> getValueClassByName(String name) {
+		return valueCodecNameMap.get(name);
+	}
+
+	public static int getIdByValueClass(Class<ValueWriter> classObj) {
+		return valueIdMap.get(classObj);
 	}
 }

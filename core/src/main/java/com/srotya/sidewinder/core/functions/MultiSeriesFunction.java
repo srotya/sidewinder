@@ -21,7 +21,7 @@ import java.util.List;
 
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 
 /**
  * @author ambud
@@ -29,20 +29,20 @@ import com.srotya.sidewinder.core.storage.Series;
 public abstract class MultiSeriesFunction implements Function {
 
 	@Override
-	public List<Series> apply(List<Series> t) {
-		List<Series> output = new ArrayList<>();
+	public List<SeriesOutput> apply(List<SeriesOutput> t) {
+		List<SeriesOutput> output = new ArrayList<>();
 		boolean fp = t.get(0).isFp();
 		List<List<DataPoint>> intermediate = new ArrayList<>();
 		int size = t.get(0).getDataPoints().size();
 		for (int i = 0; i < t.size(); i++) {
-			Series ts = t.get(i);
+			SeriesOutput ts = t.get(i);
 			if (size != ts.getDataPoints().size()) {
 				throw new IllegalArgumentException("Non-uniform series length");
 			}
 			intermediate.add(ts.getDataPoints());
 		}
 		List<DataPoint> compute = compute(intermediate, fp);
-		Series series = new Series(compute);
+		SeriesOutput series = new SeriesOutput(compute);
 		series.setFp(fp);
 		series.setMeasurementName(t.get(0).getMeasurementName());
 		series.setValueFieldName(name());

@@ -22,7 +22,6 @@ import java.nio.ByteBuffer;
 
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
 public class TestGorillaCompression {
@@ -46,64 +45,56 @@ public class TestGorillaCompression {
 	@Test
 	public void testCompressUncompress() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
-		GorillaWriter writer = new GorillaWriter();
-		writer.configure(buf, true, 0, false);
+		GorillaTimestampWriter writer = new GorillaTimestampWriter();
+		writer.configure(buf, true, 0);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
-			writer.addValueLocked(ts + i * 100, i);
+			writer.add(ts + i * 100);
 		}
 		writer.makeReadOnly();
 		Reader reader = writer.getReader();
-		assertEquals(100, reader.getPairCount());
+		assertEquals(100, reader.getCount());
 		for (int i = 0; i < 100; i++) {
-			DataPoint pair = reader.readPair();
-			assertEquals(ts + i * 100, pair.getTimestamp());
-			assertEquals(i, pair.getLongValue());
+			assertEquals(ts + i * 100, reader.read());
 		}
 	}
 
 	@Test
 	public void testCompressUncompressFloating() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
-		GorillaWriter writer = new GorillaWriter();
-		writer.configure(buf, true, 0, false);
-		long ts = System.currentTimeMillis();
-		writer.setHeaderTimestamp(ts);
+		GorillaValueWriter writer = new GorillaValueWriter();
+		writer.configure(buf, true, 0);
 		for (int i = 0; i < 100; i++) {
-			writer.addValueLocked(ts + i * 100, i * 1.1);
+			writer.add(i * 1.1);
 		}
 		writer.makeReadOnly();
 		Reader reader = writer.getReader();
-		assertEquals(100, reader.getPairCount());
+		assertEquals(100, reader.getCount());
 		for (int i = 0; i < 100; i++) {
-			DataPoint pair = reader.readPair();
-			assertEquals(ts + i * 100, pair.getTimestamp());
-			assertEquals(i * 1.1, Double.longBitsToDouble(pair.getLongValue()), 0.01);
+			assertEquals(i * 1.1, reader.readDouble(), 0.01);
 		}
 	}
 
 	@Test
 	public void testRecovery() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocate(1024);
-		GorillaWriter writer = new GorillaWriter();
-		writer.configure(buf, true, 0, false);
+		GorillaTimestampWriter writer = new GorillaTimestampWriter();
+		writer.configure(buf, true, 0);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
-			writer.addValueLocked(ts + i * 100, i * 1.1);
+			writer.add(ts + i * 100);
 		}
 		writer.makeReadOnly();
 		ByteBuffer rawBytes = writer.getRawBytes();
 
-		writer = new GorillaWriter();
-		writer.configure(rawBytes, false, 0, false);
+		writer = new GorillaTimestampWriter();
+		writer.configure(rawBytes, false, 0);
 		Reader reader = writer.getReader();
-		assertEquals(100, reader.getPairCount());
+		assertEquals(100, reader.getCount());
 		for (int i = 0; i < 100; i++) {
-			DataPoint pair = reader.readPair();
-			assertEquals(ts + i * 100, pair.getTimestamp());
-			assertEquals(i * 1.1, Double.longBitsToDouble(pair.getLongValue()), 0.01);
+			assertEquals(ts + i * 100, reader.read());
 		}
 	}
 

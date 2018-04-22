@@ -32,7 +32,7 @@ import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DBMetadata;
-import com.srotya.sidewinder.core.storage.SeriesFieldMap;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -64,7 +64,7 @@ public class TestMappedBitmapTagIndex {
 		for (int i = 0; i < 10_000; i++) {
 			index.index("key", String.valueOf(i), i);
 			ByteString valueOf = new ByteString(String.valueOf(i));
-			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf, i));
+			m.getSeriesListAsList().add(new Series(valueOf, i));
 		}
 		ts = System.currentTimeMillis() - ts;
 		System.out.println("Time:" + ts);
@@ -99,7 +99,7 @@ public class TestMappedBitmapTagIndex {
 			index.index("key", String.valueOf(i), i);
 			index.index("key", String.valueOf(i - 1), i);
 			ByteString valueOf = new ByteString(String.valueOf(i));
-			m.getSeriesListAsList().add(new SeriesFieldMap(valueOf, i));
+			m.getSeriesListAsList().add(new Series(valueOf, i));
 		}
 		ts = System.currentTimeMillis() - ts;
 		System.out.println("Time:" + ts);

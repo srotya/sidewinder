@@ -45,7 +45,7 @@ import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.disk.DiskStorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
@@ -137,7 +137,7 @@ public class QADataIntegrity {
 		assertEquals(10, rowKeys.size());
 
 		// check dataset
-		List<Series> all = engine.queryDataPoints(dbName, measurementName, "user", ts - 1000 * 10, ts + 1000 * 100,
+		List<SeriesOutput> all = engine.queryDataPoints(dbName, measurementName, "user", ts - 1000 * 10, ts + 1000 * 100,
 				filter);
 		assertEquals(10, all.size());
 
@@ -202,19 +202,19 @@ public class QADataIntegrity {
 		assertEquals(10, rowKeys.size());
 
 		// check dataset
-		List<Series> all = engine.queryDataPoints(dbName, measurementName, "user", ts - 1000 * 10, ts + 1000 * 100,
+		List<SeriesOutput> all = engine.queryDataPoints(dbName, measurementName, "user", ts - 1000 * 10, ts + 1000 * 100,
 				filter);
 		assertEquals(10, all.size());
-		for (Series s : all) {
+		for (SeriesOutput s : all) {
 			assertEquals(s.getTags() + " bad datapoints", 1000, s.getDataPoints().size());
 		}
 
 		for (int i = 0; i < 10; i++) {
 			filter = MiscUtils.buildSimpleFilter("host=" + i);
-			List<Series> points = engine.queryDataPoints(dbName, measurementName, "user", ts - 1000 * 10,
+			List<SeriesOutput> points = engine.queryDataPoints(dbName, measurementName, "user", ts - 1000 * 10,
 					ts + 1000 * 100, filter);
 			assertEquals(1, points.size());
-			Series next = points.iterator().next();
+			SeriesOutput next = points.iterator().next();
 			assertEquals(next.getTags() + " bad datapoints", 1000, next.getDataPoints().size());
 			for (DataPoint dp : next.getDataPoints()) {
 				assertEquals(2112, dp.getLongValue());

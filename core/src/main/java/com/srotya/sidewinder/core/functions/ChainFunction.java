@@ -18,7 +18,7 @@ package com.srotya.sidewinder.core.functions;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 
 /**
  * @author ambud
@@ -28,8 +28,8 @@ public class ChainFunction implements Function {
 	private List<Function> chain;
 
 	@Override
-	public List<Series> apply(List<Series> t) {
-		List<Series> output = t;
+	public List<SeriesOutput> apply(List<SeriesOutput> t) {
+		List<SeriesOutput> output = t;
 		for(Function f:chain) {
 			output = f.apply(output);
 		}

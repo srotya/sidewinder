@@ -17,11 +17,9 @@ package com.srotya.sidewinder.core.storage.compression;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.List;
 
 import javax.validation.constraints.NotNull;
 
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.RejectException;
 
@@ -33,24 +31,17 @@ public interface Writer {
 	public static final RollOverException BUF_ROLLOVER_EXCEPTION = new RollOverException();
 	public static final RejectException WRITE_REJECT_EXCEPTION = new RejectException();
 
-	public void addValueLocked(long timestamp, long value) throws IOException;
+	public void add(long value) throws IOException;
 
-	public void addValueLocked(long timestamp, double value) throws IOException;
-
-	// public void addValue(long timestamp, long[] value) throws IOException;
-
-	// public void addValue(long timestamp, double[] value) throws IOException;
-
-	public void write(DataPoint dp) throws IOException;
-
-	public void write(List<DataPoint> dp) throws IOException;
+	public default void write(long value) throws IOException {
+		add(value);
+	}
 
 	public Reader getReader() throws IOException;
 
 	public double getCompressionRatio();
 
-	public void configure(ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking)
-			throws IOException;
+	public void configure(ByteBuffer buf, boolean isNew, int startOffset) throws IOException;
 
 	public void bootstrap(ByteBuffer buf) throws IOException;
 
@@ -67,10 +58,6 @@ public interface Writer {
 	public boolean isFull();
 
 	public boolean isReadOnly();
-
-	public long getHeaderTimestamp();
-
-	public void setHeaderTimestamp(long timestamp) throws IOException;
 
 	public int getPosition();
 

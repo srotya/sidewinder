@@ -18,13 +18,13 @@ package com.srotya.sidewinder.core.functions;
 import java.util.List;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 
 public abstract class TransformFunction implements Function {
 
 	@Override
-	public List<Series> apply(List<Series> series) {
-		for (Series s : series) {
+	public List<SeriesOutput> apply(List<SeriesOutput> series) {
+		for (SeriesOutput s : series) {
 			List<DataPoint> dps = s.getDataPoints();
 			for (DataPoint dp : dps) {
 				if (s.isFp()) {

@@ -15,61 +15,41 @@
  */
 package com.srotya.sidewinder.core.storage.compression.gorilla;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
-import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
-public class GorillaReader implements Reader {
+public class GorillaTimestampReader implements Reader {
 
 	private int count;
 	private int counter;
-	private Predicate timePredicate;
 	private Predicate valuePredicate;
-	private GorillaDecompressor decompressor;
+	private GorillaTimestampDecompressor decompressor;
 	private ByteBuffer buf;
 	private int checkSumLocation;
 
-	public GorillaReader(ByteBuffer buf, int startOffset, int checkSumLocation) {
+	public GorillaTimestampReader(ByteBuffer buf, int startOffset, int checkSumLocation) {
 		this.buf = buf;
 		this.checkSumLocation = checkSumLocation;
 		buf.position(startOffset);
-		count = buf.getInt();
+		this.count = buf.getInt();
 		buf.getInt();
-		decompressor = new GorillaDecompressor(new ByteBufferBitInput(buf));
+		this.decompressor = new GorillaTimestampDecompressor(new ByteBufferBitInput(buf));
 	}
 
 	@Override
-	public DataPoint readPair() throws IOException {
+	public long read() throws FilteredValueException, RejectException {
 		if (counter < count) {
-			DataPoint pair = decompressor.readPair();
-			if (timePredicate != null && !timePredicate.test(pair.getTimestamp())) {
-				return null;
-			}
-			if (valuePredicate != null && !valuePredicate.test(pair.getLongValue())) {
-				return null;
+			long value = decompressor.read();
+			if (valuePredicate != null && !valuePredicate.test(value)) {
+				throw FILTERED_VALUE_EXCEPTION;
 			}
 			counter++;
-			return pair;
-		} else {
-			throw EOS_EXCEPTION;
-		}
-	}
-
-	@Override
-	public long[] read() throws IOException {
-		if (counter < count) {
-			long[] pair = decompressor.read();
-			if (timePredicate != null && !timePredicate.test(pair[0])) {
-				return null;
-			}
-			if (valuePredicate != null && !valuePredicate.test(pair[1])) {
-				return null;
-			}
-			return pair;
+			return value;
 		} else {
 			throw EOS_EXCEPTION;
 		}
@@ -81,18 +61,13 @@ public class GorillaReader implements Reader {
 	}
 
 	@Override
-	public int getPairCount() {
+	public int getCount() {
 		return count;
 	}
 
 	@Override
-	public void setTimePredicate(Predicate timePredicate) {
-		this.timePredicate = timePredicate;
-	}
-
-	@Override
-	public void setValuePredicate(Predicate valuePredicate) {
-		this.valuePredicate = valuePredicate;
+	public void setPredicate(Predicate predicate) {
+		valuePredicate = predicate;
 	}
 
 	@Override
@@ -100,7 +75,7 @@ public class GorillaReader implements Reader {
 		ByteBuffer duplicate = buf.duplicate();
 		duplicate.rewind();
 		duplicate.position(checkSumLocation);
-		byte[] ary = new byte[GorillaWriter.MD5_PADDING];
+		byte[] ary = new byte[GorillaTimestampWriter.MD5_PADDING];
 		duplicate.get(ary);
 		return ary;
 	}

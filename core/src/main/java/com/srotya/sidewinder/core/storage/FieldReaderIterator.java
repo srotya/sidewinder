@@ -13,19 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage.compression;
+package com.srotya.sidewinder.core.storage;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+import java.io.IOException;
+import java.util.List;
 
-/**
- * @author ambud
- */
-@Retention(RetentionPolicy.RUNTIME)
-public @interface Codec {
+import com.srotya.sidewinder.core.storage.compression.Reader;
 
-	public int id();
-	
-	public String name();
-	
+public class FieldReaderIterator {
+
+	private int idx;
+	private List<Reader> readers;
+
+	public FieldReaderIterator(List<Reader> readers) {
+		this.readers = readers;
+	}
+
+	public long next() throws IOException {
+		try {
+			return readers.get(idx).read();
+		} catch (RejectException e) {
+			if (idx < readers.size() - 1) {
+				idx++;
+				return next();
+			} else {
+				throw e;
+			}
+		}
+	}
+
 }
