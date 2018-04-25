@@ -34,6 +34,7 @@ import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.RollOverException;
 import com.srotya.sidewinder.core.storage.compression.ValueWriter;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
  * Persistent version of {@link ValueField}. Persistence is provided via keeping
@@ -52,8 +53,8 @@ public class ValueField implements Field {
 	private static final Logger logger = Logger.getLogger(ValueField.class.getName());
 	private List<ValueWriter> writerList;
 	private ByteString fieldId;
-	public static boolean compactionEnabled;
-	public static double compactionRatio;
+	public static boolean compactionEnabled = false;
+	public static double compactionRatio = 0.8;
 	public static Class<ValueWriter> compressionClass = CompressionFactory.getValueClassByName("byzantine");
 	public static Class<ValueWriter> compactionClass = CompressionFactory.getValueClassByName("gorilla");
 	private int tsBucket;
@@ -82,9 +83,9 @@ public class ValueField implements Field {
 
 	private ValueWriter getOrCreateValueWriter(Measurement measurement) throws IOException {
 		ValueWriter ans = null;
-		if(writerList.isEmpty()) {
+		if (writerList.isEmpty()) {
 			ans = createNewWriter(measurement, tsBucket, writerList);
-		}else {
+		} else {
 			ans = writerList.get(writerList.size() - 1);
 		}
 		if (ans.isFull()) {
@@ -169,10 +170,13 @@ public class ValueField implements Field {
 		});
 		for (int i = 0; i < writerList.size() - 1; i++) {
 			ValueWriter writer = writerList.get(i);
-			writer.makeReadOnly();
+			try {
+				writer.makeReadOnly(true);
+			} catch (Exception e) {
+				throw new IOException(e);
+			}
 		}
 	}
-
 
 	/**
 	 * Extract list of readers for the supplied time range and value predicate.
@@ -237,8 +241,8 @@ public class ValueField implements Field {
 
 	@Override
 	public String toString() {
-		return "Field [writerList=" + writerList + ", fieldId=" + fieldId + ", measurement="
-				+ ", tsBucket=" + tsBucket + "]";
+		return "Field [writerList=" + writerList + ", fieldId=" + fieldId + ", measurement=" + ", tsBucket=" + tsBucket
+				+ "]";
 	}
 
 	public void close() throws IOException {
@@ -257,8 +261,8 @@ public class ValueField implements Field {
 	 * @throws IOException
 	 */
 	@SafeVarargs
-	public final List<ValueWriter> compact(Measurement measurement, Lock writeLock,
-			Consumer<List<?>>... functions) throws IOException {
+	public final List<Writer> compact(Measurement measurement, Lock writeLock,
+			Consumer<List<? extends Writer>>... functions) throws IOException {
 		if (StorageEngine.ENABLE_METHOD_METRICS) {
 			// ctx = timerCompaction.time();
 		}
@@ -269,12 +273,11 @@ public class ValueField implements Field {
 		if (writerList.size() <= 1) {
 			return null;
 		}
-		List<ValueWriter> compactedWriter = new ArrayList<>();
+		List<Writer> compactedWriter = new ArrayList<>();
 		int id = CompressionFactory.getIdByValueClass(compactionClass);
-		List<ValueWriter> list = writerList;
-		int listSize = list.size() - 1;
-		int pointCount = list.subList(0, listSize).stream().mapToInt(s -> s.getCount()).sum();
-		int total = list.subList(0, listSize).stream().mapToInt(s -> s.getPosition()).sum();
+		int listSize = writerList.size() - 1;
+		int pointCount = writerList.subList(0, listSize).stream().mapToInt(s -> s.getCount()).sum();
+		int total = writerList.subList(0, listSize).stream().mapToInt(s -> s.getPosition()).sum();
 		if (total == 0) {
 			logger.warning("Ignoring bucket for compaction, not enough bytes. THIS BUG SHOULD BE INVESTIGATED");
 			return null;
@@ -283,18 +286,18 @@ public class ValueField implements Field {
 		int compactedPoints = 0;
 		double bufSize = total * compactionRatio;
 		logger.finer("Allocating buffer:" + total + " Vs. " + pointCount * 16 + " max compacted buffer:" + bufSize);
-		logger.finer("Getting sublist from:" + 0 + " to:" + (list.size() - 1));
+		logger.finer("Getting sublist from:" + 0 + " to:" + (writerList.size() - 1));
 		ByteBuffer buf = ByteBuffer.allocate((int) bufSize);
 		buf.put((byte) id);
 		// since this buffer will be the first one
 		buf.put(1, (byte) 0);
 		writer.configure(buf, true, START_OFFSET);
-		ValueWriter input = list.get(0);
+		ValueWriter input = writerList.get(0);
 		// read the header timestamp
 		// read all but the last writer and insert into new temp writer
 		try {
-			for (int i = 0; i < list.size() - 1; i++) {
-				input = list.get(i);
+			for (int i = 0; i < writerList.size() - 1; i++) {
+				input = writerList.get(i);
 				Reader reader = input.getReader();
 				for (int k = 0; k < reader.getCount(); k++) {
 					long pair = reader.read();
@@ -302,7 +305,7 @@ public class ValueField implements Field {
 					compactedPoints++;
 				}
 			}
-			writer.makeReadOnly();
+			writer.makeReadOnly(false);
 		} catch (RollOverException e) {
 			logger.warning("Buffer filled up; bad compression ratio; not compacting");
 			return null;
@@ -322,33 +325,34 @@ public class ValueField implements Field {
 		rawBytes.rewind();
 		// create buffer in measurement
 		BufferObject newBuf = measurement.getMalloc().createNewBuffer(fieldId, tsBucket, size);
-		logger.fine("Compacted buffer size:" + size + " vs " + total);
+		logger.info("Compacted buffer size:" + size + " vs " + total + " countp:" + listSize);
 		LinkedByteString bufferId = newBuf.getBufferId();
 		buf = newBuf.getBuf();
 		writer = getWriterInstance(compactionClass);
 		buf.put(rawBytes);
 		writer.setBufferId(bufferId);
 		writer.configure(buf, false, START_OFFSET);
-		writer.makeReadOnly();
+		writer.makeReadOnly(false);
 
 		writeLock.lock();
 		if (functions != null) {
-			for (Consumer<List<?>> function : functions) {
-				function.accept(list);
+			for (Consumer<List<? extends Writer>> function : functions) {
+				function.accept(writerList);
 			}
 		}
 		size = listSize - 1;
-		logger.finest(
-				"Compaction debug size differences size:" + size + " listSize:" + listSize + " curr:" + list.size());
+		logger.finest("Compaction debug size differences size:" + size + " listSize:" + listSize + " curr:"
+				+ writerList.size());
 		for (int i = size; i >= 0; i--) {
-			compactedWriter.add(list.remove(i));
+			compactedWriter.add(writerList.remove(i));
 		}
-		list.add(0, writer);
-		for (int i = 0; i < list.size(); i++) {
-			list.get(i).getRawBytes().put(1, (byte) i);
+		writerList.add(0, writer);
+		for (int i = 0; i < writerList.size(); i++) {
+			writerList.get(i).getRawBytes().put(1, (byte) i);
 		}
-		logger.fine("Total points:" + compactedPoints + ", original pair count:" + writer.getReader().getCount()
-				+ " compression ratio:" + rawBytes.position() + " original:" + total);
+		logger.info("Total points:" + compactedPoints + ", original pair count:" + writer.getReader().getCount()
+				+ " compression ratio:" + rawBytes.position() + " original:" + total + " newlistlength:"
+				+ writerList.size());
 		writeLock.unlock();
 
 		if (StorageEngine.ENABLE_METHOD_METRICS) {
@@ -402,6 +406,16 @@ public class ValueField implements Field {
 			list.add(i, writer);
 		}
 		return garbageCollectWriters;
+	}
+
+	@Override
+	public int getWriterCount() {
+		return writerList.size();
+	}
+
+	@Override
+	public List<? extends Writer> getWriters() {
+		return writerList;
 	}
 
 }

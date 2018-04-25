@@ -134,7 +134,7 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 							try {
 								readers = new LinkedHashMap<>();
 								readers.put(Arrays.asList(Tag.newBuilder().setTagKey("k1").setTagValue("v1").build()),
-										series.queryTuples(measurement, fields, range.getKey(), range.getValue()));
+										series.queryTupleReaders(measurement, fields, range.getKey(), range.getValue()));
 								iterator = readers.entrySet().iterator();
 								if (iterator.hasNext()) {
 									next = iterator.next();

@@ -214,7 +214,7 @@ public class TestByzantineTimestampReadWrite {
 		for (int i = 0; i < limit; i++) {
 			writer.add(ots + i * 1000);
 		}
-		writer.makeReadOnly();
+		writer.makeReadOnly(false);
 		try {
 			writer.add(ots);
 			fail("Must throw exception once the buffer is marked as closed");

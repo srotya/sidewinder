@@ -190,7 +190,7 @@ public class ByzantineValueWriter implements ValueWriter {
 	}
 
 	@Override
-	public void makeReadOnly() {
+	public void makeReadOnly(boolean recovery) {
 		readOnly = true;
 	}
 
@@ -224,6 +224,11 @@ public class ByzantineValueWriter implements ValueWriter {
 	@Override
 	public boolean isReadOnly() {
 		return readOnly;
+	}
+
+	@Override
+	public int getStartOffset() {
+		return startOffset;
 	}
 
 }

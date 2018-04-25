@@ -49,7 +49,7 @@ public interface Writer {
 
 	public void setCounter(int counter);
 
-	public void makeReadOnly() throws IOException;
+	public void makeReadOnly(boolean recovery) throws IOException;
 
 	public int currentOffset();
 

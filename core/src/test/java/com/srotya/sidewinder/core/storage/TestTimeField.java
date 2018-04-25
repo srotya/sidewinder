@@ -26,7 +26,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
-import com.srotya.sidewinder.core.storage.compression.TimeWriter;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.compression.byzantine.NoLock;
 
 public class TestTimeField {
@@ -94,7 +94,7 @@ public class TestTimeField {
 			field.addDataPoint(measurement, ts + i * 1000);
 		}
 		assertEquals(3, field.getRawWriterList().size());
-		List<TimeWriter> compact = field.compact(measurement, new NoLock(), t -> {
+		List<Writer> compact = field.compact(measurement, new NoLock(), t -> {
 		});
 		assertEquals(2, compact.size());
 		assertEquals(2, field.getRawWriterList().size());
@@ -110,7 +110,7 @@ public class TestTimeField {
 			field.addDataPoint(measurement, ts + i * 1000);
 		}
 		assertEquals(3, field.getRawWriterList().size());
-		List<TimeWriter> compact = field.compact(measurement, new NoLock(), t -> {
+		List<Writer> compact = field.compact(measurement, new NoLock(), t -> {
 		});
 		assertEquals(2, compact.size());
 		assertEquals(2, field.getRawWriterList().size());

@@ -29,6 +29,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.ReadLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock.WriteLock;
+import java.util.function.Consumer;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.predicates.BetweenPredicate;
@@ -53,7 +55,7 @@ public class Series {
 	private ReadLock readLock;
 	private WriteLock writeLock;
 
-	public Series(Measurement measurement, ByteString seriesId, int fieldMapIndex) {
+	public Series(ByteString seriesId, int fieldMapIndex) {
 		this.seriesId = seriesId;
 		this.fieldMapIndex = fieldMapIndex;
 		fieldTypeMap = new ConcurrentHashMap<>();
@@ -76,10 +78,9 @@ public class Series {
 			if ((field = map.get(valueFieldName)) == null) {
 				ByteString fieldId = new ByteString(seriesId + Measurement.SERIESID_SEPARATOR + valueFieldName);
 				if (valueFieldName == TS) {
-					field = new TimeField(measurement, fieldId, measurement.getTimeBucketSize(), measurement.getConf());
+					field = new TimeField(measurement, fieldId, timeBucket, measurement.getConf());
 				} else {
-					field = new ValueField(measurement, fieldId, measurement.getTimeBucketSize(),
-							measurement.getConf());
+					field = new ValueField(measurement, fieldId, timeBucket, measurement.getConf());
 				}
 				if (fieldTypeMap.get(valueFieldName) == null) {
 					fieldTypeMap.put(valueFieldName, fp);
@@ -96,7 +97,7 @@ public class Series {
 				// in case there was contention and we have to re-check the cache
 				field = map.get(valueFieldName);
 			}
-			writeLock.unlock();
+			writeLock.unlock();//
 		}
 		return field;
 	}
@@ -134,6 +135,38 @@ public class Series {
 	public static int getTimeBucketInt(TimeUnit unit, long timestamp, int timeBucketSize) {
 		int bucket = TimeUtils.getTimeBucket(unit, timestamp, timeBucketSize);
 		return bucket;
+	}
+
+	public void loadBuffers(Measurement measurement, String fieldName, List<Entry<Integer, BufferObject>> buffers,
+			Map<String, String> conf) throws IOException {
+		Map<Field, List<BufferObject>> fieldMap = new HashMap<>();
+		for (Entry<Integer, BufferObject> entry : buffers) {
+			Map<String, Field> map = bucketFieldMap.get(entry.getKey());
+			if (map == null) {
+				map = new ConcurrentHashMap<>();
+				bucketFieldMap.put(entry.getKey(), map);
+			}
+			BufferObject value = entry.getValue();
+			Field field = map.get(fieldName);
+			if (field == null) {
+				ByteString fieldId = new ByteString(seriesId + Measurement.SERIESID_SEPARATOR + fieldName);
+				if (fieldName.equals(TS)) {
+					field = new TimeField(measurement, fieldId, entry.getKey(), conf);
+				} else {
+					field = new ValueField(measurement, fieldId, entry.getKey(), conf);
+				}
+				map.put(fieldName, field);
+				fieldMap.put(field, new ArrayList<>());
+			}
+			fieldMap.get(field).add(value);
+		}
+		for (Entry<Field, List<BufferObject>> entry : fieldMap.entrySet()) {
+			entry.getKey().loadBucketMap(entry.getValue());
+		}
+	}
+
+	public void loadSeriesMetadata(String fieldName, boolean fieldType) {
+		fieldTypeMap.put(fieldName, fieldType);
 	}
 
 	/**
@@ -195,7 +228,7 @@ public class Series {
 		return points;
 	}
 
-	public FieldReaderIterator[] queryTuples(Measurement measurement, List<String> valueFieldBucketNames,
+	public FieldReaderIterator[] queryTupleReaders(Measurement measurement, List<String> valueFieldBucketNames,
 			long startTime, long endTime) throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
@@ -252,7 +285,7 @@ public class Series {
 			}
 			while (true) {
 				try {
-					long[] tuple = FieldReaderIterator.extracted(iterators.length, iterators);
+					long[] tuple = FieldReaderIterator.extracted(iterators);
 					points.add(tuple);
 				} catch (FilteredValueException e) {
 					// ignore this
@@ -326,12 +359,23 @@ public class Series {
 		this.seriesId = seriesId;
 	}
 
-	public List<Writer> compact() throws IOException {
-
-		return null;
+	@SuppressWarnings("unchecked")
+	public List<Writer> compact(Measurement measurement, Consumer<List<? extends Writer>>... functions)
+			throws IOException {
+		List<Writer> compact = new ArrayList<>();
+		for (Map<String, Field> map : bucketFieldMap.values()) {
+			for (Field field : map.values()) {
+				List<Writer> tmp = field.compact(measurement, writeLock);
+				if (tmp != null) {
+					compact.addAll(tmp);
+				}
+			}
+		}
+		logger.info("Compaction completed for series:" + seriesId + " compacted buffers:" + compact.size());
+		return compact;
 	}
 
-	public SortedMap<Integer, Map<String, Field>> getBucketFieldMap() {
+	public SortedMap<Integer, Map<String, Field>> getBucketMap() {
 		return bucketFieldMap;
 	}
 
@@ -353,6 +397,34 @@ public class Series {
 
 	protected WriteLock getWriteLock() {
 		return writeLock;
+	}
+
+	public Map<Integer, List<Writer>> collectGarbage(Measurement measurement) throws IOException {
+		Map<Integer, List<Writer>> collectedGarbageMap = new HashMap<>();
+		logger.finer("Retention buckets:" + measurement.getRetentionBuckets().get());
+		while (getBucketMap().size() > measurement.getRetentionBuckets().get()) {
+			writeLock.lock();
+			int oldSize = getBucketMap().size();
+			Integer key = getBucketMap().firstKey();
+			Map<String, Field> fieldMap = getBucketMap().remove(key);
+			List<Writer> gcedBuckets = new ArrayList<>();
+			collectedGarbageMap.put(key, gcedBuckets);
+			for (Field field : fieldMap.values()) {
+				// bucket.close();
+				gcedBuckets.addAll(field.getWriters());
+				logger.log(Level.FINEST,
+						"GC," + measurement.getMeasurementName() + ":" + seriesId + " removing bucket:" + key
+								+ ": as it passed retention period of:" + measurement.getRetentionBuckets().get()
+								+ ":old size:" + oldSize + ":newsize:" + getBucketMap().size() + ":");
+			}
+			writeLock.unlock();
+		}
+		if (collectedGarbageMap.size() > 0) {
+			logger.fine(() -> "GC," + measurement.getMeasurementName() + " buckets:" + collectedGarbageMap.size()
+					+ " retention size:" + measurement.getRetentionBuckets().get());
+		}
+		return collectedGarbageMap;
+
 	}
 
 	// /**

@@ -85,7 +85,6 @@ public class DiskStorageEngine implements StorageEngine {
 		dbMetadataMap = new ConcurrentHashMap<>();
 		
 		setCodecsForCompression(conf);
-		setCompactionConfig(conf);
 
 		try {
 			archiver = (Archiver) Class.forName(conf.getOrDefault(ARCHIVER_CLASS, NoneArchiver.class.getName()))

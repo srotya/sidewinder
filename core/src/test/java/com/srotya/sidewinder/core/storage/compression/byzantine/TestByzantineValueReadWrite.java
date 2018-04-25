@@ -188,7 +188,7 @@ public class TestByzantineValueReadWrite {
 		for (int i = 0; i < limit; i++) {
 			writer.add(i);
 		}
-		writer.makeReadOnly();
+		writer.makeReadOnly(false);
 		try {
 			writer.add(2L);
 			fail("Must throw exception once the buffer is marked as closed");

@@ -39,7 +39,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import com.srotya.sidewinder.core.sql.calcite.SidewinderDatabaseSchema;
 import com.srotya.sidewinder.core.sql.calcite.functions.DateDiffFunction;
 import com.srotya.sidewinder.core.sql.calcite.functions.NowFunction;
 import com.srotya.sidewinder.core.sql.calcite.functions.ToMilliseconds;
@@ -59,12 +58,13 @@ public class SqlApi {
 
 	public SqlApi(StorageEngine engine) throws SQLException, ClassNotFoundException {
 		this.engine = engine;
-		initCalcite();
+//		initCalcite();
 	}
 
 	public void initCalcite() throws SQLException, ClassNotFoundException {
 		Class.forName("org.apache.calcite.jdbc.Driver");
-		connection = DriverManager.getConnection("jdbc:calcite:");
+		connection = DriverManager.getConnection(
+				"jdbc:calcite:schemaFactory=com.srotya.sidewinder.core.sql.calcite.SidewinderSchemaFactory;schema.db=db1");
 		CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
 		ModelHandler.create(calciteConnection.getRootSchema(), "now", Arrays.asList(""), NowFunction.class.getName(),
 				"apply");
@@ -78,15 +78,17 @@ public class SqlApi {
 
 	public boolean checkAndAddSchema(String dbName) throws Exception {
 		synchronized (connection) {
-//			if (!engine.checkIfExists(dbName)) {
-//				return false;
-//			}
-			CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
-			String tdbName = dbName.toUpperCase();
-			if (calciteConnection.getRootSchema().getSubSchema(tdbName) == null) {
-				System.err.println("Adding DB to connection:" + dbName + "\t" + tdbName);
-				calciteConnection.getRootSchema().add(tdbName, new SidewinderDatabaseSchema(engine, dbName));
-			}
+			// if (!engine.checkIfExists(dbName)) {
+			// return false;
+			// }
+			// CalciteConnection calciteConnection =
+			// connection.unwrap(CalciteConnection.class);
+			// String tdbName = dbName.toUpperCase();
+			// if (calciteConnection.getRootSchema().getSubSchema(tdbName) == null) {
+			// System.err.println("Adding DB to connection:" + dbName + "\t" + tdbName);
+			// calciteConnection.getRootSchema().add(tdbName, new
+			// SidewinderDatabaseSchema(engine, dbName));
+			// }
 			return true;
 		}
 	}
@@ -96,15 +98,18 @@ public class SqlApi {
 	@POST
 	public String queryResults(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String sql) {
 		try {
-			if (!checkAndAddSchema(dbName)) {
-				throw new NotFoundException("Database " + dbName + " not found");
-			}
-			Statement st = connection.createStatement();
+			// if (!checkAndAddSchema(dbName)) {
+			// throw new NotFoundException("Database " + dbName + " not found");
+			// }
+			Gson gson = new GsonBuilder().setPrettyPrinting().create();
+			Connection connection2 = DriverManager.getConnection(
+					"jdbc:calcite:schemaFactory=com.srotya.sidewinder.core.sql.calcite.SidewinderSchemaFactory;schema.db=db1");
+			Statement st = connection2.createStatement();
 			ResultSet resultSet = st.executeQuery(sql);
 			JsonArray convert = convert(resultSet);
-			Gson gson = new GsonBuilder().setPrettyPrinting().create();
 			resultSet.close();
 			st.close();
+			connection2.close();
 			return gson.toJson(convert);
 		} catch (NotFoundException e) {
 			throw e;

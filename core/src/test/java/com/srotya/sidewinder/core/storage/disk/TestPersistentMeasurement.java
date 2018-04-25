@@ -41,10 +41,12 @@ import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.FieldBucket;
+import com.srotya.sidewinder.core.storage.TestMeasurement;
+import com.srotya.sidewinder.core.storage.TimeField;
+import com.srotya.sidewinder.core.storage.ValueField;
 import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineValueWriter;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
@@ -68,7 +70,8 @@ public class TestPersistentMeasurement {
 	@BeforeClass
 	public static void beforeClass() throws IOException {
 		engine.configure(new HashMap<>(), bgTaskPool);
-		FieldBucket.compactionEnabled = false;
+		TimeField.compactionEnabled = false;
+		ValueField.compactionEnabled = false;
 	}
 
 	@Before
@@ -89,13 +92,12 @@ public class TestPersistentMeasurement {
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
 		Map<String, String> conf = new HashMap<>();
-		conf.put("disk.compression.class", ByzantineValueWriter.class.getName());
 		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
 		conf.put("malloc.ptrfile.increment", String.valueOf(2 * 1024));
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 100;
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addDataPoint("value" + i, tags, ts, 1L, false);
+			measurement.addPointLocked(MiscUtils.buildDataPoint(DBNAME, "m1", "value" + i, tags, ts, 1L), true);
 		}
 		measurement.close();
 
@@ -122,7 +124,7 @@ public class TestPersistentMeasurement {
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addDataPoint("value", tags, ts + i * 1000, 1L, false);
+			measurement.addPointLocked(TestMeasurement.build("value", tags, ts + i * 1000, 1L), false);
 		}
 		measurement.close();
 
@@ -137,7 +139,7 @@ public class TestPersistentMeasurement {
 		measurement.queryDataPoints("value", ts, ts + 1000 * LIMIT, filter, null, resultMap);
 		iterator = resultMap.iterator();
 		assertEquals(LIMIT, iterator.next().getDataPoints().size());
-		
+
 		measurement.close();
 	}
 
@@ -146,29 +148,32 @@ public class TestPersistentMeasurement {
 		final long ts = 1484788896586L;
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test2").setTagValue("2").build());
-		conf.put("disk.compression.class", ByzantineValueWriter.class.getName());
-		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		int defaultTimeBucketSize = 4096;
+		conf.put("malloc.file.max", String.valueOf(2 * defaultTimeBucketSize * defaultTimeBucketSize));
 		conf.put("buffer.size", String.valueOf(32768));
-		conf.put("malloc.ptrfile.increment", String.valueOf(1024));
-		FieldBucket.compactionRatio = 1.2;
-		FieldBucket.compactionEnabled = true;
-		measurement.configure(conf, null, 1024, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
-		int LIMIT = 7000;
+		conf.put("malloc.ptrfile.increment", String.valueOf(defaultTimeBucketSize));
+		TimeField.compactionRatio = 1.2;
+		ValueField.compactionRatio = 1.2;
+		TimeField.compactionEnabled = true;
+		ValueField.compactionEnabled = true;
+		String measurementName = "m2";
+		measurement.configure(conf, null, defaultTimeBucketSize, DBNAME, measurementName, indexDir, dataDir, metadata, bgTaskPool);
+		int LIMIT = 8000;
+		String valueFieldName = "value1";
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addDataPoint("value1", tags, ts + i, 1.2 * i, true, false);
+			measurement.addPointLocked(TestMeasurement.build(valueFieldName, tags, ts + i, 1.2 * i), false);
 		}
-		assertEquals(1, measurement.getTimeSeries().size());
-		FieldBucket series = measurement.getTimeSeries().iterator().next();
+		assertEquals(1, measurement.getSeriesList().size());
+		Series series = measurement.getSeriesList().iterator().next();
 		System.out.println("Series:" + series);
-		assertEquals(1, series.getBucketRawMap().size());
-		assertEquals(3, MiscUtils.bucketCounter(series));
-		assertEquals(3, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
-		assertEquals(1, series.getCompactionSet().size());
-		int maxDp = series.getBucketRawMap().values().stream().flatMap(v -> v.stream()).mapToInt(l -> l.getCount())
-				.max().getAsInt();
+		assertEquals(1, series.getBucketMap().size());
+		assertEquals(4, MiscUtils.bucketCounter(series));
+		int maxDp = series.getBucketMap().values().stream().flatMap(v -> v.values().stream())
+				.flatMap(f -> f.getWriters().stream()).mapToInt(l -> l.getCount()).max().getAsInt();
 		// check and read datapoint count before
 		Series seriesField = measurement.getSeriesField(tags);
-		List<DataPoint> queryDataPoints = seriesField.queryDataPoints(ts, ts + LIMIT + 1, null, "value1").get("value1");
+		List<DataPoint> queryDataPoints = seriesField
+				.queryDataPoints(measurement, Arrays.asList(valueFieldName), ts, ts + LIMIT + 1, null).get(valueFieldName);
 		assertEquals(LIMIT, queryDataPoints.size());
 		for (int i = 0; i < LIMIT; i++) {
 			DataPoint dp = queryDataPoints.get(i);
@@ -176,13 +181,12 @@ public class TestPersistentMeasurement {
 			assertEquals(i * 1.2, dp.getValue(), 0.01);
 		}
 		measurement.compact();
-		assertEquals(2, MiscUtils.bucketCounter(series));
-		assertEquals(2, series.getBucketRawMap().entrySet().iterator().next().getValue().size());
-		assertEquals(0, series.getCompactionSet().size());
-		assertTrue(maxDp <= series.getBucketRawMap().values().stream().flatMap(v -> v.stream())
-				.mapToInt(l -> l.getCount()).max().getAsInt());
+		assertEquals(3, MiscUtils.bucketCounter(series));
+		assertTrue(maxDp <= series.getBucketMap().values().stream().flatMap(v -> v.values().stream())
+				.flatMap(f -> f.getWriters().stream()).mapToInt(l -> l.getCount()).max().getAsInt());
 		// validate query after compaction
-		queryDataPoints = seriesField.queryDataPoints(ts, ts + LIMIT + 1, null, "value1").get("value1");
+		queryDataPoints = seriesField.queryDataPoints(measurement, Arrays.asList(valueFieldName), ts, ts + LIMIT + 1, null)
+				.get(valueFieldName);
 		assertEquals(LIMIT, queryDataPoints.size());
 		for (int i = 0; i < LIMIT; i++) {
 			DataPoint dp = queryDataPoints.get(i);
@@ -191,9 +195,10 @@ public class TestPersistentMeasurement {
 		}
 		measurement.close();
 		// test buffer recovery after compaction, validate count
-		measurement.configure(conf, null, 4096, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
-		series = measurement.getTimeSeries().iterator().next();
-		queryDataPoints = seriesField.queryDataPoints(ts, ts + LIMIT + 1, null, "value1").get("value1");
+		measurement.configure(conf, null, defaultTimeBucketSize, DBNAME, measurementName, indexDir, dataDir, metadata, bgTaskPool);
+		series = measurement.getSeriesList().iterator().next();
+		queryDataPoints = seriesField.queryDataPoints(measurement, Arrays.asList(valueFieldName), ts, ts + LIMIT + 1, null)
+				.get(valueFieldName);
 		assertEquals(LIMIT, queryDataPoints.size());
 		for (int i = 0; i < LIMIT; i++) {
 			DataPoint dp = queryDataPoints.get(i);
@@ -201,24 +206,27 @@ public class TestPersistentMeasurement {
 			assertEquals(i * 1.2, dp.getValue(), 0.01);
 		}
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addDataPoint("value1", tags, LIMIT + ts + i, 1.2, false, false);
+			measurement.addPointLocked(TestMeasurement.build(valueFieldName, tags, LIMIT + ts + i, 1.2), false);
 		}
-		series.getBucketRawMap().entrySet().iterator().next().getValue().stream()
+		series.getBucketMap().entrySet().iterator().next().getValue().values().stream()
+				.flatMap(f -> f.getWriters().stream())
 				.map(v -> "" + v.getCount() + ":" + v.isReadOnly() + ":" + (int) v.getRawBytes().get(1))
 				.forEach(System.out::println);
 		measurement.close();
 		// test recovery again
-		measurement.configure(conf, null, 4096, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
-		series = measurement.getTimeSeries().iterator().next();
+		measurement.configure(conf, null, defaultTimeBucketSize, DBNAME, measurementName, indexDir, dataDir, metadata, bgTaskPool);
+		series = measurement.getSeriesList().iterator().next();
 		seriesField = measurement.getSeriesField(tags);
-		queryDataPoints = seriesField.queryDataPoints(ts - 1, ts + 2 + (LIMIT * 2), null, "value1").get("value1");
+		queryDataPoints = seriesField
+				.queryDataPoints(measurement, Arrays.asList(valueFieldName), ts - 100, ts + 2 + (LIMIT * 2), null)
+				.get(valueFieldName);
 		assertEquals(LIMIT * 2, queryDataPoints.size());
 		for (int i = 0; i < LIMIT * 2; i++) {
 			DataPoint dp = queryDataPoints.get(i);
 			assertEquals("Error:" + i + " " + (dp.getTimestamp() - ts - i), ts + i, dp.getTimestamp());
 		}
 	}
-	
+
 	@Test
 	public void testHyperThreading() throws Exception {
 		measurement.configure(conf, engine, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
@@ -235,7 +243,7 @@ public class TestPersistentMeasurement {
 				for (int j = 0; j < LIMIT; j++) {
 					try {
 						long timestamp = t + j * 1000;
-						measurement.addDataPoint("vf1", tags, timestamp, j, false);
+						measurement.addPointLocked(TestMeasurement.build("vf1", tags, timestamp, j), false);
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
@@ -247,8 +255,9 @@ public class TestPersistentMeasurement {
 		es.awaitTermination(10, TimeUnit.SECONDS);
 
 		measurement.configure(conf, engine, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
-		Series s = measurement.getOrCreateSeriesFieldMap(tags, false);
-		List<DataPoint> dps = s.queryDataPoints(t1 - 100, t1 + 1000_0000, null, "vf1").get("vf1");
+		Series s = measurement.getOrCreateSeries(tags, false);
+		List<DataPoint> dps = s.queryDataPoints(measurement, Arrays.asList("vf1"), t1 - 100, t1 + 1000_0000, null)
+				.get("vf1");
 		assertEquals(LIMIT * nThreads * 2, dps.size(), 10);
 		measurement.close();
 	}

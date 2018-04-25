@@ -15,32 +15,24 @@
  */
 package com.srotya.sidewinder.core.sql.calcite;
 
-import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaFactory;
 import org.apache.calcite.schema.SchemaPlus;
-
-import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
  * @author ambud
  */
 public class SidewinderSchemaFactory implements SchemaFactory {
 
-	private StorageEngine engine;
-
-	public SidewinderSchemaFactory(StorageEngine engine, ScheduledExecutorService bgTasks) throws IOException {
-		this.engine = engine;
+	public SidewinderSchemaFactory() {
 	}
 
 	@Override
 	public Schema create(SchemaPlus parentSchema, String name, Map<String, Object> operand) {
-		System.out.println(operand);
-		String dbName = (String) operand.get("db");
-		return new SidewinderDatabaseSchema(engine, dbName);
+//		System.out.println("Dbname:" + dbName+" schema:"+name+" parent:"+parentSchema.getName());
+		return new SidewinderDatabaseSchema(null, parentSchema);
 	}
-
+	
 }

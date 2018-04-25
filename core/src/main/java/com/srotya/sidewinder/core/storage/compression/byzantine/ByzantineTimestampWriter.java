@@ -212,7 +212,7 @@ public class ByzantineTimestampWriter implements TimeWriter {
 	}
 
 	@Override
-	public void makeReadOnly() {
+	public void makeReadOnly(boolean recovery) {
 		readOnly = true;
 	}
 

@@ -32,6 +32,7 @@ import com.codahale.metrics.ScheduledReporter;
 import com.codahale.metrics.Timer;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
@@ -56,9 +57,9 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 		if (counters != null) {
 			for (Entry<String, Counter> entry : counters.entrySet()) {
 				try {
-					engine.writeDataPoint(_INTERNAL, name, entry.getKey(),
+					engine.writeDataPointLocked(MiscUtils.buildDataPoint(_INTERNAL, name, entry.getKey(),
 							Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-							System.currentTimeMillis(), entry.getValue().getCount(), true);
+							System.currentTimeMillis(), entry.getValue().getCount()), true);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -67,9 +68,9 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 		if (meters != null) {
 			for (Entry<String, Meter> entry : meters.entrySet()) {
 				try {
-					engine.writeDataPoint(_INTERNAL, name, entry.getKey(),
+					engine.writeDataPointLocked(MiscUtils.buildDataPoint(_INTERNAL, name, entry.getKey(),
 							Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-							System.currentTimeMillis(), entry.getValue().getCount(), true);
+							System.currentTimeMillis(), entry.getValue().getCount()), true);
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
@@ -78,9 +79,9 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 		if (timers != null) {
 			for (Entry<String, Timer> entry : timers.entrySet()) {
 				try {
-					engine.writeDataPoint(_INTERNAL, name, entry.getKey(),
+					engine.writeDataPointLocked(MiscUtils.buildDataPoint(_INTERNAL, name, entry.getKey(),
 							Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-							System.currentTimeMillis(), entry.getValue().getSnapshot().getMean(), true);
+							System.currentTimeMillis(), entry.getValue().getSnapshot().getMean()), true);
 				} catch (IOException e) {
 					e.printStackTrace();
 				}

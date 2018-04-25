@@ -28,11 +28,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
@@ -50,7 +48,6 @@ import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
-import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -205,23 +202,21 @@ public class PersistentMeasurement implements Measurement {
 			ByteString key = new ByteString(seriesId);
 
 			Integer seriesIdx = seriesMap.get(key);
-			Series fieldMap = null;
+			Series series = null;
 			if (seriesIdx == null) {
 				seriesIdx = Integer.parseInt(split[3], 16);
-				fieldMap = new Series(this, new ByteString(seriesId), seriesIdx);
+				series = new Series(new ByteString(seriesId), seriesIdx);
 				seriesMap.put(key, seriesIdx);
-				seriesList.add(seriesIdx, fieldMap);
+				seriesList.add(seriesIdx, series);
 			} else {
-				fieldMap = seriesList.get(seriesIdx);
+				series = seriesList.get(seriesIdx);
 			}
-			// fieldMap.getOrCreateSeries(Integer.parseInt(timeBucketSize), valueField,
-			// Boolean.parseBoolean(isFp),
-			// this);
+			series.loadSeriesMetadata(valueField, Boolean.parseBoolean(isFp));
 			if (enableMetricsCapture) {
 				metricsTimeSeriesCounter.inc();
 			}
 			logger.fine("Intialized Timeseries:" + seriesId);
-		} catch (NumberFormatException | IOException e) {
+		} catch (NumberFormatException e) {
 			logger.log(Level.SEVERE, "Failed to load series:" + entry, e);
 		}
 	}
@@ -248,11 +243,11 @@ public class PersistentMeasurement implements Measurement {
 		for (Entry<ByteString, List<Entry<Integer, BufferObject>>> entry : seriesBuffers.entrySet()) {
 			ByteString[] split = entry.getKey().split(SERIESID_SEPARATOR);
 			Integer seriesId = seriesMap.get(new ByteString(split[0]));
-			Series ts = seriesList.get(seriesId);
+			Series series = seriesList.get(seriesId);
 			List<Entry<Integer, BufferObject>> list = entry.getValue();
 			if (list != null) {
 				try {
-					ts.get(split[1].toString()).loadBucketMap(list);
+					series.loadBuffers(this, split[1].toString(), list, this.getConf());
 				} catch (Exception e) {
 					logger.log(Level.SEVERE, "Failed to load bucket map for:" + entry.getKey() + ":" + measurementName,
 							e);

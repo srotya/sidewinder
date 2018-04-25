@@ -106,10 +106,9 @@ public class GorillaValueWriter implements ValueWriter {
 	}
 
 	@Override
-	public void makeReadOnly() throws IOException {
+	public void makeReadOnly(boolean recovery) throws IOException {
 		// this writer is always readonly
-		if (compressor != null) {
-//			compressor.close();
+		if (compressor != null && !recovery) {
 			updateCount();
 			// compute md5 and store
 			try {
@@ -168,6 +167,11 @@ public class GorillaValueWriter implements ValueWriter {
 	@Override
 	public LinkedByteString getBufferId() {
 		return bufferId;
+	}
+
+	@Override
+	public int getStartOffset() {
+		return startOffset;
 	}
 
 }

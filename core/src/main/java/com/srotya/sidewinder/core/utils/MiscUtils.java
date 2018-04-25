@@ -59,7 +59,7 @@ public class MiscUtils {
 	}
 
 	public static long bucketCounter(Series series) {
-		return series.getBucketFieldMap().entrySet().stream().mapToInt(e -> e.getValue().size()).sum();
+		return series.getBucketMap().entrySet().stream().map(e->e.getValue().values()).flatMap(fl->fl.stream()).mapToInt(f->f.getWriterCount()).sum();
 	}
 
 	public static String[] splitAndNormalizeString(String input) {

@@ -35,6 +35,7 @@ import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.RollOverException;
 import com.srotya.sidewinder.core.storage.compression.TimeWriter;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 import io.netty.handler.codec.UnsupportedMessageTypeException;
 
@@ -55,8 +56,8 @@ public class TimeField implements Field {
 	private static final Logger logger = Logger.getLogger(TimeField.class.getName());
 	private List<TimeWriter> writerList;
 	private ByteString fieldId;
-	public static boolean compactionEnabled;
-	public static double compactionRatio;
+	public static boolean compactionEnabled = false;
+	public static double compactionRatio = 0.8;
 	public static Class<TimeWriter> compressionClass = CompressionFactory.getTimeClassByName("byzantine");
 	public static Class<TimeWriter> compactionClass = CompressionFactory.getTimeClassByName("gorilla");
 	private int tsBucket;
@@ -152,11 +153,10 @@ public class TimeField implements Field {
 			if (entry.getBufferId() == null) {
 				throw new IOException("Buffer id can't be read:" + " series:" + getFieldId());
 			}
-			// logger.fine(() -> "Loading bucketmap:" + fieldId + "\t" + tsBucket + "
-			// bufferid:"
-			// + entry.getValue().getBufferId());
+			logger.fine(() -> "Loading bucketmap:" + fieldId + "\t" + tsBucket + "bufferid:" + entry.getBufferId());
 			writer.setBufferId(entry.getBufferId());
 			writer.configure(slice, false, START_OFFSET);
+			// TODO Potential bug
 			writerList.add(writer);
 			logger.fine(() -> "Loaded bucketmap:" + fieldId + "\t" + " bufferid:" + entry.getBufferId());
 		}
@@ -173,7 +173,7 @@ public class TimeField implements Field {
 		});
 		for (int i = 0; i < writerList.size() - 1; i++) {
 			TimeWriter writer = writerList.get(i);
-			writer.makeReadOnly();
+			writer.makeReadOnly(true);
 		}
 	}
 
@@ -298,13 +298,14 @@ public class TimeField implements Field {
 	 * read-only therefore performing operations on them does not impact.
 	 * 
 	 * @param functions
+	 *            optional functions to execute BEFORE cleaning up list
 	 * @return returns null if nothing to compact or empty list if all compaction
 	 *         attempts fail
 	 * @throws IOException
 	 */
 	@SafeVarargs
-	public final List<TimeWriter> compact(Measurement measurement, Lock writeLock,
-			Consumer<List<TimeWriter>>... functions) throws IOException {
+	public final List<Writer> compact(Measurement measurement, Lock writeLock, Consumer<List<? extends Writer>>... functions)
+			throws IOException {
 		if (StorageEngine.ENABLE_METHOD_METRICS) {
 			// ctx = timerCompaction.time();
 		}
@@ -315,7 +316,7 @@ public class TimeField implements Field {
 		if (writerList.size() <= 1) {
 			return null;
 		}
-		List<TimeWriter> compactedWriter = new ArrayList<>();
+		List<Writer> compactedWriter = new ArrayList<>();
 		int id = CompressionFactory.getIdByTimeClass(compactionClass);
 		List<TimeWriter> list = writerList;
 		int listSize = list.size() - 1;
@@ -349,7 +350,7 @@ public class TimeField implements Field {
 					compactedPoints++;
 				}
 			}
-			writer.makeReadOnly();
+			writer.makeReadOnly(false);
 		} catch (RollOverException e) {
 			logger.warning("Buffer filled up; bad compression ratio; not compacting");
 			return null;
@@ -376,11 +377,11 @@ public class TimeField implements Field {
 		buf.put(rawBytes);
 		writer.setBufferId(bufferId);
 		writer.configure(buf, false, START_OFFSET);
-		writer.makeReadOnly();
+		writer.makeReadOnly(false);
 
 		writeLock.lock();
 		if (functions != null) {
-			for (Consumer<List<TimeWriter>> function : functions) {
+			for (Consumer<List<? extends Writer>> function : functions) {
 				function.accept(list);
 			}
 		}
@@ -449,6 +450,16 @@ public class TimeField implements Field {
 			list.add(i, writer);
 		}
 		return garbageCollectWriters;
+	}
+
+	@Override
+	public int getWriterCount() {
+		return writerList.size();
+	}
+
+	@Override
+	public List<? extends Writer> getWriters() {
+		return writerList;
 	}
 
 }

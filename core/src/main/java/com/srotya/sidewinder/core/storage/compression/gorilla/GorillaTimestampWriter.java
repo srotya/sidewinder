@@ -106,9 +106,10 @@ public class GorillaTimestampWriter implements TimeWriter {
 	}
 
 	@Override
-	public void makeReadOnly() throws IOException {
+	public void makeReadOnly(boolean recovery) throws IOException {
 		// this writer is always readonly
-		if (compressor != null) {
+		full = true;
+		if (compressor != null && !recovery) {
 			compressor.close();
 			updateCount();
 			// compute md5 and store

@@ -23,6 +23,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -160,6 +161,29 @@ public interface StorageEngine {
 				null);
 	}
 
+	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
+			List<String> valueFieldNames, List<Predicate> valuePredicate, boolean regex, long startTime, long endTime,
+			TagFilter tagFilter) throws IOException {
+		ConcurrentHashMap<ByteString, FieldReaderIterator[]> map = new ConcurrentHashMap<>();
+
+		Measurement measurement = getMeasurementMap().get(dbName).get(measurementName);
+		measurement.queryReaders(valueFieldNames, valuePredicate, regex, startTime, endTime, tagFilter, map);
+
+		return map;
+	}
+
+	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
+			List<String> valueFieldNames, boolean regex, long startTime, long endTime, TagFilter tagFilter)
+			throws IOException {
+		return queryReaders(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, tagFilter);
+	}
+	
+	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
+			List<String> valueFieldNames, boolean regex, long startTime, long endTime)
+			throws IOException {
+		return queryReaders(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, null);
+	}
+
 	/**
 	 * List measurements containing the supplied keyword
 	 * 
@@ -263,7 +287,7 @@ public interface StorageEngine {
 	 * @return tags for the supplied parameters
 	 * @throws Exception
 	 */
-	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName, String valueFieldName)
+	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName)
 			throws Exception {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
@@ -569,7 +593,7 @@ public interface StorageEngine {
 			throw INVALID_DATAPOINT_EXCEPTION;
 		}
 	}
-
+	
 	public int getDefaultTimebucketSize();
 
 	public Counter getCounter();
@@ -586,13 +610,6 @@ public interface StorageEngine {
 
 		ValueField.compactionClass = CompressionFactory.getValueClassByName(compactionCodec);
 		ValueField.compressionClass = CompressionFactory.getValueClassByName(compressionCodec);
-	}
-
-	public default void setCompactionConfig(Map<String, String> conf) {
-		FieldBucket.compactionEnabled = Boolean.parseBoolean(
-				conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, StorageEngine.DEFAULT_COMPACTION_ENABLED));
-		FieldBucket.compactionRatio = Double
-				.parseDouble(conf.getOrDefault(StorageEngine.COMPACTION_RATIO, StorageEngine.DEFAULT_COMPACTION_RATIO));
 	}
 
 }

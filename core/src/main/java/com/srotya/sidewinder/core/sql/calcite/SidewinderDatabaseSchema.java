@@ -18,9 +18,14 @@ package com.srotya.sidewinder.core.sql.calcite;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.calcite.jdbc.CalciteSchema;
+import org.apache.calcite.schema.Schema;
+import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.schema.Table;
 import org.apache.calcite.schema.impl.AbstractSchema;
 
@@ -35,21 +40,28 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 public class SidewinderDatabaseSchema extends AbstractSchema {
 
 	private static final Logger logger = Logger.getLogger(SidewinderDatabaseSchema.class.getName());
-	private String dbName;
 	private StorageEngine engine;
+	private SchemaPlus parentSchema;
 
-	public SidewinderDatabaseSchema(StorageEngine engine, String dbName) {
+	public SidewinderDatabaseSchema(StorageEngine engine, SchemaPlus parentSchema) {
 		this.engine = engine;
-		this.dbName = dbName;
+		this.parentSchema = parentSchema;
+		// System.out.println("Schema initialized:" + parentSchema.getTableNames());
+		for (String dbName : Arrays.asList("db1")) {
+			parentSchema.add(dbName.toUpperCase(), this);
+		}
 	}
+
+	// select * from db1.m1
 
 	@Override
 	protected Map<String, Table> getTableMap() {
+		System.out.println("Get schema");
 		Map<String, Table> tableMap = new HashMap<>();
 		try {
 			MockMeasurement measurement = new MockMeasurement(1024, 100);
 			measurement.setTimebucket(4096);
-			Series series = new Series(measurement, new ByteString("series"), 0);
+			Series series = new Series(new ByteString("series"), 0);
 			long ts = System.currentTimeMillis();
 			for (int i = 0; i < 1000; i++) {
 				Point dp = Point.newBuilder().setTimestamp(ts + i * 1000).addValueFieldName("F").addFp(false)

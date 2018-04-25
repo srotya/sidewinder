@@ -52,7 +52,7 @@ public class TestGorillaCompression {
 		for (int i = 0; i < 100; i++) {
 			writer.add(ts + i * 100);
 		}
-		writer.makeReadOnly();
+		writer.makeReadOnly(false);
 		Reader reader = writer.getReader();
 		assertEquals(100, reader.getCount());
 		for (int i = 0; i < 100; i++) {
@@ -68,7 +68,7 @@ public class TestGorillaCompression {
 		for (int i = 0; i < 100; i++) {
 			writer.add(i * 1.1);
 		}
-		writer.makeReadOnly();
+		writer.makeReadOnly(false);
 		Reader reader = writer.getReader();
 		assertEquals(100, reader.getCount());
 		for (int i = 0; i < 100; i++) {
@@ -86,7 +86,7 @@ public class TestGorillaCompression {
 		for (int i = 0; i < 100; i++) {
 			writer.add(ts + i * 100);
 		}
-		writer.makeReadOnly();
+		writer.makeReadOnly(false);
 		ByteBuffer rawBytes = writer.getRawBytes();
 
 		writer = new GorillaTimestampWriter();

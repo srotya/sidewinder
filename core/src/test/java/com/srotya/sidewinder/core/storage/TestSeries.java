@@ -43,18 +43,18 @@ public class TestSeries {
 
 	@Test
 	public void testInit() throws IOException {
-		Series series = new Series(measurement, new ByteString("idasdasda"), 0);
+		Series series = new Series(new ByteString("idasdasda"), 0);
 		assertNotNull(series.getLock());
 		assertNotNull(series.getReadLock());
 		assertNotNull(series.getWriteLock());
-		assertNotNull(series.getBucketFieldMap());
+		assertNotNull(series.getBucketMap());
 		assertNotNull(series.getFieldTypeMap());
 	}
 
 	@Test
 	public void testAddAndReadPointsAsIndividualSeries() throws IOException {
 		measurement.setTimebucket(4096);
-		Series series = new Series(measurement, new ByteString("idasdasda"), 0);
+		Series series = new Series(new ByteString("idasdasda"), 0);
 		long ts = 1497720652566L;
 		for (int i = 0; i < 1000; i++) {
 			Point dp = Point.newBuilder().setTimestamp(ts + i * 1000).addValueFieldName("f1").addFp(false).addValue(i)
@@ -104,7 +104,7 @@ public class TestSeries {
 	@Test
 	public void testAddAndReadPointsAsTuples() throws IOException {
 		measurement.setTimebucket(4096);
-		Series series = new Series(measurement, new ByteString("idasdasda"), 0);
+		Series series = new Series(new ByteString("idasdasda"), 0);
 		long ts = 1497720652566L;
 		for (int i = 0; i < 1000; i++) {
 			Point dp = Point.newBuilder().setTimestamp(ts + i * 1000).addValueFieldName("f1").addFp(false).addValue(i)
@@ -144,7 +144,7 @@ public class TestSeries {
 	@Test
 	public void testInvalidFields() throws IOException {
 		measurement.setTimebucket(4096);
-		Series series = new Series(measurement, new ByteString("idasdasda"), 0);
+		Series series = new Series(new ByteString("idasdasda"), 0);
 		long ts = 1497720652566L;
 		for (int i = 0; i < 1000; i++) {
 			Point dp = Point.newBuilder().setTimestamp(ts + i * 1000).addValueFieldName("f1").addFp(false).addValue(i)
@@ -163,5 +163,5 @@ public class TestSeries {
 			assertEquals(0, queryTuples.get(i)[3]);
 		}
 	}
-	
+
 }

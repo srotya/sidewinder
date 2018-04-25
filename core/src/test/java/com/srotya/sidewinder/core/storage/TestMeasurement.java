@@ -26,10 +26,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -75,7 +77,8 @@ public class TestMeasurement {
 
 	@BeforeClass
 	public static void beforeClass() throws IOException {
-		FieldBucket.compactionEnabled = false;
+		TimeField.compactionEnabled = false;
+		ValueField.compactionEnabled = false;
 	}
 
 	@AfterClass
@@ -130,13 +133,13 @@ public class TestMeasurement {
 	}
 
 	public static Point build(String valueFieldName, List<Tag> tags, long ts, long v) {
-		return Point.newBuilder().setDbName("").setMeasurementName("").addAllTags(tags).setTimestamp(ts).addValue(v)
-				.addFp(false).build();
+		return Point.newBuilder().setDbName("").setMeasurementName("").addAllTags(tags).setTimestamp(ts)
+				.addValueFieldName(valueFieldName).addValue(v).addFp(false).build();
 	}
 
 	public static Point build(String valueFieldName, List<Tag> tags, long ts, double v) {
 		return Point.newBuilder().setDbName("").setMeasurementName("").addAllTags(tags).setTimestamp(ts)
-				.addValue(Double.doubleToLongBits(v)).addFp(true).build();
+				.addValueFieldName(valueFieldName).addValue(Double.doubleToLongBits(v)).addFp(true).build();
 	}
 
 	@Test
@@ -216,7 +219,7 @@ public class TestMeasurement {
 		for (int i = 0; i < LIMIT; i++) {
 			measurement.addPointLocked(build("value1", tags, ts + i * 100, 1.2), false);
 		}
-		measurement.collectGarbage(null);
+		// measurement.collectGarbage(null);
 		System.err.println("Gc complete");
 		measurement.compact();
 		measurement.getSeriesList().iterator().next();
@@ -231,28 +234,30 @@ public class TestMeasurement {
 		final long ts = 1484788896586L;
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test2").setTagValue("2").build());
-		conf.put("disk.compression.class", ByzantineValueWriter.class.getName());
 		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
 		conf.put("malloc.ptrfile.increment", String.valueOf(1024));
-		conf.put("compaction.ratio", "1.2");
-		FieldBucket.compactionEnabled = true;
-		measurement.configure(conf, null, 1024, DBNAME, "m2", indexDir, dataDir, metadata, bgTaskPool);
-		int LIMIT = 7000;
+		TimeField.compactionEnabled = true;
+		ValueField.compactionEnabled = true;
+		TimeField.compactionRatio = 1.2;
+		ValueField.compactionRatio = 1.2;
+		measurement.configure(conf, null, 1024, DBNAME, "m4", indexDir, dataDir, metadata, bgTaskPool);
+		int LIMIT = 12000;
 		for (int i = 0; i < LIMIT; i++) {
 			measurement.addPointLocked(build("value1", tags, ts + i, 1.2 * i), false);
 		}
 		assertEquals(1, measurement.getSeriesList().size());
 		Series series = measurement.getSeriesList().iterator().next();
 		System.out.println("Series:" + series);
-		assertEquals(1, series.getBucketFieldMap().size());
-		assertEquals(3, MiscUtils.bucketCounter(series));
-		assertEquals(3, series.getBucketFieldMap().entrySet().iterator().next().getValue().size());
-		int maxDp = 0;
-//		series.getBucketFieldMap().values().stream().flatMap(v -> v.stream()).mapToInt(l -> l.getCount())
-//				.max().getAsInt();
+		assertEquals(1, series.getBucketMap().size());
+		assertEquals(5, MiscUtils.bucketCounter(series));
+		assertEquals(2, series.getBucketMap().entrySet().iterator().next().getValue().size());
+		// int maxDp = series.getBucketFieldMap().values().stream().flatMap(v ->
+		// v.stream()).mapToInt(l -> l.getCount())
+		// .max().getAsInt();
 		// check and read datapoint count before
 		Series seriesField = measurement.getSeriesField(tags);
-		List<DataPoint> queryDataPoints = seriesField.queryDataPoints(ts, ts + LIMIT + 1, null, "value1").get("value1");
+		List<DataPoint> queryDataPoints = seriesField
+				.queryDataPoints(measurement, Arrays.asList("value1"), ts, ts + LIMIT + 1, null).get("value1");
 		assertEquals(LIMIT, queryDataPoints.size());
 		for (int i = 0; i < LIMIT; i++) {
 			DataPoint dp = queryDataPoints.get(i);
@@ -261,13 +266,15 @@ public class TestMeasurement {
 		}
 		measurement.compact();
 
-		assertEquals(2, MiscUtils.bucketCounter(series));
-		assertEquals(2, series.getBucketFieldMap().entrySet().iterator().next().getValue().size());
-		assertTrue(maxDp <= series.getBucketFieldMap().values().stream().flatMap(v -> v.stream())
-				.mapToInt(l -> l.getCount()).max().getAsInt());
+		assertEquals(3, MiscUtils.bucketCounter(series));
+		assertEquals(2, series.getBucketMap().entrySet().iterator().next().getValue().size());
+		// assertTrue(maxDp <= series.getBucketFieldMap().values().stream().flatMap(v ->
+		// v.stream())
+		// .mapToInt(l -> l.getCount()).max().getAsInt());
 		// validate query after compaction
 		seriesField = measurement.getSeriesField(tags);
-		queryDataPoints = seriesField.queryDataPoints(ts, ts + LIMIT + 1, null, "value1").get("value1");
+		queryDataPoints = seriesField.queryDataPoints(measurement, Arrays.asList("value1"), ts, ts + LIMIT + 1, null)
+				.get("value1");
 		assertEquals(LIMIT, queryDataPoints.size());
 		for (int i = 0; i < LIMIT; i++) {
 			DataPoint dp = queryDataPoints.get(i);
@@ -278,7 +285,7 @@ public class TestMeasurement {
 	}
 
 	@Test
-	public void testMemoryMapFree() throws IOException, InterruptedException {
+	public void testGCMemoryMapFree() throws IOException, InterruptedException {
 		final long ts = 1484788896586L;
 		DiskMalloc.debug = true;
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
@@ -300,19 +307,23 @@ public class TestMeasurement {
 			}
 		}
 
-		Series s = measurement.getOrCreateSeriesFieldMap(tags, false);
+		Series s = measurement.getOrCreateSeries(tags, false);
 		// System.out.println(measurement.getOrCreateSeriesFieldMap("value0", tags, 512,
 		// false,
 		// map).getBucketRawMap().size());
-//		measurement.collectGarbage(null);
+		measurement.collectGarbage(null);
 		for (int k = 0; k < 2; k++) {
-			List<DataPoint> dps = s.queryDataPoints(ts, ts + LIMIT * 10000, null, "value" + k).get("value" + k);
+			List<DataPoint> dps = s
+					.queryDataPoints(measurement, Arrays.asList("value" + k), ts, ts + LIMIT * 10000, null)
+					.get("value" + k);
 			assertEquals(10032, dps.size());
 		}
 		System.gc();
 		Thread.sleep(200);
 		for (int k = 0; k < 2; k++) {
-			List<DataPoint> dps = s.queryDataPoints(ts, ts + LIMIT * 10000, null, "value" + k).get("value" + k);
+			List<DataPoint> dps = s
+					.queryDataPoints(measurement, Arrays.asList("value" + k), ts, ts + LIMIT * 10000, null)
+					.get("value" + k);
 			assertEquals(10032, dps.size());
 		}
 		measurement.close();
@@ -340,8 +351,9 @@ public class TestMeasurement {
 		for (int i = 0; i < 100; i++) {
 			measurement.addPointLocked(build("vf1", tags, t + i * 1000, i), false);
 		}
-		Series s = measurement.getOrCreateSeriesFieldMap(tags, false);
-		List<DataPoint> dps = s.queryDataPoints(t, t + 1000 * 100, null, "vf1").get("vf1");
+		Series s = measurement.getOrCreateSeries(tags, false);
+		List<DataPoint> dps = s.queryDataPoints(measurement, Arrays.asList("vf1"), t, t + 1000 * 100, null).get("vf1");
+
 		assertEquals(100, dps.size());
 		for (int i = 0; i < 100; i++) {
 			DataPoint dp = dps.get(i);
@@ -357,10 +369,12 @@ public class TestMeasurement {
 			assertEquals(t + i * 1000, dp.getTimestamp());
 			assertEquals(i, dp.getLongValue());
 		}
-		LinkedHashMap<ValueReader, Boolean> readers = new LinkedHashMap<>();
-		// measurement.queryReaders("vf1", t, t + 1000 * 100, readers);
-		for (ValueReader reader : readers.keySet()) {
-			assertEquals(100, reader.getCount());
+		ConcurrentMap<ByteString, FieldReaderIterator[]> readers = new ConcurrentHashMap<>();
+		measurement.queryReaders(Arrays.asList("vf1"), null, false, t, t + 1000 * 100, null, readers);
+		assertEquals(1, readers.size());
+		for (Entry<ByteString, FieldReaderIterator[]> entry : readers.entrySet()) {
+			assertEquals(100, entry.getValue()[0].getReaders().get(0).getCount());
+			assertEquals(100, entry.getValue()[1].getReaders().get(0).getCount());
 		}
 		measurement.close();
 	}
@@ -399,11 +413,11 @@ public class TestMeasurement {
 			es.shutdown();
 			wait.set(true);
 			es.awaitTermination(100, TimeUnit.SECONDS);
-			Series s = measurement.getOrCreateSeriesFieldMap(tags, false);
-			FieldBucket ts = s.getOrCreateSeriesLocked(valueFieldName, 4096, false, measurement);
-			List<DataPoint> dps = s.queryDataPoints(t1 - 120, t1 + 1000_000, null, valueFieldName).get(valueFieldName);
+			Series s = measurement.getOrCreateSeries(tags, false);
+			List<DataPoint> dps = s
+					.queryDataPoints(measurement, Arrays.asList(valueFieldName), t1 - 120, t1 + 1000_000, null)
+					.get(valueFieldName);
 			assertEquals(200, dps.size());
-			assertEquals(1, MiscUtils.bucketCounter(ts));
 			measurement.close();
 		}
 	}
@@ -442,8 +456,9 @@ public class TestMeasurement {
 			es.shutdown();
 			wait.set(true);
 			es.awaitTermination(10, TimeUnit.SECONDS);
-			Series s = measurement.getOrCreateSeriesFieldMap(tags, false);
-			List<DataPoint> dps = s.queryDataPoints(t1 - 100, t1 + 1000_0000, null, "vf1").get("vf1");
+			Series s = measurement.getOrCreateSeries(tags, false);
+			List<DataPoint> dps = s.queryDataPoints(measurement, Arrays.asList("vf1"), t1 - 100, t1 + 1000_0000, null)
+					.get("vf1");
 			assertEquals(LIMIT * 2, dps.size(), 10);
 			measurement.close();
 		}

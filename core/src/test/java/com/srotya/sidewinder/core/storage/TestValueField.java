@@ -26,7 +26,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
-import com.srotya.sidewinder.core.storage.compression.ValueWriter;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.compression.byzantine.NoLock;
 
 public class TestValueField {
@@ -93,7 +93,7 @@ public class TestValueField {
 			field.addDataPoint(measurement, ts + i * 1000);
 		}
 		assertEquals(3, field.getRawWriterList().size());
-		List<ValueWriter> compact = field.compact(measurement, new NoLock(), t -> {
+		List<Writer> compact = field.compact(measurement, new NoLock(), t -> {
 		});
 		assertEquals(2, compact.size());
 		assertEquals(2, field.getRawWriterList().size());
@@ -108,7 +108,7 @@ public class TestValueField {
 			field.addDataPoint(measurement, Double.doubleToLongBits(i*1.1));
 		}
 		assertEquals(3, field.getRawWriterList().size());
-		List<ValueWriter> compact = field.compact(measurement, new NoLock(), t -> {
+		List<Writer> compact = field.compact(measurement, new NoLock(), t -> {
 		});
 		assertEquals(2, compact.size());
 		assertEquals(2, field.getRawWriterList().size());

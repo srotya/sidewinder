@@ -25,5 +25,7 @@ public interface ValueWriter extends Writer {
 	public default void add(double value) throws IOException {
 		add(Double.doubleToLongBits(value));
 	}
+	
+	public int getStartOffset();
 
 }

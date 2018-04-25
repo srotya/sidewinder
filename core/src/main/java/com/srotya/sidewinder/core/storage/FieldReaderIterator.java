@@ -52,8 +52,8 @@ public class FieldReaderIterator {
 		return readers;
 	}
 
-	public static long[] extracted(int aryLength, FieldReaderIterator[] iterators) throws IOException {
-		long[] tuple = new long[aryLength];
+	public static long[] extracted(FieldReaderIterator[] iterators) throws IOException {
+		long[] tuple = new long[iterators.length];
 		for (int i = 0; i < iterators.length; i++) {
 			if (iterators[i] != null) {
 				tuple[i] = iterators[i].next();

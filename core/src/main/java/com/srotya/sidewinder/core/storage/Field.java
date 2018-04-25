@@ -3,11 +3,13 @@ package com.srotya.sidewinder.core.storage;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.locks.Lock;
+import java.util.function.Consumer;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.ValueWriter;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 public interface Field {
 
@@ -16,6 +18,13 @@ public interface Field {
 	public void loadBucketMap(List<BufferObject> bufferEntries) throws IOException;
 
 	public FieldReaderIterator queryReader(Predicate predicate, Lock readLock) throws IOException;
+
+	public int getWriterCount();
+	
+	public List<? extends Writer> getWriters();
+
+	public List<Writer> compact(Measurement measurement, Lock writeLock,
+			@SuppressWarnings("unchecked") Consumer<List<? extends Writer>>... functions) throws IOException;
 
 	/**
 	 * Get {@link Reader} with time and value filter predicates pushed-down to it.
