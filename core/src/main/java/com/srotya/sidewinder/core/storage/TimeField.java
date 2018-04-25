@@ -57,8 +57,8 @@ public class TimeField implements Field {
 	private ByteString fieldId;
 	public static boolean compactionEnabled;
 	public static double compactionRatio;
-	public static Class<TimeWriter> compressionClass;
-	public static Class<TimeWriter> compactionClass;
+	public static Class<TimeWriter> compressionClass = CompressionFactory.getTimeClassByName("byzantine");
+	public static Class<TimeWriter> compactionClass = CompressionFactory.getTimeClassByName("gorilla");
 	private int tsBucket;
 
 	/**
@@ -207,7 +207,7 @@ public class TimeField implements Field {
 			readers.add(getReader(writer, predicate));
 		}
 		readLock.unlock();
-		return new FieldReaderIterator(readers);
+		return new FieldReaderIterator().addReader(readers);
 	}
 
 	/**

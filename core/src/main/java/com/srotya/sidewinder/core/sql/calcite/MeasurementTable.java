@@ -35,42 +35,45 @@ import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.schema.FilterableTable;
+import org.apache.calcite.schema.ProjectableFilterableTable;
 import org.apache.calcite.schema.Schema.TableType;
 import org.apache.calcite.schema.impl.AbstractTable;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
 
 import com.srotya.sidewinder.core.rpc.Tag;
-import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.FieldReaderIterator;
+import com.srotya.sidewinder.core.storage.Measurement;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.storage.compression.ValueReader;
+import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 
 /**
  * @author ambud
  */
-public class MeasurementTable extends AbstractTable implements FilterableTable {
+public class MeasurementTable extends AbstractTable implements ProjectableFilterableTable {
 
-	private static final String TIME_STAMP = "time_stamp".toUpperCase();
 	private StorageEngine engine;
 	private List<String> fieldNames;
 	private String measurementName;
 	private String dbName;
 	private List<RelDataType> types;
 	private List<String> names;
-	private List<String> tagKeys;
+	private Series series;
+	private Measurement measurement;
 
-	public MeasurementTable(StorageEngine engine, String dbName, String measurementName, Collection<String> fieldNames,
-			Collection<String> tagKeys) {
+	public MeasurementTable(StorageEngine engine, String dbName, String measurementName,
+			Collection<String> fieldNames) {
 		this.engine = engine;
 		this.dbName = dbName;
 		this.measurementName = measurementName;
 		this.fieldNames = new ArrayList<>(fieldNames);
-		this.tagKeys = new ArrayList<>(tagKeys);
 	}
 
-	public List<String> getTagKeys() {
-		return tagKeys;
+	public MeasurementTable(Measurement measurement, Series series, Collection<String> fieldNames) {
+		this.measurement = measurement;
+		this.series = series;
+		this.fieldNames = new ArrayList<>(fieldNames);
 	}
 
 	@Override
@@ -78,19 +81,13 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 		types = new ArrayList<>();
 		names = new ArrayList<>();
 
-//		for (String tag : tagKeys) {
-//			names.add(tag);
-//			types.add(typeFactory.createSqlType(SqlTypeName.VARCHAR, 100));
-//		}
-
+		names.add(Series.TS);
+		types.add(typeFactory.createSqlType(SqlTypeName.BIGINT));
 		for (String field : fieldNames) {
 			names.add(field);
 			// value field; should be cast by the query to different type
 			types.add(typeFactory.createSqlType(SqlTypeName.BIGINT));
 		}
-
-		names.add(TIME_STAMP);
-		types.add(typeFactory.createSqlType(SqlTypeName.BIGINT));
 
 		return typeFactory.createStructType(types, names);
 	}
@@ -101,7 +98,17 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 	}
 
 	@Override
-	public Enumerable<Object[]> scan(DataContext root, List<RexNode> filters) {
+	public Enumerable<Object[]> scan(DataContext root, List<RexNode> filters, int[] projects) {
+		List<String> fields;
+		if (projects != null) {
+			fields = new ArrayList<>();
+			for (int i = 0; i < projects.length; i++) {
+				fields.add(fieldNames.get(projects[i]));
+			}
+		} else {
+			fields = fieldNames;
+		}
+
 		Entry<Long, Long> findTimeRange = null;
 		findTimeRange = extractAndBuildTimeRangeFilter(filters, findTimeRange);
 
@@ -112,10 +119,10 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 			public Enumerator<Object[]> enumerator() {
 				return new Enumerator<Object[]>() {
 
-					private LinkedHashMap<ValueReader, List<Tag>> readers;
-					private DataPoint dataPoint;
-					private Iterator<Entry<ValueReader, List<Tag>>> iterator;
-					private Entry<ValueReader, List<Tag>> next;
+					private LinkedHashMap<List<Tag>, FieldReaderIterator[]> readers;
+					private Iterator<Entry<List<Tag>, FieldReaderIterator[]>> iterator;
+					private Entry<List<Tag>, FieldReaderIterator[]> next;
+					private Long[] extracted;
 
 					@Override
 					public void reset() {
@@ -126,8 +133,8 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 						if (readers == null) {
 							try {
 								readers = new LinkedHashMap<>();
-								readers.putAll(engine.queryReadersWithMap(dbName, measurementName, fieldNames.get(0),
-										range.getKey().longValue(), range.getValue().longValue()));
+								readers.put(Arrays.asList(Tag.newBuilder().setTagKey("k1").setTagValue("v1").build()),
+										series.queryTuples(measurement, fields, range.getKey(), range.getValue()));
 								iterator = readers.entrySet().iterator();
 								if (iterator.hasNext()) {
 									next = iterator.next();
@@ -139,8 +146,10 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 						}
 						if (next != null) {
 							try {
-								dataPoint = next.getKey().readPair();
-								if (dataPoint == null) {
+								FieldReaderIterator[] iterators = next.getValue();
+								try {
+									extracted = FieldReaderIterator.extractedObject(iterators);
+								} catch (FilteredValueException e) {
 									return moveNext();
 								}
 							} catch (IOException e) {
@@ -163,14 +172,7 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 
 					@Override
 					public Object[] current() {
-						return new Object[] { dataPoint.getLongValue(), dataPoint.getTimestamp() };
-						// if (next.getValue()) {
-						// // (dataPoint.getTags() != null) ? dataPoint.getTags().toString() : null,
-						// return new Object[] { (Double) dataPoint.getValue(), dataPoint.getTimestamp()
-						// };
-						// } else {
-						//
-						// }
+						return extracted;
 					}
 
 					@Override
@@ -199,8 +201,8 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 		if (findTimeRange == null) {
 			// by default get last 1hr's data if no time range filter is
 			// specified
-			findTimeRange = new AbstractMap.SimpleEntry<Long, Long>(System.currentTimeMillis() - (3600_000),
-					System.currentTimeMillis());
+			// System.currentTimeMillis() - (3600_000)
+			findTimeRange = new AbstractMap.SimpleEntry<Long, Long>(0L, System.currentTimeMillis() + 10000);
 		} else if (findTimeRange.getKey().equals(findTimeRange.getValue())) {
 			findTimeRange = new AbstractMap.SimpleEntry<Long, Long>(findTimeRange.getKey(), System.currentTimeMillis());
 		}
@@ -241,13 +243,13 @@ public class MeasurementTable extends AbstractTable implements FilterableTable {
 				left = ((RexCall) left).operands.get(0);
 			} else if (left.isA(SqlKind.FUNCTION)) {
 				left = ((RexCall) left).operands.get(0);
-				if (names.get(((RexInputRef) left).getIndex()).equals(TIME_STAMP)) {
+				if (names.get(((RexInputRef) left).getIndex()).equals(Series.TS)) {
 					// resolve the function
 				}
 			}
 
 			// only timestamp field is filtered
-			if (!names.get(((RexInputRef) left).getIndex()).equals(TIME_STAMP)) {
+			if (!names.get(((RexInputRef) left).getIndex()).equals(Series.TS)) {
 				return null;
 			}
 

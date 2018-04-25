@@ -36,6 +36,7 @@ import org.apache.calcite.jdbc.CalciteConnection;
 import org.apache.calcite.model.ModelHandler;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.srotya.sidewinder.core.sql.calcite.SidewinderDatabaseSchema;
@@ -77,9 +78,9 @@ public class SqlApi {
 
 	public boolean checkAndAddSchema(String dbName) throws Exception {
 		synchronized (connection) {
-			if (!engine.checkIfExists(dbName)) {
-				return false;
-			}
+//			if (!engine.checkIfExists(dbName)) {
+//				return false;
+//			}
 			CalciteConnection calciteConnection = connection.unwrap(CalciteConnection.class);
 			String tdbName = dbName.toUpperCase();
 			if (calciteConnection.getRootSchema().getSubSchema(tdbName) == null) {
@@ -101,14 +102,13 @@ public class SqlApi {
 			Statement st = connection.createStatement();
 			ResultSet resultSet = st.executeQuery(sql);
 			JsonArray convert = convert(resultSet);
-			Gson gson = new Gson();
+			Gson gson = new GsonBuilder().setPrettyPrinting().create();
 			resultSet.close();
 			st.close();
 			return gson.toJson(convert);
 		} catch (NotFoundException e) {
 			throw e;
 		} catch (Exception e) {
-			e.printStackTrace();
 			throw new BadRequestException(e.getMessage());
 		}
 	}

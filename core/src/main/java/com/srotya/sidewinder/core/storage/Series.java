@@ -17,14 +17,12 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.TimeUnit;
@@ -45,9 +43,9 @@ import com.srotya.sidewinder.core.utils.TimeUtils;
  */
 public class Series {
 
-	private static final String TS = "ts";
+	public static final String TS = "TS";
 	private static final Logger logger = Logger.getLogger(Series.class.getName());
-	private Object seriesId;
+	private ByteString seriesId;
 	private Map<String, Boolean> fieldTypeMap;
 	private SortedMap<Integer, Map<String, Field>> bucketFieldMap;
 	private int fieldMapIndex;
@@ -55,7 +53,7 @@ public class Series {
 	private ReadLock readLock;
 	private WriteLock writeLock;
 
-	public Series(Measurement measurement, Object seriesId, int fieldMapIndex) throws IOException {
+	public Series(Measurement measurement, ByteString seriesId, int fieldMapIndex) {
 		this.seriesId = seriesId;
 		this.fieldMapIndex = fieldMapIndex;
 		fieldTypeMap = new ConcurrentHashMap<>();
@@ -130,7 +128,7 @@ public class Series {
 			}
 			writeLock.unlock();
 		}
-		return 0;
+		return timeBucketInt;
 	}
 
 	public static int getTimeBucketInt(TimeUnit unit, long timestamp, int timeBucketSize) {
@@ -154,7 +152,7 @@ public class Series {
 	 * @throws IOException
 	 */
 	public Map<String, List<DataPoint>> queryDataPoints(Measurement measurement, List<String> valueFieldBucketNames,
-			long startTime, long endTime, Predicate valuePredicate) throws IOException {
+			long startTime, long endTime, List<Predicate> valuePredicate) throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
 			startTime = startTime ^ endTime;
@@ -167,7 +165,8 @@ public class Series {
 		Map<String, List<DataPoint>> points = new HashMap<>();
 		for (Map<String, Field> map : correctTimeRangeScan.values()) {
 			Field timeField = map.get(TS);
-			for (String vfn : valueFieldBucketNames) {
+			for (int i = 0; i < valueFieldBucketNames.size(); i++) {
+				String vfn = valueFieldBucketNames.get(i);
 				Field field = map.get(vfn);
 				if (field != null) {
 					List<DataPoint> list = points.get(vfn);
@@ -175,7 +174,8 @@ public class Series {
 						list = new ArrayList<>();
 						points.put(vfn, list);
 					}
-					FieldReaderIterator valueIterator = field.queryReader(valuePredicate, readLock);
+					FieldReaderIterator valueIterator = field
+							.queryReader(valuePredicate != null ? valuePredicate.get(i) : null, readLock);
 					FieldReaderIterator timeIterator = timeField.queryReader(timeRangePredicate, readLock);
 					while (true) {
 						try {
@@ -195,8 +195,8 @@ public class Series {
 		return points;
 	}
 
-	public SortedMap<Integer, FieldReaderIterator[]> queryTuples(Measurement measurement,
-			List<String> valueFieldBucketNames, long startTime, long endTime) throws IOException {
+	public FieldReaderIterator[] queryTuples(Measurement measurement, List<String> valueFieldBucketNames,
+			long startTime, long endTime) throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
 			startTime = startTime ^ endTime;
@@ -207,26 +207,27 @@ public class Series {
 				measurement.getTimeBucketSize());
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
 
-		SortedMap<Integer, FieldReaderIterator[]> output = new TreeMap<>();
+		FieldReaderIterator[] output = new FieldReaderIterator[valueFieldBucketNames.size() + 1];
+		for (int i = 0; i < output.length; i++) {
+			output[i] = new FieldReaderIterator();
+		}
 		for (Entry<Integer, Map<String, Field>> entry : correctTimeRangeScan.entrySet()) {
 			Map<String, Field> map = entry.getValue();
 			Field timeField = map.get(TS);
-			FieldReaderIterator[] iterators = new FieldReaderIterator[valueFieldBucketNames.size() + 1];
-			iterators[0] = timeField.queryReader(timeRangePredicate, readLock);
+			output[0].addReader(timeField.queryReader(timeRangePredicate, readLock).getReaders());
 			for (int i = 0; i < valueFieldBucketNames.size(); i++) {
 				String vfn = valueFieldBucketNames.get(i);
 				Field field = map.get(vfn);
 				if (field != null) {
-					iterators[i + 1] = field.queryReader(null, readLock);
+					output[i + 1] = field.queryReader(null, readLock);
 				}
 			}
-			output.put(entry.getKey(), iterators);
 		}
 		return output;
 	}
 
 	public List<long[]> queryTuples(Measurement measurement, List<String> valueFieldBucketNames, long startTime,
-			long endTime, Predicate valuePredicate) throws IOException {
+			long endTime, List<Predicate> valuePredicate) throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
 			startTime = startTime ^ endTime;
@@ -245,15 +246,13 @@ public class Series {
 				String vfn = valueFieldBucketNames.get(i);
 				Field field = map.get(vfn);
 				if (field != null) {
-					iterators[i + 1] = field.queryReader(valuePredicate, readLock);
+					iterators[i + 1] = field.queryReader(valuePredicate != null ? valuePredicate.get(i) : null,
+							readLock);
 				}
 			}
 			while (true) {
 				try {
-					long[] tuple = new long[valueFieldBucketNames.size() + 1];
-					for (int i = 0; i < iterators.length; i++) {
-						tuple[i] = iterators[i].next();
-					}
+					long[] tuple = FieldReaderIterator.extracted(iterators.length, iterators);
 					points.add(tuple);
 				} catch (FilteredValueException e) {
 					// ignore this
@@ -290,11 +289,6 @@ public class Series {
 		return series;
 	}
 
-	public Map<String, List<DataPoint>> queryDataPoints(Measurement measurement, long startTime, long endTime,
-			Predicate valuePredicate, String... valueFieldBucketName) throws IOException {
-		return queryDataPoints(measurement, Arrays.asList(valueFieldBucketName), startTime, endTime, valuePredicate);
-	}
-	
 	@Override
 	public String toString() {
 		return "SeriesFieldBucketMap [seriesId=" + seriesId + " seriesMap=" + bucketFieldMap + "]";
@@ -302,7 +296,7 @@ public class Series {
 
 	public boolean isFp(String key) throws ItemNotFoundException {
 		Boolean v = fieldTypeMap.get(key);
-		if(v==null) {
+		if (v == null) {
 			throw StorageEngine.NOT_FOUND_EXCEPTION;
 		}
 		return v;
@@ -320,7 +314,7 @@ public class Series {
 	/**
 	 * @return the seriesId
 	 */
-	public Object getSeriesId() {
+	public ByteString getSeriesId() {
 		return seriesId;
 	}
 
@@ -328,17 +322,37 @@ public class Series {
 	 * @param seriesId
 	 *            the seriesId to set
 	 */
-	public void setSeriesId(String seriesId) {
+	public void setSeriesId(ByteString seriesId) {
 		this.seriesId = seriesId;
 	}
 
 	public List<Writer> compact() throws IOException {
-		
+
 		return null;
 	}
-	
+
 	public SortedMap<Integer, Map<String, Field>> getBucketFieldMap() {
 		return bucketFieldMap;
+	}
+
+	protected Map<String, Boolean> getFieldTypeMap() {
+		return fieldTypeMap;
+	}
+
+	protected int getFieldMapIndex() {
+		return fieldMapIndex;
+	}
+
+	protected ReentrantReadWriteLock getLock() {
+		return lock;
+	}
+
+	protected ReadLock getReadLock() {
+		return readLock;
+	}
+
+	protected WriteLock getWriteLock() {
+		return writeLock;
 	}
 
 	// /**

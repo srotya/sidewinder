@@ -344,14 +344,14 @@ public interface Measurement {
 	public default void populateDataPoints(List<String> valueFieldNames, ByteString rowKey, long startTime,
 			long endTime, Predicate valuePredicate, Pattern p, List<SeriesOutput> resultMap) throws IOException {
 		List<Tag> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
-		Series seriesFieldMap = getSeriesFromKey(rowKey);
+		Series series = getSeriesFromKey(rowKey);
 
-		Map<String, List<DataPoint>> queryDataPoints = seriesFieldMap.queryDataPoints(this, valueFieldNames, startTime,
-				endTime, valuePredicate);
+		Map<String, List<DataPoint>> queryDataPoints = series.queryDataPoints(this, valueFieldNames, startTime,
+				endTime, null);
 		for (Entry<String, List<DataPoint>> entry : queryDataPoints.entrySet()) {
 			getLogger().fine(() -> "Reading datapoints for:" + entry.getKey());
 			SeriesOutput seriesQueryOutput = new SeriesOutput(getMeasurementName(), entry.getKey(), seriesTags);
-			seriesQueryOutput.setFp(seriesFieldMap.isFp(entry.getKey()));
+			seriesQueryOutput.setFp(series.isFp(entry.getKey()));
 			seriesQueryOutput.setDataPoints(entry.getValue());
 			resultMap.add(seriesQueryOutput);
 		}

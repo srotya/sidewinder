@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.srotya.sidewinder.core.storage.compression.Reader;
@@ -25,8 +26,13 @@ public class FieldReaderIterator {
 	private int idx;
 	private List<Reader> readers;
 
-	public FieldReaderIterator(List<Reader> readers) {
-		this.readers = readers;
+	public FieldReaderIterator() {
+		readers = new ArrayList<>();
+	}
+
+	public FieldReaderIterator addReader(List<Reader> readers) {
+		this.readers.addAll(readers);
+		return this;
 	}
 
 	public long next() throws IOException {
@@ -40,6 +46,30 @@ public class FieldReaderIterator {
 				throw e;
 			}
 		}
+	}
+
+	public List<Reader> getReaders() {
+		return readers;
+	}
+
+	public static long[] extracted(int aryLength, FieldReaderIterator[] iterators) throws IOException {
+		long[] tuple = new long[aryLength];
+		for (int i = 0; i < iterators.length; i++) {
+			if (iterators[i] != null) {
+				tuple[i] = iterators[i].next();
+			}
+		}
+		return tuple;
+	}
+
+	public static Long[] extractedObject(FieldReaderIterator[] iterators) throws IOException {
+		Long[] tuple = new Long[iterators.length];
+		for (int i = 0; i < iterators.length; i++) {
+			if (iterators[i] != null) {
+				tuple[i] = iterators[i].next();
+			}
+		}
+		return tuple;
 	}
 
 }

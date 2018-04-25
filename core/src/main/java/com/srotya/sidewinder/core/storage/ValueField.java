@@ -54,8 +54,8 @@ public class ValueField implements Field {
 	private ByteString fieldId;
 	public static boolean compactionEnabled;
 	public static double compactionRatio;
-	public static Class<ValueWriter> compressionClass;
-	public static Class<ValueWriter> compactionClass;
+	public static Class<ValueWriter> compressionClass = CompressionFactory.getValueClassByName("byzantine");
+	public static Class<ValueWriter> compactionClass = CompressionFactory.getValueClassByName("gorilla");
 	private int tsBucket;
 
 	/**
@@ -191,7 +191,7 @@ public class ValueField implements Field {
 			readers.add(Field.getReader(writer, predicate));
 		}
 		readLock.unlock();
-		return new FieldReaderIterator(readers);
+		return new FieldReaderIterator().addReader(readers);
 	}
 
 	/**
