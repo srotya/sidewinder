@@ -21,6 +21,9 @@ import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaFactory;
 import org.apache.calcite.schema.SchemaPlus;
 
+import com.srotya.sidewinder.core.SidewinderServer;
+import com.srotya.sidewinder.core.storage.StorageEngine;
+
 /**
  * @author ambud
  */
@@ -31,8 +34,14 @@ public class SidewinderSchemaFactory implements SchemaFactory {
 
 	@Override
 	public Schema create(SchemaPlus parentSchema, String name, Map<String, Object> operand) {
-//		System.out.println("Dbname:" + dbName+" schema:"+name+" parent:"+parentSchema.getName());
-		return new SidewinderDatabaseSchema(null, parentSchema);
+		StorageEngine storageEngine = SidewinderServer.getSidewinderServer().getStorageEngine();
+		Object dbName = operand.get("dbName");
+		System.out.println("Created factory for schema sidewinder:" + dbName);
+		if (dbName == null) {
+			return new SidewinderDatabaseSchema(storageEngine, parentSchema);
+		} else {
+			return new SidewinderTableSchema(storageEngine, parentSchema, dbName.toString());
+		}
 	}
-	
+
 }

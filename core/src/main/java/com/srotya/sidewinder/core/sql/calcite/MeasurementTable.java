@@ -21,8 +21,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
 import org.apache.calcite.DataContext;
@@ -42,8 +42,8 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.type.SqlTypeName;
 
 import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.FieldReaderIterator;
-import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
@@ -59,20 +59,12 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 	private String dbName;
 	private List<RelDataType> types;
 	private List<String> names;
-	private Series series;
-	private Measurement measurement;
 
 	public MeasurementTable(StorageEngine engine, String dbName, String measurementName,
 			Collection<String> fieldNames) {
 		this.engine = engine;
 		this.dbName = dbName;
 		this.measurementName = measurementName;
-		this.fieldNames = new ArrayList<>(fieldNames);
-	}
-
-	public MeasurementTable(Measurement measurement, Series series, Collection<String> fieldNames) {
-		this.measurement = measurement;
-		this.series = series;
 		this.fieldNames = new ArrayList<>(fieldNames);
 	}
 
@@ -84,7 +76,7 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 		names.add(Series.TS);
 		types.add(typeFactory.createSqlType(SqlTypeName.BIGINT));
 		for (String field : fieldNames) {
-			names.add(field);
+			names.add(field.toUpperCase());
 			// value field; should be cast by the query to different type
 			types.add(typeFactory.createSqlType(SqlTypeName.BIGINT));
 		}
@@ -119,8 +111,8 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 			public Enumerator<Object[]> enumerator() {
 				return new Enumerator<Object[]>() {
 
-					private LinkedHashMap<List<Tag>, FieldReaderIterator[]> readers;
-					private Iterator<Entry<List<Tag>, FieldReaderIterator[]>> iterator;
+					private Map<ByteString, FieldReaderIterator[]> readers;
+					private Iterator<Entry<ByteString, FieldReaderIterator[]>> iterator;
 					private Entry<List<Tag>, FieldReaderIterator[]> next;
 					private Long[] extracted;
 
@@ -132,12 +124,15 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 					public boolean moveNext() {
 						if (readers == null) {
 							try {
-								readers = new LinkedHashMap<>();
-								readers.put(Arrays.asList(Tag.newBuilder().setTagKey("k1").setTagValue("v1").build()),
-										series.queryTupleReaders(measurement, fields, range.getKey(), range.getValue()));
+								readers = engine.queryReaders(dbName, measurementName, fields, false, range.getKey(),
+										range.getValue());
 								iterator = readers.entrySet().iterator();
 								if (iterator.hasNext()) {
-									next = iterator.next();
+									Entry<ByteString, FieldReaderIterator[]> next2 = iterator.next();
+									List<Tag> decodeTagsFromString = engine.decodeTagsFromString(dbName,
+											measurementName, next2.getKey());
+									next = new AbstractMap.SimpleEntry<List<Tag>, FieldReaderIterator[]>(
+											decodeTagsFromString, next2.getValue());
 								}
 							} catch (Exception e) {
 								e.printStackTrace();
@@ -154,7 +149,17 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 								}
 							} catch (IOException e) {
 								if (iterator.hasNext()) {
-									next = iterator.next();
+									Entry<ByteString, FieldReaderIterator[]> next2 = iterator.next();
+									List<Tag> decodeTagsFromString = null;
+									try {
+										decodeTagsFromString = engine.decodeTagsFromString(dbName, measurementName,
+												next2.getKey());
+										next = new AbstractMap.SimpleEntry<List<Tag>, FieldReaderIterator[]>(
+												decodeTagsFromString, next2.getValue());
+									} catch (IOException e1) {
+										next = null;
+										throw new RuntimeException(e);
+									}
 								} else {
 									next = null;
 								}

@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -357,13 +358,13 @@ public interface StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public default Set<String> getFieldsForMeasurement(String dbName, String measurementNameRegex) throws Exception {
+	public default LinkedHashSet<String> getFieldsForMeasurement(String dbName, String measurementNameRegex) throws Exception {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		Set<String> filterdMeasurements = new HashSet<>();
 		findMeasurementsLike(dbName, measurementNameRegex, filterdMeasurements);
-		Set<String> superSet = new HashSet<>();
+		LinkedHashSet<String> superSet = new LinkedHashSet<>();
 		if (filterdMeasurements.isEmpty()) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -610,6 +611,10 @@ public interface StorageEngine {
 
 		ValueField.compactionClass = CompressionFactory.getValueClassByName(compactionCodec);
 		ValueField.compressionClass = CompressionFactory.getValueClassByName(compressionCodec);
+	}
+
+	public default List<Tag> decodeTagsFromString(String dbName, String measurementName, ByteString tagString) throws IOException {
+		return getDatabaseMap().get(dbName).get(measurementName).decodeStringToTags(tagString);
 	}
 
 }

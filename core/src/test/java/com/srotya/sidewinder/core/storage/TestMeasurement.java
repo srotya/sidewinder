@@ -128,7 +128,7 @@ public class TestMeasurement {
 			List<Tag> tags = Arrays.asList(
 					Tag.newBuilder().setTagKey("test").setTagValue(String.valueOf("asdasd" + i)).build(),
 					Tag.newBuilder().setTagKey("test").setTagValue("2").build());
-			measurement.encodeTagsToString(measurement.getTagIndex(), tags);
+			measurement.encodeTagsToString(tags);
 		}
 	}
 
@@ -334,9 +334,8 @@ public class TestMeasurement {
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
 		measurement.configure(conf, engine, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
-		TagIndex index = measurement.getTagIndex();
-		ByteString encodeTagsToString = measurement.encodeTagsToString(index, tags);
-		ByteString key = measurement.constructSeriesId(tags, index);
+		ByteString encodeTagsToString = measurement.encodeTagsToString(tags);
+		ByteString key = measurement.constructSeriesId(tags);
 		assertEquals(encodeTagsToString, key);
 		assertEquals("Bad output:" + encodeTagsToString, new ByteString("test=1^test=2"), encodeTagsToString);
 		measurement.close();

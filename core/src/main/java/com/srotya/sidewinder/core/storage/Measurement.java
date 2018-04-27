@@ -86,7 +86,7 @@ public interface Measurement {
 		if (!preSorted) {
 			Collections.sort(tags, TAG_COMPARATOR);
 		}
-		ByteString seriesId = constructSeriesId(tags, getTagIndex());
+		ByteString seriesId = constructSeriesId(tags);
 		int index = 0;
 		Series seriesFieldMap = getSeriesFromKey(seriesId);
 		if (seriesFieldMap == null) {
@@ -136,7 +136,7 @@ public interface Measurement {
 		}
 	}
 
-	public default ByteString encodeTagsToString(TagIndex tagIndex, List<Tag> tags) throws IOException {
+	public default ByteString encodeTagsToString(List<Tag> tags) throws IOException {
 		StringBuilder builder = new StringBuilder(tags.size() * 5);
 		serializeTagForKey(builder, tags.get(0));
 		for (int i = 1; i < tags.size(); i++) {
@@ -154,11 +154,11 @@ public interface Measurement {
 		builder.append(tag.getTagValue());
 	}
 
-	public default ByteString constructSeriesId(List<Tag> tags, TagIndex index) throws IOException {
-		return encodeTagsToString(index, tags);
+	public default ByteString constructSeriesId(List<Tag> tags) throws IOException {
+		return encodeTagsToString(tags);
 	}
 
-	public static List<Tag> decodeStringToTags(TagIndex tagIndex, ByteString tagString) throws IOException {
+	public default List<Tag> decodeStringToTags(ByteString tagString) throws IOException {
 		List<Tag> tagList = new ArrayList<>();
 		if (tagString == null || tagString.isEmpty()) {
 			return tagList;
@@ -179,7 +179,7 @@ public interface Measurement {
 		Set<ByteString> keySet = getSeriesKeys();
 		List<List<Tag>> tagList = new ArrayList<>();
 		for (ByteString entry : keySet) {
-			List<Tag> tags = decodeStringToTags(getTagIndex(), entry);
+			List<Tag> tags = decodeStringToTags(entry);
 			tagList.add(tags);
 		}
 		return tagList;
@@ -277,7 +277,7 @@ public interface Measurement {
 
 	public default Series getSeriesField(List<Tag> tags) throws IOException {
 		Collections.sort(tags, TAG_COMPARATOR);
-		ByteString rowKey = constructSeriesId(tags, getTagIndex());
+		ByteString rowKey = constructSeriesId(tags);
 		// check and create timeseries
 		Series map = getSeriesFromKey(rowKey);
 		return map;
@@ -314,7 +314,7 @@ public interface Measurement {
 		if (rowKeys != null) {
 			for (ByteString key : rowKeys) {
 				List<String> fieldMap = new ArrayList<>();
-				Set<String> fieldSet = getSeriesFromKey(key).getFields();
+				List<String> fieldSet = getSeriesFromKey(key).getFields();
 				getLogger().fine(() -> "Row key:" + key + " Fields:" + fieldSet);
 				for (String fieldSetEntry : fieldSet) {
 					if (p.matcher(fieldSetEntry).matches() && !fieldSetEntry.equalsIgnoreCase(Series.TS)) {
@@ -414,7 +414,7 @@ public interface Measurement {
 
 	public default void populateDataPoints(List<String> valueFieldNames, ByteString rowKey, long startTime,
 			long endTime, Predicate valuePredicate, Pattern p, List<SeriesOutput> resultMap) throws IOException {
-		List<Tag> seriesTags = decodeStringToTags(getTagIndex(), rowKey);
+		List<Tag> seriesTags = decodeStringToTags(rowKey);
 		Series series = getSeriesFromKey(rowKey);
 
 		Map<String, List<DataPoint>> queryDataPoints = series.queryDataPoints(this, valueFieldNames, startTime, endTime,

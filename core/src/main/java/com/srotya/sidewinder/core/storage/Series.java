@@ -18,10 +18,10 @@ package com.srotya.sidewinder.core.storage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -48,7 +48,7 @@ public class Series {
 	public static final String TS = "TS";
 	private static final Logger logger = Logger.getLogger(Series.class.getName());
 	private ByteString seriesId;
-	private Map<String, Boolean> fieldTypeMap;
+	private LinkedHashMap<String, Boolean> fieldTypeMap;
 	private SortedMap<Integer, Map<String, Field>> bucketFieldMap;
 	private int fieldMapIndex;
 	private ReentrantReadWriteLock lock;
@@ -58,15 +58,15 @@ public class Series {
 	public Series(ByteString seriesId, int fieldMapIndex) {
 		this.seriesId = seriesId;
 		this.fieldMapIndex = fieldMapIndex;
-		fieldTypeMap = new ConcurrentHashMap<>();
+		fieldTypeMap = new LinkedHashMap<>();
 		bucketFieldMap = new ConcurrentSkipListMap<>();
 		this.lock = new ReentrantReadWriteLock();
 		readLock = lock.readLock();
 		writeLock = lock.writeLock();
 	}
 
-	public Set<String> getFields() {
-		return fieldTypeMap.keySet();
+	public List<String> getFields() {
+		return new ArrayList<>(fieldTypeMap.keySet());
 	}
 
 	protected Field getOrCreateSeries(int timeBucket, String valueFieldName, boolean fp, Measurement measurement)
