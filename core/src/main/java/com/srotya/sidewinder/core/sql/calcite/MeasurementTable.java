@@ -53,6 +53,7 @@ import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
  */
 public class MeasurementTable extends AbstractTable implements ProjectableFilterableTable {
 
+	private static final String TAGS = "TAGS";
 	private StorageEngine engine;
 	private List<String> fieldNames;
 	private String measurementName;
@@ -66,20 +67,27 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 		this.dbName = dbName;
 		this.measurementName = measurementName;
 		this.fieldNames = new ArrayList<>(fieldNames);
+		this.fieldNames.add(TAGS);
 	}
 
 	@Override
 	public RelDataType getRowType(RelDataTypeFactory typeFactory) {
+		System.out.println("get row types:" + fieldNames.size());
 		types = new ArrayList<>();
 		names = new ArrayList<>();
 
-		names.add(Series.TS);
-		types.add(typeFactory.createSqlType(SqlTypeName.BIGINT));
 		for (String field : fieldNames) {
 			names.add(field.toUpperCase());
-			// value field; should be cast by the query to different type
-			types.add(typeFactory.createSqlType(SqlTypeName.BIGINT));
+			if (field == TAGS) {
+				types.add(typeFactory.createSqlType(SqlTypeName.VARCHAR));
+			} else {
+				// value field; should be cast by the query to different type
+				types.add(typeFactory.createSqlType(SqlTypeName.BIGINT));
+			}
 		}
+
+		names.add(TAGS);
+		types.add(typeFactory.createSqlType(SqlTypeName.VARCHAR));
 
 		return typeFactory.createStructType(types, names);
 	}
@@ -114,7 +122,9 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 					private Map<ByteString, FieldReaderIterator[]> readers;
 					private Iterator<Entry<ByteString, FieldReaderIterator[]>> iterator;
 					private Entry<List<Tag>, FieldReaderIterator[]> next;
-					private Long[] extracted;
+					private Entry<ByteString, FieldReaderIterator[]> next4;
+					private Object[] extracted;
+					private int addTag = -1;
 
 					@Override
 					public void reset() {
@@ -122,56 +132,70 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 
 					@Override
 					public boolean moveNext() {
-						if (readers == null) {
-							try {
-								readers = engine.queryReaders(dbName, measurementName, fields, false, range.getKey(),
-										range.getValue());
-								iterator = readers.entrySet().iterator();
-								if (iterator.hasNext()) {
-									Entry<ByteString, FieldReaderIterator[]> next2 = iterator.next();
-									List<Tag> decodeTagsFromString = engine.decodeTagsFromString(dbName,
-											measurementName, next2.getKey());
-									next = new AbstractMap.SimpleEntry<List<Tag>, FieldReaderIterator[]>(
-											decodeTagsFromString, next2.getValue());
-								}
-							} catch (Exception e) {
-								e.printStackTrace();
-								return false;
-							}
-						}
-						if (next != null) {
-							try {
-								FieldReaderIterator[] iterators = next.getValue();
+						try {
+							if (readers == null) {
 								try {
-									extracted = FieldReaderIterator.extractedObject(iterators);
-								} catch (FilteredValueException e) {
-									return moveNext();
-								}
-							} catch (IOException e) {
-								if (iterator.hasNext()) {
-									Entry<ByteString, FieldReaderIterator[]> next2 = iterator.next();
-									List<Tag> decodeTagsFromString = null;
-									try {
-										decodeTagsFromString = engine.decodeTagsFromString(dbName, measurementName,
-												next2.getKey());
+									if (fields.contains(TAGS)) {
+										addTag = fields.indexOf(TAGS);
+										System.out.println("Tag field index:" + addTag);
+									}
+									readers = engine.queryReaders(dbName, measurementName, fields, false,
+											range.getKey(), range.getValue());
+									iterator = readers.entrySet().iterator();
+									if (iterator.hasNext()) {
+										Entry<ByteString, FieldReaderIterator[]> next2 = iterator.next();
+										List<Tag> decodeTagsFromString = engine.decodeTagsFromString(dbName,
+												measurementName, next2.getKey());
 										next = new AbstractMap.SimpleEntry<List<Tag>, FieldReaderIterator[]>(
 												decodeTagsFromString, next2.getValue());
-									} catch (IOException e1) {
-										next = null;
-										throw new RuntimeException(e);
+										next4 = next2;
 									}
-								} else {
-									next = null;
-								}
-								if (next != null) {
-									return true;
-								} else {
+								} catch (Exception e) {
+									e.printStackTrace();
 									return false;
 								}
 							}
-							return true;
-						} else {
-							return false;
+							if (next != null) {
+								try {
+									FieldReaderIterator[] iterators = next.getValue();
+									try {
+										extracted = FieldReaderIterator.extractedObject(iterators);
+										if (addTag != -1) {
+											extracted[addTag] = next4.getKey().toString();
+										}
+									} catch (FilteredValueException e) {
+										return moveNext();
+									}
+								} catch (IOException e) {
+									if (iterator.hasNext()) {
+										Entry<ByteString, FieldReaderIterator[]> next2 = iterator.next();
+										List<Tag> decodeTagsFromString = null;
+										try {
+											decodeTagsFromString = engine.decodeTagsFromString(dbName, measurementName,
+													next2.getKey());
+											next = new AbstractMap.SimpleEntry<List<Tag>, FieldReaderIterator[]>(
+													decodeTagsFromString, next2.getValue());
+											next4 = next2;
+										} catch (IOException e1) {
+											next = null;
+											throw new RuntimeException(e);
+										}
+									} else {
+										next = null;
+									}
+									if (next != null) {
+										return true;
+									} else {
+										return false;
+									}
+								}
+								return true;
+							} else {
+								return false;
+							}
+						} catch (Exception e) {
+							e.printStackTrace();
+							throw new RuntimeException(e);
 						}
 					}
 

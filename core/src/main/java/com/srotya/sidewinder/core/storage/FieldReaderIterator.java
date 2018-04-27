@@ -55,17 +55,17 @@ public class FieldReaderIterator {
 	public static long[] extracted(FieldReaderIterator[] iterators) throws IOException {
 		long[] tuple = new long[iterators.length];
 		for (int i = 0; i < iterators.length; i++) {
-			if (iterators[i] != null) {
+			if (iterators[i] != null && iterators[i].readers.size() != 0) {
 				tuple[i] = iterators[i].next();
 			}
 		}
 		return tuple;
 	}
 
-	public static Long[] extractedObject(FieldReaderIterator[] iterators) throws IOException {
-		Long[] tuple = new Long[iterators.length];
+	public static Object[] extractedObject(FieldReaderIterator[] iterators) throws IOException {
+		Object[] tuple = new Object[iterators.length];
 		for (int i = 0; i < iterators.length; i++) {
-			if (iterators[i] != null) {
+			if (iterators[i] != null && iterators[i].readers.size() != 0) {
 				tuple[i] = iterators[i].next();
 			}
 		}
