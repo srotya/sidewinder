@@ -62,7 +62,7 @@ public class FieldReaderIterator {
 		return tuple;
 	}
 
-	public static Object[] extractedObject(FieldReaderIterator[] iterators) throws IOException {
+	public static Object[] extractedObject(FieldReaderIterator[] iterators, int rowCounter) throws IOException {
 		Object[] tuple = new Object[iterators.length];
 		for (int i = 0; i < iterators.length; i++) {
 			if (iterators[i] != null && iterators[i].readers.size() != 0) {

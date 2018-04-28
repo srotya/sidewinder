@@ -36,7 +36,6 @@ public class SidewinderSchemaFactory implements SchemaFactory {
 	public Schema create(SchemaPlus parentSchema, String name, Map<String, Object> operand) {
 		StorageEngine storageEngine = SidewinderServer.getSidewinderServer().getStorageEngine();
 		Object dbName = operand.get("dbName");
-		System.out.println("Created factory for schema sidewinder:" + dbName);
 		if (dbName == null) {
 			return new SidewinderDatabaseSchema(storageEngine, parentSchema);
 		} else {

@@ -18,6 +18,7 @@ package com.srotya.sidewinder.core.sql.calcite;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,24 +36,22 @@ public class SidewinderTableSchema extends AbstractSchema {
 	private static final Logger logger = Logger.getLogger(SidewinderTableSchema.class.getName());
 	private StorageEngine engine;
 	private String dbName;
-	private SchemaPlus parentSchema;
 
 	public SidewinderTableSchema(StorageEngine engine, SchemaPlus parentSchema, String dbName) {
 		this.engine = engine;
-		this.parentSchema = parentSchema;
 		this.dbName = dbName;
 	}
 
 	@Override
 	protected Map<String, Table> getTableMap() {
-		System.out.println("Get schema for dbname:" + dbName);
 		Map<String, Table> tableMap = new HashMap<>();
 		try {
 			for (String measurementName : engine.getAllMeasurementsForDb(dbName)) {
 				LinkedHashSet<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
+				Set<String> tagKeys = engine.getTagKeysForMeasurement(dbName, measurementName);
 				// System.out.println("\n\n" + fieldsForMeasurement + "\n\n");
 				tableMap.put(measurementName.toUpperCase(),
-						new MeasurementTable(engine, dbName, measurementName, fieldsForMeasurement));
+						new MeasurementTable(engine, dbName, measurementName, fieldsForMeasurement, tagKeys));
 			}
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Failed to get table map for query", e);
