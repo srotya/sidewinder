@@ -47,6 +47,8 @@ import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.TimeField;
+import com.srotya.sidewinder.core.storage.ValueField;
 import com.srotya.sidewinder.core.storage.disk.DiskStorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
@@ -65,6 +67,8 @@ public class QADataIntegrity {
 	@BeforeClass
 	public static void beforeClass() {
 		bgTasks = Executors.newScheduledThreadPool(1, new BackgrounThreadFactory("te1"));
+		TimeField.compactionRatio = 1.2;
+		ValueField.compactionRatio = 1.2;
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -87,7 +91,6 @@ public class QADataIntegrity {
 		MiscUtils.delete(new File(TARGET_QA_COMMON_TEST));
 		conf.put("data.dir", TARGET_QA_COMMON_TEST + "/data");
 		conf.put("index.dir", TARGET_QA_COMMON_TEST + "/index");
-		conf.put("compaction.enabled", "true");
 		conf.put("gc.enabled", "false");
 		engine = clazz.newInstance();
 	}
@@ -100,7 +103,6 @@ public class QADataIntegrity {
 
 	@Test
 	public void testCompactions() throws Exception {
-		conf.put("compaction.enabled", "true");
 		conf.put("compaction.delay", "1");
 		conf.put("compaction.frequency", "2");
 		conf.put("compaction.codec", "gorilla");
@@ -123,7 +125,7 @@ public class QADataIntegrity {
 
 		// check fields
 		Set<String> fields = engine.getFieldsForMeasurement(dbName, measurementName);
-		assertEquals(1, fields.size());
+		assertEquals(2, fields.size());
 		assertEquals("user", fields.iterator().next());
 
 		// check tag keys
@@ -137,8 +139,8 @@ public class QADataIntegrity {
 		assertEquals(10, rowKeys.size());
 
 		// check dataset
-		List<SeriesOutput> all = engine.queryDataPoints(dbName, measurementName, "user", ts - 1000 * 10, ts + 1000 * 100,
-				filter);
+		List<SeriesOutput> all = engine.queryDataPoints(dbName, measurementName, "user", ts - 1000 * 10,
+				ts + 1000 * 100, filter);
 		assertEquals(10, all.size());
 
 		// Measurement m = engine.getMeasurementMap().get(dbName).get(measurementName);
@@ -188,7 +190,7 @@ public class QADataIntegrity {
 
 		// check fields
 		Set<String> fields = engine.getFieldsForMeasurement(dbName, measurementName);
-		assertEquals(1, fields.size());
+		assertEquals(2, fields.size());
 		assertEquals("user", fields.iterator().next());
 
 		// check tag keys
@@ -202,8 +204,8 @@ public class QADataIntegrity {
 		assertEquals(10, rowKeys.size());
 
 		// check dataset
-		List<SeriesOutput> all = engine.queryDataPoints(dbName, measurementName, "user", ts - 1000 * 10, ts + 1000 * 100,
-				filter);
+		List<SeriesOutput> all = engine.queryDataPoints(dbName, measurementName, "user", ts - 1000 * 10,
+				ts + 1000 * 100, filter);
 		assertEquals(10, all.size());
 		for (SeriesOutput s : all) {
 			assertEquals(s.getTags() + " bad datapoints", 1000, s.getDataPoints().size());

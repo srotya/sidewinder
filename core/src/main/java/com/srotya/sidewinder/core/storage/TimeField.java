@@ -56,7 +56,6 @@ public class TimeField implements Field {
 	private static final Logger logger = Logger.getLogger(TimeField.class.getName());
 	private List<TimeWriter> writerList;
 	private ByteString fieldId;
-	public static boolean compactionEnabled = false;
 	public static double compactionRatio = 0.8;
 	public static Class<TimeWriter> compressionClass = CompressionFactory.getTimeClassByName("byzantine");
 	public static Class<TimeWriter> compactionClass = CompressionFactory.getTimeClassByName("gorilla");
@@ -283,8 +282,7 @@ public class TimeField implements Field {
 
 	@Override
 	public String toString() {
-		return "Field [writerList=" + writerList + ", fieldId=" + fieldId + ", measurement=" + ", tsBucket=" + tsBucket
-				+ "]";
+		return "Field [writerList=" + writerList + ", fieldId=" + fieldId + ", tsBucket=" + tsBucket + "]";
 	}
 
 	public void close() throws IOException {
@@ -304,8 +302,8 @@ public class TimeField implements Field {
 	 * @throws IOException
 	 */
 	@SafeVarargs
-	public final List<Writer> compact(Measurement measurement, Lock writeLock, Consumer<List<? extends Writer>>... functions)
-			throws IOException {
+	public final List<Writer> compact(Measurement measurement, Lock writeLock,
+			Consumer<List<? extends Writer>>... functions) throws IOException {
 		if (StorageEngine.ENABLE_METHOD_METRICS) {
 			// ctx = timerCompaction.time();
 		}

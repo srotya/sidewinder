@@ -34,10 +34,14 @@ public class SidewinderSchemaFactory implements SchemaFactory {
 
 	@Override
 	public Schema create(SchemaPlus parentSchema, String name, Map<String, Object> operand) {
-		StorageEngine storageEngine = SidewinderServer.getSidewinderServer().getStorageEngine();
+		StorageEngine storageEngine = SidewinderServer.getStorageEngine();
 		Object dbName = operand.get("dbName");
 		if (dbName == null) {
-			return new SidewinderDatabaseSchema(storageEngine, parentSchema);
+			try {
+				return new SidewinderDatabaseSchema(storageEngine, parentSchema);
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
 		} else {
 			return new SidewinderTableSchema(storageEngine, parentSchema, dbName.toString());
 		}

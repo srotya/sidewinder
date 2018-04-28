@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core;
+package com.srotya.sidewinder.core.monitoring;
 
-import java.io.IOException;
-import java.util.Arrays;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -30,15 +28,17 @@ import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.ScheduledReporter;
 import com.codahale.metrics.Timer;
+import com.srotya.sidewinder.core.rpc.Point;
+import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.StorageEngine;
-import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
  * @author ambud
  */
 public class SidewinderDropwizardReporter extends ScheduledReporter {
 
+	private static final String T_k = "host";
 	private static final String _INTERNAL = "_internal";
 	private StorageEngine engine;
 	private String name;
@@ -54,37 +54,47 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 	public void report(@SuppressWarnings("rawtypes") SortedMap<String, Gauge> gauges,
 			SortedMap<String, Counter> counters, SortedMap<String, Histogram> histograms,
 			SortedMap<String, Meter> meters, SortedMap<String, Timer> timers) {
-		if (counters != null) {
+		long ts = System.currentTimeMillis();
+		if (counters != null && !counters.isEmpty()) {
+			Builder builder = Point.newBuilder();
+			builder.setDbName(_INTERNAL).setMeasurementName(name)
+					.addTags(Tag.newBuilder().setTagKey("type").setTagValue("counters"))
+					.addTags(Tag.newBuilder().setTagKey(T_k).setTagValue("local").build()).setTimestamp(ts);
 			for (Entry<String, Counter> entry : counters.entrySet()) {
-				try {
-					engine.writeDataPointLocked(MiscUtils.buildDataPoint(_INTERNAL, name, entry.getKey(),
-							Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-							System.currentTimeMillis(), entry.getValue().getCount()), true);
-				} catch (Exception e) {
-					e.printStackTrace();
-				}
+				builder.addValueFieldName(entry.getKey()).addFp(false).addValue(entry.getValue().getCount());
+			}
+			try {
+				engine.writeDataPointLocked(builder.build(), true);
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
-		if (meters != null) {
+		if (meters != null && !meters.isEmpty()) {
+			Builder builder = Point.newBuilder();
+			builder.setDbName(_INTERNAL).setMeasurementName(name)
+					.addTags(Tag.newBuilder().setTagKey("type").setTagValue("meters"))
+					.addTags(Tag.newBuilder().setTagKey(T_k).setTagValue("local").build()).setTimestamp(ts);
 			for (Entry<String, Meter> entry : meters.entrySet()) {
-				try {
-					engine.writeDataPointLocked(MiscUtils.buildDataPoint(_INTERNAL, name, entry.getKey(),
-							Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-							System.currentTimeMillis(), entry.getValue().getCount()), true);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+				builder.addValueFieldName(entry.getKey()).addFp(false).addValue(entry.getValue().getCount());
+			}
+			try {
+				engine.writeDataPointLocked(builder.build(), true);
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
-		if (timers != null) {
+		if (timers != null && !timers.isEmpty()) {
+			Builder builder = Point.newBuilder();
+			builder.setDbName(_INTERNAL).setMeasurementName(name)
+					.addTags(Tag.newBuilder().setTagKey("type").setTagValue("timers"))
+					.addTags(Tag.newBuilder().setTagKey(T_k).setTagValue("local").build()).setTimestamp(ts);
 			for (Entry<String, Timer> entry : timers.entrySet()) {
-				try {
-					engine.writeDataPointLocked(MiscUtils.buildDataPoint(_INTERNAL, name, entry.getKey(),
-							Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-							System.currentTimeMillis(), entry.getValue().getSnapshot().getMean()), true);
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
+				builder.addValueFieldName(entry.getKey()).addFp(false).addValue(entry.getValue().getCount());
+			}
+			try {
+				engine.writeDataPointLocked(builder.build(), true);
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 		}
 	}

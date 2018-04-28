@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -84,18 +85,13 @@ public class ResourceMonitor {
 			count += bean.getCollectionCount();
 			time += bean.getCollectionTime();
 		}
+
+		Point point = Point.newBuilder().setDbName(DB).setMeasurementName("gc").setTimestamp(System.currentTimeMillis())
+				.addTags(Tag.newBuilder().setTagKey("node").setTagValue("local").build()).addValueFieldName("count")
+				.addFp(false).addValue(count).addValueFieldName("time").addFp(false).addValue(time).build();
 		try {
-			storageEngine.writeDataPointLocked(MiscUtils.buildDataPoint(DB, "gc", "count",
-					Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-					System.currentTimeMillis(), count), true);
-		} catch (IOException e) {
-			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
-		}
-		try {
-			storageEngine.writeDataPointLocked(MiscUtils.buildDataPoint(DB, "gc", "time",
-					Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
-					System.currentTimeMillis(), time), true);
-		} catch (IOException e) {
+			storageEngine.writeDataPointLocked(point, true);
+		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
 	}
@@ -106,7 +102,7 @@ public class ResourceMonitor {
 			storageEngine.writeDataPointLocked(MiscUtils.buildDataPoint(DB, "cpu", "load",
 					Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
 					System.currentTimeMillis(), systemLoadAverage), true);
-		} catch (IOException e) {
+		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
 	}
@@ -121,15 +117,18 @@ public class ResourceMonitor {
 			storageEngine.writeDataPointLocked(MiscUtils.buildDataPoint(DB, "memory", "used",
 					Arrays.asList(Tag.newBuilder().setTagKey("type").setTagValue(type).build()),
 					System.currentTimeMillis(), used), true);
-		} catch (IOException e) {
+		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
 
+		Point point = Point.newBuilder().setDbName(DB).setMeasurementName("memory")
+				.setTimestamp(System.currentTimeMillis())
+				.addTags(Tag.newBuilder().setTagKey("type").setTagValue(type).build()).addValueFieldName("max")
+				.addFp(false).addValue(max).addValueFieldName("used").addFp(false).addValue(used).build();
+
 		try {
-			storageEngine.writeDataPointLocked(MiscUtils.buildDataPoint(DB, "memory", "max",
-					Arrays.asList(Tag.newBuilder().setTagKey("type").setTagValue(type).build()),
-					System.currentTimeMillis(), used), true);
-		} catch (IOException e) {
+			storageEngine.writeDataPointLocked(point, true);
+		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
 

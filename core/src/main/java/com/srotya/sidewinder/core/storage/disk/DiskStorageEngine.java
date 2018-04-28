@@ -104,7 +104,7 @@ public class DiskStorageEngine implements StorageEngine {
 						for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
 							Measurement value = measurementEntry.getValue();
 							try {
-//								value.collectGarbage(archiver);
+								value.collectGarbage(archiver);
 							} catch (Exception e) {
 								logger.log(Level.SEVERE,
 										"Failed collect garbage for measurement:" + value.getMeasurementName(), e);

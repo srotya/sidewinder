@@ -94,7 +94,6 @@ public class MemStorageEngine implements StorageEngine {
 		}
 		this.defaultTimebucketSize = Integer
 				.parseInt(conf.getOrDefault(DEFAULT_BUCKET_SIZE, String.valueOf(DEFAULT_TIME_BUCKET_CONSTANT)));
-		conf.put(PERSISTENCE_DISK, "false");
 		if (bgTaskPool != null) {
 			bgTaskPool.scheduleAtFixedRate(() -> {
 				for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {

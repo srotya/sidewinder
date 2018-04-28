@@ -49,7 +49,6 @@ public class SidewinderTableSchema extends AbstractSchema {
 			for (String measurementName : engine.getAllMeasurementsForDb(dbName)) {
 				LinkedHashSet<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
 				Set<String> tagKeys = engine.getTagKeysForMeasurement(dbName, measurementName);
-				// System.out.println("\n\n" + fieldsForMeasurement + "\n\n");
 				tableMap.put(measurementName.toUpperCase(),
 						new MeasurementTable(engine, dbName, measurementName, fieldsForMeasurement, tagKeys));
 			}

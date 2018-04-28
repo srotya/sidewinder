@@ -23,12 +23,13 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -88,16 +89,19 @@ public interface Measurement {
 		}
 		ByteString seriesId = constructSeriesId(tags);
 		int index = 0;
-		Series seriesFieldMap = getSeriesFromKey(seriesId);
-		if (seriesFieldMap == null) {
+		Series series = getSeriesFromKey(seriesId);
+		if (series == null) {
 			getLock().lock();
 			try {
-				if ((seriesFieldMap = getSeriesFromKey(seriesId)) == null) {
+				if ((series = getSeriesFromKey(seriesId)) == null) {
 					index = getSeriesList().size();
 					Measurement.indexRowKey(getTagIndex(), index, tags);
-					seriesFieldMap = new Series(seriesId, index);
-					getSeriesList().add(seriesFieldMap);
+					series = new Series(seriesId, index);
+					getSeriesList().add(series);
 					getSeriesMap().put(seriesId, index);
+
+					appendTimeseriesToMeasurementMetadata(seriesId, index);
+
 					if (isEnableMetricsCapture()) {
 						getMetricsTimeSeriesCounter().inc();
 					}
@@ -113,7 +117,7 @@ public interface Measurement {
 			index = getSeriesMap().get(seriesId);
 		}
 
-		return seriesFieldMap;
+		return series;
 		/*
 		 * lock.lock(); try { if ((series = seriesFieldMap.get(valueFieldName)) == null)
 		 * { ByteString seriesId2 = new ByteString(seriesId + SERIESID_SEPARATOR +
@@ -232,6 +236,7 @@ public interface Measurement {
 		});
 	}
 
+	@SuppressWarnings("unchecked")
 	public default Set<String> compact() throws IOException {
 		return runCleanupOperation("compacting", series -> {
 			try {
@@ -284,13 +289,7 @@ public interface Measurement {
 	}
 
 	public default Set<String> getFieldsForMeasurement() {
-		Set<String> results = new HashSet<>();
-		Set<ByteString> keySet = getSeriesKeys();
-		for (ByteString key : keySet) {
-			Series map = getSeriesFromKey(key);
-			results.addAll(map.getFields());
-		}
-		return results;
+		return getFields();
 	}
 
 	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime, TagFilter tagFilter,
@@ -314,7 +313,7 @@ public interface Measurement {
 		if (rowKeys != null) {
 			for (ByteString key : rowKeys) {
 				List<String> fieldMap = new ArrayList<>();
-				List<String> fieldSet = getSeriesFromKey(key).getFields();
+				List<String> fieldSet = new ArrayList<>(getFields());
 				getLogger().fine(() -> "Row key:" + key + " Fields:" + fieldSet);
 				for (String fieldSetEntry : fieldSet) {
 					if (p.matcher(fieldSetEntry).matches() && !fieldSetEntry.equalsIgnoreCase(Series.TS)) {
@@ -369,19 +368,22 @@ public interface Measurement {
 				throw new IOException("Invalid regex for value field name:" + e.getMessage());
 			}
 		}
-		Set<String> fieldSet = new LinkedHashSet<>();
+		Set<String> fieldSet = getFields();
+
+		if (regex) {
+			for (Iterator<String> iterator = fieldSet.iterator(); iterator.hasNext();) {
+				String fieldSetEntry = iterator.next();
+				if (!p.matcher(fieldSetEntry).matches()) {
+					iterator.remove();
+				}
+			}
+		}
+		
 		List<Series> seriesList = new ArrayList<>();
 		if (rowKeys != null) {
 			for (ByteString key : rowKeys) {
 				Series series = getSeriesFromKey(key);
-				getLogger().fine(() -> "Row key queried" + key + " Fields:" + series.getFields());
-				if (regex) {
-					for (String fieldSetEntry : fieldSet) {
-						if (p.matcher(fieldSetEntry).matches()) {
-							fieldSet.add(fieldSetEntry);
-						}
-					}
-				}
+				getLogger().fine(() -> "Row key queried" + key + " Fields:" + getFields());
 				seriesList.add(series);
 			}
 		}
@@ -395,7 +397,7 @@ public interface Measurement {
 			List<String> fields = Arrays.asList(fieldSet.toArray(new String[1]));
 			stream.forEach(entry -> {
 				try {
-					entry.queryTupleReaders(this, fields, startTime, endTime);
+					entry.queryIterators(this, fields, startTime, endTime);
 				} catch (Exception e) {
 					getLogger().log(Level.SEVERE, "Failed to query data points", e);
 				}
@@ -404,12 +406,16 @@ public interface Measurement {
 			stream.forEach(entry -> {
 				try {
 					readers.put(entry.getSeriesId(),
-							entry.queryTupleReaders(this, valueFieldNames, startTime, endTime));
+							entry.queryIterators(this, valueFieldNames, startTime, endTime));
 				} catch (Exception e) {
 					getLogger().log(Level.SEVERE, "Failed to query data points", e);
 				}
 			});
 		}
+	}
+
+	public default Set<String> getFields() {
+		return new TreeSet<>(getFieldTypeMap().keySet());
 	}
 
 	public default void populateDataPoints(List<String> valueFieldNames, ByteString rowKey, long startTime,
@@ -422,7 +428,7 @@ public interface Measurement {
 		for (Entry<String, List<DataPoint>> entry : queryDataPoints.entrySet()) {
 			getLogger().fine(() -> "Reading datapoints for:" + entry.getKey());
 			SeriesOutput seriesQueryOutput = new SeriesOutput(getMeasurementName(), entry.getKey(), seriesTags);
-			seriesQueryOutput.setFp(series.isFp(entry.getKey()));
+			seriesQueryOutput.setFp(isFieldFp(entry.getKey()));
 			seriesQueryOutput.setDataPoints(entry.getValue());
 			resultMap.add(seriesQueryOutput);
 		}
@@ -500,9 +506,9 @@ public interface Measurement {
 	}
 
 	public default boolean isFieldFp(String valueFieldName) throws ItemNotFoundException {
-		for (ByteString entry : getSeriesKeys()) {
-			Series seriesFromKey = getSeriesFromKey(entry);
-			return seriesFromKey.isFp(valueFieldName);
+		Boolean fp = getFieldTypeMap().get(valueFieldName);
+		if (fp != null) {
+			return fp;
 		}
 		throw StorageEngine.NOT_FOUND_EXCEPTION;
 	}
@@ -522,8 +528,7 @@ public interface Measurement {
 
 	public DBMetadata getMetadata();
 
-	public default void appendTimeseriesToMeasurementMetadata(ByteString fieldId, boolean fp, int timeBucketSize,
-			int idx) throws IOException {
+	public default void appendTimeseriesToMeasurementMetadata(ByteString fieldId, int seriesIdx) throws IOException {
 		// do nothing default implementation
 	}
 
@@ -551,5 +556,10 @@ public interface Measurement {
 	}
 
 	public AtomicInteger getRetentionBuckets();
+
+	public default void appendFieldMetadata(String valueFieldName, boolean fp) throws IOException {
+	}
+
+	public SortedMap<String, Boolean> getFieldTypeMap();
 
 }

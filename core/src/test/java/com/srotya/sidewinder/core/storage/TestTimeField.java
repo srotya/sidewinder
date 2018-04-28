@@ -35,7 +35,7 @@ public class TestTimeField {
 
 	@Before
 	public void before() {
-		measurement = new MockMeasurement(1024, 100);
+		measurement = new MockMeasurement(32768, 100);
 		TimeField.compressionClass = CompressionFactory.getTimeClassByName("byzantine");
 	}
 

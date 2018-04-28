@@ -21,8 +21,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 
 import org.apache.calcite.linq4j.Enumerator;
 
@@ -31,7 +31,7 @@ import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.FieldReaderIterator;
 import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 
-final class EnumeratorImplementation implements Enumerator<Object[]> {
+final class MeasurementEnumeratorImplementation implements Enumerator<Object[]> {
 	/**
 	 * 
 	 */
@@ -45,15 +45,25 @@ final class EnumeratorImplementation implements Enumerator<Object[]> {
 	private Map<Integer, String> tagMapToFields;
 	private int i;
 	private boolean tagOnly = false;
+	private List<Boolean> fTypes;
+	private long queryTs;
 
-	EnumeratorImplementation(MeasurementTable measurementTable, Entry<Long, Long> range, List<String> fields) {
+	public MeasurementEnumeratorImplementation(MeasurementTable measurementTable, Entry<Long, Long> range,
+			List<String> fields, List<Boolean> fTypes) {
 		this.measurementTable = measurementTable;
 		this.range = range;
 		this.fields = fields;
+		this.fTypes = fTypes;
 	}
 
 	@Override
 	public void reset() {
+		try {
+			initializeIterator();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	public Map<String, String> getTagMapFromList(List<Tag> tags) {
@@ -80,21 +90,11 @@ final class EnumeratorImplementation implements Enumerator<Object[]> {
 	public boolean moveNext() {
 		try {
 			if (readers == null) {
+				queryTs = System.currentTimeMillis();
 				try {
-					readers = this.measurementTable.engine.queryReaders(this.measurementTable.dbName,
+					readers = this.measurementTable.getStorageEngine().queryReaders(this.measurementTable.dbName,
 							this.measurementTable.measurementName, fields, false, range.getKey(), range.getValue());
-					iterator = readers.entrySet().iterator();
-					if (iterator.hasNext()) {
-						Entry<ByteString, FieldReaderIterator[]> next2 = iterator.next();
-						List<Tag> decodeTagsFromString = this.measurementTable.engine.decodeTagsFromString(
-								this.measurementTable.dbName, this.measurementTable.measurementName, next2.getKey());
-						tagMapToFields = tagMapToFields(decodeTagsFromString, fields);
-						next = new AbstractMap.SimpleEntry<List<Tag>, FieldReaderIterator[]>(decodeTagsFromString,
-								next2.getValue());
-						if (fields.size() == tagMapToFields.size()) {
-							tagOnly = true;
-						}
-					}
+					initializeIterator();
 				} catch (Exception e) {
 					e.printStackTrace();
 					return false;
@@ -108,12 +108,28 @@ final class EnumeratorImplementation implements Enumerator<Object[]> {
 					return tagOnlyReads();
 				}
 			} else {
-				System.out.println("Row count:" + i);
+				queryTs = System.currentTimeMillis() - queryTs;
+				System.out.println("Row count:" + i + " in " + queryTs + "ms");
 				return false;
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			return false;
+		}
+	}
+
+	private void initializeIterator() throws IOException {
+		iterator = readers.entrySet().iterator();
+		if (iterator.hasNext()) {
+			Entry<ByteString, FieldReaderIterator[]> next2 = iterator.next();
+			List<Tag> decodeTagsFromString = this.measurementTable.getStorageEngine().decodeTagsFromString(
+					this.measurementTable.dbName, this.measurementTable.measurementName, next2.getKey());
+			tagMapToFields = tagMapToFields(decodeTagsFromString, fields);
+			next = new AbstractMap.SimpleEntry<List<Tag>, FieldReaderIterator[]>(decodeTagsFromString,
+					next2.getValue());
+			if (fields.size() == tagMapToFields.size()) {
+				tagOnly = true;
+			}
 		}
 	}
 
@@ -124,7 +140,7 @@ final class EnumeratorImplementation implements Enumerator<Object[]> {
 		}
 		try {
 			Entry<ByteString, FieldReaderIterator[]> next2 = iterator.next();
-			List<Tag> decodeTagsFromString = this.measurementTable.engine.decodeTagsFromString(
+			List<Tag> decodeTagsFromString = this.measurementTable.getStorageEngine().decodeTagsFromString(
 					this.measurementTable.dbName, this.measurementTable.measurementName, next2.getKey());
 			tagMapToFields = tagMapToFields(decodeTagsFromString, fields);
 			next = new AbstractMap.SimpleEntry<List<Tag>, FieldReaderIterator[]>(decodeTagsFromString,
@@ -139,7 +155,7 @@ final class EnumeratorImplementation implements Enumerator<Object[]> {
 		try {
 			FieldReaderIterator[] iterators = next.getValue();
 			try {
-				extracted = FieldReaderIterator.extractedObject(iterators, i);
+				extracted = FieldReaderIterator.extractedObject(iterators, i, fTypes);
 				for (Entry<Integer, String> entry : tagMapToFields.entrySet()) {
 					extracted[entry.getKey()] = entry.getValue();
 				}
@@ -152,7 +168,7 @@ final class EnumeratorImplementation implements Enumerator<Object[]> {
 				Entry<ByteString, FieldReaderIterator[]> next2 = iterator.next();
 				List<Tag> decodeTagsFromString = null;
 				try {
-					decodeTagsFromString = this.measurementTable.engine.decodeTagsFromString(
+					decodeTagsFromString = this.measurementTable.getStorageEngine().decodeTagsFromString(
 							this.measurementTable.dbName, this.measurementTable.measurementName, next2.getKey());
 					next = new AbstractMap.SimpleEntry<List<Tag>, FieldReaderIterator[]>(decodeTagsFromString,
 							next2.getValue());
@@ -167,7 +183,8 @@ final class EnumeratorImplementation implements Enumerator<Object[]> {
 			if (next != null) {
 				return true;
 			} else {
-				System.out.println("Row count:" + i);
+				queryTs = System.currentTimeMillis() - queryTs;
+				System.out.println("Row count:" + i + " in " + queryTs + "ms");
 				return false;
 			}
 		}

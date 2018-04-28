@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit;
 import com.codahale.metrics.Metric;
 import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
-import com.srotya.sidewinder.core.SidewinderDropwizardReporter;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**

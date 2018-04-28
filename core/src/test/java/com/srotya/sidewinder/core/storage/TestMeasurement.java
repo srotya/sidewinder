@@ -50,7 +50,6 @@ import org.junit.runners.Parameterized.Parameters;
 
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
-import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineValueWriter;
 import com.srotya.sidewinder.core.storage.disk.DiskMalloc;
 import com.srotya.sidewinder.core.storage.disk.PersistentMeasurement;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
@@ -77,8 +76,6 @@ public class TestMeasurement {
 
 	@BeforeClass
 	public static void beforeClass() throws IOException {
-		TimeField.compactionEnabled = false;
-		ValueField.compactionEnabled = false;
 	}
 
 	@AfterClass
@@ -147,8 +144,7 @@ public class TestMeasurement {
 		long ts = System.currentTimeMillis();
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
-		conf.put("disk.compression.class", ByzantineValueWriter.class.getName());
-		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(2 * 1024 * 1024));
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
@@ -191,8 +187,7 @@ public class TestMeasurement {
 		long ts = System.currentTimeMillis();
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
-		conf.put("disk.compression.class", ByzantineValueWriter.class.getName());
-		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(2 * 1024 * 1024));
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
@@ -209,11 +204,9 @@ public class TestMeasurement {
 		final long ts = 1484788896586L;
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
-		conf.put("disk.compression.class", ByzantineValueWriter.class.getName());
-		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(2 * 1024 * 1024));
 		conf.put("malloc.ptrfile.increment", String.valueOf(256));
 		conf.put("compaction.ratio", "1.2");
-		conf.put("compaction.enabled", "true");
 		measurement.configure(conf, null, 1024, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 34500;
 		for (int i = 0; i < LIMIT; i++) {
@@ -234,10 +227,8 @@ public class TestMeasurement {
 		final long ts = 1484788896586L;
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test2").setTagValue("2").build());
-		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(2 * 1024 * 1024));
 		conf.put("malloc.ptrfile.increment", String.valueOf(1024));
-		TimeField.compactionEnabled = true;
-		ValueField.compactionEnabled = true;
 		TimeField.compactionRatio = 1.2;
 		ValueField.compactionRatio = 1.2;
 		measurement.configure(conf, null, 1024, DBNAME, "m4", indexDir, dataDir, metadata, bgTaskPool);
@@ -293,12 +284,10 @@ public class TestMeasurement {
 		Map<String, String> map = new HashMap<>();
 		map.put("compression.class", "byzantine");
 		map.put("compaction.class", "byzantine");
-		map.put("malloc.file.max", String.valueOf(512 * 1024));
+		map.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(512 * 1024));
 		map.put("malloc.file.increment", String.valueOf(256 * 1024));
 		map.put("malloc.buf.increment", String.valueOf(1024));
 		map.put("default.series.retention.hours", String.valueOf(2));
-		map.put("compaction.ratio", "1.2");
-		map.put("compaction.enabled", "true");
 		measurement.configure(map, null, 512, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 20000;
 		for (int i = 0; i < LIMIT; i++) {

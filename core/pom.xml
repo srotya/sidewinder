@@ -9,7 +9,9 @@
   </parent>
   <artifactId>sidewinder-core</artifactId>
   <properties>
+    <cuda.version>9.1</cuda.version>
     <dropwizard.version>1.0.2</dropwizard.version>
+    <nd4j.version>1.0.0-alpha</nd4j.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
   <dependencies>
@@ -154,18 +156,18 @@
       <artifactId>avatica-core</artifactId>
       <version>1.11.0</version>
       <exclusions>
-      	<exclusion>
-      		<groupId>com.fasterxml.jackson.core</groupId>
-      		<artifactId>jackson-core</artifactId>
-      	</exclusion>
-      	<exclusion>
-      		<groupId>com.fasterxml.jackson.core</groupId>
-      		<artifactId>jackson-annotations</artifactId>
-      	</exclusion>
-      	<exclusion>
-      		<groupId>com.fasterxml.jackson.core</groupId>
-      		<artifactId>jackson-databind</artifactId>
-      	</exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-annotations</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.core</groupId>
+          <artifactId>jackson-databind</artifactId>
+        </exclusion>
       </exclusions>
     </dependency>
     <dependency>
@@ -206,6 +208,16 @@
       <groupId>org.nd4j</groupId>
       <artifactId>nd4j-api</artifactId>
       <version>0.9.1</version>
+    </dependency>
+    <dependency>
+      <groupId>org.nd4j</groupId>
+      <artifactId>nd4j-cuda-${cuda.version}</artifactId>
+      <version>${nd4j.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.nd4j</groupId>
+      <artifactId>nd4j-cuda-${cuda.version}-platform</artifactId>
+      <version>${nd4j.version}</version>
     </dependency>
     <dependency>
       <groupId>org.reflections</groupId>

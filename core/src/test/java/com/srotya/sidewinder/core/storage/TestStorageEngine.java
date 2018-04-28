@@ -60,7 +60,6 @@ import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
-import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineValueWriter;
 import com.srotya.sidewinder.core.storage.disk.DiskMalloc;
 import com.srotya.sidewinder.core.storage.disk.DiskStorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
@@ -245,10 +244,8 @@ public class TestStorageEngine {
 			// FileUtils.forceDelete(new File("target/db2/"));
 			MiscUtils.delete(new File("targer/db2/"));
 			HashMap<String, String> map = new HashMap<>();
-			// map.put("metadata.dir", "target/db2/mdq");
 			map.put("index.dir", "target/db2/index");
 			map.put("data.dir", "target/db2/data");
-			map.put(StorageEngine.PERSISTENCE_DISK, "true");
 			map.put("default.series.retention.hours", "32");
 			engine.configure(map, bgTasks);
 		} catch (IOException e) {
@@ -274,11 +271,8 @@ public class TestStorageEngine {
 
 		MiscUtils.delete(new File("target/db15/"));
 		HashMap<String, String> map = new HashMap<>();
-		map.put("metadata.dir", "target/db15/mdq");
 		map.put("index.dir", "target/db15/index");
 		map.put("data.dir", "target/db15/data");
-		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		map.put("disk.compression.class", ByzantineValueWriter.class.getName());
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
 		Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
@@ -322,7 +316,6 @@ public class TestStorageEngine {
 	public void testGarbageCollector() throws Exception {
 		conf.put(StorageEngine.GC_DELAY, "1");
 		conf.put(StorageEngine.GC_FREQUENCY, "10");
-		conf.put(StorageEngine.PERSISTENCE_DISK, "true");
 		conf.put(StorageEngine.DEFAULT_BUCKET_SIZE, "4096");
 		conf.put(DiskMalloc.CONF_MEASUREMENT_INCREMENT_SIZE, "4096");
 		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_INCREMENT, "10240");
@@ -520,7 +513,7 @@ public class TestStorageEngine {
 			while (true) {
 				try {
 					long[] extracted = FieldReaderIterator.extracted(entry.getValue());
-					assertEquals(2.2 * (count + 1), Double.longBitsToDouble(extracted[1]), 0.01);
+					assertEquals(2.2 * (count + 1), Double.longBitsToDouble(extracted[0]), 0.01);
 					count++;
 				} catch (RejectException e) {
 					break;
@@ -732,8 +725,6 @@ public class TestStorageEngine {
 	@Test
 	public void testCompaction() throws IOException, InterruptedException {
 		conf.put("default.bucket.size", "409600");
-		TimeField.compactionEnabled = true;
-		ValueField.compactionEnabled = true;
 		conf.put("use.query.pool", "false");
 		conf.put("compaction.delay", "1");
 		conf.put("compaction.frequency", "1");
@@ -791,7 +782,6 @@ public class TestStorageEngine {
 	@Test
 	public void testCompactionThreadSafety() throws IOException, InterruptedException {
 		conf.put("default.bucket.size", "409600");
-		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
 		engine.configure(conf, bgTasks);
 		final long curr = 1497720652566L;
@@ -863,7 +853,6 @@ public class TestStorageEngine {
 	public void testWriteIndexAndQuery() throws IOException, InvalidFilterException {
 		final long curr = 1497720652566L;
 		conf.put("default.bucket.size", "409600");
-		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
 		engine.configure(conf, bgTasks);
 		Point dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr)

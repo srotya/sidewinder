@@ -35,7 +35,7 @@ public class TestValueField {
 
 	@Before
 	public void before() {
-		measurement = new MockMeasurement(1024, 100);
+		measurement = new MockMeasurement(32768, 100);
 		ValueField.compressionClass = CompressionFactory.getValueClassByName("byzantine");
 	}
 
@@ -69,7 +69,22 @@ public class TestValueField {
 			assertEquals(i % 100, itr.next());
 		}
 	}
-	
+
+	@Test
+	public void testExpandBufferError() throws IOException {
+		measurement = new MockMeasurement(149, 100);
+		Field field = new ValueField(measurement, new ByteString("field1"), 121213, new HashMap<>());
+		try {
+			for (double i = 100; i > 0; i--) {
+				long v = Double.doubleToLongBits(3.1417 * i % 7);
+				field.addDataPoint(measurement, v);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+			fail("No exception must be thrown");
+		}
+	}
+
 	@Test
 	public void testReadWriteResize() throws IOException {
 		ValueField field = new ValueField(measurement, new ByteString("field1"), 121213, new HashMap<>());
@@ -82,7 +97,7 @@ public class TestValueField {
 			assertEquals(i, itr.next());
 		}
 	}
-	
+
 	@Test
 	public void testCompactionByzantine() throws IOException {
 		ValueField.compactionClass = CompressionFactory.getValueClassByName("byzantine");
@@ -105,7 +120,7 @@ public class TestValueField {
 		ValueField.compactionRatio = 1.2;
 		ValueField field = new ValueField(measurement, new ByteString("field1"), 121213, new HashMap<>());
 		for (int i = 0; i < 10000; i++) {
-			field.addDataPoint(measurement, Double.doubleToLongBits(i*1.1));
+			field.addDataPoint(measurement, Double.doubleToLongBits(i * 1.1));
 		}
 		assertEquals(3, field.getRawWriterList().size());
 		List<Writer> compact = field.compact(measurement, new NoLock(), t -> {
@@ -113,5 +128,5 @@ public class TestValueField {
 		assertEquals(2, compact.size());
 		assertEquals(2, field.getRawWriterList().size());
 	}
-	
+
 }

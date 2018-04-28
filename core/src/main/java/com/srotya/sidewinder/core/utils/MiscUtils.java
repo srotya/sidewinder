@@ -59,7 +59,8 @@ public class MiscUtils {
 	}
 
 	public static long bucketCounter(Series series) {
-		return series.getBucketMap().entrySet().stream().map(e->e.getValue().values()).flatMap(fl->fl.stream()).mapToInt(f->f.getWriterCount()).sum();
+		return series.getBucketMap().entrySet().stream().map(e -> e.getValue().values()).flatMap(fl -> fl.stream())
+				.mapToInt(f -> f.getWriterCount()).sum();
 	}
 
 	public static String[] splitAndNormalizeString(String input) {
@@ -344,23 +345,21 @@ public class MiscUtils {
 
 	public static Point buildDataPoint(String dbName, String measurementName, List<String> valueFieldName,
 			List<Tag> taglist, long timestamp, List<Long> values, List<Boolean> fp) {
-		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName)
-				.addAllValueFieldName(valueFieldName).addAllFp(fp).addAllTags(taglist).addAllValue(values)
-				.setTimestamp(timestamp).build();
+		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName).addAllTags(taglist)
+				.setTimestamp(timestamp).addAllValueFieldName(valueFieldName).addAllFp(fp).addAllValue(values).build();
 	}
 
 	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> taglist,
 			long timestamp, long value) {
-		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName)
-				.addValueFieldName(valueFieldName).addFp(false).addAllTags(taglist).addValue(value)
-				.setTimestamp(timestamp).build();
+		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName).addAllTags(taglist)
+				.setTimestamp(timestamp).addValueFieldName(valueFieldName).addFp(false).addValue(value).build();
 	}
 
 	public static Point buildDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> taglist,
 			long timestamp, double value) {
-		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName)
-				.addValueFieldName(valueFieldName).addFp(true).addAllTags(taglist)
-				.addValue(Double.doubleToLongBits(value)).setTimestamp(timestamp).build();
+		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName).addAllTags(taglist)
+				.setTimestamp(timestamp).addValueFieldName(valueFieldName).addFp(true)
+				.addValue(Double.doubleToLongBits(value)).build();
 	}
 
 	public static int tagHashCode(List<Tag> tags) {

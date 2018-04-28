@@ -60,7 +60,6 @@ public interface StorageEngine {
 	public static final String RETENTION_HOURS = "default.series.retention.hours";
 	public static final int DEFAULT_RETENTION_HOURS = (int) Math
 			.ceil((((double) DEFAULT_TIME_BUCKET_CONSTANT) * 24 / 60) / 60);
-	public static final String PERSISTENCE_DISK = "persistence.disk";
 	public static final String ARCHIVER_CLASS = "archiver.class";
 	public static final String GC_ENABLED = "gc.enabled";
 	public static final String GC_DELAY = "gc.delay";
@@ -79,6 +78,7 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
 	public static final boolean ENABLE_METHOD_METRICS = Boolean
 			.parseBoolean(System.getProperty("debug.method.metrics", "false"));
+	public static final String ENABLE_JDBC = "jdbc.enabled";
 
 	/**
 	 * @param conf
@@ -520,7 +520,7 @@ public interface StorageEngine {
 		}
 		// check and create timeseries
 		try {
-			getDatabaseMap().get(dbName).get(measurementName).getSeriesField(tags).isFp(valueFieldName);
+			getDatabaseMap().get(dbName).get(measurementName).isFieldFp(valueFieldName);
 			return true;
 		} catch (ItemNotFoundException e) {
 			return false;
@@ -608,9 +608,13 @@ public interface StorageEngine {
 				StorageEngine.DEFAULT_COMPACTION_CODEC);
 		TimeField.compactionClass = CompressionFactory.getTimeClassByName(compactionCodec);
 		TimeField.compressionClass = CompressionFactory.getTimeClassByName(compressionCodec);
+		getLogger().info("Compression codec for timeseries:"+TimeField.compressionClass.getName());
+		getLogger().info("Compaction codec for timeseries:"+TimeField.compactionClass.getName());
 
 		ValueField.compactionClass = CompressionFactory.getValueClassByName(compactionCodec);
 		ValueField.compressionClass = CompressionFactory.getValueClassByName(compressionCodec);
+		getLogger().info("Compression codec for value:"+ValueField.compressionClass.getName());
+		getLogger().info("Compaction codec for value:"+ValueField.compactionClass.getName());
 	}
 
 	public default List<Tag> decodeTagsFromString(String dbName, String measurementName, ByteString tagString) throws IOException {

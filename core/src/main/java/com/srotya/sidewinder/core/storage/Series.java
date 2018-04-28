@@ -18,7 +18,6 @@ package com.srotya.sidewinder.core.storage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -48,7 +47,6 @@ public class Series {
 	public static final String TS = "TS";
 	private static final Logger logger = Logger.getLogger(Series.class.getName());
 	private ByteString seriesId;
-	private LinkedHashMap<String, Boolean> fieldTypeMap;
 	private SortedMap<Integer, Map<String, Field>> bucketFieldMap;
 	private int fieldMapIndex;
 	private ReentrantReadWriteLock lock;
@@ -58,15 +56,10 @@ public class Series {
 	public Series(ByteString seriesId, int fieldMapIndex) {
 		this.seriesId = seriesId;
 		this.fieldMapIndex = fieldMapIndex;
-		fieldTypeMap = new LinkedHashMap<>();
 		bucketFieldMap = new ConcurrentSkipListMap<>();
 		this.lock = new ReentrantReadWriteLock();
 		readLock = lock.readLock();
 		writeLock = lock.writeLock();
-	}
-
-	public List<String> getFields() {
-		return new ArrayList<>(fieldTypeMap.keySet());
 	}
 
 	protected Field getOrCreateSeries(int timeBucket, String valueFieldName, boolean fp, Measurement measurement)
@@ -82,12 +75,11 @@ public class Series {
 				} else {
 					field = new ValueField(measurement, fieldId, timeBucket, measurement.getConf());
 				}
-				if (fieldTypeMap.get(valueFieldName) == null) {
-					fieldTypeMap.put(valueFieldName, fp);
+				if (measurement.getFieldTypeMap().get(valueFieldName) == null) {
+					measurement.getFieldTypeMap().put(valueFieldName, fp);
+					measurement.appendFieldMetadata(valueFieldName, fp);
 				}
 				map.put(valueFieldName, field);
-				measurement.appendTimeseriesToMeasurementMetadata(fieldId, fp, measurement.getTimeBucketSize(),
-						fieldMapIndex);
 				final Field tmp = field;
 				logger.fine(
 						() -> "Created new timeseries:" + tmp + " for measurement:" + measurement.getMeasurementName()
@@ -97,7 +89,7 @@ public class Series {
 				// in case there was contention and we have to re-check the cache
 				field = map.get(valueFieldName);
 			}
-			writeLock.unlock();//
+			writeLock.unlock();
 		}
 		return field;
 	}
@@ -165,10 +157,6 @@ public class Series {
 		}
 	}
 
-	public void loadSeriesMetadata(String fieldName, boolean fieldType) {
-		fieldTypeMap.put(fieldName, fieldType);
-	}
-
 	/**
 	 * Extract {@link DataPoint}s for the supplied time range and value predicate.
 	 * 
@@ -192,7 +180,7 @@ public class Series {
 			endTime = endTime ^ startTime;
 			startTime = startTime ^ endTime;
 		}
-		SortedMap<Integer, Map<String, Field>> correctTimeRangeScan = correctTimeRangeScan(startTime, endTime,
+		SortedMap<Integer, Map<String, Field>> correctTimeRangeScan = correctTimeRangeScan(startTime, Long.MAX_VALUE,
 				measurement.getTimeBucketSize());
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
 		Map<String, List<DataPoint>> points = new HashMap<>();
@@ -210,6 +198,7 @@ public class Series {
 					FieldReaderIterator valueIterator = field
 							.queryReader(valuePredicate != null ? valuePredicate.get(i) : null, readLock);
 					FieldReaderIterator timeIterator = timeField.queryReader(timeRangePredicate, readLock);
+					logger.fine(() -> vfn + " " + valueIterator.count() + " ts:" + timeIterator.count());
 					while (true) {
 						try {
 							long ts = timeIterator.next();
@@ -228,7 +217,7 @@ public class Series {
 		return points;
 	}
 
-	public FieldReaderIterator[] queryTupleReaders(Measurement measurement, List<String> valueFieldBucketNames,
+	public FieldReaderIterator[] queryIterators(Measurement measurement, List<String> valueFieldBucketNames,
 			long startTime, long endTime) throws IOException {
 		if (startTime > endTime) {
 			// swap start and end times if they are off
@@ -240,19 +229,25 @@ public class Series {
 				measurement.getTimeBucketSize());
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
 
-		FieldReaderIterator[] output = new FieldReaderIterator[valueFieldBucketNames.size() + 1];
-		for (int i = 0; i < output.length; i++) {
+		int length = valueFieldBucketNames.size();
+		if (!valueFieldBucketNames.contains(TS)) {
+			length++;
+		}
+		FieldReaderIterator[] output = new FieldReaderIterator[length];
+		for (int i = 0; i < length; i++) {
 			output[i] = new FieldReaderIterator();
 		}
 		for (Entry<Integer, Map<String, Field>> entry : correctTimeRangeScan.entrySet()) {
 			Map<String, Field> map = entry.getValue();
 			Field timeField = map.get(TS);
-			output[0].addReader(timeField.queryReader(timeRangePredicate, readLock).getReaders());
+			if (length > valueFieldBucketNames.size()) {
+				output[length - 1].addReader(timeField.queryReader(timeRangePredicate, readLock).getReaders());
+			}
 			for (int i = 0; i < valueFieldBucketNames.size(); i++) {
 				String vfn = valueFieldBucketNames.get(i);
 				Field field = map.get(vfn);
 				if (field != null) {
-					output[i + 1] = field.queryReader(null, readLock);
+					output[i] = field.queryReader(null, readLock);
 				}
 			}
 		}
@@ -310,7 +305,7 @@ public class Series {
 		if (bucketFieldMap.size() <= 1) {
 			series = bucketFieldMap;
 		} else {
-			if (Integer.compare(tsEndBucket, bucketFieldMap.lastKey()) > 0) {
+			if (Integer.compare(tsEndBucket, bucketFieldMap.lastKey()) > 0 || tsEndBucket < 0) {
 				series = bucketFieldMap.tailMap(tsStartBucket);
 				logger.finest(() -> "Endkey exceeds last key, using tailmap instead");
 			} else {
@@ -325,14 +320,6 @@ public class Series {
 	@Override
 	public String toString() {
 		return "SeriesFieldBucketMap [seriesId=" + seriesId + " seriesMap=" + bucketFieldMap + "]";
-	}
-
-	public boolean isFp(String key) throws ItemNotFoundException {
-		Boolean v = fieldTypeMap.get(key);
-		if (v == null) {
-			throw StorageEngine.NOT_FOUND_EXCEPTION;
-		}
-		return v;
 	}
 
 	// /**
@@ -377,10 +364,6 @@ public class Series {
 
 	public SortedMap<Integer, Map<String, Field>> getBucketMap() {
 		return bucketFieldMap;
-	}
-
-	protected Map<String, Boolean> getFieldTypeMap() {
-		return fieldTypeMap;
 	}
 
 	protected int getFieldMapIndex() {

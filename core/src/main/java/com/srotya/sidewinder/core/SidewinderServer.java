@@ -38,7 +38,6 @@ import org.apache.calcite.avatica.server.HttpServer;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
 import com.srotya.sidewinder.core.api.InfluxApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
-import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.external.Ingester;
 import com.srotya.sidewinder.core.functions.FunctionTable;
@@ -71,7 +70,7 @@ import io.dropwizard.setup.Environment;
 public class SidewinderServer extends Application<SidewinderConfig> {
 
 	private static final Logger logger = Logger.getLogger(SidewinderServer.class.getName());
-	private StorageEngine storageEngine;
+	private static StorageEngine storageEngine;
 	private static SidewinderServer sidewinderServer;
 	private HttpServer jdbc;
 
@@ -99,11 +98,13 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 	}
 
 	private void checkAndEnableJdbc(Map<String, String> conf) throws SQLException {
-		JdbcMeta meta = new JdbcMeta(
-				"jdbc:calcite:schemaFactory=com.srotya.sidewinder.core.sql.calcite.SidewinderSchemaFactory;");
-		Service service = new LocalService(meta);
-		jdbc = new HttpServer(1099, new AvaticaJsonHandler(service));
-		jdbc.start();
+		if (Boolean.parseBoolean(conf.getOrDefault(StorageEngine.ENABLE_JDBC, ConfigConstants.FALSE))) {
+			JdbcMeta meta = new JdbcMeta(
+					"jdbc:calcite:schemaFactory=com.srotya.sidewinder.core.sql.calcite.SidewinderSchemaFactory;");
+			Service service = new LocalService(meta);
+			jdbc = new HttpServer(1099, new AvaticaJsonHandler(service));
+			jdbc.start();
+		}
 	}
 
 	private void checkAndRegisterFunctions(Map<String, String> conf) {
@@ -211,8 +212,12 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 	/**
 	 * @return
 	 */
-	public StorageEngine getStorageEngine() {
+	public static StorageEngine getStorageEngine() {
 		return storageEngine;
+	}
+
+	public static void setStorageEngine(StorageEngine storageEngine) {
+		SidewinderServer.storageEngine = storageEngine;
 	}
 
 }

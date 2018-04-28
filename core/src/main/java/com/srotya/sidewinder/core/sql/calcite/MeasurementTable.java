@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.sql.calcite;
 
+import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,8 +48,7 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
  */
 public class MeasurementTable extends AbstractTable implements ProjectableFilterableTable {
 
-	private static final String TAGS = "TAGS";
-	StorageEngine engine;
+	private StorageEngine engine;
 	private List<String> fieldNames;
 	String measurementName;
 	String dbName;
@@ -76,13 +76,19 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 			if (tagKeys.contains(field)) {
 				types.add(typeFactory.createSqlType(SqlTypeName.VARCHAR));
 			} else {
-				// value field; should be cast by the query to different type
-				types.add(typeFactory.createSqlType(SqlTypeName.BIGINT));
+				try {
+					if (engine.getOrCreateMeasurement(dbName, measurementName).isFieldFp(field)) {
+						// value field; should be cast by the query to different type
+						types.add(typeFactory.createSqlType(SqlTypeName.DOUBLE));
+					} else {
+						types.add(typeFactory.createSqlType(SqlTypeName.BIGINT));
+					}
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
 			}
 		}
-
-		names.add(TAGS);
-		types.add(typeFactory.createSqlType(SqlTypeName.VARCHAR));
 
 		return typeFactory.createStructType(types, names);
 	}
@@ -94,14 +100,20 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 
 	@Override
 	public Enumerable<Object[]> scan(DataContext root, List<RexNode> filters, int[] projects) {
+		List<Boolean> fTypes = new ArrayList<>();
 		List<String> fields;
 		if (projects != null) {
 			fields = new ArrayList<>();
 			for (int i = 0; i < projects.length; i++) {
 				fields.add(fieldNames.get(projects[i]));
+				fTypes.add(types.get(projects[i]).getSqlTypeName() == SqlTypeName.DOUBLE);
 			}
 		} else {
 			fields = fieldNames;
+			for (int i = 0; i < types.size(); i++) {
+				RelDataType relDataType = types.get(i);
+				fTypes.add(relDataType.getSqlTypeName() == SqlTypeName.DOUBLE);
+			}
 		}
 
 		Entry<Long, Long> findTimeRange = null;
@@ -112,7 +124,7 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 
 		return new AbstractEnumerable<Object[]>() {
 			public Enumerator<Object[]> enumerator() {
-				return new EnumeratorImplementation(MeasurementTable.this, range, fields);
+				return new MeasurementEnumeratorImplementation(MeasurementTable.this, range, fields, fTypes);
 			}
 		};
 	}
@@ -217,24 +229,8 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 		}
 	}
 
-	// @SuppressWarnings("unused")
-	// private static boolean addFilter(RexNode filter, Object[] filterValues) {
-	// if (filter.isA(SqlKind.EQUALS)) {
-	// final RexCall call = (RexCall) filter;
-	// RexNode left = call.getOperands().get(0);
-	// if (left.isA(SqlKind.CAST)) {
-	// left = ((RexCall) left).operands.get(0);
-	// }
-	// final RexNode right = call.getOperands().get(1);
-	// if (left instanceof RexInputRef && right instanceof RexLiteral) {
-	// final int index = ((RexInputRef) left).getIndex();
-	// if (filterValues[index] == null) {
-	// filterValues[index] = ((RexLiteral) right).getValue2().toString();
-	// return true;
-	// }
-	// }
-	// }
-	// return false;
-	// }
+	public StorageEngine getStorageEngine() {
+		return engine;
+	}
 
 }

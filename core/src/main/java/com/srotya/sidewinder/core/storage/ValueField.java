@@ -53,7 +53,6 @@ public class ValueField implements Field {
 	private static final Logger logger = Logger.getLogger(ValueField.class.getName());
 	private List<ValueWriter> writerList;
 	private ByteString fieldId;
-	public static boolean compactionEnabled = false;
 	public static double compactionRatio = 0.8;
 	public static Class<ValueWriter> compressionClass = CompressionFactory.getValueClassByName("byzantine");
 	public static Class<ValueWriter> compactionClass = CompressionFactory.getValueClassByName("gorilla");

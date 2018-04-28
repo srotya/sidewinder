@@ -91,7 +91,7 @@ public class ByzantineTimestampWriter implements TimeWriter {
 	}
 
 	private void checkAndExpandBuffer() throws IOException {
-		if (buf.remaining() < 8 || buf.isReadOnly()) {
+		if (buf.remaining() < 5 || buf.isReadOnly()) {
 			full = true;
 			throw BUF_ROLLOVER_EXCEPTION;
 		}

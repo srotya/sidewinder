@@ -61,6 +61,7 @@ public class MemoryMeasurement implements Measurement {
 	private boolean enableMetricsCapture;
 	private Counter metricsTimeSeriesCounter;
 	private AtomicInteger retentionBuckets;
+	private SortedMap<String, Boolean> fieldTypeMap;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
@@ -84,6 +85,7 @@ public class MemoryMeasurement implements Measurement {
 		this.tagIndex = new MemTagIndex();
 		tagIndex.configure(getConf(), null, this);
 		this.seriesMap = new ConcurrentHashMap<>();
+		this.fieldTypeMap = new ConcurrentSkipListMap<>();
 		this.retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(metadata.getRetentionHours());
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
@@ -198,4 +200,10 @@ public class MemoryMeasurement implements Measurement {
 	public AtomicInteger getRetentionBuckets() {
 		return retentionBuckets;
 	}
+
+	@Override
+	public SortedMap<String, Boolean> getFieldTypeMap() {
+		return fieldTypeMap;
+	}
+
 }

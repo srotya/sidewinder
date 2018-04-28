@@ -15,7 +15,6 @@
  */
 package com.srotya.sidewinder.core.sql.calcite;
 
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import org.apache.calcite.schema.SchemaPlus;
@@ -30,13 +29,10 @@ public class SidewinderDatabaseSchema extends AbstractSchema {
 
 	private static final Logger logger = Logger.getLogger(SidewinderDatabaseSchema.class.getName());
 
-	public SidewinderDatabaseSchema(StorageEngine engine, SchemaPlus parentSchema) {
-		try {
-			for (String dbName : engine.getDatabases()) {
-				parentSchema.add(dbName.toUpperCase(), new SidewinderTableSchema(engine, parentSchema, dbName));
-			}
-		} catch (Exception e) {
-			logger.log(Level.SEVERE, "Failed to get database list for JDBC server", e);
+	public SidewinderDatabaseSchema(StorageEngine engine, SchemaPlus parentSchema) throws Exception {
+		for (String dbName : engine.getDatabases()) {
+			logger.fine(() -> "Adding db:" + dbName);
+			parentSchema.add(dbName.toUpperCase(), new SidewinderTableSchema(engine, parentSchema, dbName));
 		}
 	}
 

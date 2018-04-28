@@ -86,7 +86,6 @@ public class ByzantineValueWriter implements ValueWriter {
 		compressAndWriteValue(buf, value);
 		count++;
 		updateCount();
-
 	}
 
 	private void compressAndWriteValue(ByteBuffer tBuf, long value) {
@@ -110,7 +109,7 @@ public class ByzantineValueWriter implements ValueWriter {
 	}
 
 	private void checkAndExpandBuffer() throws IOException {
-		if (buf.remaining() < 8 || buf.isReadOnly()) {
+		if (buf.remaining() < 9 || buf.isReadOnly()) {
 			full = true;
 			throw BUF_ROLLOVER_EXCEPTION;
 		}

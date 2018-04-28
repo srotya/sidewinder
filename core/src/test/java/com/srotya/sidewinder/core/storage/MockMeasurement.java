@@ -43,14 +43,16 @@ public class MockMeasurement implements Measurement {
 	private List<String> list;
 	private int rentionBuckets;
 	private int timebucket;
+	private SortedMap<String, Boolean> typeMap;
 
 	public MockMeasurement(int bufSize, int rentionBuckets) {
 		this.rentionBuckets = rentionBuckets;
 		list = new ArrayList<>();
 		memMalloc = new MemMalloc(list);
 		Map<String, String> conf = new HashMap<>();
-		conf.put("buffer.size", String.valueOf(bufSize));
+		conf.put("malloc.buf.increment", String.valueOf(bufSize));
 		memMalloc.configure(conf, null, null, null, null, null);
+		typeMap = new ConcurrentSkipListMap<>();
 	}
 
 	public MemMalloc getAllocator() {
@@ -177,6 +179,11 @@ public class MockMeasurement implements Measurement {
 	@Override
 	public AtomicInteger getRetentionBuckets() {
 		return new AtomicInteger(rentionBuckets);
+	}
+
+	@Override
+	public SortedMap<String, Boolean> getFieldTypeMap() {
+		return typeMap;
 	}
 
 }

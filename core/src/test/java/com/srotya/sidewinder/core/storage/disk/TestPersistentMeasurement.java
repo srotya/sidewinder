@@ -47,7 +47,6 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TestMeasurement;
 import com.srotya.sidewinder.core.storage.TimeField;
 import com.srotya.sidewinder.core.storage.ValueField;
-import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineValueWriter;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -70,8 +69,6 @@ public class TestPersistentMeasurement {
 	@BeforeClass
 	public static void beforeClass() throws IOException {
 		engine.configure(new HashMap<>(), bgTaskPool);
-		TimeField.compactionEnabled = false;
-		ValueField.compactionEnabled = false;
 	}
 
 	@Before
@@ -92,7 +89,7 @@ public class TestPersistentMeasurement {
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
 		Map<String, String> conf = new HashMap<>();
-		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(2 * 1024 * 1024));
 		conf.put("malloc.ptrfile.increment", String.valueOf(2 * 1024));
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 100;
@@ -113,14 +110,13 @@ public class TestPersistentMeasurement {
 		long ts = System.currentTimeMillis();
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
-		conf.put("disk.compression.class", ByzantineValueWriter.class.getName());
-		conf.put("malloc.file.max", String.valueOf(1024 * 1024));
+		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(1024 * 1024));
 		try {
 			measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 			fail("Must throw invalid file max size exception");
 		} catch (Exception e) {
 		}
-		conf.put("malloc.file.max", String.valueOf(2 * 1024 * 1024));
+		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(2 * 1024 * 1024));
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
@@ -149,13 +145,11 @@ public class TestPersistentMeasurement {
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test2").setTagValue("2").build());
 		int defaultTimeBucketSize = 4096;
-		conf.put("malloc.file.max", String.valueOf(2 * defaultTimeBucketSize * defaultTimeBucketSize));
+		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(2 * defaultTimeBucketSize * defaultTimeBucketSize));
 		conf.put("buffer.size", String.valueOf(32768));
 		conf.put("malloc.ptrfile.increment", String.valueOf(defaultTimeBucketSize));
 		TimeField.compactionRatio = 1.2;
 		ValueField.compactionRatio = 1.2;
-		TimeField.compactionEnabled = true;
-		ValueField.compactionEnabled = true;
 		String measurementName = "m2";
 		measurement.configure(conf, null, defaultTimeBucketSize, DBNAME, measurementName, indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 8000;
