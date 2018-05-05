@@ -142,7 +142,7 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 							findTimeRange.getKey());
 				}
 			}
-			System.err.println("Time range filter:" + findTimeRange);
+			// System.err.println("Time range filter:" + findTimeRange);
 		}
 
 		if (findTimeRange == null) {
@@ -207,7 +207,7 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 				if (((RexCall) right).operands.size() > 0) {
 					right = ((RexCall) right).operands.get(0);
 					val = (long) ((RexLiteral) right).getValue2();
-					System.out.println("\n\nFunction parsed \n\n");
+					// System.out.println("\n\nFunction parsed \n\n");
 				} else {
 					System.err.println("Funtion:" + ((RexCall) right).op.getName() + "\t" + filter.getKind());
 					if (((RexCall) right).op.getName().equals("now")) {
@@ -234,7 +234,7 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 	public StorageEngine getStorageEngine() {
 		return engine;
 	}
-	
+
 	public int getMaxResultCount() {
 		return maxResultCount;
 	}

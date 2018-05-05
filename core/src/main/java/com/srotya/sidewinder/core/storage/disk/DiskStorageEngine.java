@@ -36,10 +36,10 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.google.gson.Gson;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
-import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.archival.Archiver;
 import com.srotya.sidewinder.core.storage.archival.NoneArchiver;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 

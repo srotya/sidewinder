@@ -46,6 +46,7 @@ import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
+import com.srotya.sidewinder.core.storage.archival.Archiver;
 import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.sql.calcite.functions;
+package com.srotya.sidewinder.core.sql.calcite;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -27,6 +27,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -54,6 +56,42 @@ public class TestSchemaAndBasicQueries {
 
 	@Mock
 	private SchemaPlus parent;
+
+	@Test
+	public void testFunctions() throws Exception {
+		StorageEngine engine = new MemStorageEngine();
+		engine.configure(new HashMap<>(), null);
+		long ts = System.currentTimeMillis();
+		for (int i = 0; i < 10000; i++) {
+			engine.writeDataPointLocked(
+					MiscUtils.buildDataPoint("db12", "m12", "v1",
+							Arrays.asList(Tag.newBuilder().setTagKey("k1").setTagValue("v1").build()), ts + i * 100, i),
+					true);
+		}
+		SidewinderServer.setStorageEngine(engine);
+		Connection connection = DriverManager.getConnection(
+				"jdbc:calcite:schemaFactory=com.srotya.sidewinder.core.sql.calcite.SidewinderSchemaFactory;");
+		Statement st = connection.createStatement();
+
+		ResultSet rset = st.executeQuery("select totime(ts) from db12.m12");
+		int c = 0;
+		while (rset.next()) {
+			assertEquals(Timestamp.from(Instant.ofEpochMilli(ts + c * 100)), rset.getTimestamp(1));
+			c++;
+		}
+		rset.close();
+
+		rset = st.executeQuery("select tolong(totime(ts)) from db12.m12");
+		c = 0;
+		while (rset.next()) {
+			assertEquals(ts + c * 100, rset.getLong(1));
+			c++;
+		}
+		rset.close();
+
+		st.close();
+		connection.close();
+	}
 
 	@Test
 	public void testCalciteLocalParameters() throws Exception {
