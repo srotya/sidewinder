@@ -21,6 +21,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -127,6 +128,18 @@ public class GrafanaQueryApi {
 			}
 		}
 		time.stop();
+
+		// Adding sorted output so series colors do not change in grafana
+		Collections.sort(output);
+
+		logger.log(Level.FINEST, () -> {
+			StringBuilder builder = new StringBuilder();
+			for (Target out : output) {
+				builder.append(out.getTarget() + " " + out.getDatapoints().size() + "\n");
+			}
+			return builder.toString();
+		});
+		logger.log(Level.FINER, () -> "Grafana query result size:" + output.size());
 		return output;
 	}
 

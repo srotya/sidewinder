@@ -17,9 +17,9 @@ package com.srotya.sidewinder.core.functions;
 
 import java.util.List;
 
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 
-public interface Function extends java.util.function.Function<List<Series>, List<Series>> {
+public interface Function extends java.util.function.Function<List<SeriesOutput>, List<SeriesOutput>> {
 
 	public void init(Object[] args) throws Exception;
 	

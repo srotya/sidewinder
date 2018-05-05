@@ -15,14 +15,13 @@
  */
 package com.srotya.sidewinder.core.sql.calcite;
 
-import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.ScheduledExecutorService;
 
 import org.apache.calcite.schema.Schema;
 import org.apache.calcite.schema.SchemaFactory;
 import org.apache.calcite.schema.SchemaPlus;
 
+import com.srotya.sidewinder.core.SidewinderServer;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 
 /**
@@ -30,17 +29,27 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
  */
 public class SidewinderSchemaFactory implements SchemaFactory {
 
-	private StorageEngine engine;
-
-	public SidewinderSchemaFactory(StorageEngine engine, ScheduledExecutorService bgTasks) throws IOException {
-		this.engine = engine;
+	public SidewinderSchemaFactory() {
 	}
 
 	@Override
 	public Schema create(SchemaPlus parentSchema, String name, Map<String, Object> operand) {
-		System.out.println(operand);
-		String dbName = (String) operand.get("db");
-		return new SidewinderDatabaseSchema(engine, dbName);
+		StorageEngine storageEngine = SidewinderServer.getStorageEngine();
+		Object dbName = operand.get("dbName");
+		Object maxResult = operand.get("maxResult");
+		int maxResultCount = 1000;
+		if (maxResult != null) {
+			maxResultCount = Integer.parseInt(maxResult.toString());
+		}
+		if (dbName == null) {
+			try {
+				return new SidewinderDatabaseSchema(storageEngine, parentSchema, maxResultCount);
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		} else {
+			return new SidewinderTableSchema(storageEngine, parentSchema, dbName.toString(), maxResultCount);
+		}
 	}
 
 }

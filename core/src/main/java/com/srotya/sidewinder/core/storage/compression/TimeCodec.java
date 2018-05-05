@@ -13,25 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.sql.calcite.functions;
+package com.srotya.sidewinder.core.storage.compression;
 
-import java.sql.Timestamp;
-import java.time.Instant;
-
-import org.apache.calcite.linq4j.function.Function1;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 /**
  * @author ambud
  */
-public class ToTimestamp implements Function1<Long, Timestamp> {
+@Retention(RetentionPolicy.RUNTIME)
+public @interface TimeCodec {
 
-	@Override
-	public Timestamp apply(Long a0) {
-		return Timestamp.from(Instant.ofEpochMilli(a0));
-	}
+	public int id();
 	
-	public static Timestamp eval(long a0) {
-		return Timestamp.from(Instant.ofEpochMilli(a0));
-	}
-
+	public String name();
+	
 }

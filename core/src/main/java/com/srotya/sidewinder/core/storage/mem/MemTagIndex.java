@@ -39,7 +39,7 @@ import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.SeriesFieldMap;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
 /**
@@ -110,7 +110,7 @@ public class MemTagIndex implements TagIndex {
 	public Set<ByteString> searchRowKeysForTagFilter(TagFilter tagFilterTree) {
 		Set<Integer> e = evalFilterForTags(tagFilterTree);
 		Set<ByteString> rowKeys = new HashSet<>();
-		List<SeriesFieldMap> list = m.getSeriesList();
+		List<Series> list = m.getSeriesList();
 		if (e != null) {
 			for (Integer val : e) {
 				rowKeys.add(new ByteString(list.get(val).getSeriesId().toString()));

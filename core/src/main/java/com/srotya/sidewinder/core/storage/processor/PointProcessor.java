@@ -24,6 +24,6 @@ import com.srotya.sidewinder.core.rpc.Point;
  */
 public interface PointProcessor {
 	
-	public void writeDataPoint(String dbName, Point point) throws InterruptedException, IOException;
+	public void writeDataPoint(Point point) throws InterruptedException, IOException;
 
 }

@@ -25,6 +25,7 @@ import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.MiscUtils;
 
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
@@ -99,12 +100,14 @@ public class GraphiteDecoder extends SimpleChannelInboundHandler<String> {
 			double value = Double.parseDouble(parts[1]);
 			logger.fine("Writing graphite metric (fp)" + dbName + "," + measurementName + "," + valueFieldName + ","
 					+ tags + "," + timestamp + "," + value);
-			storageEngine.writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value, false);
+			storageEngine.writeDataPointLocked(
+					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value), false);
 		} else {
 			long value = Long.parseLong(parts[1]);
 			logger.fine("Writing graphite metric (fp)" + dbName + "," + measurementName + "," + valueFieldName + ","
 					+ tags + "," + timestamp + "," + value);
-			storageEngine.writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value, false);
+			storageEngine.writeDataPointLocked(
+					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value), false);
 		}
 	}
 

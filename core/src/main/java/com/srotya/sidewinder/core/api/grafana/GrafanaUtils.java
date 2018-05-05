@@ -35,7 +35,7 @@ import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.functions.FunctionTable;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.InvalidFilterException;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -52,7 +52,7 @@ public class GrafanaUtils {
 
 	public static void queryAndGetData(StorageEngine engine, String dbName, long startTs, long endTs,
 			List<Target> output, TargetSeries targetSeriesEntry) throws IOException {
-		List<Series> points;
+		List<SeriesOutput> points;
 		try {
 			points = engine.queryDataPoints(dbName, targetSeriesEntry.getMeasurementName(),
 					targetSeriesEntry.getFieldName(), startTs, endTs, targetSeriesEntry.getTagFilter(), null,
@@ -64,7 +64,7 @@ public class GrafanaUtils {
 			throw new BadRequestException(e.getMessage());
 		}
 		if (points != null) {
-			for (Series entry : points) {
+			for (SeriesOutput entry : points) {
 				Target tar = new Target(entry.toString());
 				List<DataPoint> dps = entry.getDataPoints();
 				if (dps != null) {
@@ -76,8 +76,8 @@ public class GrafanaUtils {
 						}
 					}
 				}
-				output.add(tar);
 				tar.sort();
+				output.add(tar);
 			}
 		}
 	}

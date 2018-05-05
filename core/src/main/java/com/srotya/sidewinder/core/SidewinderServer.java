@@ -29,10 +29,15 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Logger;
 
+import org.apache.calcite.avatica.jdbc.JdbcMeta;
+import org.apache.calcite.avatica.remote.LocalService;
+import org.apache.calcite.avatica.remote.Service;
+import org.apache.calcite.avatica.server.AvaticaJsonHandler;
+import org.apache.calcite.avatica.server.HttpServer;
+
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
 import com.srotya.sidewinder.core.api.InfluxApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
-import com.srotya.sidewinder.core.api.SqlApi;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
 import com.srotya.sidewinder.core.external.Ingester;
 import com.srotya.sidewinder.core.functions.FunctionTable;
@@ -65,8 +70,9 @@ import io.dropwizard.setup.Environment;
 public class SidewinderServer extends Application<SidewinderConfig> {
 
 	private static final Logger logger = Logger.getLogger(SidewinderServer.class.getName());
-	private StorageEngine storageEngine;
+	private static StorageEngine storageEngine;
 	private static SidewinderServer sidewinderServer;
+	private HttpServer jdbc;
 
 	@Override
 	public void initialize(Bootstrap<SidewinderConfig> bootstrap) {
@@ -88,6 +94,17 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		registerWebAPIs(env, conf, bgTasks);
 		checkAndEnableIngesters(conf, env);
 		checkAndRegisterFunctions(conf);
+		checkAndEnableJdbc(conf);
+	}
+
+	private void checkAndEnableJdbc(Map<String, String> conf) throws SQLException {
+		if (Boolean.parseBoolean(conf.getOrDefault(StorageEngine.ENABLE_JDBC, ConfigConstants.FALSE))) {
+			JdbcMeta meta = new JdbcMeta(
+					"jdbc:calcite:schemaFactory=com.srotya.sidewinder.core.sql.calcite.SidewinderSchemaFactory;");
+			Service service = new LocalService(meta);
+			jdbc = new HttpServer(1099, new AvaticaJsonHandler(service));
+			jdbc.start();
+		}
 	}
 
 	private void checkAndRegisterFunctions(Map<String, String> conf) {
@@ -157,7 +174,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 		env.jersey().register(new GrafanaQueryApi(storageEngine));
 		env.jersey().register(new MeasurementOpsApi(storageEngine));
 		env.jersey().register(new DatabaseOpsApi(storageEngine));
-		env.jersey().register(new SqlApi(storageEngine));
+		// env.jersey().register(new SqlApi(storageEngine));
 		if (Boolean.parseBoolean(conf.getOrDefault("jersey.influx", "true"))) {
 			PointProcessor proc = new PointProcessorABQ(storageEngine, conf);
 			env.jersey().register(new InfluxApi(proc));
@@ -171,6 +188,7 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 					.setAuthorizer(new AllowAllAuthorizer()).setPrefix("Basic").buildAuthFilter();
 			env.jersey().register(basicCredentialAuthFilter);
 		}
+
 	}
 
 	/**
@@ -194,8 +212,12 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 	/**
 	 * @return
 	 */
-	public StorageEngine getStorageEngine() {
+	public static StorageEngine getStorageEngine() {
 		return storageEngine;
+	}
+
+	public static void setStorageEngine(StorageEngine storageEngine) {
+		SidewinderServer.storageEngine = storageEngine;
 	}
 
 }

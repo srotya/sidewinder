@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.storage;
+package com.srotya.sidewinder.core.storage.archival;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -22,7 +22,8 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
-import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
+import com.srotya.sidewinder.core.storage.ArchiveException;
+import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**

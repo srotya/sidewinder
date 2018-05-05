@@ -38,7 +38,7 @@ import javax.ws.rs.core.MediaType;
 import com.google.gson.Gson;
 import com.srotya.sidewinder.core.api.grafana.TargetSeries;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
@@ -152,7 +152,7 @@ public class DatabaseOpsApi {
 
 			TargetSeries tagSeries = MiscUtils.extractTargetFromQuery(query);
 
-			List<Series> points = storageEngine.queryDataPoints(dbName, tagSeries.getMeasurementName(),
+			List<SeriesOutput> points = storageEngine.queryDataPoints(dbName, tagSeries.getMeasurementName(),
 					tagSeries.getFieldName(), startTs, endTs, tagSeries.getTagFilter(), null,
 					tagSeries.getAggregationFunction());
 			return new Gson().toJson(points);

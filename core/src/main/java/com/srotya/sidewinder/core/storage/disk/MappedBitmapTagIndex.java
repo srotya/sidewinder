@@ -45,7 +45,7 @@ import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.SeriesFieldMap;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.TagIndex;
 
 /**
@@ -129,7 +129,7 @@ public class MappedBitmapTagIndex implements TagIndex {
 
 	private void bitmapToRowKeys(Collection<ByteString> rowKeys, MutableRoaringBitmap value) {
 		logger.finest(() -> "Requesting conversion from bitmap to value");
-		List<SeriesFieldMap> ref = measurement.getSeriesList();
+		List<Series> ref = measurement.getSeriesList();
 		for (Iterator<Integer> iterator = value.iterator(); iterator.hasNext();) {
 			Integer idx = iterator.next();
 			ByteString seriesId = (ByteString) ref.get(idx).getSeriesId();

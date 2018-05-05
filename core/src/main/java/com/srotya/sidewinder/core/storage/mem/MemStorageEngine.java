@@ -28,10 +28,10 @@ import java.util.logging.Logger;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
-import com.srotya.sidewinder.core.storage.Archiver;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.archival.Archiver;
 import com.srotya.sidewinder.core.storage.archival.NoneArchiver;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
@@ -82,10 +82,9 @@ public class MemStorageEngine implements StorageEngine {
 		logger.info("Setting default timeseries retention hours policy to:" + defaultRetentionHours);
 		databaseMap = new ConcurrentHashMap<>();
 		dbMetadataMap = new ConcurrentHashMap<>();
-		
-		setCodecsForTimeseries(conf);
-		setCompactionConfig(conf);
-		
+
+		setCodecsForCompression(conf);
+
 		try {
 			archiver = (Archiver) Class.forName(conf.getOrDefault("archiver.class", NoneArchiver.class.getName()))
 					.newInstance();
@@ -95,15 +94,14 @@ public class MemStorageEngine implements StorageEngine {
 		}
 		this.defaultTimebucketSize = Integer
 				.parseInt(conf.getOrDefault(DEFAULT_BUCKET_SIZE, String.valueOf(DEFAULT_TIME_BUCKET_CONSTANT)));
-		conf.put(PERSISTENCE_DISK, "false");
 		if (bgTaskPool != null) {
 			bgTaskPool.scheduleAtFixedRate(() -> {
 				for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
 					for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
 						Measurement value = measurementEntry.getValue();
 						try {
-							value.collectGarbage(archiver);
-						} catch (IOException e) {
+							// value.collectGarbage(archiver);
+						} catch (Exception e) {
 							logger.log(Level.SEVERE,
 									"Failed collect garbage for measurement:" + value.getMeasurementName(), e);
 						}

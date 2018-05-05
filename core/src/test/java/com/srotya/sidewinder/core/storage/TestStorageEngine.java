@@ -22,7 +22,6 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -32,7 +31,6 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -60,13 +58,8 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.filters.TagFilter;
-import com.srotya.sidewinder.core.predicates.BetweenPredicate;
-import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
-import com.srotya.sidewinder.core.storage.compression.Reader;
-import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.storage.compression.byzantine.ByzantineWriter;
 import com.srotya.sidewinder.core.storage.disk.DiskMalloc;
 import com.srotya.sidewinder.core.storage.disk.DiskStorageEngine;
 import com.srotya.sidewinder.core.storage.mem.MemStorageEngine;
@@ -141,13 +134,10 @@ public class TestStorageEngine {
 	public void testMetadataOperations() throws Exception {
 		engine.configure(conf, bgTasks);
 		Measurement m = engine.getOrCreateMeasurement("db1", "m1");
-		SeriesFieldMap s = m.getOrCreateSeriesFieldMap(
-				Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()), false);
-		s.getOrCreateSeriesLocked("vf1", 4096, false, m);
+		m.getOrCreateSeries(Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()), false);
 
 		assertEquals(1, engine.getAllMeasurementsForDb("db1").size());
 		assertEquals(1, engine.getTagKeysForMeasurement("db1", "m1").size());
-		assertEquals(1, engine.getTagsForMeasurement("db1", "m1", "vf1").size());
 		try {
 			engine.getAllMeasurementsForDb("db2");
 			fail("Exception must be thrown");
@@ -158,19 +148,16 @@ public class TestStorageEngine {
 			fail("Exception must be thrown");
 		} catch (ItemNotFoundException e) {
 		}
-		assertEquals(1, engine.getTagsForMeasurement("db1", "m1", "vf2").size());
+		assertEquals(1, engine.getTagsForMeasurement("db1", "m1").size());
 	}
 
 	@Test
 	public void testMeasurementsLike() throws Exception {
 		engine.configure(conf, bgTasks);
 		Measurement m = engine.getOrCreateMeasurement("db1", "m1");
-		SeriesFieldMap s = m.getOrCreateSeriesFieldMap(
-				Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()), false);
-		s.getOrCreateSeriesLocked("vf1", 4096, false, m);
+		m.getOrCreateSeries(Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()), false);
 		m = engine.getOrCreateMeasurement("db1", "t1");
-		s = m.getOrCreateSeriesFieldMap(Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()), false);
-		s.getOrCreateSeriesLocked("vf1", 4096, false, m);
+		m.getOrCreateSeries(Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build()), false);
 
 		Set<String> measurementsLike = engine.getMeasurementsLike("db1", "m.*");
 		assertEquals(1, measurementsLike.size());
@@ -207,15 +194,15 @@ public class TestStorageEngine {
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
 		assertEquals(1, engine.getMeasurementMap().size());
 		try {
-			TimeSeries timeSeries = engine.getTimeSeries(dbName, measurementName, valueFieldName, tagd);
+			Series timeSeries = engine.getTimeSeries(dbName, measurementName, valueFieldName, tagd);
 			assertNotNull(timeSeries);
 		} catch (ItemNotFoundException e) {
 			fail("Time series must exist");
 		}
-		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, ts,
+		List<SeriesOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, ts,
 				ts + 220 * 1000, null);
 		assertEquals(1, queryDataPoints.size());
-		Series next = queryDataPoints.iterator().next();
+		SeriesOutput next = queryDataPoints.iterator().next();
 		assertEquals(200, next.getDataPoints().size());
 	}
 
@@ -238,8 +225,8 @@ public class TestStorageEngine {
 			e.printStackTrace();
 			fail("Engine is initialized, no IO Exception should be thrown:" + e.getMessage());
 		}
-		List<Series> queryDataPoints = engine.queryDataPoints("test", "ss", "value", ts, ts + (4096 * 100 * 1000) + 1,
-				new SimpleTagFilter(FilterType.EQUALS, "t", "e"));
+		List<SeriesOutput> queryDataPoints = engine.queryDataPoints("test", "ss", "value", ts,
+				ts + (4096 * 100 * 1000) + 1, new SimpleTagFilter(FilterType.EQUALS, "t", "e"));
 		assertTrue(queryDataPoints.size() >= 1);
 	}
 
@@ -257,10 +244,8 @@ public class TestStorageEngine {
 			// FileUtils.forceDelete(new File("target/db2/"));
 			MiscUtils.delete(new File("targer/db2/"));
 			HashMap<String, String> map = new HashMap<>();
-			// map.put("metadata.dir", "target/db2/mdq");
 			map.put("index.dir", "target/db2/index");
 			map.put("data.dir", "target/db2/data");
-			map.put(StorageEngine.PERSISTENCE_DISK, "true");
 			map.put("default.series.retention.hours", "32");
 			engine.configure(map, bgTasks);
 		} catch (IOException e) {
@@ -286,11 +271,8 @@ public class TestStorageEngine {
 
 		MiscUtils.delete(new File("target/db15/"));
 		HashMap<String, String> map = new HashMap<>();
-		map.put("metadata.dir", "target/db15/mdq");
 		map.put("index.dir", "target/db15/index");
 		map.put("data.dir", "target/db15/data");
-		map.put(StorageEngine.PERSISTENCE_DISK, "true");
-		map.put("disk.compression.class", ByzantineWriter.class.getName());
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
 		Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
@@ -299,7 +281,7 @@ public class TestStorageEngine {
 		engine.writeDataPointLocked(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts + (400 * 60000), 4),
 				false);
 		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").getSeriesKeys().size());
-		List<Series> queryDataPoints = null;
+		List<SeriesOutput> queryDataPoints = null;
 		try {
 			queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000), null, null);
 		} catch (Exception e) {
@@ -334,7 +316,6 @@ public class TestStorageEngine {
 	public void testGarbageCollector() throws Exception {
 		conf.put(StorageEngine.GC_DELAY, "1");
 		conf.put(StorageEngine.GC_FREQUENCY, "10");
-		conf.put(StorageEngine.PERSISTENCE_DISK, "true");
 		conf.put(StorageEngine.DEFAULT_BUCKET_SIZE, "4096");
 		conf.put(DiskMalloc.CONF_MEASUREMENT_INCREMENT_SIZE, "4096");
 		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_INCREMENT, "10240");
@@ -349,8 +330,8 @@ public class TestStorageEngine {
 					MiscUtils.buildDataPoint("test", "cpu2", "value", tagd, base - (3600_000 * i), 2L), false);
 		}
 		engine.getMeasurementMap().get("test").get("cpu2").collectGarbage(null);
-		List<Series> queryDataPoints = engine.queryDataPoints("test", "cpu2", "value", ts - (3600_000 * 320), ts, null,
-				null);
+		List<SeriesOutput> queryDataPoints = engine.queryDataPoints("test", "cpu2", "value", ts - (3600_000 * 320), ts,
+				null, null);
 		assertEquals(27, queryDataPoints.iterator().next().getDataPoints().size());
 		assertTrue(!engine.isMeasurementFieldFP("test", "cpu2", "value"));
 	}
@@ -376,23 +357,26 @@ public class TestStorageEngine {
 		engine.shutdown();
 	}
 
-	@Test
-	public void testSeriesToDataPointConversion() throws IOException {
-		List<DataPoint> points = new ArrayList<>();
-		long headerTimestamp = System.currentTimeMillis();
-		ByteBuffer buf = ByteBuffer.allocate(100);
-		Writer timeSeries = new ByzantineWriter();
-		timeSeries.configure(buf, true, 1, false);
-		timeSeries.setHeaderTimestamp(headerTimestamp);
-		timeSeries.addValueLocked(headerTimestamp, 1L);
-		TimeSeries.seriesToDataPoints("value", Arrays.asList("test=1"), points, timeSeries, null, null, false);
-		assertEquals(1, points.size());
-		points.clear();
-
-		Predicate timepredicate = new BetweenPredicate(Long.MAX_VALUE, Long.MAX_VALUE);
-		TimeSeries.seriesToDataPoints("value", Arrays.asList("test=1"), points, timeSeries, timepredicate, null, false);
-		assertEquals(0, points.size());
-	}
+	// @Test
+	// public void testSeriesToDataPointConversion() throws IOException {
+	// List<DataPoint> points = new ArrayList<>();
+	// long headerTimestamp = System.currentTimeMillis();
+	// ByteBuffer buf = ByteBuffer.allocate(100);
+	// TimeWriter timeSeries = new ByzantineTimestampWriter();
+	// timeSeries.configure(buf, true, 1);
+	// timeSeries.setHeaderTimestamp(headerTimestamp);
+	// timeSeries.add(headerTimestamp);
+	// Series.seriesToDataPoints(Arrays.asList("test=1"), points, timeSeries, null,
+	// null, false);
+	// assertEquals(1, points.size());
+	// points.clear();
+	//
+	// Predicate timepredicate = new BetweenPredicate(Long.MAX_VALUE,
+	// Long.MAX_VALUE);
+	// Series.seriesToDataPoints(Arrays.asList("test=1"), points, timeSeries,
+	// timepredicate, null, false);
+	// assertEquals(0, points.size());
+	// }
 
 	@Test
 	public void testSeriesBucketLookups() throws IOException, ItemNotFoundException {
@@ -412,7 +396,7 @@ public class TestStorageEngine {
 		long endTs = ts + 99 * 60000;
 
 		// validate all points are returned with a full range query
-		List<Series> points = engine.queryDataPoints(dbName, measurementName, "value", ts, endTs,
+		List<SeriesOutput> points = engine.queryDataPoints(dbName, measurementName, "value", ts, endTs,
 				new SimpleTagFilter(FilterType.EQUALS, "test", "1"));
 		assertEquals(ts, points.iterator().next().getDataPoints().get(0).getTimestamp());
 		assertEquals(endTs, points.iterator().next().getDataPoints()
@@ -521,15 +505,15 @@ public class TestStorageEngine {
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tagd, curr + i, 2.2 * i), false);
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
-		LinkedHashMap<Reader, Boolean> readers = engine.queryReaders(dbName, measurementName, valueFieldName, curr,
-				curr + 3);
+		Map<ByteString, FieldReaderIterator[]> queryReaders = engine.queryReaders(dbName, measurementName,
+				Arrays.asList(valueFieldName), false, curr, curr + 3);
 		int count = 0;
-		for (Entry<Reader, Boolean> entry : readers.entrySet()) {
-			assertTrue(entry.getValue());
+		for (Entry<ByteString, FieldReaderIterator[]> entry : queryReaders.entrySet()) {
+			assertEquals(2, entry.getValue().length);
 			while (true) {
 				try {
-					DataPoint readPair = entry.getKey().readPair();
-					assertEquals(2.2 * (count + 1), readPair.getValue(), 0.01);
+					long[] extracted = FieldReaderIterator.extracted(entry.getValue());
+					assertEquals(2.2 * (count + 1), Double.longBitsToDouble(extracted[0]), 0.01);
 					count++;
 				} catch (RejectException e) {
 					break;
@@ -609,19 +593,19 @@ public class TestStorageEngine {
 		SimpleTagFilter filter1 = new SimpleTagFilter(FilterType.EQUALS, "host123123", "1");
 		SimpleTagFilter filter2 = new SimpleTagFilter(FilterType.EQUALS, "host123123", "2");
 
-		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr, curr + 3,
-				new ComplexTagFilter(ComplexFilterType.OR, Arrays.asList(filter1, filter2)), null, null);
+		List<SeriesOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr,
+				curr + 3, new ComplexTagFilter(ComplexFilterType.OR, Arrays.asList(filter1, filter2)), null, null);
 		assertEquals(2, queryDataPoints.size());
 		int i = 1;
 		assertEquals(1, queryDataPoints.iterator().next().getDataPoints().size());
-		queryDataPoints.sort(new Comparator<Series>() {
+		queryDataPoints.sort(new Comparator<SeriesOutput>() {
 
 			@Override
-			public int compare(Series o1, Series o2) {
+			public int compare(SeriesOutput o1, SeriesOutput o2) {
 				return o1.getTags().toString().compareTo(o2.getTags().toString());
 			}
 		});
-		for (Series list : queryDataPoints) {
+		for (SeriesOutput list : queryDataPoints) {
 			for (DataPoint dataPoint : list.getDataPoints()) {
 				assertEquals(curr + i, dataPoint.getTimestamp());
 				i++;
@@ -632,7 +616,7 @@ public class TestStorageEngine {
 		assertEquals(new HashSet<>(Arrays.asList("1", "2", "3", "4")),
 				engine.getTagValuesForMeasurement(dbName, measurementName, tag));
 		Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
-		assertEquals(new HashSet<>(Arrays.asList(valueFieldName)), fieldsForMeasurement);
+		assertEquals(new HashSet<>(Arrays.asList(valueFieldName, Series.TS)), fieldsForMeasurement);
 
 		try {
 			engine.getTagKeysForMeasurement(dbName + "1", measurementName);
@@ -660,6 +644,19 @@ public class TestStorageEngine {
 		engine.shutdown();
 	}
 
+	public static Point build(String dbName, String measurementName, String valueFieldName, List<Tag> tags, long ts,
+			long v) {
+		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName).addAllTags(tags)
+				.setTimestamp(ts).addValueFieldName(valueFieldName).addValue(v).addFp(false).build();
+	}
+
+	public static Point build(String dbName, String measurementName, String valueFieldName, List<Tag> tags, long ts,
+			double v) {
+		return Point.newBuilder().setDbName(dbName).setMeasurementName(measurementName).addAllTags(tags)
+				.setTimestamp(ts).addValueFieldName(valueFieldName).addValue(Double.doubleToLongBits(v)).addFp(true)
+				.build();
+	}
+
 	@Test
 	public void testAddAndReadDataPoints() throws Exception {
 		engine.configure(conf, bgTasks);
@@ -669,7 +666,7 @@ public class TestStorageEngine {
 		String measurementName = "cpu";
 		String valueFieldName = "value";
 		try {
-			engine.writeDataPoint(dbName, measurementName, valueFieldName, null, curr, 2 * 0, false);
+			engine.writeDataPointLocked(build(dbName, measurementName, valueFieldName, null, curr, 2 * 0), false);
 			fail("Must reject the above datapoint due to missing tags");
 		} catch (Exception e) {
 		}
@@ -679,13 +676,13 @@ public class TestStorageEngine {
 					Arrays.asList(tag), curr + i, 2 * i), false);
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
-		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr, curr + 3,
-				null);
+		List<SeriesOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr,
+				curr + 3, null);
 		assertEquals(1, queryDataPoints.size());
 		int i = 1;
 		assertEquals(3, queryDataPoints.iterator().next().getDataPoints().size());
 		List<List<DataPoint>> output = new ArrayList<>();
-		for (Series series : queryDataPoints) {
+		for (SeriesOutput series : queryDataPoints) {
 			output.add(series.getDataPoints());
 		}
 		for (List<DataPoint> list : output) {
@@ -697,7 +694,7 @@ public class TestStorageEngine {
 		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
 		assertEquals(new HashSet<>(Arrays.asList("host")), tags);
 		Set<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
-		assertEquals(new HashSet<>(Arrays.asList(valueFieldName)), fieldsForMeasurement);
+		assertEquals(new HashSet<>(Arrays.asList(valueFieldName, Series.TS)), fieldsForMeasurement);
 
 		try {
 			engine.getTagKeysForMeasurement(dbName + "1", measurementName);
@@ -728,9 +725,7 @@ public class TestStorageEngine {
 	@Test
 	public void testCompaction() throws IOException, InterruptedException {
 		conf.put("default.bucket.size", "409600");
-		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
-		conf.put("compaction.codec", "gorilla");
 		conf.put("compaction.delay", "1");
 		conf.put("compaction.frequency", "1");
 		engine.configure(conf, bgTasks);
@@ -748,8 +743,8 @@ public class TestStorageEngine {
 		}
 
 		long ts = System.nanoTime();
-		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr - 1000,
-				curr + 10000 * 1000 + 1, null, null);
+		List<SeriesOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName,
+				curr - 1000, curr + 10000 * 1000 + 1, null, null);
 		ts = System.nanoTime() - ts;
 		System.out.println("Before compaction:" + ts / 1000 + "us");
 		assertEquals(1, queryDataPoints.size());
@@ -761,12 +756,10 @@ public class TestStorageEngine {
 			assertEquals(dp.getValue(), i * 1.1, 0.001);
 		}
 		Measurement m = engine.getOrCreateMeasurement(dbName, measurementName);
-		SeriesFieldMap t = m.getOrCreateSeriesFieldMap(tags, false);
-		TimeSeries series = t.getOrCreateSeriesLocked(valueFieldName, 409600, false, m);
-		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		Series series = m.getOrCreateSeries(tags, false);
+		SortedMap<Integer, Map<String, Field>> bucketRawMap = series.getBucketMap();
 		assertEquals(1, bucketRawMap.size());
-		int size = bucketRawMap.values().iterator().next().size();
-		assertTrue(series.getCompactionSet().size() < size);
+		int size = (int) MiscUtils.bucketCounter(series);
 		assertTrue(size > 2);
 		Thread.sleep(4000);
 		ts = System.nanoTime();
@@ -774,7 +767,7 @@ public class TestStorageEngine {
 				curr + 20000 * 1000 + 1, null, null);
 		ts = System.nanoTime() - ts;
 		System.out.println("After compaction:" + ts / 1000 + "us");
-		bucketRawMap = series.getBucketRawMap();
+		bucketRawMap = series.getBucketMap();
 		assertEquals(2, bucketRawMap.values().iterator().next().size());
 		assertEquals(10000, queryDataPoints.iterator().next().getDataPoints().size());
 		dataPoints = queryDataPoints.iterator().next().getDataPoints();
@@ -785,10 +778,10 @@ public class TestStorageEngine {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	@Test
 	public void testCompactionThreadSafety() throws IOException, InterruptedException {
 		conf.put("default.bucket.size", "409600");
-		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
 		engine.configure(conf, bgTasks);
 		final long curr = 1497720652566L;
@@ -805,8 +798,8 @@ public class TestStorageEngine {
 		}
 
 		long ts = System.nanoTime();
-		List<Series> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName, curr - 1000,
-				curr + 10000 * 1000 + 1, null, null);
+		List<SeriesOutput> queryDataPoints = engine.queryDataPoints(dbName, measurementName, valueFieldName,
+				curr - 1000, curr + 10000 * 1000 + 1, null, null);
 		ts = System.nanoTime() - ts;
 		System.out.println("Before compaction:" + ts / 1000 + "us");
 		assertEquals(1, queryDataPoints.size());
@@ -818,12 +811,10 @@ public class TestStorageEngine {
 			assertEquals(dp.getValue(), i * 1.1, 0.001);
 		}
 		Measurement m = engine.getOrCreateMeasurement(dbName, measurementName);
-		SeriesFieldMap t = m.getOrCreateSeriesFieldMap(tags, false);
-		final TimeSeries series = t.getOrCreateSeriesLocked(valueFieldName, 409600, false, m);
-		SortedMap<Integer, List<Writer>> bucketRawMap = series.getBucketRawMap();
+		Series series = m.getOrCreateSeries(tags, false);
+		SortedMap<Integer, Map<String, Field>> bucketRawMap = series.getBucketMap();
 		assertEquals(1, bucketRawMap.size());
-		int size = bucketRawMap.values().iterator().next().size();
-		assertTrue(series.getCompactionSet().size() < size);
+		int size = (int) MiscUtils.bucketCounter(series);
 		assertTrue(size > 2);
 		final AtomicBoolean bool = new AtomicBoolean(false);
 		bgTasks.execute(() -> {
@@ -835,14 +826,15 @@ public class TestStorageEngine {
 				}
 			}
 			try {
-				series.addDataPointUnlocked(TimeUnit.MILLISECONDS, curr + 1000 * 10001, 1.11);
+				series.addPoint(Point.newBuilder().setTimestamp(curr + 1000 * 10001).addValueFieldName("vf1")
+						.addFp(true).addValue(Double.doubleToLongBits(1.11)).build(), m);
 				bool.set(false);
 			} catch (IOException e) {
 				e.printStackTrace();
 				return;
 			}
 		});
-		series.compact(l -> {
+		series.compact(m, l -> {
 			bool.set(true);
 			try {
 				Thread.sleep(1000);
@@ -861,7 +853,6 @@ public class TestStorageEngine {
 	public void testWriteIndexAndQuery() throws IOException, InvalidFilterException {
 		final long curr = 1497720652566L;
 		conf.put("default.bucket.size", "409600");
-		conf.put("compaction.enabled", "true");
 		conf.put("use.query.pool", "false");
 		engine.configure(conf, bgTasks);
 		Point dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr)
@@ -880,14 +871,14 @@ public class TestStorageEngine {
 		engine.writeDataPointLocked(dp, true);
 
 		TagFilter filter = MiscUtils.buildTagFilter("host=test1.xyz.com");
-		List<Series> series = engine.queryDataPoints("db1", "cpu", "system", curr - 1, curr + 10, filter);
+		List<SeriesOutput> series = engine.queryDataPoints("db1", "cpu", "system", curr - 1, curr + 10, filter);
 		assertEquals(1, series.size());
 		assertEquals(1, series.get(0).getDataPoints().size());
 		assertEquals(curr, series.get(0).getDataPoints().get(0).getTimestamp());
 		assertEquals(11, series.get(0).getDataPoints().get(0).getLongValue());
 
 		series = engine.queryDataPoints("db1", "cpu", ".*", curr - 1, curr + 10, filter);
-		assertEquals(2, series.size());
+		assertEquals("Error:" + series, 2, series.size());
 		assertEquals(1, series.get(0).getDataPoints().size());
 		assertEquals(1, series.get(1).getDataPoints().size());
 		assertEquals(curr, series.get(0).getDataPoints().get(0).getTimestamp());

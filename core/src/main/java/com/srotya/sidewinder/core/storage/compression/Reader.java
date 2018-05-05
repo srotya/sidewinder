@@ -15,32 +15,31 @@
  */
 package com.srotya.sidewinder.core.storage.compression;
 
-import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.RejectException;
 
 /**
  * @author ambud
  */
 public interface Reader {
-	
+
 	public static final RejectException EOS_EXCEPTION = new RejectException("End of stream reached");
+	public static final FilteredValueException FILTERED_VALUE_EXCEPTION = new FilteredValueException();
 
-	public DataPoint readPair() throws IOException;
-	
-	public long[] read() throws IOException;
-	
+	public long read() throws RejectException, FilteredValueException;
+
+	public default double readDouble() throws RejectException, FilteredValueException {
+		return Double.longBitsToDouble(read());
+	}
+
 	public int getCounter();
-	
-	public int getPairCount();
-	
-	public void setTimePredicate(Predicate timePredicate);
 
-	public void setValuePredicate(Predicate valuePredicate);
-	
+	public int getCount();
+
+	public void setPredicate(Predicate predicate);
+
 	public byte[] getDataHash() throws NoSuchAlgorithmException;
-	
+
 }

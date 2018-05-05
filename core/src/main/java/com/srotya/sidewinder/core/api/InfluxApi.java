@@ -60,7 +60,8 @@ public class InfluxApi {
 		meter.mark(dps.size());
 		for (Point dp : dps) {
 			try {
-				proc.writeDataPoint(dbName, dp);
+				proc.writeDataPoint(dp);
+//				engine.writeDataPointLocked(dp, preSorted);
 			} catch (Exception e) {
 				e.printStackTrace();
 				throw new BadRequestException(e);

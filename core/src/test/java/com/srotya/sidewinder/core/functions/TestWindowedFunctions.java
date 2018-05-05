@@ -24,7 +24,7 @@ import org.junit.Test;
 
 import com.srotya.sidewinder.core.functions.BasicWindowedFunctions.*;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -44,7 +44,7 @@ public class TestWindowedFunctions {
 		}
 		ReducingWindowedAggregator rwa = new IntegralFunction();
 		rwa.init(new Object[] { 70, "smean" });
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
 		series.setFp(true);
 		List<DataPoint> result = rwa.apply(series).getDataPoints();
@@ -65,7 +65,7 @@ public class TestWindowedFunctions {
 		}
 		ReducingWindowedAggregator rwa = new WindowedMax();
 		rwa.init(new Object[] { 70, "smean" });
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
 		series.setFp(true);
 		List<DataPoint> result = rwa.apply(series).getDataPoints();
@@ -86,7 +86,7 @@ public class TestWindowedFunctions {
 		}
 		ReducingWindowedAggregator rwa = new WindowedMin();
 		rwa.init(new Object[] { 70, "smean" });
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
 		series.setFp(true);
 		List<DataPoint> result = rwa.apply(series).getDataPoints();
@@ -107,7 +107,7 @@ public class TestWindowedFunctions {
 		}
 		ReducingWindowedAggregator rwa = new WindowedFirst();
 		rwa.init(new Object[] { 70, "smean" });
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
 		series.setFp(true);
 		List<DataPoint> result = rwa.apply(series).getDataPoints();
@@ -128,7 +128,7 @@ public class TestWindowedFunctions {
 		}
 		ReducingWindowedAggregator rwa = new WindowedLast();
 		rwa.init(new Object[] { 70, "smean" });
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
 		series.setFp(true);
 		List<DataPoint> result = rwa.apply(series).getDataPoints();
@@ -149,7 +149,7 @@ public class TestWindowedFunctions {
 		}
 		ReducingWindowedAggregator rwa = new WindowedMean();
 		rwa.init(new Object[] { 70, "smean" });
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
 		series.setFp(true);
 		List<DataPoint> result = rwa.apply(series).getDataPoints();
@@ -170,7 +170,7 @@ public class TestWindowedFunctions {
 		}
 		ReducingWindowedAggregator rwa = new DerivativeFunction();
 		rwa.init(new Object[] { 70, "smean" });
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
 		series.setFp(true);
 		List<DataPoint> result = rwa.apply(series).getDataPoints();
@@ -192,10 +192,10 @@ public class TestWindowedFunctions {
 		}
 		ReducingWindowedAggregator rwa = new DerivativeFunction();
 		rwa.init(new Object[] { 20, "smean" });
-		Series series = new Series();
+		SeriesOutput series = new SeriesOutput();
 		series.setDataPoints(dps);
 		series.setFp(false);
-		Series result = rwa.apply(series);
+		SeriesOutput result = rwa.apply(series);
 		assertEquals(1, result.getDataPoints().size());
 		assertEquals(false, result.isFp());
 		assertEquals(0, result.getDataPoints().get(0).getValue() * 1000, 0.01);

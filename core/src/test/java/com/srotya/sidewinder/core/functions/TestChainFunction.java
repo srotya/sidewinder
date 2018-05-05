@@ -26,13 +26,13 @@ import org.junit.Test;
 import com.srotya.sidewinder.core.functions.BasicWindowedFunctions.WindowedMean;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 
 public class TestChainFunction {
 
 	@Test
 	public void testSingleFunction() throws Exception {
-		Series series = new Series("cpu", "test",
+		SeriesOutput series = new SeriesOutput("cpu", "test",
 				Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),
 						Tag.newBuilder().setTagKey("t").setTagValue("2").build()));
 		List<DataPoint> dps = new ArrayList<>();
@@ -42,21 +42,21 @@ public class TestChainFunction {
 		}
 		series.setDataPoints(dps);
 		series.setFp(false);
-		List<Series> seriesList = Arrays.asList(series);
+		List<SeriesOutput> seriesList = Arrays.asList(series);
 
 		ChainFunction cf = new ChainFunction();
 		ReducingWindowedAggregator rwa = new WindowedMean();
 		rwa.init(new Object[] { 70, "smean" });
 		cf.init(new Function[] { rwa });
 
-		List<Series> apply = cf.apply(seriesList);
+		List<SeriesOutput> apply = cf.apply(seriesList);
 		List<DataPoint> result = apply.get(0).getDataPoints();
 		assertEquals(2, result.size());
 	}
 
 	@Test
 	public void testTwoFunctions() throws Exception {
-		Series series = new Series("cpu", "test", Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),
+		SeriesOutput series = new SeriesOutput("cpu", "test", Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("t").setTagValue("2").build()));
 		List<DataPoint> dps = new ArrayList<>();
 		long baseTs = 1486617103629L;
@@ -65,7 +65,7 @@ public class TestChainFunction {
 		}
 		series.setDataPoints(dps);
 		series.setFp(false);
-		List<Series> seriesList = Arrays.asList(series);
+		List<SeriesOutput> seriesList = Arrays.asList(series);
 
 		ChainFunction cf = new ChainFunction();
 		ReducingWindowedAggregator rwa = new WindowedMean();
@@ -74,7 +74,7 @@ public class TestChainFunction {
 		rwa2.init(new Object[] { 200, "smean" });
 		cf.init(new Function[] { rwa, rwa2 });
 
-		List<Series> apply = cf.apply(seriesList);
+		List<SeriesOutput> apply = cf.apply(seriesList);
 		List<DataPoint> result = apply.get(0).getDataPoints();
 		assertEquals(1, result.size());
 		assertEquals(1, result.get(0).getLongValue());

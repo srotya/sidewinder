@@ -98,7 +98,7 @@ public class TestTagIndices {
 		for (int i = 0; i < 10_000; i++) {
 			index.index("key", String.valueOf(i), i);
 			ByteString valueOf = new ByteString(String.valueOf(i));
-			m.getSeriesList().add(new SeriesFieldMap(valueOf, i));
+			m.getSeriesList().add(new Series(valueOf, i));
 		}
 		ts = System.currentTimeMillis() - ts;
 		System.out.println("Time:" + ts);
@@ -114,7 +114,7 @@ public class TestTagIndices {
 		for (int i = 0; i < 10_000; i++) {
 			index.index("key", String.valueOf(i), i);
 			ByteString valueOf = new ByteString(String.valueOf(i));
-			m.getSeriesList().add(new SeriesFieldMap(valueOf, i));
+			m.getSeriesList().add(new Series(valueOf, i));
 		}
 
 		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9");
@@ -140,7 +140,7 @@ public class TestTagIndices {
 		for (int i = 0; i < 10_000; i++) {
 			ByteString format = new ByteString(String.format("%04d", i));
 			index.index("key", format.toString(), i);
-			m.getSeriesList().add(new SeriesFieldMap(format, i));
+			m.getSeriesList().add(new Series(format, i));
 		}
 
 		TagFilter filter = new SimpleTagFilter(FilterType.GREATER_THAN, "key", "9990");
@@ -195,7 +195,7 @@ public class TestTagIndices {
 		for (int i = 0; i < 10; i++) {
 			ByteString format = new ByteString(String.format("%04d", i));
 			index.index("key", format.toString(), i / 2);
-			m.getSeriesList().add(new SeriesFieldMap(format, i));
+			m.getSeriesList().add(new Series(format, i));
 		}
 
 		TagFilter filter = new ComplexTagFilter(ComplexFilterType.AND,
@@ -222,14 +222,14 @@ public class TestTagIndices {
 		for (int i = 0; i < 10_000; i++) {
 			ByteString format = new ByteString(String.format("%05d", i));
 			index.index("key", format.toString(), i);
-			m.getSeriesList().add(new SeriesFieldMap(format, i));
+			m.getSeriesList().add(new Series(format, i));
 		}
 
 		// reindex everything
 		for (int i = 0; i < 10_000; i++) {
 			ByteString format = new ByteString(String.format("%05d", i));
 			index.index("key", format.toString(), i);
-			m.getSeriesList().add(new SeriesFieldMap(format, i));
+			m.getSeriesList().add(new Series(format, i));
 		}
 
 		TagFilter filter = new SimpleTagFilter(FilterType.LESS_THAN, "key", "00000");

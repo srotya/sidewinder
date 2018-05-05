@@ -23,16 +23,16 @@ import org.apache.commons.math3.transform.FastFourierTransformer;
 import org.apache.commons.math3.transform.TransformType;
 
 import com.srotya.sidewinder.core.storage.DataPoint;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 
 public class SignalProcessingFunctions {
 
 	@FunctionName(alias = "fft", description = "Takes the FFT of each series", type = "signal")
 	public static class ForwardFFT implements Function {
 		@Override
-		public List<Series> apply(List<Series> t) {
+		public List<SeriesOutput> apply(List<SeriesOutput> t) {
 			FastFourierTransformer fft = new FastFourierTransformer(DftNormalization.STANDARD);
-			for (Series s : t) {
+			for (SeriesOutput s : t) {
 				List<DataPoint> dataPoints = s.getDataPoints();
 				Complex[] transform = fft.transform(dpListToArray(dataPoints, s.isFp()), TransformType.FORWARD);
 				for (int i = 0; i < dataPoints.size(); i++) {

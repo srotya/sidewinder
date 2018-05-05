@@ -22,8 +22,8 @@ public class BufferObject {
 	private LinkedByteString bufferId;
 	private ByteBuffer buf;
 	
-	public BufferObject(LinkedByteString ptrKey, ByteBuffer buf) {
-		this.bufferId = ptrKey;
+	public BufferObject(LinkedByteString bufferId, ByteBuffer buf) {
+		this.bufferId = bufferId;
 		this.buf = buf;
 	}
 	/**
