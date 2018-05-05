@@ -1,4 +1,4 @@
-# Sidewinder <img src="https://github.com/srotya/sidewinder/raw/gh-pages/styles/imgs/logo.png" width="50">
+# Sidewinder <img src="https://github.com/srotya/sidewinder-site/raw/master/styles/imgs/logo.png" width="50">
 
 [![Build Status](https://travis-ci.org/srotya/sidewinder.svg?branch=master)](https://travis-ci.org/srotya/sidewinder)
 [![codecov](https://codecov.io/gh/srotya/sidewinder/branch/master/graph/badge.svg)](https://codecov.io/gh/srotya/sidewinder)
@@ -11,9 +11,9 @@ Sidewinder is a timeseries database designed for speed and scalability. It's pur
  generated over the last few days. It can be used to power dashboards and real-time correlations for time series data at scale.
  
 # What's new?
-- **Query Language**
-- **Grafana Templating**
-
+- **ANSI SQL / JDBC Server**
+- **Tag Key Value Index**
+- **Performance Improvements**
 
 # Highlights
 
@@ -29,8 +29,8 @@ Sidewinder uses either pure in-memory buffers or memory mapped disk storage prov
 ### Integrations
 Provides integrations with collectd, influx etc.
 
-### REST API
-Sidewinder offers a standard REST API to query and perform database operations.
+### SQL
+Integrated with ANSI SQL and JDBC for easy data access
 
 ### Grafana Support
 
