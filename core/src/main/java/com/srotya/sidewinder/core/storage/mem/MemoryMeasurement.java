@@ -33,10 +33,11 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.SeriesFieldMap;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
 import com.srotya.sidewinder.core.storage.compression.Writer;
@@ -51,7 +52,7 @@ public class MemoryMeasurement implements Measurement {
 	private String measurementName;
 	private DBMetadata metadata;
 	private Map<ByteString, Integer> seriesMap;
-	private List<SeriesFieldMap> seriesList;
+	private List<Series> seriesList;
 	private MemTagIndex tagIndex;
 	private boolean useQueryPool;
 	private String dbName;
@@ -61,6 +62,8 @@ public class MemoryMeasurement implements Measurement {
 	private boolean enableMetricsCapture;
 	private Counter metricsTimeSeriesCounter;
 	private AtomicInteger retentionBuckets;
+	private SortedMap<String, Boolean> fieldTypeMap;
+	private ByteStringCache fieldCache;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
@@ -79,11 +82,13 @@ public class MemoryMeasurement implements Measurement {
 		this.timeBucketSize = defaultTimeBucketSize;
 		this.dbName = dbName;
 		this.measurementName = measurementName;
+		this.fieldCache = ByteStringCache.instance();
 		this.metadata = metadata;
 		this.seriesList = new ArrayList<>(10_000);
 		this.tagIndex = new MemTagIndex();
 		tagIndex.configure(getConf(), null, this);
 		this.seriesMap = new ConcurrentHashMap<>();
+		this.fieldTypeMap = new ConcurrentSkipListMap<>();
 		this.retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(metadata.getRetentionHours());
 		this.useQueryPool = Boolean.parseBoolean(conf.getOrDefault(USE_QUERY_POOL, "true"));
@@ -91,6 +96,11 @@ public class MemoryMeasurement implements Measurement {
 		this.malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, lock);
 	}
 
+	@Override
+	public ByteStringCache getFieldCache() {
+		return fieldCache;
+	}
+	
 	@Override
 	public TagIndex getTagIndex() {
 		return tagIndex;
@@ -160,7 +170,7 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public List<SeriesFieldMap> getSeriesList() {
+	public List<Series> getSeriesList() {
 		return seriesList;
 	}
 
@@ -198,4 +208,10 @@ public class MemoryMeasurement implements Measurement {
 	public AtomicInteger getRetentionBuckets() {
 		return retentionBuckets;
 	}
+
+	@Override
+	public SortedMap<String, Boolean> getFieldTypeMap() {
+		return fieldTypeMap;
+	}
+
 }

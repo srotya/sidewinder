@@ -17,9 +17,9 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -151,15 +151,15 @@ public class ByteString implements Comparable<ByteString> {
 	}
 
 	@NotThreadSafe
-	public static class StringCache {
+	public static class ByteStringCache {
 
-		private Map<ByteString, ByteString> cache = new HashMap<>();
+		private Map<ByteString, ByteString> cache = new ConcurrentHashMap<>();
 
-		private StringCache() {
+		private ByteStringCache() {
 		}
 
-		public static StringCache instance() {
-			return new StringCache();
+		public static ByteStringCache instance() {
+			return new ByteStringCache();
 		}
 
 		public ByteString get(ByteString entry) {

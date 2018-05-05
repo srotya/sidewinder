@@ -15,17 +15,18 @@
  */
 package com.srotya.sidewinder.core.storage.compression;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+import java.io.IOException;
 
 /**
  * @author ambud
  */
-@Retention(RetentionPolicy.RUNTIME)
-public @interface Codec {
+public class FilteredValueException extends IOException {
 
-	public int id();
-	
-	public String name();
-	
+	private static final long serialVersionUID = 1L;
+
+	@Override
+	public synchronized Throwable fillInStackTrace() {
+		return this;
+	}
+
 }

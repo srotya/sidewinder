@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 
 import com.srotya.sidewinder.core.storage.ArchiveException;
-import com.srotya.sidewinder.core.storage.Archiver;
 
 /**
  * @author ambud

@@ -16,36 +16,28 @@
 package com.srotya.sidewinder.core.storage.compression.byzantine;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.predicates.GreaterThanEqualsPredicate;
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.RollOverException;
-import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.utils.MiscUtils;
+import com.srotya.sidewinder.core.storage.compression.TimeWriter;
 
 /**
- * Unit tests for Byzantine compression: {@link ByzantineWriter} and
- * {@link ByzantineReader}
+ * Unit tests for Byzantine compression: {@link ByzantineValueWriter} and
+ * {@link ByzantineValueReader}
  * 
  * @author ambud
  */
-public class TestByzantineReadWrite {
+public class TestByzantineTimestampReadWrite {
 
 	private int startOffset = 1;
 
@@ -65,35 +57,31 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testByzantineReaderInit() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
-		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(buf, false, startOffset, true);
+		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
+		writer.configure(buf, false, startOffset);
 		assertEquals(0, writer.getCount());
 		assertEquals(0, writer.getDelta());
 		assertEquals(0, writer.getPrevTs());
-		assertNotNull(writer.getReadLock());
-		assertNotNull(writer.getWriteLock());
 
 		long ts = System.currentTimeMillis();
-		writer = new ByzantineWriter(ts, new byte[1024]);
+		writer = new ByzantineTimestampWriter(ts, new byte[1024]);
 		assertEquals(0, writer.getCount());
 		assertEquals(1024, writer.getBuf().capacity());
 		assertEquals(0, writer.getDelta());
 		assertEquals(ts, writer.getPrevTs());
-		assertNotNull(writer.getReadLock());
-		assertNotNull(writer.getWriteLock());
 	}
 
 	@Test
 	public void testWriteDataPoint() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
-		ByzantineWriter bwriter = new ByzantineWriter();
-		Writer writer = bwriter;
-		writer.configure(buf, true, startOffset, false);
+		ByzantineTimestampWriter bwriter = new ByzantineTimestampWriter();
+		TimeWriter writer = bwriter;
+		writer.configure(buf, true, startOffset);
 
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 10; i++) {
-			writer.addValueLocked(ts + i, i);
+			writer.add(ts + i);
 		}
 		assertEquals(10, bwriter.getCount());
 		assertEquals(ts + 9, bwriter.getPrevTs());
@@ -107,31 +95,26 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testReadWriteDataPoints() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
-		Writer writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, false);
+		TimeWriter writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < 100; i++) {
-			writer.addValueLocked(ts + i * 10, i);
+			writer.add(ts + i * 10);
 		}
 
 		Reader reader = writer.getReader();
 		for (int i = 0; i < 100; i++) {
-			DataPoint pair = reader.readPair();
-			assertEquals(ts + i * 10, pair.getTimestamp());
-			assertEquals(i, pair.getLongValue());
+			assertEquals(ts + i * 10, reader.read());
 		}
 
 		for (int i = 0; i < 100; i++) {
-			DataPoint dp = new DataPoint(1000 + ts + i * 10, i);
-			writer.write(dp);
+			writer.add(1000 + ts + i * 10);
 		}
 
 		reader = writer.getReader();
 		for (int i = 0; i < 200; i++) {
-			DataPoint pair = reader.readPair();
-			assertEquals(ts + i * 10, pair.getTimestamp());
-			assertEquals(i % 100, pair.getLongValue());
+			assertEquals(ts + i * 10, reader.read());
 		}
 		System.out.println("Compression Ratio:" + writer.getCompressionRatio());
 	}
@@ -139,159 +122,81 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testWriteRead() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 100);
-		Writer writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, false);
+		TimeWriter writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		int LIMIT = 10000;
 		for (int i = 0; i < LIMIT; i++) {
-			writer.addValueLocked(ts + i * 1000, i);
+			writer.add(ts + i * 1000);
 		}
 		System.out.println("Compression Ratio:" + writer.getCompressionRatio());
 		Reader reader = writer.getReader();
 		for (int i = 0; i < LIMIT; i++) {
-			DataPoint dp = reader.readPair();
-			assertEquals(ts + i * 1000, dp.getTimestamp());
+			long dp = reader.read();
+			assertEquals(ts + i * 1000, dp);
 		}
 
 		buf.rewind();
-		writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, true);
+		writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < LIMIT; i++) {
-			writer.addValueLocked(ts + i * 1000, i * 1.1);
+			writer.add(ts + i * 1000);
 		}
 		reader = writer.getReader();
 		for (int i = 0; i < LIMIT; i++) {
-			DataPoint dp = reader.readPair();
-			assertEquals(ts + i * 1000, dp.getTimestamp());
-			assertEquals(i * 1.1, dp.getValue(), startOffset);
+			long dp = reader.read();
+			assertEquals(ts + i * 1000, dp);
 		}
 
 		buf.rewind();
-		writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, false);
+		writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		for (int i = 0; i < LIMIT; i++) {
-			DataPoint dp = MiscUtils.buildDataPoint(ts + i * 1000, i);
-			writer.write(dp);
+			writer.add(ts + i * 1000);
 		}
 		reader = writer.getReader();
-		assertEquals(LIMIT, reader.getPairCount());
+		assertEquals(LIMIT, reader.getCount());
 		for (int i = 0; i < LIMIT; i++) {
-			DataPoint dp = reader.readPair();
-			assertEquals(ts + i * 1000, dp.getTimestamp());
-		}
-
-		buf.rewind();
-		writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, true);
-		ts = System.currentTimeMillis();
-		writer.setHeaderTimestamp(ts);
-		List<DataPoint> dps = new ArrayList<>();
-		for (int i = 0; i < LIMIT; i++) {
-			DataPoint dp = MiscUtils.buildDataPoint(ts + i * 1000, i);
-			dps.add(dp);
-		}
-		writer.write(dps);
-		reader = writer.getReader();
-		assertEquals(LIMIT, reader.getPairCount());
-		for (int i = 0; i < LIMIT; i++) {
-			DataPoint dp = reader.readPair();
-			assertEquals(ts + i * 1000, dp.getTimestamp());
-		}
-	}
-
-	@Test
-	public void testWriteReadConcurrent() throws IOException, InterruptedException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024);
-		Writer writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, true);
-		final long ts = System.currentTimeMillis();
-		writer.setHeaderTimestamp(ts);
-
-		int LIMIT = 10000;
-		final AtomicInteger wait = new AtomicInteger(0);
-		int THREAD_COUNT = 4;
-		ExecutorService es = Executors.newFixedThreadPool(THREAD_COUNT);
-		for (int j = 0; j < THREAD_COUNT; j++) {
-			final int o = j * LIMIT;
-			es.submit(() -> {
-				long t = ts + o;
-				for (int i = 0; i < LIMIT; i++) {
-					try {
-						writer.addValueLocked(t + i * 100, i);
-					} catch (IOException e) {
-						throw new RuntimeException(e);
-					}
-				}
-				wait.incrementAndGet();
-			});
-		}
-		es.shutdown();
-		es.awaitTermination(100, TimeUnit.MILLISECONDS);
-		System.out.println("Compression Ratio:" + writer.getCompressionRatio());
-		while (wait.get() != THREAD_COUNT) {
-			Thread.sleep(1000);
-		}
-		Reader reader = writer.getReader();
-		assertEquals(LIMIT * THREAD_COUNT, reader.getPairCount());
-	}
-
-	@Test
-	public void testWriteReadNoLock() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1000);
-		Writer writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, false);
-		long ts = System.currentTimeMillis();
-		writer.setHeaderTimestamp(ts);
-		int LIMIT = 100000;
-		for (int i = 0; i < LIMIT; i++) {
-			writer.addValueLocked(ts + i * 1000, i);
-		}
-		System.out.println("Compression Ratio:" + writer.getCompressionRatio());
-		Reader reader = writer.getReader();
-		for (int i = 0; i < LIMIT; i++) {
-			DataPoint dp = reader.readPair();
-			assertEquals("Iteration:" + i, ts + i * 1000, dp.getTimestamp());
+			long dp = reader.read();
+			assertEquals(ts + i * 1000, dp);
 		}
 	}
 
 	@Test
 	public void testBootstrapDiskRecovery() throws IOException, InterruptedException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
-		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, true);
+		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValueLocked(ots + i * 1000, i);
+			writer.add(ots + i * 1000);
 		}
 		Reader reader = writer.getReader();
 		for (int i = 0; i < limit; i++) {
-			DataPoint pair = reader.readPair();
-			assertEquals("Iteration:" + i, ots + i * 1000, pair.getTimestamp());
-			assertEquals("Iteration:" + i, i, pair.getLongValue());
+			long pair = reader.read();
+			assertEquals("Iteration:" + i, ots + i * 1000, pair);
 		}
 		ByteBuffer rawBytes = writer.getRawBytes();
 		try {
-			writer = new ByzantineWriter();
-			writer.configure(buf, false, startOffset, true);
+			writer = new ByzantineTimestampWriter();
+			writer.configure(buf, false, startOffset);
 			writer.bootstrap(rawBytes);
 			reader = writer.getReader();
 			for (int i = 0; i < limit; i++) {
-				DataPoint pair = reader.readPair();
-				assertEquals(ots + i * 1000, pair.getTimestamp());
-				assertEquals(i, pair.getLongValue());
+				long pair = reader.read();
+				assertEquals(ots + i * 1000, pair);
 			}
 			reader = writer.getReader();
 			for (int i = 0; i < limit; i++) {
-				DataPoint pair = reader.readPair();
-				assertEquals(ots + i * 1000, pair.getTimestamp());
-				assertEquals(i, pair.getLongValue());
+				long pair = reader.read();
+				assertEquals(ots + i * 1000, pair);
 			}
 		} catch (Exception e) {
 			throw e;
@@ -301,17 +206,17 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testWriteReject() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
-		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, true);
+		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValueLocked(ots + i * 1000, i);
+			writer.add(ots + i * 1000);
 		}
-		writer.makeReadOnly();
+		writer.makeReadOnly(false);
 		try {
-			writer.addValueLocked(ots, 2L);
+			writer.add(ots);
 			fail("Must throw exception once the buffer is marked as closed");
 		} catch (RejectException e) {
 		}
@@ -320,41 +225,37 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testDiskRecovery() throws IOException, InterruptedException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
-		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, true);
+		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValueLocked(ots + i * 1000, i);
+			writer.add(ots + i * 1000);
 		}
 		long ts = (System.currentTimeMillis() - ots);
 		System.out.println("==>Byzantine Write time:" + ts + " data size:" + writer.getBuf().position());
 		Reader reader = writer.getReader();
-		assertEquals(limit, reader.getPairCount());
+		assertEquals(limit, reader.getCount());
 		try {
 			for (int i = 0; i < limit; i++) {
-				DataPoint pair = reader.readPair();
-				assertEquals(ots + i * 1000, pair.getTimestamp());
-				assertEquals(i, pair.getLongValue());
+				assertEquals(ots + i * 1000, reader.read());
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw e;
 		}
 		System.out.println("Completed phase 1 reads");
-		writer = new ByzantineWriter();
+		writer = new ByzantineTimestampWriter();
 		// writer.setSeriesId("test_byzantine_disk_writes" + 0);
 		buf.rewind();
-		writer.configure(buf, false, startOffset, true);
+		writer.configure(buf, false, startOffset);
 		assertEquals(1000000, writer.getCount());
-		writer.addValueLocked(ts + 10000, 1);
+		writer.add(ts + 10000);
 		try {
 			reader = writer.getReader();
 			for (int i = 0; i < limit; i++) {
-				DataPoint pair = reader.readPair();
-				assertEquals(ots + i * 1000, pair.getTimestamp());
-				assertEquals(i, pair.getLongValue());
+				assertEquals(ots + i * 1000, reader.read());
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -364,16 +265,16 @@ public class TestByzantineReadWrite {
 
 	@Test
 	public void testBufferFull() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024);
-		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, true);
+		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 512);
+		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ots);
 		assertEquals(ots, writer.getHeaderTimestamp());
 		int limit = 1_000_000;
 		try {
 			for (int i = 0; i < limit; i++) {
-				writer.addValueLocked(ots + i * 1000, i);
+				writer.add(ots + i * 1000);
 			}
 			fail("Must fill up buffer");
 		} catch (RollOverException e) {
@@ -384,26 +285,23 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testArrayReads() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
-		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, true);
+		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ots);
 		assertEquals(ots, writer.getHeaderTimestamp());
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValueLocked(ots + i * 1000, i);
+			writer.add(ots + i * 1000);
 		}
-		ByzantineReader reader = writer.getReader();
+		ByzantineTimestampReader reader = writer.getReader();
 		int c = 0;
-		assertEquals(limit, reader.getPairCount());
+		assertEquals(limit, reader.getCount());
 		try {
 			for (int i = 0; i < limit; i++) {
-				long[] read = reader.read();
-				if (read != null) {
-					assertEquals(ots + i * 1000, read[0]);
-					assertEquals(i, read[1]);
-					c++;
-				}
+				long read = reader.read();
+				assertEquals(ots + i * 1000, read);
+				c++;
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -415,25 +313,25 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testPredicateFilter() throws IOException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
-		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, true);
+		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ots);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValueLocked(ots + i * 1000, i);
+			writer.add(ots + i * 1000);
 		}
 		Reader reader = writer.getReader();
-		reader.setTimePredicate(new GreaterThanEqualsPredicate(ots + 1000));
+		reader.setPredicate(new GreaterThanEqualsPredicate(ots + 1000));
 		int c = 0;
-		assertEquals(limit, reader.getPairCount());
+		assertEquals(limit, reader.getCount());
 		try {
 			for (int i = 0; i < limit; i++) {
-				DataPoint pair = reader.readPair();
-				if (pair != null) {
-					assertEquals(ots + i * 1000, pair.getTimestamp());
-					assertEquals(i, pair.getLongValue());
+				try {
+					long pair = reader.read();
+					assertEquals(ots + i * 1000, pair);
 					c++;
+				} catch (FilteredValueException e) {
 				}
 			}
 		} catch (Exception e) {
@@ -443,25 +341,25 @@ public class TestByzantineReadWrite {
 		assertEquals(limit - 1, c);
 
 		reader = writer.getReader();
-		reader.setValuePredicate(new GreaterThanEqualsPredicate(1000));
+		reader.setPredicate(new GreaterThanEqualsPredicate(ots + 1000 * 1000));
 		c = 0;
-		assertEquals(limit, reader.getPairCount());
+		assertEquals(limit, reader.getCount());
 		try {
 			for (int i = 0; i < limit; i++) {
-				DataPoint pair = reader.readPair();
-				if (pair != null) {
-					assertEquals(ots + i * 1000, pair.getTimestamp());
-					assertEquals(i, pair.getLongValue());
+				try {
+					long pair = reader.read();
+					assertEquals(ots + i * 1000, pair);
 					c++;
+				} catch (FilteredValueException e) {
 				}
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 			throw e;
 		}
-		
+
 		try {
-			reader.readPair();
+			reader.read();
 			fail("Must throw end of stream exception");
 		} catch (RejectException e) {
 		}
@@ -472,19 +370,18 @@ public class TestByzantineReadWrite {
 		}
 		assertEquals(limit - 1000, c);
 		assertEquals(limit, reader.getCounter());
-		
-		
+
 		reader = writer.getReader();
-		reader.setTimePredicate(new GreaterThanEqualsPredicate(ots + 1000));
+		reader.setPredicate(new GreaterThanEqualsPredicate(ots + 1000));
 		c = 0;
-		assertEquals(limit, reader.getPairCount());
+		assertEquals(limit, reader.getCount());
 		try {
 			for (int i = 0; i < limit; i++) {
-				long[] pair = reader.read();
-				if (pair != null) {
-					assertEquals(ots + i * 1000, pair[0]);
-					assertEquals(i, pair[1]);
+				try {
+					long pair = reader.read();
+					assertEquals(ots + i * 1000, pair);
 					c++;
+				} catch (FilteredValueException e) {
 				}
 			}
 		} catch (Exception e) {
@@ -494,16 +391,16 @@ public class TestByzantineReadWrite {
 		assertEquals(limit - 1, c);
 
 		reader = writer.getReader();
-		reader.setValuePredicate(new GreaterThanEqualsPredicate(1000));
+		reader.setPredicate(new GreaterThanEqualsPredicate(ots + 1000 * 1000));
 		c = 0;
-		assertEquals(limit, reader.getPairCount());
+		assertEquals(limit, reader.getCount());
 		try {
 			for (int i = 0; i < limit; i++) {
-				long[] pair = reader.read();
-				if (pair != null) {
-					assertEquals(ots + i * 1000, pair[0]);
-					assertEquals(i, pair[1]);
+				try {
+					long pair = reader.read();
+					assertEquals(ots + i * 1000, pair);
 					c++;
+				} catch (FilteredValueException e) {
 				}
 			}
 		} catch (Exception e) {
@@ -528,13 +425,13 @@ public class TestByzantineReadWrite {
 	@Test
 	public void testDiskWrites() throws IOException, InterruptedException {
 		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
-		ByzantineWriter writer = new ByzantineWriter();
-		writer.configure(buf, true, startOffset, true);
+		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
+		writer.configure(buf, true, startOffset);
 		long ts = System.currentTimeMillis();
 		writer.setHeaderTimestamp(ts);
 		int limit = 1_000_000;
 		for (int i = 0; i < limit; i++) {
-			writer.addValueLocked(ts + i * 1000, i);
+			writer.add(ts + i * 1000);
 		}
 		ts = (System.currentTimeMillis() - ts);
 		System.out.println("Byzantine Write time:" + ts + " data size:" + writer.getBuf().position());
@@ -543,7 +440,7 @@ public class TestByzantineReadWrite {
 		try {
 			Reader reader = writer.getReader();
 			for (i = 0; i < limit; i++) {
-				reader.readPair();
+				reader.read();
 			}
 			ts = (System.currentTimeMillis() - ts);
 			System.out.println("Byzantine Read time:" + ts);

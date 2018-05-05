@@ -20,10 +20,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
@@ -37,7 +38,6 @@ import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
-import com.srotya.sidewinder.core.storage.compression.Reader;
 
 /**
  * Interface for Timeseries Storage Engine
@@ -60,7 +60,6 @@ public interface StorageEngine {
 	public static final String RETENTION_HOURS = "default.series.retention.hours";
 	public static final int DEFAULT_RETENTION_HOURS = (int) Math
 			.ceil((((double) DEFAULT_TIME_BUCKET_CONSTANT) * 24 / 60) / 60);
-	public static final String PERSISTENCE_DISK = "persistence.disk";
 	public static final String ARCHIVER_CLASS = "archiver.class";
 	public static final String GC_ENABLED = "gc.enabled";
 	public static final String GC_DELAY = "gc.delay";
@@ -79,6 +78,7 @@ public interface StorageEngine {
 	public static final String DEFAULT_COMPACTION_RATIO = "0.8";
 	public static final boolean ENABLE_METHOD_METRICS = Boolean
 			.parseBoolean(System.getProperty("debug.method.metrics", "false"));
+	public static final String ENABLE_JDBC = "jdbc.enabled";
 
 	/**
 	 * @param conf
@@ -100,25 +100,6 @@ public interface StorageEngine {
 	 * @throws IOException
 	 */
 	public void shutdown() throws IOException;
-
-	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, long value, boolean fp, boolean presorted) throws IOException {
-		StorageEngine.validateDataPoint(dbName, measurementName, valueFieldName, tags, TimeUnit.MILLISECONDS);
-		Measurement m = getOrCreateMeasurement(dbName, measurementName);
-		m.addDataPoint(valueFieldName, tags, timestamp, value, fp, presorted);
-		getCounter().inc();
-	}
-
-	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, long value, boolean presorted) throws IOException {
-		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value, false, presorted);
-	}
-
-	public default void writeDataPoint(String dbName, String measurementName, String valueFieldName, List<Tag> tags,
-			long timestamp, double value, boolean presorted) throws IOException {
-		writeDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, Double.doubleToLongBits(value), true,
-				presorted);
-	}
 
 	public default void writeDataPointLocked(Point dp, boolean preSorted) throws IOException {
 		StorageEngine.validatePoint(dp);
@@ -148,14 +129,14 @@ public interface StorageEngine {
 	 * @return
 	 * @throws IOException
 	 */
-	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, TagFilter tagFilter, Predicate valuePredicate, Function function)
-			throws IOException {
+	public default List<SeriesOutput> queryDataPoints(String dbName, String measurementPattern,
+			String valueFieldPattern, long startTime, long endTime, TagFilter tagFilter, Predicate valuePredicate,
+			Function function) throws IOException {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementPattern);
-		List<Series> resultList = Collections.synchronizedList(new ArrayList<>());
+		List<SeriesOutput> resultList = Collections.synchronizedList(new ArrayList<>());
 		getLogger().finer(() -> "Querying points for:" + measurementsLike + " " + measurementPattern);
 		for (String measurement : measurementsLike) {
 			Measurement measurementObj = getDatabaseMap().get(dbName).get(measurement);
@@ -168,16 +149,40 @@ public interface StorageEngine {
 		return resultList;
 	}
 
-	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, TagFilter tagFilter, Predicate valuePredicate) throws IOException {
+	public default List<SeriesOutput> queryDataPoints(String dbName, String measurementPattern,
+			String valueFieldPattern, long startTime, long endTime, TagFilter tagFilter, Predicate valuePredicate)
+			throws IOException {
 		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagFilter,
 				valuePredicate, null);
 	}
 
-	public default List<Series> queryDataPoints(String dbName, String measurementPattern, String valueFieldPattern,
-			long startTime, long endTime, TagFilter tagFilter) throws IOException {
+	public default List<SeriesOutput> queryDataPoints(String dbName, String measurementPattern,
+			String valueFieldPattern, long startTime, long endTime, TagFilter tagFilter) throws IOException {
 		return queryDataPoints(dbName, measurementPattern, valueFieldPattern, startTime, endTime, tagFilter, null,
 				null);
+	}
+
+	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
+			List<String> valueFieldNames, List<Predicate> valuePredicate, boolean regex, long startTime, long endTime,
+			TagFilter tagFilter) throws IOException {
+		ConcurrentHashMap<ByteString, FieldReaderIterator[]> map = new ConcurrentHashMap<>();
+
+		Measurement measurement = getMeasurementMap().get(dbName).get(measurementName);
+		measurement.queryReaders(valueFieldNames, valuePredicate, regex, startTime, endTime, tagFilter, map);
+
+		return map;
+	}
+
+	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
+			List<String> valueFieldNames, boolean regex, long startTime, long endTime, TagFilter tagFilter)
+			throws IOException {
+		return queryReaders(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, tagFilter);
+	}
+	
+	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
+			List<String> valueFieldNames, boolean regex, long startTime, long endTime)
+			throws IOException {
+		return queryReaders(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, null);
 	}
 
 	/**
@@ -279,11 +284,10 @@ public interface StorageEngine {
 	/**
 	 * @param dbName
 	 * @param measurementName
-	 * @param valueFieldName
-	 * @return tags for the supplied parameters
+	 * @return
 	 * @throws Exception
 	 */
-	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName, String valueFieldName)
+	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName)
 			throws Exception {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
@@ -353,13 +357,13 @@ public interface StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public default Set<String> getFieldsForMeasurement(String dbName, String measurementNameRegex) throws Exception {
+	public default LinkedHashSet<String> getFieldsForMeasurement(String dbName, String measurementNameRegex) throws Exception {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		Set<String> filterdMeasurements = new HashSet<>();
 		findMeasurementsLike(dbName, measurementNameRegex, filterdMeasurements);
-		Set<String> superSet = new HashSet<>();
+		LinkedHashSet<String> superSet = new LinkedHashSet<>();
 		if (filterdMeasurements.isEmpty()) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -473,26 +477,30 @@ public interface StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public default LinkedHashMap<Reader, Boolean> queryReaders(String dbName, String measurementName,
-			String valueFieldName, long startTime, long endTime) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		LinkedHashMap<Reader, Boolean> readers = new LinkedHashMap<>();
-		getDatabaseMap().get(dbName).get(measurementName).queryReaders(valueFieldName, startTime, endTime, readers);
-		return readers;
-	}
-
-	public default LinkedHashMap<Reader, List<Tag>> queryReadersWithMap(String dbName, String measurementName,
-			String valueFieldName, long startTime, long endTime) throws Exception {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		LinkedHashMap<Reader, List<Tag>> readers = new LinkedHashMap<>();
-		getDatabaseMap().get(dbName).get(measurementName).queryReadersWithMap(valueFieldName, startTime, endTime,
-				readers);
-		return readers;
-	}
+	// public default LinkedHashMap<ValueReader, Boolean> queryReaders(String
+	// dbName, String measurementName,
+	// String valueFieldName, long startTime, long endTime) throws Exception {
+	// if (!checkIfExists(dbName, measurementName)) {
+	// throw NOT_FOUND_EXCEPTION;
+	// }
+	// LinkedHashMap<ValueReader, Boolean> readers = new LinkedHashMap<>();
+	// getDatabaseMap().get(dbName).get(measurementName).queryReaders(valueFieldName,
+	// startTime, endTime, readers);
+	// return readers;
+	// }
+	//
+	// public default LinkedHashMap<ValueReader, List<Tag>>
+	// queryReadersWithMap(String dbName, String measurementName,
+	// String valueFieldName, long startTime, long endTime) throws Exception {
+	// if (!checkIfExists(dbName, measurementName)) {
+	// throw NOT_FOUND_EXCEPTION;
+	// }
+	// LinkedHashMap<ValueReader, List<Tag>> readers = new LinkedHashMap<>();
+	// getDatabaseMap().get(dbName).get(measurementName).queryReadersWithMap(valueFieldName,
+	// startTime, endTime,
+	// readers);
+	// return readers;
+	// }
 
 	/**
 	 * Check if timeseries exists
@@ -510,9 +518,12 @@ public interface StorageEngine {
 			return false;
 		}
 		// check and create timeseries
-		TimeSeries timeSeries = getDatabaseMap().get(dbName).get(measurementName).getSeriesField(tags)
-				.get(valueFieldName);
-		return timeSeries != null;
+		try {
+			getDatabaseMap().get(dbName).get(measurementName).isFieldFp(valueFieldName);
+			return true;
+		} catch (ItemNotFoundException e) {
+			return false;
+		}
 	}
 
 	/**
@@ -525,15 +536,14 @@ public interface StorageEngine {
 	 * @return
 	 * @throws IOException
 	 */
-	public default TimeSeries getTimeSeries(String dbName, String measurementName, String valueFieldName,
-			List<Tag> tags) throws IOException {
+	public default Series getTimeSeries(String dbName, String measurementName, String valueFieldName, List<Tag> tags)
+			throws IOException {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
 		// get timeseries
 		Measurement measurement = getDatabaseMap().get(dbName).get(measurementName);
-		TimeSeries timeSeries = measurement.getSeriesField(tags).get(valueFieldName);
-		return timeSeries;
+		return measurement.getSeriesField(tags);
 	}
 
 	/**
@@ -583,27 +593,31 @@ public interface StorageEngine {
 			throw INVALID_DATAPOINT_EXCEPTION;
 		}
 	}
-
+	
 	public int getDefaultTimebucketSize();
 
 	public Counter getCounter();
 
 	public Logger getLogger();
 
-	public default void setCodecsForTimeseries(Map<String, String> conf) {
+	public default void setCodecsForCompression(Map<String, String> conf) {
 		String compressionCodec = conf.getOrDefault(StorageEngine.COMPRESSION_CODEC,
 				StorageEngine.DEFAULT_COMPRESSION_CODEC);
 		String compactionCodec = conf.getOrDefault(StorageEngine.COMPACTION_CODEC,
 				StorageEngine.DEFAULT_COMPACTION_CODEC);
-		TimeSeries.compactionClass = CompressionFactory.getClassByName(compactionCodec);
-		TimeSeries.compressionClass = CompressionFactory.getClassByName(compressionCodec);
+		TimeField.compactionClass = CompressionFactory.getTimeClassByName(compactionCodec);
+		TimeField.compressionClass = CompressionFactory.getTimeClassByName(compressionCodec);
+		getLogger().info("Compression codec for timeseries:"+TimeField.compressionClass.getName());
+		getLogger().info("Compaction codec for timeseries:"+TimeField.compactionClass.getName());
+
+		ValueField.compactionClass = CompressionFactory.getValueClassByName(compactionCodec);
+		ValueField.compressionClass = CompressionFactory.getValueClassByName(compressionCodec);
+		getLogger().info("Compression codec for value:"+ValueField.compressionClass.getName());
+		getLogger().info("Compaction codec for value:"+ValueField.compactionClass.getName());
 	}
 
-	public default void setCompactionConfig(Map<String, String> conf) {
-		TimeSeries.compactionEnabled = Boolean.parseBoolean(
-				conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, StorageEngine.DEFAULT_COMPACTION_ENABLED));
-		TimeSeries.compactionRatio = Double
-				.parseDouble(conf.getOrDefault(StorageEngine.COMPACTION_RATIO, StorageEngine.DEFAULT_COMPACTION_RATIO));
+	public default List<Tag> decodeTagsFromString(String dbName, String measurementName, ByteString tagString) throws IOException {
+		return getDatabaseMap().get(dbName).get(measurementName).decodeStringToTags(tagString);
 	}
 
 }

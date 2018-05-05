@@ -44,13 +44,13 @@ import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.SeriesFieldMap;
+import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.TagIndex;
-import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -58,12 +58,14 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
  */
 public class PersistentMeasurement implements Measurement {
 
+	private static final int SERIES_MD_IDX = 1;
 	private static final String MD_SEPARATOR = "~";
 	private static final Logger logger = Logger.getLogger(PersistentMeasurement.class.getName());
 	private ReentrantLock lock = new ReentrantLock(false);
 	private ReentrantLock mallocLock = new ReentrantLock(false);
 	private Map<ByteString, Integer> seriesMap;
-	private List<SeriesFieldMap> seriesList;
+	private SortedMap<String, Boolean> fieldTypeMap;
+	private List<Series> seriesList;
 	private TagIndex tagIndex;
 	private String dataDirectory;
 	private DBMetadata metadata;
@@ -80,6 +82,8 @@ public class PersistentMeasurement implements Measurement {
 	private boolean compactOnStart;
 	private int timeBucketSize;
 	private AtomicInteger retentionBuckets;
+	private PrintWriter prFieldMetadata;
+	private ByteStringCache fieldCache;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
@@ -102,14 +106,15 @@ public class PersistentMeasurement implements Measurement {
 		}
 
 		this.metadata = metadata;
-		// this.seriesMap = (Map<String, Integer>)
-		// DBMaker.memoryDirectDB().make().hashMap(measurementName).create();
+		this.fieldCache = ByteStringCache.instance();
 		this.seriesMap = new ConcurrentHashMap<>(100_000);
+		this.fieldTypeMap = new ConcurrentSkipListMap<>();
 		this.seriesList = new ArrayList<>(100_000);
 		this.compactOnStart = Boolean.parseBoolean(
 				conf.getOrDefault(StorageEngine.COMPACTION_ON_START, StorageEngine.DEFAULT_COMPACTION_ON_START));
 		this.measurementName = measurementName;
 		this.prMetadata = new PrintWriter(new FileOutputStream(new File(getMetadataPath()), true));
+		this.prFieldMetadata = new PrintWriter(new FileOutputStream(new File(getFieldMetadataPath()), true));
 
 		this.retentionBuckets = new AtomicInteger(0);
 		setRetentionHours(metadata.getRetentionHours());
@@ -138,6 +143,15 @@ public class PersistentMeasurement implements Measurement {
 		return dataDirectory + "/.md";
 	}
 
+	private String getFieldMetadataPath() {
+		return dataDirectory + "/.field";
+	}
+
+	@Override
+	public ByteStringCache getFieldCache() {
+		return fieldCache;
+	}
+
 	@Override
 	public Map<ByteString, Integer> getSeriesMap() {
 		return seriesMap;
@@ -154,11 +168,14 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public synchronized void appendTimeseriesToMeasurementMetadata(ByteString fieldId, boolean fp, int timeBucketSize,
-			int idx) throws IOException {
-		String line = fieldId.toString() + MD_SEPARATOR + fp + MD_SEPARATOR + timeBucketSize + MD_SEPARATOR
-				+ Integer.toHexString(idx);
+	public synchronized void appendTimeseriesToMeasurementMetadata(ByteString fieldId, int idx) throws IOException {
+		String line = fieldId.toString() + MD_SEPARATOR + Integer.toHexString(idx);
 		DiskStorageEngine.appendLineToFile(line, prMetadata);
+	}
+
+	@Override
+	public synchronized void appendFieldMetadata(String valueFieldName, boolean fp) throws IOException {
+		DiskStorageEngine.appendLineToFile(valueFieldName + MD_SEPARATOR + fp, prFieldMetadata);
 	}
 
 	private void loadSeriesEntries(List<String> seriesEntries) {
@@ -167,15 +184,15 @@ public class PersistentMeasurement implements Measurement {
 			@Override
 			public int compare(String o1, String o2) {
 				try {
-					return Integer.compare(Integer.parseInt(o1.split(MD_SEPARATOR)[3], 16),
-							Integer.parseInt(o2.split(MD_SEPARATOR)[3], 16));
+					return Integer.compare(Integer.parseInt(o1.split(MD_SEPARATOR)[SERIES_MD_IDX], 16),
+							Integer.parseInt(o2.split(MD_SEPARATOR)[SERIES_MD_IDX], 16));
 				} catch (Exception e) {
-					throw new RuntimeException("Bad entry:\n" + o1 + "\n" + o2);
+					throw new RuntimeException("Bad entry:\n" + o1 + "\n" + o2 + " ");
 				}
 			}
 		});
 		SortedSet<String> set = new TreeSet<>();
-		seriesEntries.stream().forEach(e -> set.add(e.split(MD_SEPARATOR)[3]));
+		seriesEntries.stream().forEach(e -> set.add(e.split(MD_SEPARATOR)[SERIES_MD_IDX]));
 		try {
 			for (String entry : seriesEntries) {
 				loadEntry(entry);
@@ -195,63 +212,76 @@ public class PersistentMeasurement implements Measurement {
 		String fieldId = split[0];
 		logger.fine("Loading Timeseries:" + fieldId);
 		try {
-			String timeBucketSize = split[2];
-			String isFp = split[1];
 			String[] split2 = fieldId.split(SERIESID_SEPARATOR);
-
-			String valueField = split2[1];
 			String seriesId = split2[0];
-
 			ByteString key = new ByteString(seriesId);
 
 			Integer seriesIdx = seriesMap.get(key);
-			SeriesFieldMap fieldMap = null;
+			Series series = null;
 			if (seriesIdx == null) {
-				seriesIdx = Integer.parseInt(split[3], 16);
-				fieldMap = new SeriesFieldMap(new ByteString(seriesId), seriesIdx);
+				seriesIdx = Integer.parseInt(split[SERIES_MD_IDX], 16);
+				series = new Series(key, seriesIdx);
 				seriesMap.put(key, seriesIdx);
-				seriesList.add(seriesIdx, fieldMap);
+				seriesList.add(seriesIdx, series);
 			} else {
-				fieldMap = seriesList.get(seriesIdx);
+				series = seriesList.get(seriesIdx);
 			}
-			fieldMap.getOrCreateSeriesLocked(valueField, Integer.parseInt(timeBucketSize), Boolean.parseBoolean(isFp),
-					this);
 			if (enableMetricsCapture) {
 				metricsTimeSeriesCounter.inc();
 			}
 			logger.fine("Intialized Timeseries:" + seriesId);
-		} catch (NumberFormatException | IOException e) {
+		} catch (NumberFormatException e) {
 			logger.log(Level.SEVERE, "Failed to load series:" + entry, e);
 		}
 	}
 
 	@Override
 	public void loadTimeseriesFromMeasurements() throws IOException {
+		String fieldFilePath = getFieldMetadataPath();
+		File file = new File(fieldFilePath);
+		if (!file.exists()) {
+			logger.warning("Field file missing for measurement:" + measurementName);
+			return;
+		} else {
+			logger.fine("Field file exists:" + file.getAbsolutePath());
+		}
+		List<String> fieldEntries = MiscUtils.readAllLines(file);
+		loadFieldList(fieldEntries);
+
 		String mdFilePath = getMetadataPath();
-		File file = new File(mdFilePath);
+		file = new File(mdFilePath);
 		if (!file.exists()) {
 			logger.warning("Metadata file missing for measurement:" + measurementName);
 			return;
 		} else {
 			logger.fine("Metadata file exists:" + file.getAbsolutePath());
 		}
-
 		List<String> seriesEntries = MiscUtils.readAllLines(file);
 		try {
 			loadSeriesEntries(seriesEntries);
 		} catch (Exception e) {
+			e.printStackTrace();
 			throw new IOException(e);
 		}
 
+		ByteStringCache localCache = ByteStringCache.instance();
 		Map<ByteString, List<Entry<Integer, BufferObject>>> seriesBuffers = malloc.seriesBufferMap();
 		for (Entry<ByteString, List<Entry<Integer, BufferObject>>> entry : seriesBuffers.entrySet()) {
 			ByteString[] split = entry.getKey().split(SERIESID_SEPARATOR);
-			Integer seriesId = seriesMap.get(new ByteString(split[0]));
-			SeriesFieldMap ts = seriesList.get(seriesId);
+			ByteString seriesId = localCache.get(split[0]);
+			Integer seriesIndex = seriesMap.get(seriesId);
+			Series series = seriesList.get(seriesIndex);
+			
+			if(series.getSeriesId()!=seriesId) {
+				seriesMap.put(seriesId, seriesIndex);
+				series.setSeriesId(seriesId);
+			}
+			
 			List<Entry<Integer, BufferObject>> list = entry.getValue();
 			if (list != null) {
 				try {
-					ts.get(split[1].toString()).loadBucketMap(list);
+					String fieldName = split[1].toString();
+					series.loadBuffers(this, fieldName, list, this.getConf());
 				} catch (Exception e) {
 					logger.log(Level.SEVERE, "Failed to load bucket map for:" + entry.getKey() + ":" + measurementName,
 							e);
@@ -262,6 +292,13 @@ public class PersistentMeasurement implements Measurement {
 			compact();
 		}
 		logger.info("Loaded measurement:" + measurementName);
+	}
+
+	private void loadFieldList(List<String> fieldEntries) {
+		for (String field : fieldEntries) {
+			String[] split = field.split(MD_SEPARATOR);
+			fieldTypeMap.put(split[0], Boolean.parseBoolean(split[1]));
+		}
 	}
 
 	@Override
@@ -294,11 +331,6 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public String toString() {
 		return "PersistentMeasurement [seriesMap=" + seriesMap + ", measurementName=" + measurementName + "]";
-	}
-
-	@Override
-	public SortedMap<Integer, List<Writer>> createNewBucketMap(ByteString seriesId) {
-		return new ConcurrentSkipListMap<>();
 	}
 
 	@Override
@@ -335,11 +367,11 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public List<SeriesFieldMap> getSeriesList() {
+	public List<Series> getSeriesList() {
 		return seriesList;
 	}
 
-	public List<SeriesFieldMap> getSeriesListAsList() {
+	public List<Series> getSeriesListAsList() {
 		return seriesList;
 	}
 
@@ -366,6 +398,11 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public AtomicInteger getRetentionBuckets() {
 		return retentionBuckets;
+	}
+
+	@Override
+	public SortedMap<String, Boolean> getFieldTypeMap() {
+		return fieldTypeMap;
 	}
 
 }

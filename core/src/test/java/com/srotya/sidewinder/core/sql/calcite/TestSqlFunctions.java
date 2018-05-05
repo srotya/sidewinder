@@ -13,14 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.sql.calcite.functions;
+package com.srotya.sidewinder.core.sql.calcite;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 import java.sql.Timestamp;
 import java.time.Instant;
 
 import org.junit.Test;
+
+import com.srotya.sidewinder.core.sql.calcite.SqlFunctions.DateDiff;
+import com.srotya.sidewinder.core.sql.calcite.SqlFunctions.Now;
+import com.srotya.sidewinder.core.sql.calcite.SqlFunctions.ToMilli;
+import com.srotya.sidewinder.core.sql.calcite.SqlFunctions.ToTimestamp;
 
 /**
  * Unit tests for: {@link ToTimestamp} {@link ToMilliseconds}
@@ -34,35 +39,35 @@ public class TestSqlFunctions {
 	public void testToTimestamp() {
 		long ts = System.currentTimeMillis();
 		ToTimestamp function = new ToTimestamp();
-		Timestamp value = function.apply(ts);
+		Timestamp value = function.eval(ts);
 		assertEquals(ts, value.getTime());
 	}
 
 	@Test
 	public void testToMilliseconds() {
-		ToMilliseconds function = new ToMilliseconds();
+		ToMilli function = new ToMilli();
 		int ts = (int) (System.currentTimeMillis() / 1000);
-		Long apply = function.apply(ts, "SECONDS");
+		Long apply = function.eval(ts, "SECONDS");
 		assertEquals(((long) ts) * 1000, apply.longValue());
 	}
 
 	@Test
 	public void testNowFunction() {
-		NowFunction function = new NowFunction();
+		Now function = new Now();
 		long currentTimeMillis = System.currentTimeMillis();
-		Timestamp ts = function.apply();
+		Timestamp ts = function.eval();
 		assertEquals(currentTimeMillis, ts.getTime(), 5);
 	}
 
 	@Test
 	public void testDateDiffFunction() {
-		DateDiffFunction function = new DateDiffFunction();
+		DateDiff function = new DateDiff();
 		long ts1 = System.currentTimeMillis();
 		long ts2 = ts1 - 100;
-		Long apply = function.apply(Timestamp.from(Instant.ofEpochMilli(ts1)),
+		Long apply = function.eval(Timestamp.from(Instant.ofEpochMilli(ts1)),
 				Timestamp.from(Instant.ofEpochMilli(ts2)));
 		assertEquals(100, apply.longValue());
-		apply = function.apply(Timestamp.from(Instant.ofEpochMilli(ts2)), Timestamp.from(Instant.ofEpochMilli(ts1)));
+		apply = function.eval(Timestamp.from(Instant.ofEpochMilli(ts2)), Timestamp.from(Instant.ofEpochMilli(ts1)));
 		assertEquals(100, apply.longValue());
 	}
 }

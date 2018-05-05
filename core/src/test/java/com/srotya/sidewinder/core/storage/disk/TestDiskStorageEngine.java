@@ -36,7 +36,7 @@ import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -141,7 +141,7 @@ public class TestDiskStorageEngine {
 			engine.configure(map, bgTasks);
 
 			assertTrue(!engine.isMeasurementFieldFP("test3", "cpu", "value"));
-			List<Series> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000), null,
+			List<SeriesOutput> queryDataPoints = engine.queryDataPoints("test3", "cpu", "value", ts, ts + (400 * 60000), null,
 					null);
 			try {
 				engine.isMeasurementFieldFP("test3", "test", "test");

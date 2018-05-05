@@ -18,20 +18,20 @@ package com.srotya.sidewinder.core.functions;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.srotya.sidewinder.core.storage.Series;
+import com.srotya.sidewinder.core.storage.SeriesOutput;
 
 public abstract class SingleSeriesFunction implements Function {
 
 	@Override
-	public List<Series> apply(List<Series> t) {
-		List<Series> output = new ArrayList<>();
-		for(Series series:t) {
+	public List<SeriesOutput> apply(List<SeriesOutput> t) {
+		List<SeriesOutput> output = new ArrayList<>();
+		for(SeriesOutput series:t) {
 			output.add(apply(series));
 		}
 		return output;
 	}
 	
-	public abstract Series apply(Series dataPoints);
+	public abstract SeriesOutput apply(SeriesOutput dataPoints);
 
 	@Override
 	public int getNumberOfArgs() {

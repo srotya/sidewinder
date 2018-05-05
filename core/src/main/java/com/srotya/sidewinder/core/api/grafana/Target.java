@@ -21,7 +21,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-public class Target implements Serializable {
+public class Target implements Serializable, Comparable<Target> {
 
 	private static final long serialVersionUID = 1L;
 
@@ -82,6 +82,11 @@ public class Target implements Serializable {
 			}
 
 		});
+	}
+
+	@Override
+	public int compareTo(Target o) {
+		return this.target.compareTo(o.target);
 	}
 
 }

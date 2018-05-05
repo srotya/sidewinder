@@ -13,22 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.core.sql.calcite.functions;
+package com.srotya.sidewinder.core.storage.compression;
 
-import java.util.concurrent.TimeUnit;
-
-import org.apache.calcite.linq4j.function.Function2;
-
-import com.srotya.sidewinder.core.utils.TimeUtils;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 /**
  * @author ambud
  */
-public class ToMilliseconds implements Function2<Integer, String, Long> {
+@Retention(RetentionPolicy.RUNTIME)
+public @interface ValueCodec {
 
-	@Override
-	public Long apply(Integer v0, String v1) {
-		return (long) TimeUtils.timeToSeconds(TimeUnit.valueOf(v1), v0) * 1000;
-	}
-
+	public int id();
+	
+	public String name();
+	
 }

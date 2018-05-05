@@ -15,30 +15,28 @@
  */
 package com.srotya.sidewinder.core.storage.compression.byzantine;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
-import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.utils.ByteUtils;
 
 /**
  * @author ambud
  */
-public class ByzantineReader implements Reader {
+public class ByzantineTimestampReader implements Reader {
 
 	private long prevTs;
 	private long delta;
 	private int counter;
 	private int count;
 	private Predicate timePredicate;
-	private Predicate valuePredicate;
 	private ByteBuffer buf;
-	private long prevValue;
 
-	public ByzantineReader(ByteBuffer buf, int startOffset) {
+	public ByzantineTimestampReader(ByteBuffer buf, int startOffset) {
 		buf.position(startOffset);
 		this.buf = buf;
 		this.count = buf.getInt();
@@ -50,60 +48,16 @@ public class ByzantineReader implements Reader {
 	}
 
 	@Override
-	public DataPoint readPair() throws IOException {
-		DataPoint dp = null;
+	public long read() throws FilteredValueException, RejectException {
 		if (counter < count) {
 			uncompressAndReadTimestamp();
-			uncompressAndReadValue();
 			counter++;
 			if (timePredicate != null && !timePredicate.test(prevTs)) {
-				return null;
+				throw FILTERED_VALUE_EXCEPTION;
 			}
-			if (valuePredicate != null && !valuePredicate.test(prevValue)) {
-				return null;
-			}
-			dp = new DataPoint();
-			dp.setTimestamp(prevTs);
-			dp.setLongValue(prevValue);
-			return dp;
+			return prevTs;
 		} else {
 			throw EOS_EXCEPTION;
-		}
-	}
-
-	@Override
-	public long[] read() throws IOException {
-		if (counter < count) {
-			long[] dp = new long[2];
-			uncompressAndReadTimestamp();
-			uncompressAndReadValue();
-			counter++;
-			if (timePredicate != null && !timePredicate.test(prevTs)) {
-				return null;
-			}
-			if (valuePredicate != null && !valuePredicate.test(prevValue)) {
-				return null;
-			}
-			dp[0] = prevTs;
-			dp[1] = prevValue;
-			return dp;
-		} else {
-			throw EOS_EXCEPTION;
-		}
-	}
-
-	public void uncompressAndReadValue() {
-		byte flag = buf.get();
-		if (flag == (byte) 0) {
-			prevValue = prevValue ^ 0L;
-		} else if (flag == (byte) 1) {
-			prevValue = prevValue ^ (long) buf.get();
-		} else if (flag == (byte) 2) {
-			prevValue = prevValue ^ (long) buf.getShort();
-		} else if (flag == (byte) 3) {
-			prevValue = prevValue ^ (long) buf.getInt();
-		} else {
-			prevValue = prevValue ^ (long) buf.getLong();
 		}
 	}
 
@@ -124,18 +78,13 @@ public class ByzantineReader implements Reader {
 	}
 
 	@Override
-	public int getPairCount() {
+	public int getCount() {
 		return count;
 	}
 
 	@Override
-	public void setTimePredicate(Predicate timePredicate) {
-		this.timePredicate = timePredicate;
-	}
-
-	@Override
-	public void setValuePredicate(Predicate valuePredicate) {
-		this.valuePredicate = valuePredicate;
+	public void setPredicate(Predicate valuePredicate) {
+		this.timePredicate = valuePredicate;
 	}
 
 	/**
@@ -150,13 +99,6 @@ public class ByzantineReader implements Reader {
 	 */
 	public long getDelta() {
 		return delta;
-	}
-
-	/**
-	 * @return the prevValue
-	 */
-	public long getPrevValue() {
-		return prevValue;
 	}
 
 	@Override

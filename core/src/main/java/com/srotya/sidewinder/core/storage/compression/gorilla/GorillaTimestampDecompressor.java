@@ -15,59 +15,44 @@
 **/  
 package com.srotya.sidewinder.core.storage.compression.gorilla;
 
-import com.srotya.sidewinder.core.storage.DataPoint;
+import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.storage.compression.Reader;
 
 /**
  * Decompresses a compressed stream created by the GorillaCompressor.
  *
  * @author Michael Burman
  */
-public class GorillaDecompressor {
-    private long storedTimestamp = 0;
+public class GorillaTimestampDecompressor {
+    
+	private long storedTimestamp = 0;
     private long storedDelta = 0;
 
     private long blockTimestamp = 0;
-    private long storedVal = 0;
     private boolean endOfStream = false;
 
     private BitInput in;
-    private ValueDecompressor decompressor;
 
-    public GorillaDecompressor(BitInput input) {
+    public GorillaTimestampDecompressor(BitInput input) {
         this(input, new LastValuePredictor());
     }
 
-    public GorillaDecompressor(BitInput input, Predictor predictor) {
+    public GorillaTimestampDecompressor(BitInput input, Predictor predictor) {
         in = input;
         readHeader();
-        this.decompressor = new ValueDecompressor(input, predictor);
     }
 
     private void readHeader() {
         blockTimestamp = in.getLong(64);
     }
     
-    public long[] read() {
+    public long read() throws RejectException {
 		next();
 		if (endOfStream) {
-			return null;
+			throw Reader.EOS_EXCEPTION;
 		}
-		return new long[] { storedTimestamp, storedVal };
+		return storedTimestamp;
 	}
-
-    /**
-     * Returns the next pair in the time series, if available.
-     *
-     * @return Pair if there's next value, null if series is done.
-     */
-    public DataPoint readPair() {
-        next();
-        if(endOfStream) {
-            return null;
-        }
-        DataPoint pair = new DataPoint(storedTimestamp, storedVal);
-        return pair;
-    }
 
     private void next() {
         // TODO I could implement a non-streaming solution also.. is there ever a need for streaming solution?
@@ -87,7 +72,6 @@ public class GorillaDecompressor {
             endOfStream = true;
             return;
         }
-        storedVal = decompressor.readFirst();
 //        storedVal = in.getLong(64);
         storedTimestamp = blockTimestamp + storedDelta;
     }
@@ -100,7 +84,6 @@ public class GorillaDecompressor {
         switch(readInstruction) {
             case 0x00:
                 storedTimestamp = storedDelta + storedTimestamp;
-                storedVal = decompressor.nextValue();
                 return;
             case 0x02:
                 deltaDelta = in.getLong(7);
@@ -129,7 +112,6 @@ public class GorillaDecompressor {
         storedDelta = storedDelta + deltaDelta;
 
         storedTimestamp = storedDelta + storedTimestamp;
-        storedVal = decompressor.nextValue();
     }
 
     // START: From protobuf

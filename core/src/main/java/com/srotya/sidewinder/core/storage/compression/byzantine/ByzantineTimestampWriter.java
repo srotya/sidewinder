@@ -17,37 +17,29 @@ package com.srotya.sidewinder.core.storage.compression.byzantine;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Iterator;
-import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
-import com.srotya.sidewinder.core.storage.compression.Codec;
-import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.storage.compression.TimeCodec;
+import com.srotya.sidewinder.core.storage.compression.TimeWriter;
 
 /**
  * A simple delta-of-delta timeseries compression with XOR value compression
  * 
  * @author ambud
  */
-@Codec(id = 1, name = "byzantine")
-public class ByzantineWriter implements Writer {
+@TimeCodec(id = 1, name = "byzantine")
+public class ByzantineTimestampWriter implements TimeWriter {
 
-	private Lock read;
-	private Lock write;
 	private long prevTs;
 	private long tsDelta;
 	private int count;
 	private ByteBuffer buf;
-	private long prevValue;
 	private boolean readOnly;
 	private volatile boolean full;
 	private int startOffset;
 	private LinkedByteString bufferId;
 
-	public ByzantineWriter() {
+	public ByzantineTimestampWriter() {
 	}
 
 	/**
@@ -56,26 +48,15 @@ public class ByzantineWriter implements Writer {
 	 * @param headerTimestamp
 	 * @param buf
 	 */
-	protected ByzantineWriter(long headerTimestamp, byte[] buf) {
+	protected ByzantineTimestampWriter(long headerTimestamp, byte[] buf) {
 		this();
 		this.buf = ByteBuffer.allocateDirect(buf.length);
 		setHeaderTimestamp(headerTimestamp);
-		ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-		read = lock.readLock();
-		write = lock.writeLock();
 	}
 
 	@Override
-	public void configure(ByteBuffer buf, boolean isNew, int startOffset, boolean isLocking) throws IOException {
+	public void configure(ByteBuffer buf, boolean isNew, int startOffset) throws IOException {
 		this.startOffset = startOffset;
-		if (isLocking) {
-			ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
-			read = lock.readLock();
-			write = lock.writeLock();
-		} else {
-			read = new NoLock();
-			write = new NoLock();
-		}
 		this.buf = buf;
 		this.buf.position(startOffset);
 		if (isNew) {
@@ -86,79 +67,31 @@ public class ByzantineWriter implements Writer {
 	}
 
 	private void forwardCursorToEnd() throws IOException {
-		ByzantineReader reader = new ByzantineReader(buf, startOffset);
-		count = reader.getPairCount();
+		ByzantineTimestampReader reader = new ByzantineTimestampReader(buf, startOffset);
+		count = reader.getCount();
 		for (int i = 0; i < count; i++) {
-			reader.readPair();
+			reader.read();
 		}
 		tsDelta = reader.getDelta();
 		prevTs = reader.getPrevTs();
-		prevValue = reader.getPrevValue();
-	}
-
-	@Override
-	public void write(DataPoint dp) throws IOException {
-		try {
-			write.lock();
-			writeDataPoint(dp.getTimestamp(), dp.getLongValue());
-		} finally {
-			write.unlock();
-		}
-	}
-
-	@Override
-	public void write(List<DataPoint> dps) throws IOException {
-		write.lock();
-		try {
-			for (Iterator<DataPoint> itr = dps.iterator(); itr.hasNext();) {
-				DataPoint dp = itr.next();
-				writeDataPoint(dp.getTimestamp(), dp.getLongValue());
-			}
-		} finally {
-			write.unlock();
-		}
 	}
 
 	/**
 	 * @param timestamp
-	 * @param value
 	 * @throws IOException
 	 */
-	protected void writeDataPoint(long timestamp, long value) throws IOException {
-
+	protected void writeDataPoint(long timestamp) throws IOException {
 		if (readOnly) {
 			throw WRITE_REJECT_EXCEPTION;
 		}
 		checkAndExpandBuffer();
 		compressAndWriteTimestamp(buf, timestamp);
-		compressAndWriteValue(buf, value);
 		count++;
 		updateCount();
-
-	}
-
-	private void compressAndWriteValue(ByteBuffer tBuf, long value) {
-		long xor = prevValue ^ value;
-		if (xor == 0) {
-			tBuf.put((byte) 0);
-		} else if (xor >= Byte.MIN_VALUE && xor <= Byte.MAX_VALUE) {
-			tBuf.put((byte) 1);
-			tBuf.put((byte) xor);
-		} else if (xor >= Short.MIN_VALUE && xor <= Short.MAX_VALUE) {
-			tBuf.put((byte) 2);
-			tBuf.putShort((short) xor);
-		} else if (xor >= Integer.MIN_VALUE && xor <= Integer.MAX_VALUE) {
-			tBuf.put((byte) 3);
-			tBuf.putInt((int) xor);
-		} else {
-			tBuf.put((byte) 4);
-			tBuf.putLong(xor);
-		}
-		prevValue = value;
 	}
 
 	private void checkAndExpandBuffer() throws IOException {
-		if (buf.remaining() < 20 || buf.isReadOnly()) {
+		if (buf.remaining() < 5 || buf.isReadOnly()) {
 			full = true;
 			throw BUF_ROLLOVER_EXCEPTION;
 		}
@@ -185,40 +118,27 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void addValueLocked(long timestamp, double value) throws IOException {
-		addValueLocked(timestamp, Double.doubleToLongBits(value));
+	public void add(long timestamp) throws IOException {
+		writeDataPoint(timestamp);
 	}
 
 	private void updateCount() {
 		buf.putInt(startOffset, count);
 	}
 
-	public ByzantineReader getReader() throws IOException {
-		ByzantineReader reader = null;
-		read.lock();
+	@Override
+	public ByzantineTimestampReader getReader() throws IOException {
+		ByzantineTimestampReader reader = null;
 		ByteBuffer rbuf = buf.duplicate();
 		rbuf.rewind();
-		reader = new ByzantineReader(rbuf, startOffset);
-		read.unlock();
+		reader = new ByzantineTimestampReader(rbuf, startOffset);
 		return reader;
-	}
-
-	@Override
-	public void addValueLocked(long timestamp, long value) throws IOException {
-		try {
-			write.lock();
-			writeDataPoint(timestamp, value);
-		} finally {
-			write.unlock();
-		}
 	}
 
 	@Override
 	public double getCompressionRatio() {
 		double ratio = 0;
-		read.lock();
 		ratio = ((double) count * Long.BYTES * 2) / buf.position();
-		read.unlock();
 		return ratio;
 	}
 
@@ -238,20 +158,6 @@ public class ByzantineWriter implements Writer {
 	@Override
 	public long getHeaderTimestamp() {
 		return buf.getLong(4 + startOffset);
-	}
-
-	/**
-	 * @return the read
-	 */
-	protected Lock getReadLock() {
-		return read;
-	}
-
-	/**
-	 * @return the write
-	 */
-	protected Lock getWriteLock() {
-		return write;
 	}
 
 	/**
@@ -282,24 +188,14 @@ public class ByzantineWriter implements Writer {
 		return buf;
 	}
 
-	/**
-	 * @return the prevValue
-	 */
-	protected long getPrevValue() {
-		return prevValue;
-	}
-
 	@Override
 	public ByteBuffer getRawBytes() {
-		read.lock();
 		ByteBuffer b = buf.duplicate();
-		read.unlock();
 		return b;
 	}
 
 	@Override
 	public void bootstrap(ByteBuffer buf) throws IOException {
-		write.lock();
 		this.buf.rewind();
 		buf.rewind();
 		if (this.buf.limit() < buf.limit()) {
@@ -308,7 +204,6 @@ public class ByzantineWriter implements Writer {
 		this.buf.put(buf);
 		this.buf.rewind();
 		forwardCursorToEnd();
-		write.unlock();
 	}
 
 	@Override
@@ -317,18 +212,14 @@ public class ByzantineWriter implements Writer {
 	}
 
 	@Override
-	public void makeReadOnly() {
-		write.lock();
+	public void makeReadOnly(boolean recovery) {
 		readOnly = true;
-		write.unlock();
 	}
 
 	@Override
 	public int currentOffset() {
 		int offset = 0;
-		read.lock();
 		offset = buf.position();
-		read.unlock();
 		return offset;
 	}
 

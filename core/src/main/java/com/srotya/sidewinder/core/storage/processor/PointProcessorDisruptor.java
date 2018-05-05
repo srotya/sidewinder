@@ -60,8 +60,8 @@ public class PointProcessorDisruptor implements PointProcessor {
 		buffer = disruptor.start();
 	}
 
-	public void writeDataPoint(String dbName, Point point) {
-		buffer.publishEvent(translator, dbName, point);
+	public void writeDataPoint(Point point) {
+		buffer.publishEvent(translator, point.getDbName(), point);
 	}
 
 	/**

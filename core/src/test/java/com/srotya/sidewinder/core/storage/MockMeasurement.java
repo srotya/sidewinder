@@ -17,7 +17,6 @@ package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -31,6 +30,7 @@ import java.util.logging.Logger;
 
 import com.codahale.metrics.Counter;
 import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.mem.MemMalloc;
 
@@ -43,23 +43,23 @@ public class MockMeasurement implements Measurement {
 	private MemMalloc memMalloc;
 	private List<String> list;
 	private int rentionBuckets;
+	private int timebucket;
+	private SortedMap<String, Boolean> typeMap;
+	private ByteStringCache cache;
 
 	public MockMeasurement(int bufSize, int rentionBuckets) {
 		this.rentionBuckets = rentionBuckets;
 		list = new ArrayList<>();
 		memMalloc = new MemMalloc(list);
 		Map<String, String> conf = new HashMap<>();
-		conf.put("buffer.size", String.valueOf(bufSize));
+		conf.put("malloc.buf.increment", String.valueOf(bufSize));
 		memMalloc.configure(conf, null, null, null, null, null);
+		typeMap = new ConcurrentSkipListMap<>();
+		cache = ByteStringCache.instance();
 	}
 
 	public MemMalloc getAllocator() {
 		return memMalloc;
-	}
-
-	@Override
-	public Collection<TimeSeries> getTimeSeries() {
-		return null;
 	}
 
 	@Override
@@ -69,10 +69,6 @@ public class MockMeasurement implements Measurement {
 
 	@Override
 	public void close() throws IOException {
-	}
-
-	@Override
-	public void collectGarbage(Archiver archiver) throws IOException {
 	}
 
 	@Override
@@ -129,25 +125,28 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public SeriesFieldMap getSeriesFromKey(ByteString key) {
+	public Series getSeriesFromKey(ByteString key) {
 		return null;
 	}
 
 	@Override
-	public List<SeriesFieldMap> getSeriesList() {
+	public List<Series> getSeriesList() {
 		return null;
 	}
 
 	@Override
-	public SeriesFieldMap getOrCreateSeriesFieldMap(List<Tag> tags, boolean preSorted) throws IOException {
+	public Series getOrCreateSeries(List<Tag> tags, boolean preSorted) throws IOException {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public int getTimeBucketSize() {
-		// TODO Auto-generated method stub
-		return 0;
+		return timebucket;
+	}
+	
+	public void setTimebucket(int timebucket) {
+		this.timebucket = timebucket;
 	}
 
 	@Override
@@ -183,6 +182,16 @@ public class MockMeasurement implements Measurement {
 	@Override
 	public AtomicInteger getRetentionBuckets() {
 		return new AtomicInteger(rentionBuckets);
+	}
+
+	@Override
+	public SortedMap<String, Boolean> getFieldTypeMap() {
+		return typeMap;
+	}
+
+	@Override
+	public ByteStringCache getFieldCache() {
+		return cache;
 	}
 
 }

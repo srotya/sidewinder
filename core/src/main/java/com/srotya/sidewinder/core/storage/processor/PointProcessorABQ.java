@@ -30,6 +30,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 /**
  * @author ambud
  */
+@SuppressWarnings("unused")
 public class PointProcessorABQ implements PointProcessor {
 
 	private int handlerCount;
@@ -40,8 +41,9 @@ public class PointProcessorABQ implements PointProcessor {
 	public PointProcessorABQ(final StorageEngine engine, Map<String, String> conf) {
 		this.engine = engine;
 		queue = new HashMap<>();
-		handlerCount = 2;
-		es = Executors.newFixedThreadPool(handlerCount + 1, new BackgrounThreadFactory("writers"));
+		handlerCount = 4;
+		// es = Executors.newFixedThreadPool(handlerCount + 1, new
+		// BackgrounThreadFactory("writers"));
 
 		// es.submit(() -> {
 		// while (true) {
@@ -51,25 +53,24 @@ public class PointProcessorABQ implements PointProcessor {
 		// }
 		// });
 
-		for (int i = 0; i < handlerCount; i++) {
-			System.out.println("Initializaing handler:" + i);
-			final ArrayBlockingQueue<Point> value = new ArrayBlockingQueue<>(1024 * 128);
-			queue.put(i, value);
-			es.submit(() -> {
-				while (true) {
-					Point take = value.take();
-					engine.writeDataPointUnlocked(take, true);
-				}
-			});
-		}
+		// for (int i = 0; i < handlerCount; i++) {
+		// System.out.println("Initializaing handler:" + i);
+		// final ArrayBlockingQueue<Point> value = new ArrayBlockingQueue<>(1024 * 128);
+		// queue.put(i, value);
+		// es.submit(() -> {
+		// while (true) {
+		// Point take = value.take();
+		// engine.writeDataPointUnlocked(take, true);
+		// }
+		// });
+		// }
 	}
 
-	public void writeDataPoint(String dbName, Point point) throws InterruptedException, IOException {
+	public void writeDataPoint(Point point) throws InterruptedException, IOException {
 		engine.writeDataPointLocked(point, true);
-//		extracted(point);
+		// extracted(point);
 	}
 
-	@SuppressWarnings("unused")
 	private void extracted(Point point) throws InterruptedException {
 		int hashCode = MiscUtils.tagHashCode(point.getTagsList());
 		queue.get(Math.abs(hashCode % handlerCount)).put(point);
