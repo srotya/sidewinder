@@ -29,9 +29,9 @@ public interface Malloc {
 	public static final int DEFAULT_INCREMENT_SIZE = 32768;
 	public static final String CONF_MEASUREMENT_INCREMENT_SIZE = "malloc.buf.increment";
 
-	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket, int size) throws IOException;
+	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket, int size) throws IOException;
 
-	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket) throws IOException;
+	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket) throws IOException;
 
 	public void cleanupBufferIds(Set<String> cleanupList) throws IOException;
 
@@ -41,5 +41,7 @@ public interface Malloc {
 			ScheduledExecutorService bgTaskPool, ReentrantLock lock) throws IOException;
 
 	public void close() throws IOException;
+
+	public LinkedByteString repairBufferId(LinkedByteString fieldId, LinkedByteString bufferId);
 
 }

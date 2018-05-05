@@ -15,7 +15,7 @@ public interface Field {
 
 	public void addDataPoint(Measurement measurement, long value) throws IOException;
 
-	public void loadBucketMap(List<BufferObject> bufferEntries) throws IOException;
+	public void loadBucketMap(Measurement measurement, List<BufferObject> bufferEntries) throws IOException;
 
 	public FieldReaderIterator queryReader(Predicate predicate, Lock readLock) throws IOException;
 

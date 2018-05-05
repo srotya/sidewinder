@@ -27,11 +27,11 @@ import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.storage.compression.byzantine.NoLock;
 
 public class TestTimeField {
 
 	private MockMeasurement measurement;
+	private LinkedByteString fieldId = new LinkedByteString().concat(new ByteString("field1"));
 
 	@Before
 	public void before() {
@@ -41,7 +41,7 @@ public class TestTimeField {
 
 	@Test
 	public void testReadWrite() throws IOException {
-		Field field = new TimeField(measurement, new ByteString("field1"), 121213, new HashMap<>());
+		Field field = new TimeField(measurement, fieldId, 121213, new HashMap<>());
 		long ts = System.currentTimeMillis();
 		for (int i = 0; i < 100; i++) {
 			field.addDataPoint(measurement, ts + i * 1000);
@@ -73,7 +73,7 @@ public class TestTimeField {
 
 	@Test
 	public void testReadWriteResize() throws IOException {
-		TimeField field = new TimeField(measurement, new ByteString("field1"), 121213, new HashMap<>());
+		TimeField field = new TimeField(measurement, fieldId, 121213, new HashMap<>());
 		for (int i = 0; i < 40000; i++) {
 			field.addDataPoint(measurement, i);
 		}
@@ -88,7 +88,7 @@ public class TestTimeField {
 	public void testCompactionByzantine() throws IOException {
 		TimeField.compactionClass = CompressionFactory.getTimeClassByName("byzantine");
 		TimeField.compactionRatio = 2.2;
-		TimeField field = new TimeField(measurement, new ByteString("field1"), 121213, new HashMap<>());
+		TimeField field = new TimeField(measurement, fieldId, 121213, new HashMap<>());
 		long ts = 1497720652566L;
 		for (int i = 0; i < 80000; i++) {
 			field.addDataPoint(measurement, ts + i * 1000);
@@ -104,7 +104,7 @@ public class TestTimeField {
 	public void testCompactionGorilla() throws IOException {
 		TimeField.compactionClass = CompressionFactory.getTimeClassByName("gorilla");
 		TimeField.compactionRatio = 0.6;
-		TimeField field = new TimeField(measurement, new ByteString("field1"), 121213, new HashMap<>());
+		TimeField field = new TimeField(measurement, fieldId, 121213, new HashMap<>());
 		long ts = 1497720652566L;
 		for (int i = 0; i < 80000; i++) {
 			field.addDataPoint(measurement, ts + i * 1000);

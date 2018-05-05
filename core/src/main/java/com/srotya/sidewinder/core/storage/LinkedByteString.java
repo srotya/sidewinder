@@ -44,6 +44,14 @@ public class LinkedByteString {
 			stringList.add(new ByteString(str));
 		}
 	}
+	
+	public ByteString get(int index) {
+		return stringList.get(index);
+	}
+	
+	public List<ByteString> getStringList() {
+		return stringList;
+	}
 
 	public LinkedByteString concat(ByteString str) {
 		stringList.add(str);
@@ -52,6 +60,13 @@ public class LinkedByteString {
 
 	public LinkedByteString concat(String str) {
 		stringList.add(new ByteString(str));
+		return this;
+	}
+
+	public LinkedByteString concat(LinkedByteString str) {
+		for (ByteString s : str.stringList) {
+			stringList.add(s);
+		}
 		return this;
 	}
 

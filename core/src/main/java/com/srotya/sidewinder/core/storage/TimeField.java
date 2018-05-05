@@ -55,7 +55,7 @@ public class TimeField implements Field {
 	private static final int START_OFFSET = 2;
 	private static final Logger logger = Logger.getLogger(TimeField.class.getName());
 	private List<TimeWriter> writerList;
-	private ByteString fieldId;
+	private LinkedByteString fieldId;
 	public static double compactionRatio = 0.8;
 	public static Class<TimeWriter> compressionClass = CompressionFactory.getTimeClassByName("byzantine");
 	public static Class<TimeWriter> compactionClass = CompressionFactory.getTimeClassByName("gorilla");
@@ -68,9 +68,9 @@ public class TimeField implements Field {
 	 * @param conf
 	 * @throws IOException
 	 */
-	public TimeField(Measurement measurement, ByteString fieldId, int tsBucket, Map<String, String> conf)
+	public TimeField(Measurement measurement, LinkedByteString fieldId, int tsBucket, Map<String, String> conf)
 			throws IOException {
-		writerList = Collections.synchronizedList(new ArrayList<>());
+		writerList = Collections.synchronizedList(new ArrayList<>(4));
 		this.fieldId = fieldId;
 		this.tsBucket = tsBucket;
 		checkAndEnableMethodProfiling();
@@ -138,7 +138,7 @@ public class TimeField implements Field {
 	 * @param bufferEntries
 	 * @throws IOException
 	 */
-	public void loadBucketMap(List<BufferObject> bufferEntries) throws IOException {
+	public void loadBucketMap(Measurement measurement, List<BufferObject> bufferEntries) throws IOException {
 		logger.fine(() -> "Scanning buffer for:" + fieldId);
 		for (BufferObject entry : bufferEntries) {
 			ByteBuffer duplicate = entry.getBuf();
@@ -151,8 +151,9 @@ public class TimeField implements Field {
 			if (entry.getBufferId() == null) {
 				throw new IOException("Buffer id can't be read:" + " series:" + getFieldId());
 			}
+			LinkedByteString repairedBufferId = measurement.getMalloc().repairBufferId(fieldId, entry.getBufferId());
 			logger.fine(() -> "Loading bucketmap:" + fieldId + "\t" + tsBucket + "bufferid:" + entry.getBufferId());
-			writer.setBufferId(entry.getBufferId());
+			writer.setBufferId(repairedBufferId);
 			writer.configure(slice, false, START_OFFSET);
 			// TODO Potential bug
 			writerList.add(writer);
@@ -258,7 +259,7 @@ public class TimeField implements Field {
 	/**
 	 * @return the seriesId
 	 */
-	public ByteString getFieldId() {
+	public LinkedByteString getFieldId() {
 		return fieldId;
 	}
 
@@ -266,7 +267,7 @@ public class TimeField implements Field {
 	 * @param fieldId
 	 *            the seriesId to set
 	 */
-	public void setFieldId(ByteString fieldId) {
+	public void setFieldId(LinkedByteString fieldId) {
 		this.fieldId = fieldId;
 	}
 

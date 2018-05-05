@@ -45,6 +45,7 @@ import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
 import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
@@ -57,6 +58,7 @@ public interface Measurement {
 	public static final RejectException SEARCH_REJECT = new RejectException("Invalid tag, rejecting index search");
 	public static final String TAG_KV_SEPARATOR = "=";
 	public static final String SERIESID_SEPARATOR = "#";
+	public static final ByteString SERIESID_SEPARATOR_BS = new ByteString(SERIESID_SEPARATOR);
 	public static final String USE_QUERY_POOL = "use.query.pool";
 	public static final String TAG_SEPARATOR = "^";
 	public static final TagComparator TAG_COMPARATOR = new TagComparator();
@@ -561,5 +563,7 @@ public interface Measurement {
 	}
 
 	public SortedMap<String, Boolean> getFieldTypeMap();
+
+	ByteStringCache getFieldCache();
 
 }

@@ -44,13 +44,13 @@ public class MemMalloc implements Malloc {
 		this.cleanupCallback = cleanupCallback;
 	}
 
-	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket) throws IOException {
+	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket) throws IOException {
 		return createNewBuffer(seriesId, tsBucket, size);
 	}
 
-	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket, int newSize) throws IOException {
+	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket, int newSize) throws IOException {
 		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(newSize);
-		LinkedByteString str = new LinkedByteString(seriesId);
+		LinkedByteString str = new LinkedByteString().concat(seriesId);
 		str.concat(STR2).concat(String.valueOf(tsBucket));
 		return new BufferObject(str, allocateDirect);
 	}
@@ -80,6 +80,12 @@ public class MemMalloc implements Malloc {
 
 	public List<String> getCleanupCallback() {
 		return cleanupCallback;
+	}
+
+	@Override
+	public LinkedByteString repairBufferId(LinkedByteString fieldId, LinkedByteString bufferId) {
+		// TODO Auto-generated method stub
+		return null;
 	}
 
 }

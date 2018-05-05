@@ -44,6 +44,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -82,6 +83,7 @@ public class PersistentMeasurement implements Measurement {
 	private int timeBucketSize;
 	private AtomicInteger retentionBuckets;
 	private PrintWriter prFieldMetadata;
+	private ByteStringCache fieldCache;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
@@ -104,8 +106,7 @@ public class PersistentMeasurement implements Measurement {
 		}
 
 		this.metadata = metadata;
-		// this.seriesMap = (Map<String, Integer>)
-		// DBMaker.memoryDirectDB().make().hashMap(measurementName).create();
+		this.fieldCache = ByteStringCache.instance();
 		this.seriesMap = new ConcurrentHashMap<>(100_000);
 		this.fieldTypeMap = new ConcurrentSkipListMap<>();
 		this.seriesList = new ArrayList<>(100_000);
@@ -144,6 +145,11 @@ public class PersistentMeasurement implements Measurement {
 
 	private String getFieldMetadataPath() {
 		return dataDirectory + "/.field";
+	}
+
+	@Override
+	public ByteStringCache getFieldCache() {
+		return fieldCache;
 	}
 
 	@Override
@@ -214,7 +220,7 @@ public class PersistentMeasurement implements Measurement {
 			Series series = null;
 			if (seriesIdx == null) {
 				seriesIdx = Integer.parseInt(split[SERIES_MD_IDX], 16);
-				series = new Series(new ByteString(seriesId), seriesIdx);
+				series = new Series(key, seriesIdx);
 				seriesMap.put(key, seriesIdx);
 				seriesList.add(seriesIdx, series);
 			} else {
@@ -258,11 +264,19 @@ public class PersistentMeasurement implements Measurement {
 			throw new IOException(e);
 		}
 
+		ByteStringCache localCache = ByteStringCache.instance();
 		Map<ByteString, List<Entry<Integer, BufferObject>>> seriesBuffers = malloc.seriesBufferMap();
 		for (Entry<ByteString, List<Entry<Integer, BufferObject>>> entry : seriesBuffers.entrySet()) {
 			ByteString[] split = entry.getKey().split(SERIESID_SEPARATOR);
-			Integer seriesId = seriesMap.get(new ByteString(split[0]));
-			Series series = seriesList.get(seriesId);
+			ByteString seriesId = localCache.get(split[0]);
+			Integer seriesIndex = seriesMap.get(seriesId);
+			Series series = seriesList.get(seriesIndex);
+			
+			if(series.getSeriesId()!=seriesId) {
+				seriesMap.put(seriesId, seriesIndex);
+				series.setSeriesId(seriesId);
+			}
+			
 			List<Entry<Integer, BufferObject>> list = entry.getValue();
 			if (list != null) {
 				try {

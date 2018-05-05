@@ -15,6 +15,8 @@
  */
 package com.srotya.sidewinder.core.analytics;
 
+import java.nio.ByteBuffer;
+import java.util.BitSet;
 import java.util.concurrent.ThreadLocalRandom;
 
 import org.nd4j.jita.conf.CudaEnvironment;
@@ -24,6 +26,15 @@ import org.nd4j.linalg.factory.Nd4j;
 public class Nd4jTest {
 
 	public static void main(String[] args) {
+		ByteBuffer allocate = ByteBuffer.allocate(1024);
+		BitSet set = BitSet.valueOf(allocate);
+		for (int i = 0; i < 10000; i++) {
+			set.set(i);
+		}
+		System.out.println(allocate.position());
+	}
+
+	public static void nd4jTest() {
 		System.out.println(
 				"Device count:" + CudaEnvironment.getInstance().getConfiguration().getAvailableDevices().size());
 		ThreadLocalRandom rand = ThreadLocalRandom.current();

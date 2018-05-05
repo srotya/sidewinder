@@ -213,11 +213,13 @@
       <groupId>org.nd4j</groupId>
       <artifactId>nd4j-cuda-${cuda.version}</artifactId>
       <version>${nd4j.version}</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.nd4j</groupId>
       <artifactId>nd4j-cuda-${cuda.version}-platform</artifactId>
       <version>${nd4j.version}</version>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>org.reflections</groupId>

@@ -44,7 +44,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.ByteString;
-import com.srotya.sidewinder.core.storage.ByteString.StringCache;
+import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.StorageEngine;
@@ -83,7 +83,7 @@ public class DiskMalloc implements Malloc {
 	private MappedByteBuffer ptrBuf;
 	private RandomAccessFile rafPtr;
 	private File ptrFile;
-	private StringCache cache;
+	private ByteStringCache cache;
 
 	private volatile int ptrCounter;
 	private boolean enableMetricsCapture;
@@ -114,7 +114,7 @@ public class DiskMalloc implements Malloc {
 		this.ptrFile = new File(getPtrPath());
 		this.ptrFileIncrement = Integer
 				.parseInt(conf.getOrDefault(CONF_MALLOC_PTRFILE_INCREMENT, String.valueOf(PTR_INCREMENT)));
-		cache = StringCache.instance();
+		cache = ByteStringCache.instance();
 		if (engine != null) {
 			enableMetricsCapture = true;
 			MetricsRegistryService reg = MetricsRegistryService.getInstance(engine, bgTaskPool);
@@ -130,12 +130,12 @@ public class DiskMalloc implements Malloc {
 	}
 
 	@Override
-	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket) throws IOException {
+	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket) throws IOException {
 		return createNewBuffer(seriesId, tsBucket, increment);
 	}
 
 	@Override
-	public BufferObject createNewBuffer(ByteString seriesId, Integer tsBucket, int newSize) throws IOException {
+	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket, int newSize) throws IOException {
 		logger.fine(() -> "Seriesid:" + seriesId + " requesting buffer of size:" + newSize);
 		if (rafActiveFile == null) {
 			lock.lock();
@@ -246,7 +246,6 @@ public class DiskMalloc implements Malloc {
 		for (int i = 0; i < ptrCounter; i++) {
 			String line = MiscUtils.getStringFromBuffer(ptrBuf).trim();
 			String[] splits = line.split("\\" + SEPARATOR);
-			LinkedByteString bsLine = new LinkedByteString(BUF_PARTS_LENGTH);
 			logger.finer("Reading line:" + Arrays.toString(splits));
 			String fileName = splits[1];
 			int positionOffset = Integer.parseInt(splits[3]);
@@ -260,10 +259,11 @@ public class DiskMalloc implements Malloc {
 			ByteBuffer slice = buf.slice();
 			slice.limit(size);
 
-			ByteString seriesId = cache.get(new ByteString(seriesIdStr));
+			ByteString seriesId = new ByteString(seriesIdStr);
+			LinkedByteString bsLine = new LinkedByteString(BUF_PARTS_LENGTH);
 			bsLine.concat(seriesId).concat(SEPARATOR).concat(cache.get(new ByteString(splits[1]))).concat(SEPARATOR)
-					.concat(new ByteString(splits[2])).concat(SEPARATOR).concat(cache.get(new ByteString(splits[3])))
-					.concat(SEPARATOR).concat(cache.get(new ByteString(splits[4])));
+					.concat(new ByteString(splits[2])).concat(SEPARATOR).concat(new ByteString(splits[3]))
+					.concat(SEPARATOR).concat(new ByteString(splits[4]));
 
 			List<Entry<Integer, BufferObject>> list = seriesBuffers.get(seriesId);
 			if (list == null) {
@@ -272,6 +272,14 @@ public class DiskMalloc implements Malloc {
 			}
 			list.add(new AbstractMap.SimpleEntry<>(Integer.parseInt(tsBucket, 16), new BufferObject(bsLine, slice)));
 		}
+	}
+
+	@Override
+	public LinkedByteString repairBufferId(LinkedByteString fieldId, LinkedByteString bufferId) {
+		List<ByteString> stringList = bufferId.getStringList();
+		stringList.remove(0);
+		stringList.addAll(0, fieldId.getStringList());
+		return bufferId;
 	}
 
 	private void initializePtrFile() throws FileNotFoundException, IOException {
@@ -289,7 +297,7 @@ public class DiskMalloc implements Malloc {
 		}
 	}
 
-	protected LinkedByteString appendBufferPointersToDisk(ByteString seriesId, ByteString filename, int curr,
+	protected LinkedByteString appendBufferPointersToDisk(LinkedByteString seriesId, ByteString filename, int curr,
 			long offset, int size, Integer tsBucket) throws IOException {
 		lock.lock();
 		try {

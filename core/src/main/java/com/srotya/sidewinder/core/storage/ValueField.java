@@ -52,7 +52,7 @@ public class ValueField implements Field {
 	private static final int START_OFFSET = 2;
 	private static final Logger logger = Logger.getLogger(ValueField.class.getName());
 	private List<ValueWriter> writerList;
-	private ByteString fieldId;
+	private LinkedByteString fieldId;
 	public static double compactionRatio = 0.8;
 	public static Class<ValueWriter> compressionClass = CompressionFactory.getValueClassByName("byzantine");
 	public static Class<ValueWriter> compactionClass = CompressionFactory.getValueClassByName("gorilla");
@@ -65,9 +65,9 @@ public class ValueField implements Field {
 	 * @param conf
 	 * @throws IOException
 	 */
-	public ValueField(Measurement measurement, ByteString fieldId, int tsBucket, Map<String, String> conf)
+	public ValueField(Measurement measurement, LinkedByteString fieldId, int tsBucket, Map<String, String> conf)
 			throws IOException {
-		writerList = Collections.synchronizedList(new ArrayList<>());
+		writerList = Collections.synchronizedList(new ArrayList<>(4));
 		this.fieldId = fieldId;
 		this.tsBucket = tsBucket;
 		checkAndEnableMethodProfiling();
@@ -134,7 +134,7 @@ public class ValueField implements Field {
 	 * @param bufferEntries
 	 * @throws IOException
 	 */
-	public void loadBucketMap(List<BufferObject> bufferEntries) throws IOException {
+	public void loadBucketMap(Measurement measurement, List<BufferObject> bufferEntries) throws IOException {
 		logger.fine(() -> "Scanning buffer for:" + fieldId);
 		for (BufferObject entry : bufferEntries) {
 			ByteBuffer duplicate = entry.getBuf();
@@ -147,10 +147,9 @@ public class ValueField implements Field {
 			if (entry.getBufferId() == null) {
 				throw new IOException("Buffer id can't be read:" + " series:" + getFieldId());
 			}
-			// logger.fine(() -> "Loading bucketmap:" + fieldId + "\t" + tsBucket + "
-			// bufferid:"
-			// + entry.getValue().getBufferId());
-			writer.setBufferId(entry.getBufferId());
+			LinkedByteString repairedBufferId = measurement.getMalloc().repairBufferId(fieldId, entry.getBufferId());
+			logger.fine(() -> "Loading bucketmap:" + fieldId + "\t" + tsBucket + "bufferid:" + entry.getBufferId());
+			writer.setBufferId(repairedBufferId);
 			writer.configure(slice, false, START_OFFSET);
 			writerList.add(writer);
 			logger.fine(() -> "Loaded bucketmap:" + fieldId + "\t" + " bufferid:" + entry.getBufferId());
@@ -214,7 +213,7 @@ public class ValueField implements Field {
 	/**
 	 * @return the seriesId
 	 */
-	public ByteString getFieldId() {
+	public LinkedByteString getFieldId() {
 		return fieldId;
 	}
 
@@ -222,7 +221,7 @@ public class ValueField implements Field {
 	 * @param fieldId
 	 *            the seriesId to set
 	 */
-	public void setFieldId(ByteString fieldId) {
+	public void setFieldId(LinkedByteString fieldId) {
 		this.fieldId = fieldId;
 	}
 

@@ -30,6 +30,7 @@ import java.util.logging.Logger;
 
 import com.codahale.metrics.Counter;
 import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 import com.srotya.sidewinder.core.storage.mem.MemMalloc;
 
@@ -44,6 +45,7 @@ public class MockMeasurement implements Measurement {
 	private int rentionBuckets;
 	private int timebucket;
 	private SortedMap<String, Boolean> typeMap;
+	private ByteStringCache cache;
 
 	public MockMeasurement(int bufSize, int rentionBuckets) {
 		this.rentionBuckets = rentionBuckets;
@@ -53,6 +55,7 @@ public class MockMeasurement implements Measurement {
 		conf.put("malloc.buf.increment", String.valueOf(bufSize));
 		memMalloc.configure(conf, null, null, null, null, null);
 		typeMap = new ConcurrentSkipListMap<>();
+		cache = ByteStringCache.instance();
 	}
 
 	public MemMalloc getAllocator() {
@@ -184,6 +187,11 @@ public class MockMeasurement implements Measurement {
 	@Override
 	public SortedMap<String, Boolean> getFieldTypeMap() {
 		return typeMap;
+	}
+
+	@Override
+	public ByteStringCache getFieldCache() {
+		return cache;
 	}
 
 }

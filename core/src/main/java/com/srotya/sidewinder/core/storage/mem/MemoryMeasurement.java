@@ -33,6 +33,7 @@ import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.storage.ByteString;
+import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
 import com.srotya.sidewinder.core.storage.DBMetadata;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.Measurement;
@@ -62,6 +63,7 @@ public class MemoryMeasurement implements Measurement {
 	private Counter metricsTimeSeriesCounter;
 	private AtomicInteger retentionBuckets;
 	private SortedMap<String, Boolean> fieldTypeMap;
+	private ByteStringCache fieldCache;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
@@ -80,6 +82,7 @@ public class MemoryMeasurement implements Measurement {
 		this.timeBucketSize = defaultTimeBucketSize;
 		this.dbName = dbName;
 		this.measurementName = measurementName;
+		this.fieldCache = ByteStringCache.instance();
 		this.metadata = metadata;
 		this.seriesList = new ArrayList<>(10_000);
 		this.tagIndex = new MemTagIndex();
@@ -93,6 +96,11 @@ public class MemoryMeasurement implements Measurement {
 		this.malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, lock);
 	}
 
+	@Override
+	public ByteStringCache getFieldCache() {
+		return fieldCache;
+	}
+	
 	@Override
 	public TagIndex getTagIndex() {
 		return tagIndex;

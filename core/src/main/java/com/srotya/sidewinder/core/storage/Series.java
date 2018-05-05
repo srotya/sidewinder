@@ -69,17 +69,19 @@ public class Series {
 		if (field == null) {
 			writeLock.lock();
 			if ((field = map.get(valueFieldName)) == null) {
-				ByteString fieldId = new ByteString(seriesId + Measurement.SERIESID_SEPARATOR + valueFieldName);
+				ByteString cachedFieldName = measurement.getFieldCache().get(new ByteString(valueFieldName));
+				LinkedByteString fieldId = new LinkedByteString().concat(seriesId)
+						.concat(Measurement.SERIESID_SEPARATOR_BS).concat(cachedFieldName);
 				if (valueFieldName == TS) {
 					field = new TimeField(measurement, fieldId, timeBucket, measurement.getConf());
 				} else {
 					field = new ValueField(measurement, fieldId, timeBucket, measurement.getConf());
 				}
 				if (measurement.getFieldTypeMap().get(valueFieldName) == null) {
-					measurement.getFieldTypeMap().put(valueFieldName, fp);
+					measurement.getFieldTypeMap().put(valueFieldName.intern(), fp);
 					measurement.appendFieldMetadata(valueFieldName, fp);
 				}
-				map.put(valueFieldName, field);
+				map.put(valueFieldName.intern(), field);
 				final Field tmp = field;
 				logger.fine(
 						() -> "Created new timeseries:" + tmp + " for measurement:" + measurement.getMeasurementName()
@@ -141,19 +143,21 @@ public class Series {
 			BufferObject value = entry.getValue();
 			Field field = map.get(fieldName);
 			if (field == null) {
-				ByteString fieldId = new ByteString(seriesId + Measurement.SERIESID_SEPARATOR + fieldName);
+				ByteString cachedFieldName = measurement.getFieldCache().get(new ByteString(fieldName));
+				LinkedByteString fieldId = new LinkedByteString().concat(seriesId)
+						.concat(Measurement.SERIESID_SEPARATOR_BS).concat(cachedFieldName);
 				if (fieldName.equals(TS)) {
 					field = new TimeField(measurement, fieldId, entry.getKey(), conf);
 				} else {
 					field = new ValueField(measurement, fieldId, entry.getKey(), conf);
 				}
-				map.put(fieldName, field);
+				map.put(fieldName.intern(), field);
 				fieldMap.put(field, new ArrayList<>());
 			}
 			fieldMap.get(field).add(value);
 		}
 		for (Entry<Field, List<BufferObject>> entry : fieldMap.entrySet()) {
-			entry.getKey().loadBucketMap(entry.getValue());
+			entry.getKey().loadBucketMap(measurement, entry.getValue());
 		}
 	}
 

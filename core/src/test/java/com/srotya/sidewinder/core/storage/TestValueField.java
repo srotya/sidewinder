@@ -27,11 +27,11 @@ import org.junit.Test;
 
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.storage.compression.byzantine.NoLock;
 
 public class TestValueField {
 
 	private MockMeasurement measurement;
+	private LinkedByteString fieldId = new LinkedByteString().concat(new ByteString("field1"));
 
 	@Before
 	public void before() {
@@ -41,7 +41,7 @@ public class TestValueField {
 
 	@Test
 	public void testReadWrite() throws IOException {
-		Field field = new ValueField(measurement, new ByteString("field1"), 121213, new HashMap<>());
+		Field field = new ValueField(measurement, fieldId, 121213, new HashMap<>());
 		for (int i = 0; i < 100; i++) {
 			field.addDataPoint(measurement, i);
 		}
@@ -73,7 +73,7 @@ public class TestValueField {
 	@Test
 	public void testExpandBufferError() throws IOException {
 		measurement = new MockMeasurement(149, 100);
-		Field field = new ValueField(measurement, new ByteString("field1"), 121213, new HashMap<>());
+		Field field = new ValueField(measurement, fieldId, 121213, new HashMap<>());
 		try {
 			for (double i = 100; i > 0; i--) {
 				long v = Double.doubleToLongBits(3.1417 * i % 7);
@@ -87,7 +87,7 @@ public class TestValueField {
 
 	@Test
 	public void testReadWriteResize() throws IOException {
-		ValueField field = new ValueField(measurement, new ByteString("field1"), 121213, new HashMap<>());
+		ValueField field = new ValueField(measurement, fieldId, 121213, new HashMap<>());
 		for (int i = 0; i < 20000; i++) {
 			field.addDataPoint(measurement, i);
 		}
@@ -102,7 +102,7 @@ public class TestValueField {
 	public void testCompactionByzantine() throws IOException {
 		ValueField.compactionClass = CompressionFactory.getValueClassByName("byzantine");
 		ValueField.compactionRatio = 2.2;
-		ValueField field = new ValueField(measurement, new ByteString("field1"), 121213, new HashMap<>());
+		ValueField field = new ValueField(measurement, fieldId, 121213, new HashMap<>());
 		long ts = 1497720652566L;
 		for (int i = 0; i < 30000; i++) {
 			field.addDataPoint(measurement, ts + i * 1000);
@@ -118,7 +118,7 @@ public class TestValueField {
 	public void testCompactionGorilla() throws IOException {
 		ValueField.compactionClass = CompressionFactory.getValueClassByName("gorilla");
 		ValueField.compactionRatio = 1.2;
-		ValueField field = new ValueField(measurement, new ByteString("field1"), 121213, new HashMap<>());
+		ValueField field = new ValueField(measurement, fieldId, 121213, new HashMap<>());
 		for (int i = 0; i < 10000; i++) {
 			field.addDataPoint(measurement, Double.doubleToLongBits(i * 1.1));
 		}
