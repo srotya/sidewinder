@@ -29,10 +29,10 @@ public class SidewinderDatabaseSchema extends AbstractSchema {
 
 	private static final Logger logger = Logger.getLogger(SidewinderDatabaseSchema.class.getName());
 
-	public SidewinderDatabaseSchema(StorageEngine engine, SchemaPlus parentSchema) throws Exception {
+	public SidewinderDatabaseSchema(StorageEngine engine, SchemaPlus parentSchema, int maxResultCount) throws Exception {
 		for (String dbName : engine.getDatabases()) {
 			logger.fine(() -> "Adding db:" + dbName);
-			parentSchema.add(dbName.toUpperCase(), new SidewinderTableSchema(engine, parentSchema, dbName));
+			parentSchema.add(dbName.toUpperCase(), new SidewinderTableSchema(engine, parentSchema, dbName, maxResultCount));
 		}
 	}
 

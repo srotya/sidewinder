@@ -88,6 +88,9 @@ final class MeasurementEnumeratorImplementation implements Enumerator<Object[]> 
 
 	@Override
 	public boolean moveNext() {
+		if (i >= measurementTable.getMaxResultCount()) {
+			return false;
+		}
 		try {
 			if (readers == null) {
 				queryTs = System.currentTimeMillis();
@@ -109,7 +112,7 @@ final class MeasurementEnumeratorImplementation implements Enumerator<Object[]> 
 				}
 			} else {
 				queryTs = System.currentTimeMillis() - queryTs;
-				System.out.println("Row count:" + i + " in " + queryTs + "ms");
+				// System.out.println("Row count:" + i + " in " + queryTs + "ms");
 				return false;
 			}
 		} catch (Exception e) {
@@ -184,7 +187,7 @@ final class MeasurementEnumeratorImplementation implements Enumerator<Object[]> 
 				return true;
 			} else {
 				queryTs = System.currentTimeMillis() - queryTs;
-				System.out.println("Row count:" + i + " in " + queryTs + "ms");
+				// System.out.println("Row count:" + i + " in " + queryTs + "ms");
 				return false;
 			}
 		}

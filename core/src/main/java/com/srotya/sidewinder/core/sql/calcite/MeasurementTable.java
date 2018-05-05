@@ -55,13 +55,15 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 	private List<RelDataType> types;
 	private List<String> names;
 	private Set<String> tagKeys;
+	private int maxResultCount;
 
 	public MeasurementTable(StorageEngine engine, String dbName, String measurementName, Collection<String> fieldNames,
-			Set<String> tagKeys) {
+			Set<String> tagKeys, int maxResultCount) {
 		this.engine = engine;
 		this.dbName = dbName;
 		this.measurementName = measurementName;
 		this.tagKeys = tagKeys;
+		this.maxResultCount = maxResultCount;
 		this.fieldNames = new ArrayList<>(fieldNames);
 		this.fieldNames.addAll(tagKeys);
 	}
@@ -231,6 +233,10 @@ public class MeasurementTable extends AbstractTable implements ProjectableFilter
 
 	public StorageEngine getStorageEngine() {
 		return engine;
+	}
+	
+	public int getMaxResultCount() {
+		return maxResultCount;
 	}
 
 }

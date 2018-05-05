@@ -61,8 +61,7 @@ public class ValueField implements Field {
 	/**
 	 * @param measurement
 	 * @param fieldId
-	 * @param timeBucketSize
-	 * @param fp
+	 * @param tsBucket
 	 * @param conf
 	 * @throws IOException
 	 */
@@ -197,17 +196,6 @@ public class ValueField implements Field {
 		return new FieldReaderIterator().addReader(readers);
 	}
 
-	/**
-	 * Add data point with non floating point value
-	 * 
-	 * @param unit
-	 *            of time for the supplied timestamp
-	 * @param timestamp
-	 *            of this data point
-	 * @param value
-	 *            of this data point
-	 * @throws IOException
-	 */
 	public void addDataPoint(Measurement measurement, long value) throws IOException {
 		ValueWriter timeseriesBucket = getOrCreateValueWriter(measurement);
 		try {
@@ -363,7 +351,7 @@ public class ValueField implements Field {
 	/**
 	 * Method to help fix bucket writers directly
 	 * 
-	 * @param bucket
+	 * @param measurement
 	 * @param bufList
 	 * @throws IOException
 	 * @throws InstantiationException

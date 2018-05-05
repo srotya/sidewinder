@@ -64,8 +64,7 @@ public class TimeField implements Field {
 	/**
 	 * @param measurement
 	 * @param fieldId
-	 * @param timeBucketSize
-	 * @param fp
+	 * @param tsBucket
 	 * @param conf
 	 * @throws IOException
 	 */
@@ -220,15 +219,6 @@ public class TimeField implements Field {
 		throw new UnsupportedMessageTypeException();
 	}
 
-	/**
-	 * Add data point with non floating point value
-	 * 
-	 * @param unit
-	 *            of time for the supplied timestamp
-	 * @param timestamp
-	 *            of this data point
-	 * @throws IOException
-	 */
 	public void addDataPoint(Measurement measurement, long timestamp) throws IOException {
 		TimeWriter timeseriesBucket = getOrCreateTimeWriter(measurement, timestamp);
 		try {
@@ -406,7 +396,7 @@ public class TimeField implements Field {
 	/**
 	 * Method to help fix bucket writers directly
 	 * 
-	 * @param bucket
+	 * @param measurement
 	 * @param bufList
 	 * @throws IOException
 	 * @throws InstantiationException

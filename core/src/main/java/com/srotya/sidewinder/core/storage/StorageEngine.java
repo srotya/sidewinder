@@ -284,8 +284,7 @@ public interface StorageEngine {
 	/**
 	 * @param dbName
 	 * @param measurementName
-	 * @param valueFieldName
-	 * @return tags for the supplied parameters
+	 * @return
 	 * @throws Exception
 	 */
 	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName)

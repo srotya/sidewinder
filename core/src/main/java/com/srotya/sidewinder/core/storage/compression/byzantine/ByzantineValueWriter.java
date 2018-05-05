@@ -44,7 +44,6 @@ public class ByzantineValueWriter implements ValueWriter {
 	/**
 	 * For unit testing only
 	 * 
-	 * @param headerTimestamp
 	 * @param buf
 	 */
 	protected ByzantineValueWriter(byte[] buf) {
@@ -74,7 +73,6 @@ public class ByzantineValueWriter implements ValueWriter {
 	}
 
 	/**
-	 * @param timestamp
 	 * @param value
 	 * @throws IOException
 	 */

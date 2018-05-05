@@ -36,10 +36,12 @@ public class SidewinderTableSchema extends AbstractSchema {
 	private static final Logger logger = Logger.getLogger(SidewinderTableSchema.class.getName());
 	private StorageEngine engine;
 	private String dbName;
+	private int maxResultCount;
 
-	public SidewinderTableSchema(StorageEngine engine, SchemaPlus parentSchema, String dbName) {
+	public SidewinderTableSchema(StorageEngine engine, SchemaPlus parentSchema, String dbName, int maxResultCount) {
 		this.engine = engine;
 		this.dbName = dbName;
+		this.maxResultCount = maxResultCount;
 	}
 
 	@Override
@@ -50,7 +52,7 @@ public class SidewinderTableSchema extends AbstractSchema {
 				LinkedHashSet<String> fieldsForMeasurement = engine.getFieldsForMeasurement(dbName, measurementName);
 				Set<String> tagKeys = engine.getTagKeysForMeasurement(dbName, measurementName);
 				tableMap.put(measurementName.toUpperCase(),
-						new MeasurementTable(engine, dbName, measurementName, fieldsForMeasurement, tagKeys));
+						new MeasurementTable(engine, dbName, measurementName, fieldsForMeasurement, tagKeys, maxResultCount));
 			}
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Failed to get table map for query", e);
