@@ -163,6 +163,9 @@ public class Series {
 
 	/**
 	 * Extract {@link DataPoint}s for the supplied time range and value predicate.
+	 * Please note that predicates for this method are individually applied
+	 * therefore predicate for one field doesn't impact filtering for another field
+	 * even though these fields are for the same series.
 	 * 
 	 * Each {@link DataPoint} has the appendFieldBucketValue and appendTags set in
 	 * it.
@@ -203,11 +206,11 @@ public class Series {
 							.queryReader(valuePredicate != null ? valuePredicate.get(i) : null, readLock);
 					FieldReaderIterator timeIterator = timeField.queryReader(timeRangePredicate, readLock);
 					logger.fine(() -> vfn + " " + valueIterator.count() + " ts:" + timeIterator.count());
+					FieldReaderIterator[] iterators = new FieldReaderIterator[] { timeIterator, valueIterator };
 					while (true) {
 						try {
-							long ts = timeIterator.next();
-							long value = valueIterator.next();
-							list.add(new DataPoint(ts, value));
+							long[] extracted = FieldReaderIterator.extracted(iterators);
+							list.add(new DataPoint(extracted[0], extracted[1]));
 						} catch (FilteredValueException e) {
 							// ignore this
 						} catch (IOException e) {
@@ -221,6 +224,15 @@ public class Series {
 		return points;
 	}
 
+	/**
+	 * Query iterators for this series
+	 * @param measurement
+	 * @param valueFieldBucketNames
+	 * @param startTime
+	 * @param endTime
+	 * @return
+	 * @throws IOException
+	 */
 	public FieldReaderIterator[] queryIterators(Measurement measurement, List<String> valueFieldBucketNames,
 			long startTime, long endTime) throws IOException {
 		if (startTime > endTime) {
@@ -251,7 +263,7 @@ public class Series {
 				String vfn = valueFieldBucketNames.get(i);
 				Field field = map.get(vfn);
 				if (field != null) {
-					output[i] = field.queryReader(null, readLock);
+					output[i].addReader(field.queryReader(null, readLock).getReaders());
 				}
 			}
 		}
@@ -362,7 +374,7 @@ public class Series {
 				}
 			}
 		}
-		logger.info("Compaction completed for series:" + seriesId + " compacted buffers:" + compact.size());
+		logger.fine("Compaction completed for series:" + seriesId + " compacted buffers:" + compact.size());
 		return compact;
 	}
 

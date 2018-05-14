@@ -83,7 +83,7 @@ public class DiskStorageEngine implements StorageEngine {
 		new File(baseIndexDirectory).mkdirs();
 		databaseMap = new ConcurrentHashMap<>();
 		dbMetadataMap = new ConcurrentHashMap<>();
-		
+
 		setCodecsForCompression(conf);
 
 		try {
@@ -180,24 +180,7 @@ public class DiskStorageEngine implements StorageEngine {
 
 	@Override
 	public Map<String, Measurement> getOrCreateDatabase(String dbName) throws IOException {
-		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
-		if (measurementMap == null) {
-			synchronized (databaseMap) {
-				if ((measurementMap = databaseMap.get(dbName)) == null) {
-					measurementMap = new ConcurrentHashMap<>();
-					databaseMap.put(dbName, measurementMap);
-					createDatabaseDirectory(dbName);
-					DBMetadata metadata = new DBMetadata();
-					metadata.setRetentionHours(defaultRetentionHours);
-					dbMetadataMap.put(dbName, metadata);
-					saveDBMetadata(dbName, metadata);
-					logger.info("Created new database:" + dbName + "\t with retention period:" + defaultRetentionHours
-							+ " hours");
-					metricsDbCounter.inc();
-				}
-			}
-		}
-		return measurementMap;
+		return getOrCreateDatabase(dbName, defaultRetentionHours);
 	}
 
 	private void saveDBMetadata(String dbName, DBMetadata metadata) throws IOException {
@@ -254,10 +237,25 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy) throws IOException {
-		Map<String, Measurement> map = getOrCreateDatabase(dbName);
-		updateTimeSeriesRetentionPolicy(dbName, retentionPolicy);
-		return map;
+	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionHours) throws IOException {
+		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
+		if (measurementMap == null) {
+			synchronized (databaseMap) {
+				if ((measurementMap = databaseMap.get(dbName)) == null) {
+					measurementMap = new ConcurrentHashMap<>();
+					databaseMap.put(dbName, measurementMap);
+					createDatabaseDirectory(dbName);
+					DBMetadata metadata = new DBMetadata();
+					metadata.setRetentionHours(retentionHours);
+					dbMetadataMap.put(dbName, metadata);
+					saveDBMetadata(dbName, metadata);
+					logger.info("Created new database:" + dbName + "\t with retention period:" + retentionHours
+							+ " hours (" + (retentionHours * 3600 / defaultTimebucketSize) + " buckets)");
+					metricsDbCounter.inc();
+				}
+			}
+		}
+		return measurementMap;
 	}
 
 	@Override

@@ -84,6 +84,8 @@ public class PersistentMeasurement implements Measurement {
 	private AtomicInteger retentionBuckets;
 	private PrintWriter prFieldMetadata;
 	private ByteStringCache fieldCache;
+	private Counter metricsCompactionCounter;
+	private Counter metricsCleanupBufferCounter;
 
 	@Override
 	public void configure(Map<String, String> conf, StorageEngine engine, int defaultTimeBucketSize, String dbName,
@@ -136,6 +138,8 @@ public class PersistentMeasurement implements Measurement {
 		MetricsRegistryService reg = MetricsRegistryService.getInstance(engine, bgTaskPool);
 		MetricRegistry metaops = reg.getInstance("metaops");
 		metricsTimeSeriesCounter = metaops.counter("timeseries-counter");
+		metricsCompactionCounter = metaops.counter("compaction-counter");
+		metricsCleanupBufferCounter = metaops.counter("cleanbuf-counter");
 		enableMetricsCapture = true;
 	}
 
@@ -403,6 +407,16 @@ public class PersistentMeasurement implements Measurement {
 	@Override
 	public SortedMap<String, Boolean> getFieldTypeMap() {
 		return fieldTypeMap;
+	}
+	
+	@Override
+	public Counter getMetricsCleanupBufferCounter() {
+		return metricsCleanupBufferCounter;
+	}
+	
+	@Override
+	public Counter getMetricsCompactionCounter() {
+		return metricsCompactionCounter;
 	}
 
 }

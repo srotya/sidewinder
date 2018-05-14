@@ -154,7 +154,7 @@ public class TestMeasurement {
 			measurement.addPointLocked(build("value2", tags, ts + i * 1000, 1L), false);
 		}
 		List<SeriesOutput> resultMap = new ArrayList<>();
-		measurement.queryDataPoints("value.*$", ts, ts + 1000 * LIMIT, null, null, resultMap);
+		measurement.queryDataPoints("value.*$", ts, ts + 1000 * LIMIT, null, null, resultMap, null);
 		assertEquals(2, resultMap.size());
 		for (SeriesOutput s : resultMap) {
 			for (int i = 0; i < s.getDataPoints().size(); i++) {
@@ -349,7 +349,7 @@ public class TestMeasurement {
 			assertEquals(i, dp.getLongValue());
 		}
 		List<SeriesOutput> resultMap = new ArrayList<>();
-		measurement.queryDataPoints("vf1", t, t + 1000 * 100, null, null, resultMap);
+		measurement.queryDataPoints("vf1", t, t + 1000 * 100, null, null, resultMap, null);
 		assertEquals(1, resultMap.size());
 		SeriesOutput next = resultMap.iterator().next();
 		for (int i = 0; i < next.getDataPoints().size(); i++) {

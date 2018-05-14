@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.Serializable;
+import java.util.Date;
 
 /**
  * Object representation of a {@link DataPoint}. This class services DAO and DTO
@@ -28,15 +29,15 @@ public class DataPoint implements Serializable {
 	private static final long serialVersionUID = 1L;
 	private long timestamp;
 	private long value;
-	
+
 	public DataPoint() {
 	}
-	
+
 	public DataPoint(long timestamp, long value) {
 		this.timestamp = timestamp;
 		this.value = value;
 	}
-	
+
 	public DataPoint(long timestamp, double value) {
 		this.timestamp = timestamp;
 		setValue(value);
@@ -82,10 +83,10 @@ public class DataPoint implements Serializable {
 	public void setLongValue(long value) {
 		this.value = value;
 	}
-	
+
 	@Override
 	public String toString() {
-		return "[ts:"+timestamp+" v:"+value+"]";
+		return "[ts:" + new Date(timestamp) + " v:" + value + "]";
 	}
 
 }

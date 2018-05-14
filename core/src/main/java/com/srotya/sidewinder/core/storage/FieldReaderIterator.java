@@ -53,11 +53,19 @@ public class FieldReaderIterator {
 	}
 
 	public static long[] extracted(FieldReaderIterator[] iterators) throws IOException {
+		IOException exception = null;
 		long[] tuple = new long[iterators.length];
 		for (int i = 0; i < iterators.length; i++) {
 			if (iterators[i] != null && iterators[i].readers.size() != 0) {
-				tuple[i] = iterators[i].next();
+				try {
+					tuple[i] = iterators[i].next();
+				} catch (IOException e) {
+					exception = e;
+				}
 			}
+		}
+		if (exception != null) {
+			throw exception;
 		}
 		return tuple;
 	}
@@ -65,14 +73,23 @@ public class FieldReaderIterator {
 	public static Object[] extractedObject(FieldReaderIterator[] iterators, int rowCounter, List<Boolean> fTypes)
 			throws IOException {
 		Object[] tuple = new Object[iterators.length];
+		IOException exception = null;
 		for (int i = 0; i < iterators.length; i++) {
 			if (iterators[i] != null && iterators[i].readers.size() != 0) {
-				if (!fTypes.get(i)) {
-					tuple[i] = iterators[i].next();
-				} else {
-					tuple[i] = Double.longBitsToDouble(iterators[i].next());
+				try {
+					long next = iterators[i].next();
+					if (!fTypes.get(i)) {
+						tuple[i] = next;
+					} else {
+						tuple[i] = Double.longBitsToDouble(next);
+					}
+				} catch (IOException e) {
+					exception = e;
 				}
 			}
+		}
+		if (exception != null) {
+			throw exception;
 		}
 		return tuple;
 	}

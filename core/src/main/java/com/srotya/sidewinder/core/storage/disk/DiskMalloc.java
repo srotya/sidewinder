@@ -130,13 +130,13 @@ public class DiskMalloc implements Malloc {
 	}
 
 	@Override
-	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket) throws IOException {
-		return createNewBuffer(seriesId, tsBucket, increment);
+	public BufferObject createNewBuffer(LinkedByteString fieldId, Integer tsBucket) throws IOException {
+		return createNewBuffer(fieldId, tsBucket, increment);
 	}
 
 	@Override
-	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket, int newSize) throws IOException {
-		logger.fine(() -> "Seriesid:" + seriesId + " requesting buffer of size:" + newSize);
+	public BufferObject createNewBuffer(LinkedByteString fieldId, Integer tsBucket, int newSize) throws IOException {
+		logger.fine(() -> "Seriesid:" + fieldId + " requesting buffer of size:" + newSize);
 		if (rafActiveFile == null) {
 			lock.lock();
 			if (rafActiveFile == null) {
@@ -168,7 +168,7 @@ public class DiskMalloc implements Malloc {
 					memoryMappedBuffer.force();
 					rafActiveFile.close();
 					rafActiveFile = null;
-					return createNewBuffer(seriesId, tsBucket, newSize);
+					return createNewBuffer(fieldId, tsBucket, newSize);
 				}
 				// used for GC testing and debugging
 				if (oldBufferReferences != null) {
@@ -181,7 +181,7 @@ public class DiskMalloc implements Malloc {
 					metricsBufferSize.inc(fileMapIncrement);
 				}
 			}
-			LinkedByteString ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset, newSize, tsBucket);
+			LinkedByteString ptrKey = appendBufferPointersToDisk(fieldId, filename, curr, offset, newSize, tsBucket);
 			ByteBuffer buf = memoryMappedBuffer.slice();
 			buf.limit(newSize);
 			curr = curr + newSize;
@@ -219,8 +219,8 @@ public class DiskMalloc implements Malloc {
 
 		for (File dataFile : listFiles) {
 			try {
-				RandomAccessFile raf = new RandomAccessFile(dataFile, "r");
-				MappedByteBuffer map = raf.getChannel().map(MapMode.READ_ONLY, 0, dataFile.length());
+				RandomAccessFile raf = new RandomAccessFile(dataFile, "rw");
+				MappedByteBuffer map = raf.getChannel().map(MapMode.READ_WRITE, 0, dataFile.length());
 				bufferMap.put(dataFile.getName(), map);
 				logger.info("Recovering data file:" + dataDirectory + "/" + dataFile.getName());
 				raf.close();

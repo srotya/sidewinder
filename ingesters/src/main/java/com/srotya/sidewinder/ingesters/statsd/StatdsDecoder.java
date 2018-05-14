@@ -1,0 +1,115 @@
+/**
+ * Copyright Ambud Sharma
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ * 		http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.srotya.sidewinder.ingesters.statsd;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.logging.Logger;
+
+import com.codahale.metrics.Counter;
+import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.utils.MiscUtils;
+
+import io.netty.buffer.Unpooled;
+import io.netty.channel.ChannelFutureListener;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.SimpleChannelInboundHandler;
+
+/**
+ * 
+ * @author ambud
+ */
+public class StatdsDecoder extends SimpleChannelInboundHandler<String> {
+
+	private static final String SPLIT = "_";
+	private static final RejectException BAD_TAG_EXCEPTION = new RejectException("Bad tag");
+	private static final Logger logger = Logger.getLogger(StatdsDecoder.class.getName());
+	private StorageEngine storageEngine;
+	private String dbName;
+	private Counter writeCounter;
+
+	public StatdsDecoder(String dbName, StorageEngine storageEngine, Counter writeCounter) {
+		this.dbName = dbName;
+		this.storageEngine = storageEngine;
+		this.writeCounter = writeCounter;
+	}
+
+	@Override
+	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+		ctx.writeAndFlush(Unpooled.EMPTY_BUFFER).addListener(ChannelFutureListener.CLOSE);
+	}
+
+	@Override
+	protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
+		logger.fine("Statds input:" + msg);
+		if (writeCounter != null) {
+			writeCounter.inc();
+		}
+		parseAndInsertDataPoints(dbName, msg, storageEngine);
+	}
+
+	// <metricname>:<value>|<type>
+	public static void parseAndInsertDataPoints(String dbName, String line, StorageEngine storageEngine)
+			throws IOException {
+		String[] parts = line.split("\\|");
+		if (parts.length != 2) {
+			// invalid data point
+			logger.fine("Ignoring bad metric:" + line);
+			return;
+		}
+		String[] metric = parts[0].split("\\:");
+		String[] key = metric[0].split("\\.");
+		String measurementName, valueFieldName;
+		List<Tag> tags = new ArrayList<>();
+		tags.add(Tag.newBuilder().setTagKey("type").setTagValue(parts[1]).build());
+		switch (key.length) {
+		case 0:// invalid metric
+		case 1:// invalid metric
+		case 2:
+			logger.fine("Ignoring bad metric:" + line);
+			return;
+		default:
+			measurementName = key[0];
+			valueFieldName = key[key.length - 1];
+			for (int i = 1; i < key.length - 1; i++) {
+				String[] split = key[i].split(SPLIT);
+				if (split.length != 2) {
+					throw BAD_TAG_EXCEPTION;
+				}
+				tags.add(Tag.newBuilder().setTagKey(split[0]).setTagValue(split[1]).build());
+			}
+			break;
+		}
+		long timestamp = System.currentTimeMillis();
+		if (metric[1].contains(".")) {
+			double value = Double.parseDouble(metric[1]);
+			logger.fine("Writing statds metric (fp)" + dbName + "," + measurementName + "," + valueFieldName + ","
+					+ tags + "," + timestamp + "," + value);
+			storageEngine.writeDataPointLocked(
+					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value), false);
+		} else {
+			long value = Long.parseLong(metric[1]);
+			logger.fine("Writing statds metric (fp)" + dbName + "," + measurementName + "," + valueFieldName + ","
+					+ tags + "," + timestamp + "," + value);
+			storageEngine.writeDataPointLocked(
+					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value), false);
+		}
+	}
+
+}

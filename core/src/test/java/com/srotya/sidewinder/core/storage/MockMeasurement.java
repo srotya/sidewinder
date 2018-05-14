@@ -194,4 +194,14 @@ public class MockMeasurement implements Measurement {
 		return cache;
 	}
 
+	@Override
+	public Counter getMetricsCompactionCounter() {
+		return null;
+	}
+
+	@Override
+	public Counter getMetricsCleanupBufferCounter() {
+		return null;
+	}
+
 }

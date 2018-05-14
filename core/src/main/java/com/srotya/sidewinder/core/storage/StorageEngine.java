@@ -79,6 +79,8 @@ public interface StorageEngine {
 	public static final boolean ENABLE_METHOD_METRICS = Boolean
 			.parseBoolean(System.getProperty("debug.method.metrics", "false"));
 	public static final String ENABLE_JDBC = "jdbc.enabled";
+	public static final String JDBC_PORT = "jdbc.port";
+	public static final String DEFAULT_JDBC_PORT = "1099";
 
 	/**
 	 * @param conf
@@ -141,7 +143,7 @@ public interface StorageEngine {
 		for (String measurement : measurementsLike) {
 			Measurement measurementObj = getDatabaseMap().get(dbName).get(measurement);
 			measurementObj.queryDataPoints(valueFieldPattern, startTime, endTime, tagFilter, valuePredicate,
-					resultList);
+					resultList, function);
 		}
 		if (function != null) {
 			resultList = function.apply(resultList);
@@ -178,10 +180,9 @@ public interface StorageEngine {
 			throws IOException {
 		return queryReaders(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, tagFilter);
 	}
-	
+
 	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
-			List<String> valueFieldNames, boolean regex, long startTime, long endTime)
-			throws IOException {
+			List<String> valueFieldNames, boolean regex, long startTime, long endTime) throws IOException {
 		return queryReaders(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, null);
 	}
 
@@ -287,8 +288,7 @@ public interface StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName)
-			throws Exception {
+	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName) throws Exception {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -357,7 +357,8 @@ public interface StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public default LinkedHashSet<String> getFieldsForMeasurement(String dbName, String measurementNameRegex) throws Exception {
+	public default LinkedHashSet<String> getFieldsForMeasurement(String dbName, String measurementNameRegex)
+			throws Exception {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -593,7 +594,7 @@ public interface StorageEngine {
 			throw INVALID_DATAPOINT_EXCEPTION;
 		}
 	}
-	
+
 	public int getDefaultTimebucketSize();
 
 	public Counter getCounter();
@@ -607,16 +608,17 @@ public interface StorageEngine {
 				StorageEngine.DEFAULT_COMPACTION_CODEC);
 		TimeField.compactionClass = CompressionFactory.getTimeClassByName(compactionCodec);
 		TimeField.compressionClass = CompressionFactory.getTimeClassByName(compressionCodec);
-		getLogger().info("Compression codec for timeseries:"+TimeField.compressionClass.getName());
-		getLogger().info("Compaction codec for timeseries:"+TimeField.compactionClass.getName());
+		getLogger().info("Compression codec for timeseries:" + TimeField.compressionClass.getName());
+		getLogger().info("Compaction codec for timeseries:" + TimeField.compactionClass.getName());
 
 		ValueField.compactionClass = CompressionFactory.getValueClassByName(compactionCodec);
 		ValueField.compressionClass = CompressionFactory.getValueClassByName(compressionCodec);
-		getLogger().info("Compression codec for value:"+ValueField.compressionClass.getName());
-		getLogger().info("Compaction codec for value:"+ValueField.compactionClass.getName());
+		getLogger().info("Compression codec for value:" + ValueField.compressionClass.getName());
+		getLogger().info("Compaction codec for value:" + ValueField.compactionClass.getName());
 	}
 
-	public default List<Tag> decodeTagsFromString(String dbName, String measurementName, ByteString tagString) throws IOException {
+	public default List<Tag> decodeTagsFromString(String dbName, String measurementName, ByteString tagString)
+			throws IOException {
 		return getDatabaseMap().get(dbName).get(measurementName).decodeStringToTags(tagString);
 	}
 

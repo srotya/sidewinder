@@ -100,7 +100,7 @@ public class TestPersistentMeasurement {
 
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		List<SeriesOutput> resultMap = new ArrayList<>();
-		measurement.queryDataPoints("value.*", ts, ts + 1000, null, null, resultMap);
+		measurement.queryDataPoints("value.*", ts, ts + 1000, null, null, resultMap, null);
 		assertEquals(LIMIT, resultMap.size());
 		measurement.close();
 	}
@@ -126,13 +126,13 @@ public class TestPersistentMeasurement {
 
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		List<SeriesOutput> resultMap = new ArrayList<>();
-		measurement.queryDataPoints("value", ts, ts + 1000 * LIMIT, null, null, resultMap);
+		measurement.queryDataPoints("value", ts, ts + 1000 * LIMIT, null, null, resultMap, null);
 		Iterator<SeriesOutput> iterator = resultMap.iterator();
 		assertEquals(LIMIT, iterator.next().getDataPoints().size());
 
 		resultMap.clear();
 		TagFilter filter = MiscUtils.buildTagFilter("test=1&test=2");
-		measurement.queryDataPoints("value", ts, ts + 1000 * LIMIT, filter, null, resultMap);
+		measurement.queryDataPoints("value", ts, ts + 1000 * LIMIT, filter, null, resultMap, null);
 		iterator = resultMap.iterator();
 		assertEquals(LIMIT, iterator.next().getDataPoints().size());
 

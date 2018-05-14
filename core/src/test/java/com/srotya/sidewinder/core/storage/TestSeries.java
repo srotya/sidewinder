@@ -87,7 +87,7 @@ public class TestSeries {
 		assertEquals(988, dps.size());
 		for (int i = 0; i < 988; i++) {
 			int d = 12 + i;
-			assertEquals("Failed:" + i + " " + d + " " + ((ts + d * 1000) - dps.get(i).getTimestamp()), ts + d * 1000,
+			assertEquals("Failed: i:" + i + " d:" + d + " t:" + ((ts + d * 1000) - dps.get(i).getTimestamp()), ts + d * 1000,
 					dps.get(i).getTimestamp());
 			assertEquals(d, dps.get(i).getLongValue(), 0);
 		}
@@ -162,11 +162,66 @@ public class TestSeries {
 			assertEquals(Double.doubleToLongBits(i * 1.1), queryTuples.get(i)[1]);
 			assertEquals(0, queryTuples.get(i)[3]);
 		}
+
+		queryTuples = series.queryTuples(measurement, Arrays.asList("f2", "f1", "f3"), 1497720652566L + 1000 * 100,
+				1497720652566L + 1000 * 899, null);
+		assertEquals(800, queryTuples.size());
+		for (int i = 100; i < 900; i++) {
+			long[] point = queryTuples.get(i - 100);
+			assertEquals(4, point.length);
+			assertEquals(ts + i * 1000, point[0]);
+			assertEquals(i, point[2]);
+			assertEquals(Double.doubleToLongBits(i * 1.1), point[1]);
+			assertEquals(0, point[3]);
+		}
+
+		queryTuples = series.queryTuples(measurement, Arrays.asList("f2", "f1", "f3"), 1497720652566L + 1000 * 100,
+				1497720652566L + 1000 * 899, Arrays.asList(null, new GreaterThanEqualsPredicate(200), null));
+		assertEquals(700, queryTuples.size());
+		for (int i = 200; i < 900; i++) {
+			long[] point = queryTuples.get(i - 200);
+			assertEquals(4, point.length);
+			assertEquals(ts + i * 1000, point[0]);
+			assertEquals(i, point[2]);
+			assertEquals(Double.doubleToLongBits(i * 1.1), point[1]);
+			assertEquals(0, point[3]);
+		}
+	}
+
+	@Test
+	public void testTimeFilteredReads() throws IOException {
+		measurement.setTimebucket(1024);
+		Series series = new Series(new ByteString("idasdasda"), 0);
+		long ts = 1497720652566L;
+		for (int i = 0; i < 1000; i++) {
+			Point dp = Point.newBuilder().setTimestamp(ts + i * 1000).addValueFieldName("f1").addFp(false).addValue(i)
+					.addValueFieldName("f2").addFp(true).addValue(Double.doubleToLongBits(i * 1.1)).build();
+			series.addPoint(dp, measurement);
+		}
+
+		List<DataPoint> list = series
+				.queryDataPoints(measurement, Arrays.asList("f1"), 1497720652566L + 1000 * 10, Long.MAX_VALUE, null)
+				.get("f1");
+		assertEquals(990, list.size());
+		for (int i = 10; i < 1000; i++) {
+			long expected = ts + i * 1000;
+			long timestamp = list.get(i - 10).getTimestamp();
+			assertEquals("Delta:" + (expected - timestamp) + " i:" + i, expected, timestamp);
+		}
+
+		list = series.queryDataPoints(measurement, Arrays.asList("f1"), 1497720652566L + 1000 * 100,
+				1497720652566L + 1000 * 899, null).get("f1");
+		assertEquals(800, list.size());
+		for (int i = 100; i < 900; i++) {
+			long expected = ts + i * 1000;
+			long timestamp = list.get(i - 100).getTimestamp();
+			assertEquals("Delta:" + (expected - timestamp) + " i:" + i, expected, timestamp);
+		}
 	}
 
 	@Test
 	public void testIteratorTypes() throws IOException {
-		measurement.setTimebucket(4096);
+		measurement.setTimebucket(1024);
 		Series series = new Series(new ByteString("idasdasda"), 0);
 		long ts = 1497720652566L;
 		for (int i = 0; i < 1000; i++) {
@@ -204,15 +259,15 @@ public class TestSeries {
 			assertEquals(0, queryTuples.get(i)[3]);
 		}
 
-		FieldReaderIterator[] queryTupleReaders = series.queryIterators(measurement,
-				Arrays.asList("f2", "f1"), 0, Long.MAX_VALUE);
+		FieldReaderIterator[] queryTupleReaders = series.queryIterators(measurement, Arrays.asList("f2", "f1"), 0,
+				Long.MAX_VALUE);
 		assertEquals(3, queryTupleReaders.length);
 		for (int i = 0; i < 1000; i++) {
 			assertEquals(ts + i * 1000, queryTupleReaders[2].next());
+			assertEquals(i, queryTupleReaders[1].next());
 		}
-		
-		queryTupleReaders = series.queryIterators(measurement,
-				Arrays.asList("f2", "f1", "TS"), 0, Long.MAX_VALUE);
+
+		queryTupleReaders = series.queryIterators(measurement, Arrays.asList("f2", "f1", "TS"), 0, Long.MAX_VALUE);
 		assertEquals(3, queryTupleReaders.length);
 		for (int i = 0; i < 1000; i++) {
 			assertEquals(ts + i * 1000, queryTupleReaders[2].next());

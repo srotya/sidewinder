@@ -53,7 +53,7 @@ public class ValueField implements Field {
 	private static final Logger logger = Logger.getLogger(ValueField.class.getName());
 	private List<ValueWriter> writerList;
 	private LinkedByteString fieldId;
-	public static double compactionRatio = 0.8;
+	public static double compactionRatio = 1.0;
 	public static Class<ValueWriter> compressionClass = CompressionFactory.getValueClassByName("byzantine");
 	public static Class<ValueWriter> compactionClass = CompressionFactory.getValueClassByName("gorilla");
 	private int tsBucket;
@@ -273,7 +273,7 @@ public class ValueField implements Field {
 		double bufSize = total * compactionRatio;
 		logger.finer("Allocating buffer:" + total + " Vs. " + pointCount * 16 + " max compacted buffer:" + bufSize);
 		logger.finer("Getting sublist from:" + 0 + " to:" + (writerList.size() - 1));
-		ByteBuffer buf = ByteBuffer.allocate((int) bufSize);
+		ByteBuffer buf = ByteBuffer.allocateDirect((int) bufSize);
 		buf.put((byte) id);
 		// since this buffer will be the first one
 		buf.put(1, (byte) 0);
@@ -311,7 +311,7 @@ public class ValueField implements Field {
 		rawBytes.rewind();
 		// create buffer in measurement
 		BufferObject newBuf = measurement.getMalloc().createNewBuffer(fieldId, tsBucket, size);
-		logger.info("Compacted buffer size:" + size + " vs " + total + " countp:" + listSize);
+		logger.info("Compacted buffer size:" + size + " vs " + total + " countp:" + listSize + " field:" + fieldId);
 		LinkedByteString bufferId = newBuf.getBufferId();
 		buf = newBuf.getBuf();
 		writer = getWriterInstance(compactionClass);
