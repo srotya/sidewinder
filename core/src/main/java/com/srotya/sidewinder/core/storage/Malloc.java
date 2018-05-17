@@ -27,7 +27,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public interface Malloc {
 	
 	public static final int DEFAULT_INCREMENT_SIZE = 32768;
-	public static final String CONF_MEASUREMENT_INCREMENT_SIZE = "malloc.buf.increment";
+	public static final String CONF_MEASUREMENT_BUF_INCREMENT_SIZE = "malloc.buf.increment";
 
 	public BufferObject createNewBuffer(LinkedByteString fieldId, Integer tsBucket, int size) throws IOException;
 

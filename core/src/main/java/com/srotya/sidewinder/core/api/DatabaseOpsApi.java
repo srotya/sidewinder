@@ -66,7 +66,7 @@ public class DatabaseOpsApi {
 	public void createDatabase(@PathParam(DB_NAME) String dbName,
 			@DefaultValue("28") @QueryParam("retentionPolicy") String retentionPolicy) {
 		try {
-			storageEngine.getOrCreateDatabase(dbName, Integer.parseInt(retentionPolicy));
+			storageEngine.getOrCreateDatabase(dbName);
 		} catch (NumberFormatException | IOException e) {
 			throw new InternalServerErrorException(e);
 		}
@@ -186,6 +186,29 @@ public class DatabaseOpsApi {
 				}
 			} catch (IOException e) {
 				throw new InternalServerErrorException("Failed to collect garbage for:" + dbName + "." + entry.getKey(),
+						e);
+			}
+		}
+		return counter;
+	}
+	
+	@Path("/{" + DB_NAME + "}/compact")
+	@POST
+	@Produces({ MediaType.APPLICATION_JSON })
+	public int compact(@PathParam(DatabaseOpsApi.DB_NAME) String dbName) {
+		Map<String, Measurement> map = storageEngine.getDatabaseMap().get(dbName);
+		if (map == null) {
+			throw new NotFoundException("Database not found:" + dbName);
+		}
+		int counter = 0;
+		for (Entry<String, Measurement> entry : map.entrySet()) {
+			try {
+				Set<String> compactedBuffers = entry.getValue().compact();
+				if (compactedBuffers != null) {
+					counter += compactedBuffers.size();
+				}
+			} catch (IOException e) {
+				throw new InternalServerErrorException("Failed to compact:" + dbName + "." + entry.getKey(),
 						e);
 			}
 		}

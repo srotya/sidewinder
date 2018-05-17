@@ -311,7 +311,7 @@ public class ValueField implements Field {
 		rawBytes.rewind();
 		// create buffer in measurement
 		BufferObject newBuf = measurement.getMalloc().createNewBuffer(fieldId, tsBucket, size);
-		logger.info("Compacted buffer size:" + size + " vs " + total + " countp:" + listSize + " field:" + fieldId);
+		logger.fine("Compacted buffer size:" + size + " vs " + total + " countp:" + listSize + " field:" + fieldId);
 		LinkedByteString bufferId = newBuf.getBufferId();
 		buf = newBuf.getBuf();
 		writer = getWriterInstance(compactionClass);
@@ -336,7 +336,7 @@ public class ValueField implements Field {
 		for (int i = 0; i < writerList.size(); i++) {
 			writerList.get(i).getRawBytes().put(1, (byte) i);
 		}
-		logger.info("Total points:" + compactedPoints + ", original pair count:" + writer.getReader().getCount()
+		logger.fine("Total points:" + compactedPoints + ", original pair count:" + writer.getReader().getCount()
 				+ " compression ratio:" + rawBytes.position() + " original:" + total + " newlistlength:"
 				+ writerList.size());
 		writeLock.unlock();

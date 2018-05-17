@@ -180,7 +180,7 @@ public class DiskStorageEngine implements StorageEngine {
 
 	@Override
 	public Map<String, Measurement> getOrCreateDatabase(String dbName) throws IOException {
-		return getOrCreateDatabase(dbName, defaultRetentionHours);
+		return getOrCreateDatabase(dbName, defaultRetentionHours, conf);
 	}
 
 	private void saveDBMetadata(String dbName, DBMetadata metadata) throws IOException {
@@ -221,7 +221,8 @@ public class DiskStorageEngine implements StorageEngine {
 		String path = dbDirectoryPath(dbName) + "/.md";
 		File file = new File(path);
 		if (!file.exists()) {
-			return new DBMetadata(defaultRetentionHours);
+			return new DBMetadata(defaultRetentionHours, DiskMalloc.getBufIncrement(conf),
+					DiskMalloc.getFileIncrement(conf));
 		}
 		List<String> lines = MiscUtils.readAllLines(file);
 		StringBuilder builder = new StringBuilder();
@@ -237,7 +238,7 @@ public class DiskStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionHours) throws IOException {
+	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionHours, Map<String, String> conf) throws IOException {
 		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
 		if (measurementMap == null) {
 			synchronized (databaseMap) {
@@ -247,6 +248,8 @@ public class DiskStorageEngine implements StorageEngine {
 					createDatabaseDirectory(dbName);
 					DBMetadata metadata = new DBMetadata();
 					metadata.setRetentionHours(retentionHours);
+					metadata.setBufIncrementSize(DiskMalloc.getBufIncrement(conf));
+					metadata.setFileIncrementSize(DiskMalloc.getFileIncrement(conf));
 					dbMetadataMap.put(dbName, metadata);
 					saveDBMetadata(dbName, metadata);
 					logger.info("Created new database:" + dbName + "\t with retention period:" + retentionHours
@@ -444,5 +447,10 @@ public class DiskStorageEngine implements StorageEngine {
 	@Override
 	public Logger getLogger() {
 		return logger;
+	}
+
+	@Override
+	public Map<String, String> getConf() {
+		return conf;
 	}
 }

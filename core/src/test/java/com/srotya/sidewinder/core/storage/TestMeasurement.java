@@ -64,7 +64,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 public class TestMeasurement {
 
 	private Map<String, String> conf = new HashMap<>();
-	private DBMetadata metadata = new DBMetadata(28);
+	private DBMetadata metadata = new DBMetadata(28, 32768, 1024 * 10);
 	private static ScheduledExecutorService bgTaskPool = Executors.newScheduledThreadPool(1);
 	private static String DBNAME = "test";
 	@Parameter

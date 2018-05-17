@@ -218,7 +218,7 @@ public class MiscUtils {
 			type = FilterType.LIKE;
 			break;
 		}
-		SimpleTagFilter filter = new SimpleTagFilter(type, matcher.group(1), matcher.group(3));
+		SimpleTagFilter filter = new SimpleTagFilter(type, matcher.group(1), matcher.group(3).replace("^", "."));
 		return filter;
 	}
 

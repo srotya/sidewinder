@@ -275,7 +275,7 @@ public class TestStorageEngine {
 		map.put("data.dir", "target/db15/data");
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
+		Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24, map);
 		assertEquals(0, db.size());
 		engine.writeDataPointLocked(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts, 1), false);
 		engine.writeDataPointLocked(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts + (400 * 60000), 4),
@@ -317,7 +317,7 @@ public class TestStorageEngine {
 		conf.put(StorageEngine.GC_DELAY, "1");
 		conf.put(StorageEngine.GC_FREQUENCY, "10");
 		conf.put(StorageEngine.DEFAULT_BUCKET_SIZE, "4096");
-		conf.put(DiskMalloc.CONF_MEASUREMENT_INCREMENT_SIZE, "4096");
+		conf.put(DiskMalloc.CONF_MEASUREMENT_BUF_INCREMENT_SIZE, "4096");
 		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_INCREMENT, "10240");
 		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(1024 * 100));
 		conf.put(StorageEngine.RETENTION_HOURS, "28");
