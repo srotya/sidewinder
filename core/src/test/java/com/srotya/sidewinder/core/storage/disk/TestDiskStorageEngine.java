@@ -129,7 +129,7 @@ public class TestDiskStorageEngine {
 			map.put("data.dir", "target/db201/data");
 			engine.configure(map, bgTasks);
 			long ts = System.currentTimeMillis();
-			Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24);
+			Map<String, Measurement> db = engine.getOrCreateDatabase("test3");
 			assertEquals(0, db.size());
 			engine.writeDataPointLocked(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts, 1), false);
 			engine.writeDataPointLocked(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts + (400 * 60000), 4),

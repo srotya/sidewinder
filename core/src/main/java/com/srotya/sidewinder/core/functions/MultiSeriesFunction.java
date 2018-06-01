@@ -31,6 +31,9 @@ public abstract class MultiSeriesFunction implements Function {
 	@Override
 	public List<SeriesOutput> apply(List<SeriesOutput> t) {
 		List<SeriesOutput> output = new ArrayList<>();
+		if (t.size() == 0) {
+			return output;
+		}
 		boolean fp = t.get(0).isFp();
 		List<List<DataPoint>> intermediate = new ArrayList<>();
 		int size = t.get(0).getDataPoints().size();
@@ -198,7 +201,7 @@ public abstract class MultiSeriesFunction implements Function {
 				if (isFP) {
 					double avg = 0;
 					for (int j = 0; j < dps.size(); j++) {
-						avg += Double.doubleToLongBits(dps.get(j).get(i).getLongValue());
+						avg += Double.longBitsToDouble(dps.get(j).get(i).getLongValue());
 					}
 					output.add(
 							new DataPoint(dps.get(0).get(i).getTimestamp(), Double.doubleToLongBits(avg / dps.size())));

@@ -34,6 +34,7 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.archival.Archiver;
 import com.srotya.sidewinder.core.storage.archival.NoneArchiver;
 import com.srotya.sidewinder.core.storage.compression.Writer;
+import com.srotya.sidewinder.core.storage.disk.DiskMalloc;
 
 /**
  * In-memory Timeseries {@link StorageEngine} implementation that uses the
@@ -167,6 +168,11 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public Map<String, Measurement> getOrCreateDatabase(String dbName) {
+		return getOrCreateDatabase(dbName, defaultRetentionHours, getConf());
+	}
+
+	@Override
+	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy, Map<String, String> conf) {
 		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
 		if (measurementMap == null) {
 			synchronized (databaseMap) {
@@ -175,6 +181,7 @@ public class MemStorageEngine implements StorageEngine {
 					databaseMap.put(dbName, measurementMap);
 					DBMetadata metadata = new DBMetadata();
 					metadata.setRetentionHours(defaultRetentionHours);
+					metadata.setBufIncrementSize(DiskMalloc.getBufIncrement(conf));
 					dbMetadataMap.put(dbName, metadata);
 					logger.info("Created new database:" + dbName + " with retention period:" + defaultRetentionHours
 							+ " hours");
@@ -183,13 +190,6 @@ public class MemStorageEngine implements StorageEngine {
 			}
 		}
 		return measurementMap;
-	}
-
-	@Override
-	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy) {
-		Map<String, Measurement> map = getOrCreateDatabase(dbName);
-		updateTimeSeriesRetentionPolicy(dbName, retentionPolicy);
-		return map;
 	}
 
 	@Override
@@ -302,5 +302,10 @@ public class MemStorageEngine implements StorageEngine {
 	@Override
 	public Logger getLogger() {
 		return logger;
+	}
+
+	@Override
+	public Map<String, String> getConf() {
+		return conf;
 	}
 }

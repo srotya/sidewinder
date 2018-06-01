@@ -15,13 +15,16 @@
  */
 package com.srotya.sidewinder.core.monitoring;
 
+import java.io.File;
 import java.io.IOException;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -53,19 +56,20 @@ public class ResourceMonitor {
 
 	public void init(StorageEngine storageEngine, ScheduledExecutorService bgTasks) {
 		this.storageEngine = storageEngine;
+		Map<String, String> conf = new HashMap<>(storageEngine.getConf());
 		if (bgTasks != null) {
 			if (!MetricsRegistryService.DISABLE_SELF_MONITORING) {
 				try {
-					storageEngine.getOrCreateDatabase(DB, 28);
+					storageEngine.getOrCreateDatabase(DB, 28, conf);
 				} catch (IOException e) {
 					throw new RuntimeException("Unable create internal database", e);
 				}
-				bgTasks.scheduleAtFixedRate(() -> memAndCPUMonitor(), 0, 2, TimeUnit.SECONDS);
+				bgTasks.scheduleAtFixedRate(() -> systemMonitor(), 0, 2, TimeUnit.SECONDS);
 			}
 		}
 	}
 
-	public void memAndCPUMonitor() {
+	private void systemMonitor() {
 		monitorGc();
 
 		MemoryMXBean mem = ManagementFactory.getMemoryMXBean();
@@ -75,6 +79,24 @@ public class ResourceMonitor {
 		validateCPUUsage();
 		validateMemoryUsage("heap", heap, 10_485_760);
 		validateMemoryUsage("nonheap", nonheap, 1_073_741_824);
+		monitorDisk();
+	}
+
+	private void monitorDisk() {
+		File disk = new File("/");
+
+		Point point = Point.newBuilder().setDbName(DB).setMeasurementName("disk")
+				.setTimestamp(System.currentTimeMillis())
+				.addTags(Tag.newBuilder().setTagKey("node").setTagValue("local").build()).addValueFieldName("total")
+				.addFp(false).addValue(disk.getTotalSpace()).addValueFieldName("free").addFp(false)
+				.addValue(disk.getFreeSpace()).addValueFieldName("usable").addFp(false).addValue(disk.getUsableSpace())
+				.build();
+
+		try {
+			storageEngine.writeDataPointLocked(point, true);
+		} catch (Exception e) {
+			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
+		}
 	}
 
 	private void monitorGc() {

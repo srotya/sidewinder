@@ -71,7 +71,7 @@ public class MemMalloc implements Malloc {
 	public void configure(Map<String, String> conf, String dataDirectory, String measurementName, StorageEngine engine,
 			ScheduledExecutorService bgTaskPool, ReentrantLock lock) {
 		this.size = Integer
-				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_INCREMENT_SIZE, String.valueOf(DEFAULT_INCREMENT_SIZE)));
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_BUF_INCREMENT_SIZE, String.valueOf(DEFAULT_INCREMENT_SIZE)));
 	}
 
 	@Override

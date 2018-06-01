@@ -99,12 +99,9 @@ public class DiskMalloc implements Malloc {
 		this.measurementName = measurementName;
 		this.lock = lock;
 		this.dataDirectory = dataDirectory + "/" + measurementName;
-		this.fileMapIncrement = Integer
-				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_INCREMENT, String.valueOf(DEFAULT_FILE_INCREMENT)));
-		this.maxFileSize = Integer
-				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_MAX, String.valueOf(DEFAULT_MAX_FILE_SIZE)));
-		this.increment = Integer
-				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_INCREMENT_SIZE, String.valueOf(DEFAULT_INCREMENT_SIZE)));
+		this.fileMapIncrement = getFileIncrement(conf);
+		this.maxFileSize = getMaxFileSize(conf);
+		this.increment = getBufIncrement(conf);
 		if (maxFileSize < 0) {
 			throw new IllegalArgumentException("File size can't be negative or greater than:" + Integer.MAX_VALUE);
 		}
@@ -127,6 +124,21 @@ public class DiskMalloc implements Malloc {
 		if (debug) {
 			oldBufferReferences = new ConcurrentHashMap<>();
 		}
+	}
+
+	public static int getBufIncrement(Map<String, String> conf) {
+		return Integer
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_BUF_INCREMENT_SIZE, String.valueOf(DEFAULT_INCREMENT_SIZE)));
+	}
+
+	public static int getMaxFileSize(Map<String, String> conf) {
+		return Integer
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_MAX, String.valueOf(DEFAULT_MAX_FILE_SIZE)));
+	}
+
+	public static int getFileIncrement(Map<String, String> conf) {
+		return Integer
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_INCREMENT, String.valueOf(DEFAULT_FILE_INCREMENT)));
 	}
 
 	@Override

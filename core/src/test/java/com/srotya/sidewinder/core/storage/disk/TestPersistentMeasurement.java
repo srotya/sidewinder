@@ -58,7 +58,7 @@ public class TestPersistentMeasurement {
 
 	private static final String TARGET_MEASUREMENT_COMMON = "target/measurement-persistent";
 	private Map<String, String> conf = new HashMap<>();
-	private DBMetadata metadata = new DBMetadata(28);
+	private DBMetadata metadata = new DBMetadata(28, 1024, 10240);
 	private String dataDir;
 	private String indexDir;
 	private PersistentMeasurement measurement;
@@ -145,13 +145,15 @@ public class TestPersistentMeasurement {
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test2").setTagValue("2").build());
 		int defaultTimeBucketSize = 4096;
-		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(2 * defaultTimeBucketSize * defaultTimeBucketSize));
+		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX,
+				String.valueOf(2 * defaultTimeBucketSize * defaultTimeBucketSize));
 		conf.put("buffer.size", String.valueOf(32768));
 		conf.put("malloc.ptrfile.increment", String.valueOf(defaultTimeBucketSize));
 		TimeField.compactionRatio = 1.2;
 		ValueField.compactionRatio = 1.2;
 		String measurementName = "m2";
-		measurement.configure(conf, null, defaultTimeBucketSize, DBNAME, measurementName, indexDir, dataDir, metadata, bgTaskPool);
+		measurement.configure(conf, null, defaultTimeBucketSize, DBNAME, measurementName, indexDir, dataDir, metadata,
+				bgTaskPool);
 		int LIMIT = 8000;
 		String valueFieldName = "value1";
 		for (int i = 0; i < LIMIT; i++) {
@@ -167,7 +169,8 @@ public class TestPersistentMeasurement {
 		// check and read datapoint count before
 		Series seriesField = measurement.getSeriesField(tags);
 		List<DataPoint> queryDataPoints = seriesField
-				.queryDataPoints(measurement, Arrays.asList(valueFieldName), ts, ts + LIMIT + 1, null).get(valueFieldName);
+				.queryDataPoints(measurement, Arrays.asList(valueFieldName), ts, ts + LIMIT + 1, null)
+				.get(valueFieldName);
 		assertEquals(LIMIT, queryDataPoints.size());
 		for (int i = 0; i < LIMIT; i++) {
 			DataPoint dp = queryDataPoints.get(i);
@@ -179,7 +182,8 @@ public class TestPersistentMeasurement {
 		assertTrue(maxDp <= series.getBucketMap().values().stream().flatMap(v -> v.values().stream())
 				.flatMap(f -> f.getWriters().stream()).mapToInt(l -> l.getCount()).max().getAsInt());
 		// validate query after compaction
-		queryDataPoints = seriesField.queryDataPoints(measurement, Arrays.asList(valueFieldName), ts, ts + LIMIT + 1, null)
+		queryDataPoints = seriesField
+				.queryDataPoints(measurement, Arrays.asList(valueFieldName), ts, ts + LIMIT + 1, null)
 				.get(valueFieldName);
 		assertEquals(LIMIT, queryDataPoints.size());
 		for (int i = 0; i < LIMIT; i++) {
@@ -189,9 +193,11 @@ public class TestPersistentMeasurement {
 		}
 		measurement.close();
 		// test buffer recovery after compaction, validate count
-		measurement.configure(conf, null, defaultTimeBucketSize, DBNAME, measurementName, indexDir, dataDir, metadata, bgTaskPool);
+		measurement.configure(conf, null, defaultTimeBucketSize, DBNAME, measurementName, indexDir, dataDir, metadata,
+				bgTaskPool);
 		series = measurement.getSeriesList().iterator().next();
-		queryDataPoints = seriesField.queryDataPoints(measurement, Arrays.asList(valueFieldName), ts, ts + LIMIT + 1, null)
+		queryDataPoints = seriesField
+				.queryDataPoints(measurement, Arrays.asList(valueFieldName), ts, ts + LIMIT + 1, null)
 				.get(valueFieldName);
 		assertEquals(LIMIT, queryDataPoints.size());
 		for (int i = 0; i < LIMIT; i++) {
@@ -208,7 +214,8 @@ public class TestPersistentMeasurement {
 				.forEach(System.out::println);
 		measurement.close();
 		// test recovery again
-		measurement.configure(conf, null, defaultTimeBucketSize, DBNAME, measurementName, indexDir, dataDir, metadata, bgTaskPool);
+		measurement.configure(conf, null, defaultTimeBucketSize, DBNAME, measurementName, indexDir, dataDir, metadata,
+				bgTaskPool);
 		series = measurement.getSeriesList().iterator().next();
 		seriesField = measurement.getSeriesField(tags);
 		queryDataPoints = seriesField

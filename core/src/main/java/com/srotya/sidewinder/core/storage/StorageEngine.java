@@ -142,8 +142,8 @@ public interface StorageEngine {
 		getLogger().finer(() -> "Querying points for:" + measurementsLike + " " + measurementPattern);
 		for (String measurement : measurementsLike) {
 			Measurement measurementObj = getDatabaseMap().get(dbName).get(measurement);
-			measurementObj.queryDataPoints(valueFieldPattern, startTime, endTime, tagFilter, valuePredicate,
-					resultList, function);
+			measurementObj.queryDataPoints(valueFieldPattern, startTime, endTime, tagFilter, valuePredicate, resultList,
+					function);
 		}
 		if (function != null) {
 			resultList = function.apply(resultList);
@@ -439,10 +439,12 @@ public interface StorageEngine {
 	 * 
 	 * @param dbName
 	 * @param retentionPolicy
-	 * @return measurementMap
+	 * @param conf
+	 * @return
 	 * @throws IOException
 	 */
-	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy) throws IOException;
+	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy, Map<String, String> conf)
+			throws IOException;
 
 	/**
 	 * Gets the measurement, creates it if it doesn't already exist
@@ -466,42 +468,6 @@ public interface StorageEngine {
 	 */
 	public boolean isMeasurementFieldFP(String dbName, String measurementName, String valueFieldName)
 			throws RejectException, IOException;
-
-	/**
-	 * Returns raw readers to be used by the SQL engine for predicate filtering
-	 * 
-	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
-	 * @param startTime
-	 * @param endTime
-	 * @return
-	 * @throws Exception
-	 */
-	// public default LinkedHashMap<ValueReader, Boolean> queryReaders(String
-	// dbName, String measurementName,
-	// String valueFieldName, long startTime, long endTime) throws Exception {
-	// if (!checkIfExists(dbName, measurementName)) {
-	// throw NOT_FOUND_EXCEPTION;
-	// }
-	// LinkedHashMap<ValueReader, Boolean> readers = new LinkedHashMap<>();
-	// getDatabaseMap().get(dbName).get(measurementName).queryReaders(valueFieldName,
-	// startTime, endTime, readers);
-	// return readers;
-	// }
-	//
-	// public default LinkedHashMap<ValueReader, List<Tag>>
-	// queryReadersWithMap(String dbName, String measurementName,
-	// String valueFieldName, long startTime, long endTime) throws Exception {
-	// if (!checkIfExists(dbName, measurementName)) {
-	// throw NOT_FOUND_EXCEPTION;
-	// }
-	// LinkedHashMap<ValueReader, List<Tag>> readers = new LinkedHashMap<>();
-	// getDatabaseMap().get(dbName).get(measurementName).queryReadersWithMap(valueFieldName,
-	// startTime, endTime,
-	// readers);
-	// return readers;
-	// }
 
 	/**
 	 * Check if timeseries exists
@@ -555,16 +521,6 @@ public interface StorageEngine {
 	public Map<String, DBMetadata> getDbMetadataMap();
 
 	public Map<String, Map<String, Measurement>> getMeasurementMap();
-
-	// public default Set<String> getSeriesIdsWhereTags(String dbName, String
-	// measurementName, List<String> tags)
-	// throws ItemNotFoundException, Exception {
-	// if (!checkIfExists(dbName, measurementName)) {
-	// throw NOT_FOUND_EXCEPTION;
-	// }
-	// return
-	// getDatabaseMap().get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
-	// }
 
 	public default Set<String> getTagFilteredRowKeys(String dbName, String measurementName, TagFilter tagFilter)
 			throws IOException {
@@ -621,5 +577,7 @@ public interface StorageEngine {
 			throws IOException {
 		return getDatabaseMap().get(dbName).get(measurementName).decodeStringToTags(tagString);
 	}
+
+	public Map<String, String> getConf();
 
 }

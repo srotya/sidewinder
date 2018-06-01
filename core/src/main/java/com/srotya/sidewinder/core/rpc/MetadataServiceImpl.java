@@ -37,7 +37,7 @@ public class MetadataServiceImpl extends MetaServiceImplBase {
 	@Override
 	public void createDatabase(DBRequest request, StreamObserver<Ack> responseObserver) {
 		try {
-			engine.getOrCreateDatabase(request.getDbName(), request.getMetadata().getRetentionPolicy());
+			engine.getOrCreateDatabase(request.getDbName());
 			responseObserver.onNext(Ack.newBuilder().setMessageId(request.getMessageId()).build());
 			responseObserver.onCompleted();
 		} catch (IOException e) {
