@@ -102,7 +102,9 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 			JdbcMeta meta = new JdbcMeta(
 					"jdbc:calcite:schemaFactory=com.srotya.sidewinder.core.sql.calcite.SidewinderSchemaFactory;");
 			Service service = new LocalService(meta);
-			jdbc = new HttpServer(1099, new AvaticaJsonHandler(service));
+			jdbc = new HttpServer(
+					Integer.parseInt(conf.getOrDefault(StorageEngine.JDBC_PORT, StorageEngine.DEFAULT_JDBC_PORT)),
+					new AvaticaJsonHandler(service));
 			jdbc.start();
 		}
 	}

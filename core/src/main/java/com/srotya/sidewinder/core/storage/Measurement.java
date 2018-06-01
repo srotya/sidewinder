@@ -42,6 +42,7 @@ import java.util.stream.Stream;
 
 import com.codahale.metrics.Counter;
 import com.srotya.sidewinder.core.filters.TagFilter;
+import com.srotya.sidewinder.core.functions.Function;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
@@ -208,25 +209,29 @@ public interface Measurement {
 
 	public int getTimeBucketSize();
 
-	public default void collectGarbage(Archiver archiver) throws IOException {
-		runCleanupOperation("garbage collection", fieldBucket -> {
+	public default Set<String> collectGarbage(Archiver archiver) throws IOException {
+		return runCleanupOperation("garbage collection", series -> {
 			try {
-				Map<Integer, List<Writer>> collectedGarbage = fieldBucket.collectGarbage(this);
+				Map<Integer, List<Writer>> collectedGarbage = series.collectGarbage(this);
 				List<Writer> output = new ArrayList<>();
-				getLogger().fine("Collected garbage:" + collectedGarbage.size());
-				if (archiver != null && collectedGarbage != null) {
+				if (collectedGarbage.size() > 0) {
+					getLogger().fine("Collected garbage:" + collectedGarbage.size()+" series:"+series.getSeriesId());
+				}
+				if (collectedGarbage != null) {
 					for (Entry<Integer, List<Writer>> entry : collectedGarbage.entrySet()) {
 						for (Writer writer : entry.getValue()) {
-							byte[] buf = Archiver.writerToByteArray(writer);
-							TimeSeriesArchivalObject archivalObject = new TimeSeriesArchivalObject(getDbName(),
-									getMeasurementName(), fieldBucket.getSeriesId(), entry.getKey(), buf);
-							try {
-								archiver.archive(archivalObject);
-							} catch (ArchiveException e) {
-								getLogger().log(Level.SEVERE,
-										"Series failed to archive, series:" + fieldBucket.getSeriesId() + " db:"
-												+ getDbName() + " m:" + getMeasurementName(),
-										e);
+							if (archiver != null) {
+								byte[] buf = Archiver.writerToByteArray(writer);
+								TimeSeriesArchivalObject archivalObject = new TimeSeriesArchivalObject(getDbName(),
+										getMeasurementName(), series.getSeriesId(), entry.getKey(), buf);
+								try {
+									archiver.archive(archivalObject);
+								} catch (ArchiveException e) {
+									getLogger().log(Level.SEVERE,
+											"Series failed to archive, series:" + series.getSeriesId() + " db:"
+													+ getDbName() + " m:" + getMeasurementName(),
+											e);
+								}
 							}
 							output.add(writer);
 						}
@@ -241,6 +246,9 @@ public interface Measurement {
 
 	@SuppressWarnings("unchecked")
 	public default Set<String> compact() throws IOException {
+		if (getMetricsCompactionCounter() != null) {
+			getMetricsCompactionCounter().inc();
+		}
 		return runCleanupOperation("compacting", series -> {
 			try {
 				return series.compact(this);
@@ -255,18 +263,32 @@ public interface Measurement {
 		Set<String> cleanupList = new HashSet<>();
 		getLock().lock();
 		try {
-			for (Series entry : getSeriesList()) {
+			List<Series> seriesList = getSeriesList();
+			Set<String> temp = new HashSet<>();
+			for (int i = 0; i < seriesList.size(); i++) {
+				Series entry = seriesList.get(i);
 				try {
 					List<Writer> list = op.apply(entry);
 					if (list == null) {
 						continue;
 					}
 					for (Writer timeSeriesBucket : list) {
-						cleanupList.add(timeSeriesBucket.getBufferId().toString());
+						if (getMetricsCleanupBufferCounter() != null) {
+							getMetricsCleanupBufferCounter().inc();
+						}
+						String buf = timeSeriesBucket.getBufferId().toString();
+						temp.add(buf);
+						cleanupList.add(buf);
 						getLogger().fine("Adding buffer to cleanup " + operation + " for bucket:" + entry.getSeriesId()
 								+ " Offset:" + timeSeriesBucket.currentOffset());
 					}
 					getLogger().fine("Buffers " + operation + " for time series:" + entry.getSeriesId());
+					if (i % 100 == 0) {
+						if (temp.size() > 0) {
+							getMalloc().cleanupBufferIds(temp);
+							temp = new HashSet<>();
+						}
+					}
 				} catch (Exception e) {
 					getLogger().log(Level.SEVERE, "Error collecing " + operation, e);
 				}
@@ -296,7 +318,7 @@ public interface Measurement {
 	}
 
 	public default void queryDataPoints(String valueFieldNamePattern, long startTime, long endTime, TagFilter tagFilter,
-			Predicate valuePredicate, List<SeriesOutput> resultMap) throws IOException {
+			Predicate valuePredicate, List<SeriesOutput> resultMap, Function function) throws IOException {
 		final Set<ByteString> rowKeys;
 		if (tagFilter == null) {
 			rowKeys = getSeriesKeys();
@@ -342,7 +364,7 @@ public interface Measurement {
 					throw new NullPointerException(
 							"NPEfor:" + entry + " rowkeys:" + fields + " vfn:" + valueFieldNamePattern);
 				}
-				populateDataPoints(valueFieldNames, entry, startTime, endTime, valuePredicate, p, resultMap);
+				populateDataPoints(valueFieldNames, entry, startTime, endTime, valuePredicate, p, resultMap, function);
 			} catch (Exception e) {
 				getLogger().log(Level.SEVERE, "Failed to query data points", e);
 			}
@@ -381,7 +403,7 @@ public interface Measurement {
 				}
 			}
 		}
-		
+
 		List<Series> seriesList = new ArrayList<>();
 		if (rowKeys != null) {
 			for (ByteString key : rowKeys) {
@@ -408,8 +430,7 @@ public interface Measurement {
 		} else {
 			stream.forEach(entry -> {
 				try {
-					readers.put(entry.getSeriesId(),
-							entry.queryIterators(this, valueFieldNames, startTime, endTime));
+					readers.put(entry.getSeriesId(), entry.queryIterators(this, valueFieldNames, startTime, endTime));
 				} catch (Exception e) {
 					getLogger().log(Level.SEVERE, "Failed to query data points", e);
 				}
@@ -422,18 +443,23 @@ public interface Measurement {
 	}
 
 	public default void populateDataPoints(List<String> valueFieldNames, ByteString rowKey, long startTime,
-			long endTime, Predicate valuePredicate, Pattern p, List<SeriesOutput> resultMap) throws IOException {
+			long endTime, Predicate valuePredicate, Pattern p, List<SeriesOutput> resultMap, Function function)
+			throws IOException {
 		List<Tag> seriesTags = decodeStringToTags(rowKey);
 		Series series = getSeriesFromKey(rowKey);
 
 		Map<String, List<DataPoint>> queryDataPoints = series.queryDataPoints(this, valueFieldNames, startTime, endTime,
 				null);
 		for (Entry<String, List<DataPoint>> entry : queryDataPoints.entrySet()) {
-			getLogger().fine(() -> "Reading datapoints for:" + entry.getKey());
+			getLogger().fine(() -> "Reading datapoints for:" + entry.getKey() + " " + entry.getValue());
 			SeriesOutput seriesQueryOutput = new SeriesOutput(getMeasurementName(), entry.getKey(), seriesTags);
 			seriesQueryOutput.setFp(isFieldFp(entry.getKey()));
 			seriesQueryOutput.setDataPoints(entry.getValue());
-			resultMap.add(seriesQueryOutput);
+			if (function != null) {
+				resultMap.addAll(function.apply(Arrays.asList(seriesQueryOutput)));
+			} else {
+				resultMap.add(seriesQueryOutput);
+			}
 		}
 	}
 
@@ -542,6 +568,10 @@ public interface Measurement {
 	boolean isEnableMetricsCapture();
 
 	Counter getMetricsTimeSeriesCounter();
+
+	Counter getMetricsCompactionCounter();
+
+	Counter getMetricsCleanupBufferCounter();
 
 	/**
 	 * Update retention hours for this TimeSeries

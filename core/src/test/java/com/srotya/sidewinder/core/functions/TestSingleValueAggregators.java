@@ -196,8 +196,9 @@ public class TestSingleValueAggregators {
 			dps.add(MiscUtils.buildDataPoint(ts, l));
 		}
 		series.setFp(false);
-		result = sva.apply(series);
-
+		for (int p = 0; p < 1000; p++) {
+			result = sva.apply(series);
+		}
 		assertEquals(3, result.getDataPoints().get(0).getLongValue(), 0.01);
 	}
 

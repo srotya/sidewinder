@@ -99,12 +99,9 @@ public class DiskMalloc implements Malloc {
 		this.measurementName = measurementName;
 		this.lock = lock;
 		this.dataDirectory = dataDirectory + "/" + measurementName;
-		this.fileMapIncrement = Integer
-				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_INCREMENT, String.valueOf(DEFAULT_FILE_INCREMENT)));
-		this.maxFileSize = Integer
-				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_MAX, String.valueOf(DEFAULT_MAX_FILE_SIZE)));
-		this.increment = Integer
-				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_INCREMENT_SIZE, String.valueOf(DEFAULT_INCREMENT_SIZE)));
+		this.fileMapIncrement = getFileIncrement(conf);
+		this.maxFileSize = getMaxFileSize(conf);
+		this.increment = getBufIncrement(conf);
 		if (maxFileSize < 0) {
 			throw new IllegalArgumentException("File size can't be negative or greater than:" + Integer.MAX_VALUE);
 		}
@@ -129,14 +126,29 @@ public class DiskMalloc implements Malloc {
 		}
 	}
 
-	@Override
-	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket) throws IOException {
-		return createNewBuffer(seriesId, tsBucket, increment);
+	public static int getBufIncrement(Map<String, String> conf) {
+		return Integer
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_BUF_INCREMENT_SIZE, String.valueOf(DEFAULT_INCREMENT_SIZE)));
+	}
+
+	public static int getMaxFileSize(Map<String, String> conf) {
+		return Integer
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_MAX, String.valueOf(DEFAULT_MAX_FILE_SIZE)));
+	}
+
+	public static int getFileIncrement(Map<String, String> conf) {
+		return Integer
+				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_INCREMENT, String.valueOf(DEFAULT_FILE_INCREMENT)));
 	}
 
 	@Override
-	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket, int newSize) throws IOException {
-		logger.fine(() -> "Seriesid:" + seriesId + " requesting buffer of size:" + newSize);
+	public BufferObject createNewBuffer(LinkedByteString fieldId, Integer tsBucket) throws IOException {
+		return createNewBuffer(fieldId, tsBucket, increment);
+	}
+
+	@Override
+	public BufferObject createNewBuffer(LinkedByteString fieldId, Integer tsBucket, int newSize) throws IOException {
+		logger.fine(() -> "Seriesid:" + fieldId + " requesting buffer of size:" + newSize);
 		if (rafActiveFile == null) {
 			lock.lock();
 			if (rafActiveFile == null) {
@@ -168,7 +180,7 @@ public class DiskMalloc implements Malloc {
 					memoryMappedBuffer.force();
 					rafActiveFile.close();
 					rafActiveFile = null;
-					return createNewBuffer(seriesId, tsBucket, newSize);
+					return createNewBuffer(fieldId, tsBucket, newSize);
 				}
 				// used for GC testing and debugging
 				if (oldBufferReferences != null) {
@@ -181,7 +193,7 @@ public class DiskMalloc implements Malloc {
 					metricsBufferSize.inc(fileMapIncrement);
 				}
 			}
-			LinkedByteString ptrKey = appendBufferPointersToDisk(seriesId, filename, curr, offset, newSize, tsBucket);
+			LinkedByteString ptrKey = appendBufferPointersToDisk(fieldId, filename, curr, offset, newSize, tsBucket);
 			ByteBuffer buf = memoryMappedBuffer.slice();
 			buf.limit(newSize);
 			curr = curr + newSize;
@@ -219,8 +231,8 @@ public class DiskMalloc implements Malloc {
 
 		for (File dataFile : listFiles) {
 			try {
-				RandomAccessFile raf = new RandomAccessFile(dataFile, "r");
-				MappedByteBuffer map = raf.getChannel().map(MapMode.READ_ONLY, 0, dataFile.length());
+				RandomAccessFile raf = new RandomAccessFile(dataFile, "rw");
+				MappedByteBuffer map = raf.getChannel().map(MapMode.READ_WRITE, 0, dataFile.length());
 				bufferMap.put(dataFile.getName(), map);
 				logger.info("Recovering data file:" + dataDirectory + "/" + dataFile.getName());
 				raf.close();

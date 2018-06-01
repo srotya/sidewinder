@@ -79,6 +79,8 @@ public interface StorageEngine {
 	public static final boolean ENABLE_METHOD_METRICS = Boolean
 			.parseBoolean(System.getProperty("debug.method.metrics", "false"));
 	public static final String ENABLE_JDBC = "jdbc.enabled";
+	public static final String JDBC_PORT = "jdbc.port";
+	public static final String DEFAULT_JDBC_PORT = "1099";
 
 	/**
 	 * @param conf
@@ -140,8 +142,8 @@ public interface StorageEngine {
 		getLogger().finer(() -> "Querying points for:" + measurementsLike + " " + measurementPattern);
 		for (String measurement : measurementsLike) {
 			Measurement measurementObj = getDatabaseMap().get(dbName).get(measurement);
-			measurementObj.queryDataPoints(valueFieldPattern, startTime, endTime, tagFilter, valuePredicate,
-					resultList);
+			measurementObj.queryDataPoints(valueFieldPattern, startTime, endTime, tagFilter, valuePredicate, resultList,
+					function);
 		}
 		if (function != null) {
 			resultList = function.apply(resultList);
@@ -178,10 +180,9 @@ public interface StorageEngine {
 			throws IOException {
 		return queryReaders(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, tagFilter);
 	}
-	
+
 	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
-			List<String> valueFieldNames, boolean regex, long startTime, long endTime)
-			throws IOException {
+			List<String> valueFieldNames, boolean regex, long startTime, long endTime) throws IOException {
 		return queryReaders(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, null);
 	}
 
@@ -287,8 +288,7 @@ public interface StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName)
-			throws Exception {
+	public default List<List<Tag>> getTagsForMeasurement(String dbName, String measurementName) throws Exception {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -357,7 +357,8 @@ public interface StorageEngine {
 	 * @return
 	 * @throws Exception
 	 */
-	public default LinkedHashSet<String> getFieldsForMeasurement(String dbName, String measurementNameRegex) throws Exception {
+	public default LinkedHashSet<String> getFieldsForMeasurement(String dbName, String measurementNameRegex)
+			throws Exception {
 		if (!checkIfExists(dbName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
@@ -438,10 +439,12 @@ public interface StorageEngine {
 	 * 
 	 * @param dbName
 	 * @param retentionPolicy
-	 * @return measurementMap
+	 * @param conf
+	 * @return
 	 * @throws IOException
 	 */
-	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy) throws IOException;
+	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy, Map<String, String> conf)
+			throws IOException;
 
 	/**
 	 * Gets the measurement, creates it if it doesn't already exist
@@ -465,42 +468,6 @@ public interface StorageEngine {
 	 */
 	public boolean isMeasurementFieldFP(String dbName, String measurementName, String valueFieldName)
 			throws RejectException, IOException;
-
-	/**
-	 * Returns raw readers to be used by the SQL engine for predicate filtering
-	 * 
-	 * @param dbName
-	 * @param measurementName
-	 * @param valueFieldName
-	 * @param startTime
-	 * @param endTime
-	 * @return
-	 * @throws Exception
-	 */
-	// public default LinkedHashMap<ValueReader, Boolean> queryReaders(String
-	// dbName, String measurementName,
-	// String valueFieldName, long startTime, long endTime) throws Exception {
-	// if (!checkIfExists(dbName, measurementName)) {
-	// throw NOT_FOUND_EXCEPTION;
-	// }
-	// LinkedHashMap<ValueReader, Boolean> readers = new LinkedHashMap<>();
-	// getDatabaseMap().get(dbName).get(measurementName).queryReaders(valueFieldName,
-	// startTime, endTime, readers);
-	// return readers;
-	// }
-	//
-	// public default LinkedHashMap<ValueReader, List<Tag>>
-	// queryReadersWithMap(String dbName, String measurementName,
-	// String valueFieldName, long startTime, long endTime) throws Exception {
-	// if (!checkIfExists(dbName, measurementName)) {
-	// throw NOT_FOUND_EXCEPTION;
-	// }
-	// LinkedHashMap<ValueReader, List<Tag>> readers = new LinkedHashMap<>();
-	// getDatabaseMap().get(dbName).get(measurementName).queryReadersWithMap(valueFieldName,
-	// startTime, endTime,
-	// readers);
-	// return readers;
-	// }
 
 	/**
 	 * Check if timeseries exists
@@ -555,16 +522,6 @@ public interface StorageEngine {
 
 	public Map<String, Map<String, Measurement>> getMeasurementMap();
 
-	// public default Set<String> getSeriesIdsWhereTags(String dbName, String
-	// measurementName, List<String> tags)
-	// throws ItemNotFoundException, Exception {
-	// if (!checkIfExists(dbName, measurementName)) {
-	// throw NOT_FOUND_EXCEPTION;
-	// }
-	// return
-	// getDatabaseMap().get(dbName).get(measurementName).getSeriesIdsWhereTags(tags);
-	// }
-
 	public default Set<String> getTagFilteredRowKeys(String dbName, String measurementName, TagFilter tagFilter)
 			throws IOException {
 		if (!checkIfExists(dbName, measurementName)) {
@@ -593,7 +550,7 @@ public interface StorageEngine {
 			throw INVALID_DATAPOINT_EXCEPTION;
 		}
 	}
-	
+
 	public int getDefaultTimebucketSize();
 
 	public Counter getCounter();
@@ -607,17 +564,20 @@ public interface StorageEngine {
 				StorageEngine.DEFAULT_COMPACTION_CODEC);
 		TimeField.compactionClass = CompressionFactory.getTimeClassByName(compactionCodec);
 		TimeField.compressionClass = CompressionFactory.getTimeClassByName(compressionCodec);
-		getLogger().info("Compression codec for timeseries:"+TimeField.compressionClass.getName());
-		getLogger().info("Compaction codec for timeseries:"+TimeField.compactionClass.getName());
+		getLogger().info("Compression codec for timeseries:" + TimeField.compressionClass.getName());
+		getLogger().info("Compaction codec for timeseries:" + TimeField.compactionClass.getName());
 
 		ValueField.compactionClass = CompressionFactory.getValueClassByName(compactionCodec);
 		ValueField.compressionClass = CompressionFactory.getValueClassByName(compressionCodec);
-		getLogger().info("Compression codec for value:"+ValueField.compressionClass.getName());
-		getLogger().info("Compaction codec for value:"+ValueField.compactionClass.getName());
+		getLogger().info("Compression codec for value:" + ValueField.compressionClass.getName());
+		getLogger().info("Compaction codec for value:" + ValueField.compactionClass.getName());
 	}
 
-	public default List<Tag> decodeTagsFromString(String dbName, String measurementName, ByteString tagString) throws IOException {
+	public default List<Tag> decodeTagsFromString(String dbName, String measurementName, ByteString tagString)
+			throws IOException {
 		return getDatabaseMap().get(dbName).get(measurementName).decodeStringToTags(tagString);
 	}
+
+	public Map<String, String> getConf();
 
 }

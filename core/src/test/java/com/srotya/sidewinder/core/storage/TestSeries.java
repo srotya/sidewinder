@@ -17,6 +17,8 @@ package com.srotya.sidewinder.core.storage;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -28,8 +30,12 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.predicates.GreaterThanEqualsPredicate;
+import com.srotya.sidewinder.core.predicates.GreaterThanPredicate;
+import com.srotya.sidewinder.core.predicates.LessThanPredicate;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
+import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
+import com.srotya.sidewinder.core.storage.compression.Writer;
 
 public class TestSeries {
 
@@ -45,6 +51,7 @@ public class TestSeries {
 	@Test
 	public void testInit() throws IOException {
 		Series series = new Series(new ByteString("idasdasda"), 0);
+		assertNotNull(series.getSeriesId());
 		assertNotNull(series.getLock());
 		assertNotNull(series.getReadLock());
 		assertNotNull(series.getWriteLock());
@@ -87,8 +94,8 @@ public class TestSeries {
 		assertEquals(988, dps.size());
 		for (int i = 0; i < 988; i++) {
 			int d = 12 + i;
-			assertEquals("Failed:" + i + " " + d + " " + ((ts + d * 1000) - dps.get(i).getTimestamp()), ts + d * 1000,
-					dps.get(i).getTimestamp());
+			assertEquals("Failed: i:" + i + " d:" + d + " t:" + ((ts + d * 1000) - dps.get(i).getTimestamp()),
+					ts + d * 1000, dps.get(i).getTimestamp());
 			assertEquals(d, dps.get(i).getLongValue(), 0);
 		}
 
@@ -162,11 +169,66 @@ public class TestSeries {
 			assertEquals(Double.doubleToLongBits(i * 1.1), queryTuples.get(i)[1]);
 			assertEquals(0, queryTuples.get(i)[3]);
 		}
+
+		queryTuples = series.queryTuples(measurement, Arrays.asList("f2", "f1", "f3"), 1497720652566L + 1000 * 100,
+				1497720652566L + 1000 * 899, null);
+		assertEquals(800, queryTuples.size());
+		for (int i = 100; i < 900; i++) {
+			long[] point = queryTuples.get(i - 100);
+			assertEquals(4, point.length);
+			assertEquals(ts + i * 1000, point[0]);
+			assertEquals(i, point[2]);
+			assertEquals(Double.doubleToLongBits(i * 1.1), point[1]);
+			assertEquals(0, point[3]);
+		}
+
+		queryTuples = series.queryTuples(measurement, Arrays.asList("f2", "f1", "f3"), 1497720652566L + 1000 * 100,
+				1497720652566L + 1000 * 899, Arrays.asList(null, new GreaterThanEqualsPredicate(200), null));
+		assertEquals(700, queryTuples.size());
+		for (int i = 200; i < 900; i++) {
+			long[] point = queryTuples.get(i - 200);
+			assertEquals(4, point.length);
+			assertEquals(ts + i * 1000, point[0]);
+			assertEquals(i, point[2]);
+			assertEquals(Double.doubleToLongBits(i * 1.1), point[1]);
+			assertEquals(0, point[3]);
+		}
+	}
+
+	@Test
+	public void testTimeFilteredReads() throws IOException {
+		measurement.setTimebucket(1024);
+		Series series = new Series(new ByteString("idasdasda"), 0);
+		long ts = 1497720652566L;
+		for (int i = 0; i < 1000; i++) {
+			Point dp = Point.newBuilder().setTimestamp(ts + i * 1000).addValueFieldName("f1").addFp(false).addValue(i)
+					.addValueFieldName("f2").addFp(true).addValue(Double.doubleToLongBits(i * 1.1)).build();
+			series.addPoint(dp, measurement);
+		}
+
+		List<DataPoint> list = series
+				.queryDataPoints(measurement, Arrays.asList("f1"), 1497720652566L + 1000 * 10, Long.MAX_VALUE, null)
+				.get("f1");
+		assertEquals(990, list.size());
+		for (int i = 10; i < 1000; i++) {
+			long expected = ts + i * 1000;
+			long timestamp = list.get(i - 10).getTimestamp();
+			assertEquals("Delta:" + (expected - timestamp) + " i:" + i, expected, timestamp);
+		}
+
+		list = series.queryDataPoints(measurement, Arrays.asList("f1"), 1497720652566L + 1000 * 100,
+				1497720652566L + 1000 * 899, null).get("f1");
+		assertEquals(800, list.size());
+		for (int i = 100; i < 900; i++) {
+			long expected = ts + i * 1000;
+			long timestamp = list.get(i - 100).getTimestamp();
+			assertEquals("Delta:" + (expected - timestamp) + " i:" + i, expected, timestamp);
+		}
 	}
 
 	@Test
 	public void testIteratorTypes() throws IOException {
-		measurement.setTimebucket(4096);
+		measurement.setTimebucket(1024);
 		Series series = new Series(new ByteString("idasdasda"), 0);
 		long ts = 1497720652566L;
 		for (int i = 0; i < 1000; i++) {
@@ -204,19 +266,108 @@ public class TestSeries {
 			assertEquals(0, queryTuples.get(i)[3]);
 		}
 
-		FieldReaderIterator[] queryTupleReaders = series.queryIterators(measurement,
-				Arrays.asList("f2", "f1"), 0, Long.MAX_VALUE);
+		FieldReaderIterator[] queryTupleReaders = series.queryIterators(measurement, Arrays.asList("f2", "f1"), 0,
+				Long.MAX_VALUE);
 		assertEquals(3, queryTupleReaders.length);
 		for (int i = 0; i < 1000; i++) {
 			assertEquals(ts + i * 1000, queryTupleReaders[2].next());
+			assertEquals(i, queryTupleReaders[1].next());
 		}
-		
-		queryTupleReaders = series.queryIterators(measurement,
-				Arrays.asList("f2", "f1", "TS"), 0, Long.MAX_VALUE);
+
+		queryTupleReaders = series.queryIterators(measurement, Arrays.asList("f2", "f1", "TS"), 0, Long.MAX_VALUE);
 		assertEquals(3, queryTupleReaders.length);
 		for (int i = 0; i < 1000; i++) {
 			assertEquals(ts + i * 1000, queryTupleReaders[2].next());
 		}
 	}
 
+	@SuppressWarnings("unchecked")
+	@Test
+	public void testIterator() throws IOException {
+		measurement.setTimebucket(1024);
+		Series series = new Series(new ByteString("idasdasda"), 0);
+		long ts = 1497720652566L;
+		for (int i = 0; i < 10000; i++) {
+			Point dp = Point.newBuilder().setTimestamp(ts + i * 200).addValueFieldName("f1").addFp(false).addValue(i)
+					.addValueFieldName("f2").addFp(true).addValue(Double.doubleToLongBits(i * 1.1)).build();
+			series.addPoint(dp, measurement);
+		}
+		// check time buckets
+		assertEquals(3, series.getBucketMap().size());
+		// query iterators
+		FieldReaderIterator[] queryIterators = series.queryIterators(measurement, Arrays.asList("f1", "f2"),
+				Long.MAX_VALUE, Long.MIN_VALUE);
+		assertEquals(3, queryIterators.length);
+
+		// must respond even when there is nothing selectable in time range
+		queryIterators = series.queryIterators(measurement, Arrays.asList("f1", "f2"), Long.MAX_VALUE, Long.MAX_VALUE);
+		assertEquals(3, queryIterators.length);
+
+		// must respond even when there is nothing selectable in time range
+		queryIterators = series.queryIterators(measurement, Arrays.asList("f1", "TS"), Long.MAX_VALUE, Long.MAX_VALUE);
+		assertEquals(2, queryIterators.length);
+
+		// no fields should result in no iterators
+		queryIterators = series.queryIterators(measurement, Arrays.asList(), Long.MAX_VALUE, Long.MAX_VALUE);
+		assertEquals(0, queryIterators.length);
+
+		final List<Writer> compactedWriters = series.compact(measurement);
+		assertTrue(compactedWriters.size() > 0);
+	}
+
+	@Test
+	public void testIteratorPredicates() throws IOException {
+		measurement.setTimebucket(1024);
+		Series series = new Series(new ByteString("idasdasda"), 0);
+		long ts = 1497720652566L;
+		for (int i = 0; i < 10000; i++) {
+			Point dp = Point.newBuilder().setTimestamp(ts + i * 200).addValueFieldName("f1").addFp(false).addValue(i)
+					.addValueFieldName("f2").addFp(false).addValue(i).build();
+			series.addPoint(dp, measurement);
+		}
+
+		FieldReaderIterator[] queryIterators = series.queryIterators(measurement, Arrays.asList("f1", "f2"),
+				Arrays.asList(new GreaterThanPredicate(100), null), Long.MIN_VALUE, Long.MAX_VALUE);
+		assertEquals(3, queryIterators.length);
+		for (int i = 0; i < 10000; i++) {
+			if (i <= 100) {
+				try {
+					FieldReaderIterator.extracted(queryIterators);
+					fail(i + " must throw filtered value exception since predicate is being used");
+				} catch (FilteredValueException e) {
+				}
+			} else {
+				try {
+					long[] extracted = FieldReaderIterator.extracted(queryIterators);
+					assertEquals(ts + i * 200, extracted[2]);
+					assertEquals(i, extracted[0]);
+					assertEquals(i, extracted[1]);
+				} catch (FilteredValueException e) {
+					fail(i + " must NOT throw filtered value exception since predicate is being used");
+				}
+			}
+		}
+
+		queryIterators = series.queryIterators(measurement, Arrays.asList("f1", "f2"),
+				Arrays.asList(new GreaterThanPredicate(100), new LessThanPredicate(110)), 0, Long.MAX_VALUE - 1000000);
+		assertEquals(3, queryIterators.length);
+		for (int i = 0; i < 10000; i++) {
+			if (i <= 100 || i >= 110) {
+				try {
+					FieldReaderIterator.extracted(queryIterators);
+					fail(i + " must throw filtered value exception since predicate is being used");
+				} catch (FilteredValueException e) {
+				}
+			} else {
+				try {
+					long[] extracted = FieldReaderIterator.extracted(queryIterators);
+					assertEquals(ts + i * 200, extracted[2]);
+					assertEquals(i, extracted[0]);
+					assertEquals(i, extracted[1]);
+				} catch (FilteredValueException e) {
+					fail(i + " must NOT throw filtered value exception since predicate is being used");
+				}
+			}
+		}
+	}
 }

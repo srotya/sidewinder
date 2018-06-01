@@ -21,6 +21,8 @@ public interface Field {
 
 	public int getWriterCount();
 	
+	public LinkedByteString getFieldId();
+	
 	public List<? extends Writer> getWriters();
 
 	public List<Writer> compact(Measurement measurement, Lock writeLock,

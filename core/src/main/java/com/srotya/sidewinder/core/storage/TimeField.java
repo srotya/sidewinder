@@ -320,7 +320,7 @@ public class TimeField implements Field {
 		double bufSize = total * compactionRatio;
 		logger.finer("Allocating buffer:" + total + " Vs. " + pointCount * 16 + " max compacted buffer:" + bufSize);
 		logger.finer("Getting sublist from:" + 0 + " to:" + (list.size() - 1));
-		ByteBuffer buf = ByteBuffer.allocate((int) bufSize);
+		ByteBuffer buf = ByteBuffer.allocateDirect((int) bufSize);
 		buf.put((byte) id);
 		// since this buffer will be the first one
 		buf.put(1, (byte) 0);

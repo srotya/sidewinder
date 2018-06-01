@@ -18,12 +18,16 @@ package com.srotya.sidewinder.core.storage;
 public class DBMetadata {
 	
 	private int retentionHours;
+	private int bufIncrementSize;
+	private int fileIncrementSize;
 	
 	public DBMetadata() {
 	}
 
-	public DBMetadata(int retentionHours) {
+	public DBMetadata(int retentionHours, int bufIncrementSize, int fileIncrementSize) {
 		this.retentionHours = retentionHours;
+		this.bufIncrementSize = bufIncrementSize;
+		this.fileIncrementSize = fileIncrementSize;
 	}
 
 	/**
@@ -38,6 +42,22 @@ public class DBMetadata {
 	 */
 	public void setRetentionHours(int retentionHours) {
 		this.retentionHours = retentionHours;
+	}
+
+	public int getBufIncrementSize() {
+		return bufIncrementSize;
+	}
+
+	public void setBufIncrementSize(int bufIncrementSize) {
+		this.bufIncrementSize = bufIncrementSize;
+	}
+
+	public int getFileIncrementSize() {
+		return fileIncrementSize;
+	}
+
+	public void setFileIncrementSize(int fileIncrementSize) {
+		this.fileIncrementSize = fileIncrementSize;
 	}
 
 }

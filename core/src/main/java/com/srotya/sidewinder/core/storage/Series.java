@@ -163,6 +163,9 @@ public class Series {
 
 	/**
 	 * Extract {@link DataPoint}s for the supplied time range and value predicate.
+	 * Please note that predicates for this method are individually applied
+	 * therefore predicate for one field doesn't impact filtering for another field
+	 * even though these fields are for the same series.
 	 * 
 	 * Each {@link DataPoint} has the appendFieldBucketValue and appendTags set in
 	 * it.
@@ -203,11 +206,11 @@ public class Series {
 							.queryReader(valuePredicate != null ? valuePredicate.get(i) : null, readLock);
 					FieldReaderIterator timeIterator = timeField.queryReader(timeRangePredicate, readLock);
 					logger.fine(() -> vfn + " " + valueIterator.count() + " ts:" + timeIterator.count());
+					FieldReaderIterator[] iterators = new FieldReaderIterator[] { timeIterator, valueIterator };
 					while (true) {
 						try {
-							long ts = timeIterator.next();
-							long value = valueIterator.next();
-							list.add(new DataPoint(ts, value));
+							long[] extracted = FieldReaderIterator.extracted(iterators);
+							list.add(new DataPoint(extracted[0], extracted[1]));
 						} catch (FilteredValueException e) {
 							// ignore this
 						} catch (IOException e) {
@@ -221,8 +224,26 @@ public class Series {
 		return points;
 	}
 
+	/**
+	 * Query iterators for this series
+	 * 
+	 * @param measurement
+	 * @param valueFieldBucketNames
+	 * @param startTime
+	 * @param endTime
+	 * @return
+	 * @throws IOException
+	 */
 	public FieldReaderIterator[] queryIterators(Measurement measurement, List<String> valueFieldBucketNames,
 			long startTime, long endTime) throws IOException {
+		return queryIterators(measurement, valueFieldBucketNames, null, startTime, endTime);
+	}
+
+	public FieldReaderIterator[] queryIterators(Measurement measurement, List<String> valueFieldBucketNames,
+			List<Predicate> valuePredicates, long startTime, long endTime) throws IOException {
+		if (valuePredicates != null && valueFieldBucketNames.size() != valuePredicates.size()) {
+			throw new IOException("Predicate count doesn't match field count");
+		}
 		if (startTime > endTime) {
 			// swap start and end times if they are off
 			startTime = startTime ^ endTime;
@@ -234,7 +255,7 @@ public class Series {
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
 
 		int length = valueFieldBucketNames.size();
-		if (!valueFieldBucketNames.contains(TS)) {
+		if (!valueFieldBucketNames.contains(TS) && length > 0) {
 			length++;
 		}
 		FieldReaderIterator[] output = new FieldReaderIterator[length];
@@ -251,7 +272,8 @@ public class Series {
 				String vfn = valueFieldBucketNames.get(i);
 				Field field = map.get(vfn);
 				if (field != null) {
-					output[i] = field.queryReader(null, readLock);
+					Predicate predicate = valuePredicates != null ? valuePredicates.get(i) : null;
+					output[i].addReader(field.queryReader(predicate, readLock).getReaders());
 				}
 			}
 		}
@@ -299,6 +321,9 @@ public class Series {
 
 	private SortedMap<Integer, Map<String, Field>> correctTimeRangeScan(long startTime, long endTime,
 			int timeBucketSize) {
+		if(startTime<0) {
+			startTime = 0;
+		}
 		int tsStartBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;
 		int tsEndBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
 		if (Integer.compare(tsStartBucket, bucketFieldMap.firstKey()) < 0) {
@@ -326,15 +351,6 @@ public class Series {
 		return "SeriesFieldBucketMap [seriesId=" + seriesId + " seriesMap=" + bucketFieldMap + "]";
 	}
 
-	// /**
-	// * Must close before modifying this via iterator
-	// *
-	// * @return
-	// */
-	// public Collection<? extends Field> values() {
-	// return fieldMap.values();
-	// }
-
 	/**
 	 * @return the seriesId
 	 */
@@ -359,10 +375,12 @@ public class Series {
 				List<Writer> tmp = field.compact(measurement, writeLock);
 				if (tmp != null) {
 					compact.addAll(tmp);
+				} else {
+					logger.info(() -> "Nothing compacted for field:" + field.getFieldId().toString());
 				}
 			}
 		}
-		logger.info("Compaction completed for series:" + seriesId + " compacted buffers:" + compact.size());
+		logger.fine("Compaction completed for series:" + seriesId + " compacted buffers:" + compact.size());
 		return compact;
 	}
 
@@ -413,102 +431,5 @@ public class Series {
 		return collectedGarbageMap;
 
 	}
-
-	// /**
-	// * Converts timeseries to a list of datapoints appended to the supplied list
-	// * object. Datapoints are filtered by the supplied predicates before they are
-	// * returned. These predicates are pushed down to the reader for efficiency and
-	// * performance as it prevents unnecessary object creation.
-	// *
-	// * @param appendFieldBucketValueName
-	// * @param appendTags
-	// *
-	// * @param points
-	// * list data points are appended to
-	// * @param writer
-	// * to extract the data points from
-	// * @param timePredicate
-	// * time range filter
-	// * @param valuePredicate
-	// * value filter
-	// * @return the points argument
-	// * @throws IOException
-	// */
-	// public static List<DataPoint> seriesToDataPoints(List<String> appendTags,
-	// List<DataPoint> points,
-	// ValueWriter writer, Predicate timePredicate, Predicate valuePredicate,
-	// boolean isFp) throws IOException {
-	// Reader reader = getReader(writer, timePredicate, valuePredicate);
-	// DataPoint point = null;
-	// while (true) {
-	// try {
-	// point = reader.readPair();
-	// if (point != null) {
-	// points.add(point);
-	// }
-	// } catch (IOException e) {
-	// if (e instanceof RejectException) {
-	// } else {
-	// throw new IOException(e);
-	// }
-	// break;
-	// }
-	// }
-	// return points;
-	// }
-	//
-	// public static void readerToDataPoints(List<DataPoint> points, Reader reader)
-	// throws IOException {
-	// DataPoint point = null;
-	// while (true) {
-	// try {
-	// point = reader.readPair();
-	// if (point != null) {
-	// points.add(point);
-	// }
-	// } catch (IOException e) {
-	// if (e instanceof RejectException) {
-	// } else {
-	// throw new IOException(e);
-	// }
-	// break;
-	// }
-	// }
-	// if (reader.getCounter() != reader.getCount() || points.size() <
-	// reader.getCounter()) {
-	// logger.finest(() -> "SDP:" + points.size() + "/" + reader.getCounter() + "/"
-	// + reader.getCount());
-	// }
-	// }
-
-	// public static void readerToPoints(List<long[]> points, Reader reader) throws
-	// IOException {
-	// long[] point = null;
-	// while (true) {
-	// try {
-	// point = reader.read();
-	// if (point != null) {
-	// points.add(point);
-	// }
-	// } catch (IOException e) {
-	// if (e instanceof RejectException) {
-	// } else {
-	// logger.log(Level.SEVERE, "Non rejectexception while reading datapoints", e);
-	// }
-	// break;
-	// }
-	// }
-	// if (reader.getCounter() != reader.getCount() || points.size() <
-	// reader.getCounter()) {
-	// logger.finest(() -> "SDP:" + points.size() + "/" + reader.getCounter() + "/"
-	// + reader.getCount());
-	// }
-	// }
-
-	/*
-	 * (non-Javadoc)
-	 * 
-	 * @see java.lang.Object#toString()
-	 */
 
 }

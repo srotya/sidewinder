@@ -16,6 +16,7 @@
 package com.srotya.sidewinder.core.qa;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.IOException;
@@ -126,7 +127,7 @@ public class QADataIntegrity {
 		// check fields
 		Set<String> fields = engine.getFieldsForMeasurement(dbName, measurementName);
 		assertEquals(2, fields.size());
-		assertEquals("user", fields.iterator().next());
+		assertTrue(fields.contains("user"));
 
 		// check tag keys
 		Set<String> tagKeys = engine.getTagKeysForMeasurement(dbName, measurementName);
@@ -191,7 +192,7 @@ public class QADataIntegrity {
 		// check fields
 		Set<String> fields = engine.getFieldsForMeasurement(dbName, measurementName);
 		assertEquals(2, fields.size());
-		assertEquals("user", fields.iterator().next());
+		assertTrue(fields.contains("user"));
 
 		// check tag keys
 		Set<String> tagKeys = engine.getTagKeysForMeasurement(dbName, measurementName);
