@@ -25,8 +25,14 @@ public class FieldReaderIterator {
 
 	private int idx;
 	private List<Reader> readers;
-
+	private String fieldName;
+	
 	public FieldReaderIterator() {
+		readers = new ArrayList<>();
+	}
+
+	public FieldReaderIterator(String fieldName) {
+		this.fieldName = fieldName;
 		readers = new ArrayList<>();
 	}
 
@@ -98,4 +104,19 @@ public class FieldReaderIterator {
 		return readers.stream().mapToInt(r -> r.getCount()).sum();
 	}
 
+	public String getFieldName() {
+		return fieldName;
+	}
+	
+	public void setFieldName(String fieldName) {
+		this.fieldName = fieldName;
+	}
+
+	/* (non-Javadoc)
+	 * @see java.lang.Object#toString()
+	 */
+	@Override
+	public String toString() {
+		return "FieldReaderIterator [idx=" + idx + ", readers=" + readers + ", fieldName=" + fieldName + "]";
+	}
 }

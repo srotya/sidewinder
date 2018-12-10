@@ -225,7 +225,9 @@ public class Series {
 	}
 
 	/**
-	 * Query iterators for this series
+	 * Query iterators for this series. The returned array has n+1 elements if the
+	 * valueFieldBucketNames is missing the timestamp column, here n is the number
+	 * of valueFieldNames, the n+1 entry in the array is timestamp column.
 	 * 
 	 * @param measurement
 	 * @param valueFieldBucketNames
@@ -237,6 +239,66 @@ public class Series {
 	public FieldReaderIterator[] queryIterators(Measurement measurement, List<String> valueFieldBucketNames,
 			long startTime, long endTime) throws IOException {
 		return queryIterators(measurement, valueFieldBucketNames, null, startTime, endTime);
+	}
+
+	/**
+	 * Return an array of 2 element iterators one for the valueField (index 1) and
+	 * another for the timefield (index 0) e.g. 0: vfn1 -> ts, vfn1 1: vfn2 -> ts,
+	 * vfn2
+	 * 
+	 * @param measurement
+	 * @param valueFieldBucketNames
+	 * @param valuePredicates
+	 * @param startTime
+	 * @param endTime
+	 * @return
+	 * @throws IOException
+	 */
+	public FieldReaderIterator[][] queryTimePairIterators(Measurement measurement, List<String> valueFieldBucketNames,
+			List<Predicate> valuePredicates, long startTime, long endTime) throws IOException {
+		if (startTime > endTime) {
+			// swap start and end times if they are off
+			startTime = startTime ^ endTime;
+			endTime = endTime ^ startTime;
+			startTime = startTime ^ endTime;
+		}
+		FieldReaderIterator[][] result = new FieldReaderIterator[valueFieldBucketNames.size()][2];
+		SortedMap<Integer, Map<String, Field>> correctTimeRangeScan = correctTimeRangeScan(startTime, endTime,
+				measurement.getTimeBucketSize());
+		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
+		for (Map<String, Field> map : correctTimeRangeScan.values()) {
+			Field timeField = map.get(TS);
+			for (int i = 0; i < valueFieldBucketNames.size(); i++) {
+				String vfn = valueFieldBucketNames.get(i);
+				Field field = map.get(vfn);
+				if (vfn == null || field == null) {
+					return null;
+				}
+				FieldReaderIterator[] iterators = result[i];
+				if (iterators == null) {
+					iterators = new FieldReaderIterator[2];
+					result[i] = iterators;
+				}
+				if (iterators[0] == null) {
+					iterators[0] = timeField.queryReader(timeRangePredicate, readLock);
+					iterators[0].setFieldName(TS);
+				} else {
+					iterators[0].addReader(timeField.queryReader(timeRangePredicate, readLock).getReaders());
+				}
+				if (field != null) {
+					if (iterators[1] == null) {
+						iterators[1] = field.queryReader(valuePredicates != null ? valuePredicates.get(i) : null,
+								readLock);
+						iterators[1].setFieldName(vfn);
+					} else {
+						iterators[1].addReader(
+								field.queryReader(valuePredicates != null ? valuePredicates.get(i) : null, readLock)
+										.getReaders());
+					}
+				}
+			}
+		}
+		return result;
 	}
 
 	public FieldReaderIterator[] queryIterators(Measurement measurement, List<String> valueFieldBucketNames,
@@ -274,6 +336,7 @@ public class Series {
 				if (field != null) {
 					Predicate predicate = valuePredicates != null ? valuePredicates.get(i) : null;
 					output[i].addReader(field.queryReader(predicate, readLock).getReaders());
+					output[i].setFieldName(vfn);
 				}
 			}
 		}
@@ -321,7 +384,7 @@ public class Series {
 
 	private SortedMap<Integer, Map<String, Field>> correctTimeRangeScan(long startTime, long endTime,
 			int timeBucketSize) {
-		if(startTime<0) {
+		if (startTime < 0) {
 			startTime = 0;
 		}
 		int tsStartBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;

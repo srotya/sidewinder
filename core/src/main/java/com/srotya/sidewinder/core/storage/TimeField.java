@@ -206,7 +206,7 @@ public class TimeField implements Field {
 			readers.add(getReader(writer, predicate));
 		}
 		readLock.unlock();
-		return new FieldReaderIterator().addReader(readers);
+		return new FieldReaderIterator(Series.TS).addReader(readers);
 	}
 
 	/**
