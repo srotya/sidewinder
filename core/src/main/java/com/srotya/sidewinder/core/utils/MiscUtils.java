@@ -290,7 +290,7 @@ public class MiscUtils {
 			try {
 				aggregationFunction = createFunctionChain(parts, 1);
 			} catch (Exception e) {
-				throw new BadRequestException(e);
+				throw new BadRequestException(e.getMessage());
 			}
 		}
 

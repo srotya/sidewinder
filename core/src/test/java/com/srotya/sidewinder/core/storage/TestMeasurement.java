@@ -141,17 +141,16 @@ public class TestMeasurement {
 
 	@Test
 	public void testDataPointsQuery() throws Exception {
-		long ts = System.currentTimeMillis();
+		final long ts = 1546334202515L;
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("test").setTagValue("2").build());
 		conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_MAX, String.valueOf(2 * 1024 * 1024));
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointLocked(build("value1", tags, ts + i * 1000, 1L), false);
-		}
-		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointLocked(build("value2", tags, ts + i * 1000, 1L), false);
+			measurement.addPointLocked(Point.newBuilder().setDbName(DBNAME).setMeasurementName("m1").addAllTags(tags)
+					.setTimestamp(ts + i * 1000).addFp(false).addValue(1L).addValueFieldName("value1").addFp(false)
+					.addValue(1L).addValueFieldName("value2").build(), true);
 		}
 		List<SeriesOutput> resultMap = new ArrayList<>();
 		measurement.queryDataPoints("value.*$", ts, ts + 1000 * LIMIT, null, null, resultMap, null);
@@ -159,7 +158,8 @@ public class TestMeasurement {
 		for (SeriesOutput s : resultMap) {
 			for (int i = 0; i < s.getDataPoints().size(); i++) {
 				DataPoint dataPoint = s.getDataPoints().get(i);
-				assertEquals(ts + i * 1000, dataPoint.getTimestamp());
+				assertEquals("Bad timestamp:" + ts + " + " + i * 1000 + " iteration:" + i, ts + i * 1000,
+						dataPoint.getTimestamp());
 				assertEquals(1L, dataPoint.getLongValue());
 			}
 		}

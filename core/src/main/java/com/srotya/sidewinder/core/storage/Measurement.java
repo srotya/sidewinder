@@ -49,6 +49,7 @@ import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
 import com.srotya.sidewinder.core.storage.archival.Archiver;
 import com.srotya.sidewinder.core.storage.archival.TimeSeriesArchivalObject;
+import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
 /**
@@ -215,7 +216,8 @@ public interface Measurement {
 				Map<Integer, List<Writer>> collectedGarbage = series.collectGarbage(this);
 				List<Writer> output = new ArrayList<>();
 				if (collectedGarbage.size() > 0) {
-					getLogger().fine("Collected garbage:" + collectedGarbage.size()+" series:"+series.getSeriesId());
+					getLogger()
+							.fine("Collected garbage:" + collectedGarbage.size() + " series:" + series.getSeriesId());
 				}
 				if (collectedGarbage != null) {
 					for (Entry<Integer, List<Writer>> entry : collectedGarbage.entrySet()) {
@@ -366,7 +368,7 @@ public interface Measurement {
 				}
 				populateDataPoints(valueFieldNames, entry, startTime, endTime, valuePredicate, p, resultMap, function);
 			} catch (Exception e) {
-				getLogger().log(Level.SEVERE, "Failed to query data points", e);
+				getLogger().log(Level.SEVERE, "Failed to query data points: " + entry, e);
 			}
 		});
 	}
@@ -424,7 +426,7 @@ public interface Measurement {
 				try {
 					entry.queryIterators(this, fields, startTime, endTime);
 				} catch (Exception e) {
-					getLogger().log(Level.SEVERE, "Failed to query data points", e);
+					getLogger().log(Level.SEVERE, "Failed to query data points: " + entry, e);
 				}
 			});
 		} else {
@@ -432,7 +434,7 @@ public interface Measurement {
 				try {
 					readers.put(entry.getSeriesId(), entry.queryIterators(this, valueFieldNames, startTime, endTime));
 				} catch (Exception e) {
-					getLogger().log(Level.SEVERE, "Failed to query data points", e);
+					getLogger().log(Level.SEVERE, "Failed to query data points:" + entry.getSeriesId(), e);
 				}
 			});
 		}
@@ -448,20 +450,62 @@ public interface Measurement {
 		List<Tag> seriesTags = decodeStringToTags(rowKey);
 		Series series = getSeriesFromKey(rowKey);
 
-		Map<String, List<DataPoint>> queryDataPoints = series.queryDataPoints(this, valueFieldNames, startTime, endTime,
-				null);
-		for (Entry<String, List<DataPoint>> entry : queryDataPoints.entrySet()) {
-			getLogger().fine(() -> "Reading datapoints for:" + entry.getKey() + " " + entry.getValue());
-			SeriesOutput seriesQueryOutput = new SeriesOutput(getMeasurementName(), entry.getKey(), seriesTags);
-			seriesQueryOutput.setFp(isFieldFp(entry.getKey()));
-			seriesQueryOutput.setDataPoints(entry.getValue());
-			if (function != null) {
-				resultMap.addAll(function.apply(Arrays.asList(seriesQueryOutput)));
-			} else {
-				resultMap.add(seriesQueryOutput);
+		FieldReaderIterator[][] queryTimePairIterators = series.queryTimePairIterators(this, valueFieldNames, null,
+				startTime, endTime);
+		if (queryTimePairIterators == null) {
+			return;
+		}
+		try {
+			for (FieldReaderIterator[] pairIterator : queryTimePairIterators) {
+				// ignore entries that are null
+				if (pairIterator == null) {
+					continue;
+				}
+				List<DataPoint> dpList = new ArrayList<>();
+				// extract all datapoints
+				while (true) {
+					try {
+						long[] extracted = FieldReaderIterator.extracted(pairIterator);
+						dpList.add(new DataPoint(extracted[0], extracted[1]));
+					} catch (FilteredValueException e) {
+						// ignore this
+					} catch (IOException e) {
+						// terminate read loop
+						break;
+					}
+				}
+				// apply function
+				String vfn = pairIterator[1].getFieldName();
+				getLogger().fine(() -> "Reading datapoints for:" + vfn + " " + dpList);
+				SeriesOutput seriesQueryOutput = new SeriesOutput(getMeasurementName(), vfn, seriesTags);
+				seriesQueryOutput.setFp(isFieldFp(vfn));
+				seriesQueryOutput.setDataPoints(dpList);
+				if (function != null) {
+					resultMap.addAll(function.apply(Arrays.asList(seriesQueryOutput)));
+				} else {
+					resultMap.add(seriesQueryOutput);
+				}
 			}
+		} catch (Exception e) {
+			getLogger().severe("Failed to populate data points for: " + rowKey.toString() + " " + valueFieldNames + " "
+					+ Arrays.toString(queryTimePairIterators[0]));
+			throw e;
 		}
 	}
+
+	// for (Entry<String, List<DataPoint>> entry : queryDataPoints.entrySet()) {
+	// getLogger().fine(() -> "Reading datapoints for:" + entry.getKey() + " " +
+	// entry.getValue());
+	// SeriesOutput seriesQueryOutput = new SeriesOutput(getMeasurementName(),
+	// entry.getKey(), seriesTags);
+	// seriesQueryOutput.setFp(isFieldFp(entry.getKey()));
+	// seriesQueryOutput.setDataPoints(entry.getValue());
+	// if (function != null) {
+	// resultMap.addAll(function.apply(Arrays.asList(seriesQueryOutput)));
+	// } else {
+	// resultMap.add(seriesQueryOutput);
+	// }
+	// }
 
 	// public default void queryReaders(String valueFieldName, long startTime, long
 	// endTime,

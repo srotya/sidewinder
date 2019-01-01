@@ -94,13 +94,13 @@ public class GrafanaQueryApi {
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
 	@Consumes({ MediaType.APPLICATION_JSON })
-	public List<Target> query(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String query) throws ParseException {
+	public List<Target> queryData(@PathParam(DatabaseOpsApi.DB_NAME) String dbName, String queryString) throws ParseException {
 		grafanaQueryCounter.mark();
 		Context time = grafanaQueryLatency.time();
 		Gson gson = new GsonBuilder().setPrettyPrinting().create();
 		logger.log(Level.FINE,
-				() -> "Grafana query:" + dbName + "\t" + gson.toJson(gson.fromJson(query, JsonObject.class)));
-		JsonObject json = gson.fromJson(query, JsonObject.class);
+				() -> "Grafana query:" + dbName + "\t" + gson.toJson(gson.fromJson(queryString, JsonObject.class)));
+		JsonObject json = gson.fromJson(queryString, JsonObject.class);
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
 		JsonObject range = json.get("range").getAsJsonObject();
 		long startTs = sdf.parse(range.get("from").getAsString()).getTime();

@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -266,8 +267,8 @@ public class TestSeries {
 			assertEquals(0, queryTuples.get(i)[3]);
 		}
 
-		FieldReaderIterator[] queryTupleReaders = series.queryIterators(measurement, Arrays.asList("f2", "f1"), 0,
-				Long.MAX_VALUE);
+		FieldReaderIterator[] queryTupleReaders = series.queryIterators(measurement,
+				new ArrayList<>(Arrays.asList("f2", "f1")), 0, Long.MAX_VALUE);
 		assertEquals(3, queryTupleReaders.length);
 		for (int i = 0; i < 1000; i++) {
 			assertEquals(ts + i * 1000, queryTupleReaders[2].next());
@@ -295,8 +296,8 @@ public class TestSeries {
 		// check time buckets
 		assertEquals(3, series.getBucketMap().size());
 		// query iterators
-		FieldReaderIterator[] queryIterators = series.queryIterators(measurement, Arrays.asList("f1", "f2"),
-				Long.MAX_VALUE, Long.MIN_VALUE);
+		FieldReaderIterator[] queryIterators = series.queryIterators(measurement,
+				new ArrayList<>(Arrays.asList("f1", "f2")), Long.MAX_VALUE, Long.MIN_VALUE);
 		assertEquals(3, queryIterators.length);
 
 		// must respond even when there is nothing selectable in time range
@@ -326,8 +327,9 @@ public class TestSeries {
 			series.addPoint(dp, measurement);
 		}
 
-		FieldReaderIterator[] queryIterators = series.queryIterators(measurement, Arrays.asList("f1", "f2"),
-				Arrays.asList(new GreaterThanPredicate(100), null), Long.MIN_VALUE, Long.MAX_VALUE);
+		FieldReaderIterator[] queryIterators = series.queryIterators(measurement,
+				new ArrayList<>(Arrays.asList("f1", "f2")), Arrays.asList(new GreaterThanPredicate(100), null),
+				Long.MIN_VALUE, Long.MAX_VALUE);
 		assertEquals(3, queryIterators.length);
 		for (int i = 0; i < 10000; i++) {
 			if (i <= 100) {
