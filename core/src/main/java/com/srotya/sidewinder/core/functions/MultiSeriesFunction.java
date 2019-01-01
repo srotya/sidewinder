@@ -18,6 +18,9 @@ package com.srotya.sidewinder.core.functions;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.SortedMap;
+import java.util.TreeMap;
 
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.DataPoint;
@@ -26,7 +29,11 @@ import com.srotya.sidewinder.core.storage.SeriesOutput;
 /**
  * @author ambud
  */
-public abstract class MultiSeriesFunction implements Function {
+@FunctionName(alias = { "ms", "multiseries" }, description = "Multiseries aggregate function", type = "aggregate")
+public class MultiSeriesFunction implements Function {
+
+	private int timeBucketSeconds;
+	private ReduceFunction aggregator;
 
 	@Override
 	public List<SeriesOutput> apply(List<SeriesOutput> t) {
@@ -34,193 +41,62 @@ public abstract class MultiSeriesFunction implements Function {
 		if (t.size() == 0) {
 			return output;
 		}
+		SortedMap<Long, List<DataPoint>> bucketMap = new TreeMap<>();
 		boolean fp = t.get(0).isFp();
-		List<List<DataPoint>> intermediate = new ArrayList<>();
-		int size = t.get(0).getDataPoints().size();
 		for (int i = 0; i < t.size(); i++) {
 			SeriesOutput ts = t.get(i);
-			if (size != ts.getDataPoints().size()) {
-				throw new IllegalArgumentException("Non-uniform series length");
+			for (DataPoint dataPoint : ts.getDataPoints()) {
+				long key = (dataPoint.getTimestamp() * timeBucketSeconds / 1000) / timeBucketSeconds;
+				List<DataPoint> list = bucketMap.get(key);
+				if (list == null) {
+					list = new ArrayList<>();
+					bucketMap.put(key, list);
+				}
+				list.add(dataPoint);
 			}
-			intermediate.add(ts.getDataPoints());
 		}
-		List<DataPoint> compute = compute(intermediate, fp);
+		List<DataPoint> compute = compute(bucketMap, fp);
 		SeriesOutput series = new SeriesOutput(compute);
 		series.setFp(fp);
 		series.setMeasurementName(t.get(0).getMeasurementName());
-		series.setValueFieldName(name());
+		series.setValueFieldName(t.get(0).getValueFieldName() + "-" + aggregator.getClass().getSimpleName());
 		series.setTags(Arrays.asList(Tag.newBuilder().setTagKey("multiseries").setTagValue("true").build()));
 		output.add(series);
 		return output;
 	}
 
-	public abstract List<DataPoint> compute(List<List<DataPoint>> list, boolean isFp);
-
-	public abstract String name();
+	public List<DataPoint> compute(SortedMap<Long, List<DataPoint>> bucketMap, boolean isFp) {
+		List<DataPoint> dps = new ArrayList<>();
+		for (Entry<Long, List<DataPoint>> entry : bucketMap.entrySet()) {
+			DataPoint output = new DataPoint();
+			aggregator.aggregateToSingle(entry.getValue(), output, isFp);
+			output.setTimestamp(entry.getKey() * 1000);
+			dps.add(output);
+		}
+		return dps;
+	}
 
 	@Override
 	public void init(Object[] args) throws Exception {
+		timeBucketSeconds = (Integer) args[0];
+		String aggregateFunction = (String) args[1];
+		@SuppressWarnings("unchecked")
+		Class<ReduceFunction> lookupFunction = (Class<ReduceFunction>) FunctionTable.get()
+				.lookupFunction(aggregateFunction);
+		if (lookupFunction == null) {
+			throw new IllegalArgumentException("Invalid aggregation function:" + aggregateFunction);
+		}
+		try {
+			ReduceFunction tmp = lookupFunction.newInstance();
+			this.aggregator = (ReduceFunction) tmp;
+		} catch (ClassCastException e) {
+			throw new IllegalArgumentException("Invalid aggregation function:" + aggregateFunction);
+		}
 	}
 
 	@Override
 	public int getNumberOfArgs() {
-		return 0;
-	}
-
-	@FunctionName(alias = "ms-division", description = "Divides first series by the rest of the series", type = "multi-series")
-	public static class Division extends MultiSeriesFunction {
-
-		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFp) {
-			List<DataPoint> output = new ArrayList<>();
-			int size = dps.get(0).size();
-			for (int i = 0; i < size; i++) {
-				if (isFp) {
-					double division = Double.doubleToLongBits(dps.get(0).get(i).getLongValue());
-					for (int j = 1; j < dps.size(); j++) {
-						division /= Double.doubleToLongBits(dps.get(j).get(i).getLongValue());
-					}
-					output.add(new DataPoint(dps.get(0).get(i).getTimestamp(), Double.doubleToLongBits(division)));
-				} else {
-					long division = dps.get(0).get(i).getLongValue();
-					for (int j = 1; j < dps.size(); j++) {
-						division /= dps.get(j).get(i).getLongValue();
-					}
-					output.add(new DataPoint(dps.get(0).get(i).getTimestamp(), division));
-				}
-			}
-			return output;
-		}
-
-		@Override
-		public String name() {
-			return "division";
-		}
-
-	}
-
-	@FunctionName(alias = "ms-multiplication", description = "Multiplies values of all series", type = "multi-series")
-	public static class Multiplication extends MultiSeriesFunction {
-
-		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
-			List<DataPoint> output = new ArrayList<>();
-			int size = dps.get(0).size();
-			for (int i = 0; i < size; i++) {
-				if (isFP) {
-					double multiplication = Double.doubleToLongBits(dps.get(0).get(i).getLongValue());
-					for (int j = 1; j < dps.size(); j++) {
-						multiplication *= Double.doubleToLongBits(dps.get(j).get(i).getLongValue());
-					}
-					output.add(
-							new DataPoint(dps.get(0).get(i).getTimestamp(), Double.doubleToLongBits(multiplication)));
-				} else {
-					long multiplication = dps.get(0).get(i).getLongValue();
-					for (int j = 1; j < dps.size(); j++) {
-						multiplication *= dps.get(j).get(i).getLongValue();
-					}
-					output.add(new DataPoint(dps.get(0).get(i).getTimestamp(), multiplication));
-				}
-			}
-			return output;
-		}
-
-		@Override
-		public String name() {
-			return "multiplication";
-		}
-
-	}
-
-	@FunctionName(alias = "ms-substraction", description = "Adds values of all series", type = "multi-series")
-	public static class Substraction extends MultiSeriesFunction {
-
-		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
-			List<DataPoint> output = new ArrayList<>();
-			int size = dps.get(0).size();
-			for (int i = 0; i < size; i++) {
-				if (isFP) {
-					double substraction = Double.doubleToLongBits(dps.get(0).get(i).getLongValue());
-					for (int j = 1; j < dps.size(); j++) {
-						substraction -= Double.doubleToLongBits(dps.get(j).get(i).getLongValue());
-					}
-					output.add(new DataPoint(dps.get(0).get(i).getTimestamp(), Double.doubleToLongBits(substraction)));
-				} else {
-					long substraction = dps.get(0).get(i).getLongValue();
-					for (int j = 1; j < dps.size(); j++) {
-						substraction -= dps.get(j).get(i).getLongValue();
-					}
-					output.add(new DataPoint(dps.get(0).get(i).getTimestamp(), substraction));
-				}
-			}
-			return output;
-		}
-
-		@Override
-		public String name() {
-			return "substraction";
-		}
-	}
-
-	@FunctionName(alias = "ms-addition", description = "Subtracts first series by the rest of the series", type = "multi-series")
-	public static class Addition extends MultiSeriesFunction {
-
-		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
-			List<DataPoint> output = new ArrayList<>();
-			int size = dps.get(0).size();
-			for (int i = 0; i < size; i++) {
-				if (isFP) {
-					double sum = 0;
-					for (int j = 0; j < dps.size(); j++) {
-						sum += Double.doubleToLongBits(dps.get(j).get(i).getLongValue());
-					}
-					output.add(new DataPoint(dps.get(0).get(i).getTimestamp(), Double.doubleToLongBits(sum)));
-				} else {
-					long sum = 0;
-					for (int j = 0; j < dps.size(); j++) {
-						sum += dps.get(j).get(i).getLongValue();
-					}
-					output.add(new DataPoint(dps.get(0).get(i).getTimestamp(), sum));
-				}
-			}
-			return output;
-		}
-
-		@Override
-		public String name() {
-			return "addition";
-		}
-
-	}
-
-	@FunctionName(alias = "ms-average", description = "Averages all series", type = "multi-series")
-	public static class Average extends MultiSeriesFunction {
-
-		public List<DataPoint> compute(List<List<DataPoint>> dps, boolean isFP) {
-			List<DataPoint> output = new ArrayList<>();
-			int size = dps.get(0).size();
-			for (int i = 0; i < size; i++) {
-				if (isFP) {
-					double avg = 0;
-					for (int j = 0; j < dps.size(); j++) {
-						avg += Double.longBitsToDouble(dps.get(j).get(i).getLongValue());
-					}
-					output.add(
-							new DataPoint(dps.get(0).get(i).getTimestamp(), Double.doubleToLongBits(avg / dps.size())));
-				} else {
-					long avg = 0;
-					for (int j = 0; j < dps.size(); j++) {
-						avg += dps.get(j).get(i).getLongValue();
-					}
-					output.add(new DataPoint(dps.get(0).get(i).getTimestamp(), avg / dps.size()));
-				}
-			}
-			return output;
-		}
-
-		@Override
-		public String name() {
-			return "average";
-		}
-
+		return 2;
 	}
 
 }
