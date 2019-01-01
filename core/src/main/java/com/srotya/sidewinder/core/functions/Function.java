@@ -23,6 +23,6 @@ public interface Function extends java.util.function.Function<List<SeriesOutput>
 
 	public void init(Object[] args) throws Exception;
 	
-	public int getNumberOfArgs(); 
+	public int getNumberOfArgs();
 	
 }

@@ -30,7 +30,7 @@ public class ChainFunction implements Function {
 	@Override
 	public List<SeriesOutput> apply(List<SeriesOutput> t) {
 		List<SeriesOutput> output = t;
-		for(Function f:chain) {
+		for (Function f : chain) {
 			output = f.apply(output);
 		}
 		return output;

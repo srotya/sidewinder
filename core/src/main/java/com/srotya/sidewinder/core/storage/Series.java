@@ -243,7 +243,7 @@ public class Series {
 
 	/**
 	 * Return an array of 2 element iterators one for the valueField (index 1) and
-	 * another for the timefield (index 0) e.g. 0: vfn1 -> ts, vfn1 1: vfn2 -> ts,
+	 * another for the timefield (index 0) e.g. 0: vfn1 to ts, vfn1 1: vfn2 to ts,
 	 * vfn2
 	 * 
 	 * @param measurement
@@ -266,7 +266,8 @@ public class Series {
 		SortedMap<Integer, Map<String, Field>> correctTimeRangeScan = correctTimeRangeScan(startTime, endTime,
 				measurement.getTimeBucketSize());
 		BetweenPredicate timeRangePredicate = new BetweenPredicate(startTime, endTime);
-		for (Map<String, Field> map : correctTimeRangeScan.values()) {
+		for (Entry<Integer, Map<String, Field>> entry : correctTimeRangeScan.entrySet()) {
+			Map<String, Field> map = entry.getValue();
 			Field timeField = map.get(TS);
 			for (int i = 0; i < valueFieldBucketNames.size(); i++) {
 				String vfn = valueFieldBucketNames.get(i);

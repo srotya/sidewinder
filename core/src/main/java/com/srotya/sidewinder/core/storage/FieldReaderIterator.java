@@ -26,7 +26,7 @@ public class FieldReaderIterator {
 	private int idx;
 	private List<Reader> readers;
 	private String fieldName;
-	
+
 	public FieldReaderIterator() {
 		readers = new ArrayList<>();
 	}
@@ -100,6 +100,19 @@ public class FieldReaderIterator {
 		return tuple;
 	}
 
+	public static void printAllPoints(FieldReaderIterator itr) {
+		int cnt = 0;
+		while (true) {
+			try {
+				System.out.print(itr.next() + ", ");
+				cnt++;
+			} catch (IOException e) {
+				break;
+			}
+		}
+		System.out.println("\nRead:" + cnt);
+	}
+
 	public int count() {
 		return readers.stream().mapToInt(r -> r.getCount()).sum();
 	}
@@ -107,12 +120,14 @@ public class FieldReaderIterator {
 	public String getFieldName() {
 		return fieldName;
 	}
-	
+
 	public void setFieldName(String fieldName) {
 		this.fieldName = fieldName;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
