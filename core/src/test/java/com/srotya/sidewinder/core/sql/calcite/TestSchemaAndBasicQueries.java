@@ -63,7 +63,7 @@ public class TestSchemaAndBasicQueries {
 		engine.configure(new HashMap<>(), null);
 		long ts = System.currentTimeMillis();
 		for (int i = 0; i < 10000; i++) {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint("db12", "m12", "v1",
 							Arrays.asList(Tag.newBuilder().setTagKey("k1").setTagValue("v1").build()), ts + i * 100, i),
 					true);
@@ -99,7 +99,7 @@ public class TestSchemaAndBasicQueries {
 		engine.configure(new HashMap<>(), null);
 		long ts = System.currentTimeMillis();
 		for (int i = 0; i < 10000; i++) {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint("db12", "m12", "v1",
 							Arrays.asList(Tag.newBuilder().setTagKey("k1").setTagValue("v1").build()), ts + i * 100, i),
 					true);
@@ -146,7 +146,7 @@ public class TestSchemaAndBasicQueries {
 		engine.configure(new HashMap<>(), null);
 		long ts = System.currentTimeMillis();
 		for (int i = 0; i < 100; i++) {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint("db12", "m12", "v1",
 							Arrays.asList(Tag.newBuilder().setTagKey("k1").setTagValue("v1").build()), ts + i * 100, i),
 					true);

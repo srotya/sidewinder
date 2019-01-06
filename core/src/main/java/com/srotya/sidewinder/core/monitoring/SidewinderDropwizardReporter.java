@@ -64,7 +64,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 				builder.addValueFieldName(entry.getKey()).addFp(false).addValue(entry.getValue().getCount());
 			}
 			try {
-				engine.writeDataPointLocked(builder.build(), true);
+				engine.writeDataPointWithLock(builder.build(), true);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -78,7 +78,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 				builder.addValueFieldName(entry.getKey()).addFp(false).addValue(entry.getValue().getCount());
 			}
 			try {
-				engine.writeDataPointLocked(builder.build(), true);
+				engine.writeDataPointWithLock(builder.build(), true);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -92,7 +92,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 				builder.addValueFieldName(entry.getKey()).addFp(false).addValue(entry.getValue().getCount());
 			}
 			try {
-				engine.writeDataPointLocked(builder.build(), true);
+				engine.writeDataPointWithLock(builder.build(), true);
 			} catch (Exception e) {
 				e.printStackTrace();
 			}

@@ -79,7 +79,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			if (disruptorEnable) {
 				buffer.publishEvent(translator, point, request.getMessageId(), null);
 			} else {
-				engine.writeDataPointLocked(point, true);
+				engine.writeDataPointWithLock(point, true);
 			}
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
 		} catch (Exception e) {
@@ -99,7 +99,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 				if (disruptorEnable) {
 					buffer.publishEvent(translator, point, request.getMessageId(), null);
 				} else {
-					engine.writeDataPointLocked(point, true);
+					engine.writeDataPointWithLock(point, true);
 				}
 			}
 			ack = Ack.newBuilder().setMessageId(request.getMessageId()).setResponseCode(200).build();
@@ -257,7 +257,7 @@ public class WriterServiceImpl extends WriterServiceImplBase {
 			if (event.getHashValue() % handlerCount == handlerIndex) {
 				Ack ack = null;
 				try {
-					engine.writeDataPointUnlocked(event.getDp(), true);
+					engine.writeDataPointWithoutLock(event.getDp(), true);
 					ack = Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(200).build();
 				} catch (IOException e) {
 					ack = Ack.newBuilder().setMessageId(event.getMessageId()).setResponseCode(400).build();

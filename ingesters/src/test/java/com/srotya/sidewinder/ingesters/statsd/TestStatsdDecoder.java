@@ -46,7 +46,7 @@ public class TestStatsdDecoder {
 		EmbeddedChannel ch = new EmbeddedChannel(new StringDecoder(), new StatdsDecoder("test", engine, null));
 		ch.writeInbound(Unpooled.copiedBuffer("http.server_ngnix.latency:1121|ms", Charset.defaultCharset()));
 		ch.readInbound();
-		verify(engine, times(1)).writeDataPointLocked(any(Point.class), anyBoolean());
+		verify(engine, times(1)).writeDataPointWithLock(any(Point.class), anyBoolean());
 		// MiscUtils.buildDataPoint("test", "http", "latency", tags,
 		// System.currentTimeMillis(), 1121), false);
 		ch.close();

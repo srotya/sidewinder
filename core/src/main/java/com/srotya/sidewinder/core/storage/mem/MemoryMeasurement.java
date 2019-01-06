@@ -111,7 +111,7 @@ public class MemoryMeasurement implements Measurement {
 	}
 
 	@Override
-	public void loadTimeseriesFromMeasurements() throws IOException {
+	public void loadTimeseriesInMeasurements() throws IOException {
 	}
 
 	@Override

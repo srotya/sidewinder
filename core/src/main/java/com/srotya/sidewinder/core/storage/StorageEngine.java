@@ -33,7 +33,8 @@ import java.util.regex.Pattern;
 
 import com.codahale.metrics.Counter;
 import com.srotya.sidewinder.core.filters.TagFilter;
-import com.srotya.sidewinder.core.functions.Function;
+import com.srotya.sidewinder.core.functions.iterative.FunctionIteratorFactory;
+import com.srotya.sidewinder.core.functions.list.Function;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
@@ -103,17 +104,17 @@ public interface StorageEngine {
 	 */
 	public void shutdown() throws IOException;
 
-	public default void writeDataPointLocked(Point dp, boolean preSorted) throws IOException {
+	public default void writeDataPointWithLock(Point dp, boolean preSorted) throws IOException {
 		StorageEngine.validatePoint(dp);
 		Measurement m = getOrCreateMeasurement(dp.getDbName(), dp.getMeasurementName());
-		m.addPointLocked(dp, preSorted);
+		m.addPointWithLocking(dp, preSorted);
 		getCounter().inc(dp.getValueList().size());
 	}
 
-	public default void writeDataPointUnlocked(Point dp, boolean preSorted) throws IOException {
+	public default void writeDataPointWithoutLock(Point dp, boolean preSorted) throws IOException {
 		StorageEngine.validatePoint(dp);
 		Measurement m = getOrCreateMeasurement(dp.getDbName(), dp.getMeasurementName());
-		m.addPointUnlocked(dp, preSorted);
+		m.addPointWithoutLocking(dp, preSorted);
 		getCounter().inc(dp.getValueList().size());
 	}
 
@@ -151,6 +152,23 @@ public interface StorageEngine {
 		return resultList;
 	}
 
+	public default List<SeriesOutputv2> queryDataPointsv2(String dbName, String measurementPattern,
+			String valueFieldPattern, long startTime, long endTime, TagFilter tagFilter, Predicate valuePredicate,
+			FunctionIteratorFactory functionTemplate) throws IOException {
+		if (!checkIfExists(dbName)) {
+			throw NOT_FOUND_EXCEPTION;
+		}
+		Set<String> measurementsLike = getMeasurementsLike(dbName, measurementPattern);
+		List<SeriesOutputv2> resultList = Collections.synchronizedList(new ArrayList<>());
+		getLogger().finer(() -> "Querying points for:" + measurementsLike + " " + measurementPattern);
+		for (String measurement : measurementsLike) {
+			Measurement measurementObj = getDatabaseMap().get(dbName).get(measurement);
+			measurementObj.queryDataPointsv2(valueFieldPattern, startTime, endTime, tagFilter, valuePredicate,
+					resultList, functionTemplate);
+		}
+		return resultList;
+	}
+
 	public default List<SeriesOutput> queryDataPoints(String dbName, String measurementPattern,
 			String valueFieldPattern, long startTime, long endTime, TagFilter tagFilter, Predicate valuePredicate)
 			throws IOException {
@@ -164,7 +182,7 @@ public interface StorageEngine {
 				null);
 	}
 
-	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
+	public default Map<ByteString, FieldReaderIterator[]> queryIterators(String dbName, String measurementName,
 			List<String> valueFieldNames, List<Predicate> valuePredicate, boolean regex, long startTime, long endTime,
 			TagFilter tagFilter) throws IOException {
 		ConcurrentHashMap<ByteString, FieldReaderIterator[]> map = new ConcurrentHashMap<>();
@@ -175,15 +193,15 @@ public interface StorageEngine {
 		return map;
 	}
 
-	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
+	public default Map<ByteString, FieldReaderIterator[]> queryIterators(String dbName, String measurementName,
 			List<String> valueFieldNames, boolean regex, long startTime, long endTime, TagFilter tagFilter)
 			throws IOException {
-		return queryReaders(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, tagFilter);
+		return queryIterators(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, tagFilter);
 	}
 
 	public default Map<ByteString, FieldReaderIterator[]> queryReaders(String dbName, String measurementName,
 			List<String> valueFieldNames, boolean regex, long startTime, long endTime) throws IOException {
-		return queryReaders(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, null);
+		return queryIterators(dbName, measurementName, valueFieldNames, null, regex, startTime, endTime, null);
 	}
 
 	/**

@@ -118,7 +118,7 @@ public class QADataIntegrity {
 						.addTags(Tag.newBuilder().setTagKey("host").setTagValue(String.valueOf(l)).build()).addFp(false)
 						.addValueFieldName("user").addValue(Double.doubleToLongBits(21.2 * i))
 						.setTimestamp(ts + i * 1000).build();
-				engine.writeDataPointLocked(dp, false);
+				engine.writeDataPointWithLock(dp, false);
 			}
 		}
 
@@ -176,7 +176,7 @@ public class QADataIntegrity {
 									.addTags(Tag.newBuilder().setTagKey("host").setTagValue(String.valueOf(l)).build())
 									.addFp(false).addValueFieldName("user").addValue(2112).setTimestamp(tso + i * 1000)
 									.build();
-							engine.writeDataPointLocked(dp, false);
+							engine.writeDataPointWithLock(dp, false);
 						}
 					}
 				} catch (Exception e) {

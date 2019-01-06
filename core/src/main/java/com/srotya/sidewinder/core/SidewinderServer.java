@@ -38,9 +38,10 @@ import org.apache.calcite.avatica.server.HttpServer;
 import com.srotya.sidewinder.core.api.DatabaseOpsApi;
 import com.srotya.sidewinder.core.api.InfluxApi;
 import com.srotya.sidewinder.core.api.MeasurementOpsApi;
-import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApi;
+import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApiv1;
+import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApiv2;
 import com.srotya.sidewinder.core.external.Ingester;
-import com.srotya.sidewinder.core.functions.FunctionTable;
+import com.srotya.sidewinder.core.functions.list.FunctionTable;
 import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
 import com.srotya.sidewinder.core.monitoring.RestAPIHealthCheck;
 import com.srotya.sidewinder.core.rpc.GRPCServer;
@@ -173,7 +174,8 @@ public class SidewinderServer extends Application<SidewinderConfig> {
 
 	private void registerWebAPIs(Environment env, Map<String, String> conf, ScheduledExecutorService bgTasks)
 			throws SQLException, ClassNotFoundException {
-		env.jersey().register(new GrafanaQueryApi(storageEngine));
+		env.jersey().register(new GrafanaQueryApiv1(storageEngine));
+		env.jersey().register(new GrafanaQueryApiv2(storageEngine));
 		env.jersey().register(new MeasurementOpsApi(storageEngine));
 		env.jersey().register(new DatabaseOpsApi(storageEngine));
 		// env.jersey().register(new SqlApi(storageEngine));

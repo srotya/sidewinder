@@ -100,6 +100,36 @@ public class TimeUtils {
 		return ts;
 	}
 
+	public static int timeToMilliSeconds(TimeUnit unit, long time) {
+		int ts;
+		switch (unit) {
+		case NANOSECONDS:
+			ts = (int) (time / (1000 * 1000));
+			break;
+		case MICROSECONDS:
+			ts = (int) (time / (1000));
+			break;
+		case MILLISECONDS:
+			ts = (int) (time / 1000);
+			break;
+		case SECONDS:
+			ts = (int) time * 1000;
+			break;
+		case MINUTES:
+			ts = (int) (time * 1000 * 60);
+			break;
+		case HOURS:
+			ts = (int) (time * 1000 * 3600);
+			break;
+		case DAYS:
+			ts = (int) (time * 1000 * 3600 * 24);
+			break;
+		default:
+			throw ARGUMENT_EXCEPTION;
+		}
+		return ts;
+	}
+
 	/**
 	 * @param unit
 	 * @param time

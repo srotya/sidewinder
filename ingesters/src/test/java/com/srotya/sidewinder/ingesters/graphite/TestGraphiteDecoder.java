@@ -54,7 +54,7 @@ public class TestGraphiteDecoder {
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("app").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("server").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("s").setTagValue("jvm").build());
-		verify(engine, times(1)).writeDataPointLocked(
+		verify(engine, times(1)).writeDataPointWithLock(
 				MiscUtils.buildDataPoint("test", "heap", "max", tags, ((long) 1497720452) * 1000, 233123), false);
 		ch.close();
 	}
@@ -65,7 +65,7 @@ public class TestGraphiteDecoder {
 				Tag.newBuilder().setTagKey("server").setTagValue("1").build(),
 				Tag.newBuilder().setTagKey("s").setTagValue("jvm").build());
 		GraphiteDecoder.parseAndInsertDataPoints("test", "app=1.server=1.s=jvm.heap.max 233123 1497720452", engine);
-		verify(engine, times(1)).writeDataPointLocked(
+		verify(engine, times(1)).writeDataPointWithLock(
 				MiscUtils.buildDataPoint("test", "heap", "max", tags, ((long) 1497720452) * 1000, 233123), false);
 	}
 
@@ -80,12 +80,12 @@ public class TestGraphiteDecoder {
 		GraphiteDecoder.parseAndInsertDataPoints("test",
 				"app1.server1.jvm.heap.max233123 1497720452\n" + "app=1.server=2.s=jvm.heap.max 2331231497720452",
 				engine);
-		verify(engine, times(0)).writeDataPointLocked(
+		verify(engine, times(0)).writeDataPointWithLock(
 				MiscUtils.buildDataPoint("test", "heap", "max", tags, ((long) 1497720452) * 1000, 233123), false);
 
 		tags = Arrays.asList(Tag.newBuilder().setTagKey("server").setTagValue("2").build());
 		GraphiteDecoder.parseAndInsertDataPoints("test", "app=1.server=1.heap 233123 1497720452", engine);
-		verify(engine, times(0)).writeDataPointLocked(
+		verify(engine, times(0)).writeDataPointWithLock(
 				MiscUtils.buildDataPoint("test", "heap", "max", tags, ((long) 1497720452) * 1000, 233123), false);
 	}
 }
