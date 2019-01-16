@@ -42,7 +42,7 @@ if [ "master" == "$TRAVIS_BRANCH" ]; then
     git checkout master || git checkout -b master
     git reset --hard origin/master
 
-    mvn -T2 -B -DskipTests -Darguments=-Dgpg.passphrase=$passphrase release:clean release:prepare release:perform --settings settings.xml
+    mvn -B -DskipTests -Darguments=-Dgpg.passphrase=$passphrase release:clean release:prepare release:perform --settings settings.xml
 
 	# Trigger Docker Build
 	# TAG=$(git describe --abbrev=0 --tags)
