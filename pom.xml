@@ -8,7 +8,7 @@
   </parent>
   <groupId>com.srotya.sidewinder</groupId>
   <artifactId>sidewinder-parent</artifactId>
-  <version>0.2.11-SNAPSHOT</version>
+  <version>0.2.11</version>
   <packaging>pom</packaging>
   <name>sidewinder</name>
   <description>A timeseries database</description>
@@ -192,6 +192,6 @@
     <connection>scm:git:git@github.com:srotya/sidewinder.git</connection>
     <developerConnection>scm:git:git@github.com:srotya/sidewinder.git</developerConnection>
     <url>https://github.com/srotya/sidewinder.git</url>
-    <tag>HEAD</tag>
+    <tag>0.2.11</tag>
   </scm>
 </project>
