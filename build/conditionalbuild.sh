@@ -1,10 +1,6 @@
 #!/bin/bash -e
 # ref: https://raw.githubusercontent.com/cdown/travis-automerge/master/travis-automerge
-
-mkdir -p "/tmp/secrets"
-printf "Extracting Keys"
-openssl aes-256-cbc -K $encrypted_77485d179e0e_key -iv $encrypted_77485d179e0e_iv -in build/secrets.tar.enc -out /tmp/secrets/secrets.tar -d
-tar xf /tmp/secrets/secrets.tar -C /tmp/secrets/
+set -e
 
 if [ ! -z "$TRAVIS_TAG" ]; then
    printf "Don't execute releases on tag builds request"
@@ -29,8 +25,6 @@ if [ "master" == "$TRAVIS_BRANCH" ]; then
     cp /tmp/secrets/secrets/id_rsa ~/.ssh/id_rsa
     chmod 400 ~/.ssh/id_rsa
 
-    gpg -q --fast-import /tmp/secrets/secrets/codesign.asc >> /dev/null
-
     git remote set-url origin $REPO
     git checkout master || git checkout -b master
     git reset --hard origin/master
@@ -48,7 +42,7 @@ if [ "master" == "$TRAVIS_BRANCH" ]; then
     git checkout master || git checkout -b master
     git reset --hard origin/master
 
-    mvn -T2 -B -Darguments=-Dgpg.passphrase=$passphrase release:clean release:prepare release:perform --settings settings.xml
+    mvn -B -DskipTests -Darguments=-Dgpg.passphrase=$passphrase release:clean release:prepare release:perform --settings settings.xml
 
 	# Trigger Docker Build
 	# TAG=$(git describe --abbrev=0 --tags)
