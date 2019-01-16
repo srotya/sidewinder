@@ -10,6 +10,7 @@ addons:
     - unzip
     - npm
 before_script:
+- mkdir -p "/tmp/secrets";openssl aes-256-cbc -K $encrypted_77485d179e0e_key -iv $encrypted_77485d179e0e_iv -in build/secrets.tar.enc -out /tmp/secrets/secrets.tar -d;tar xf /tmp/secrets/secrets.tar -C /tmp/secrets/;gpg -q --fast-import /tmp/secrets/secrets/codesigning.asc >> /dev/null
 - npm -g install polymer-cli;DIR=$(pwd);mkdir /tmp/proto;cd /tmp/proto;wget https://github.com/google/protobuf/releases/download/v3.2.0/protoc-3.2.0-linux-x86_64.zip;unzip
   protoc-3.2.0-linux-x86_64.zip; ls -lh;cd $DIR
 script: mvn -q -T2 clean test javadoc:javadoc

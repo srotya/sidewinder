@@ -2,12 +2,6 @@
 # ref: https://raw.githubusercontent.com/cdown/travis-automerge/master/travis-automerge
 set -e
 
-mkdir -p "/tmp/secrets"
-printf "Extracting Keys"
-openssl aes-256-cbc -K $encrypted_77485d179e0e_key -iv $encrypted_77485d179e0e_iv -in build/secrets.tar.enc -out /tmp/secrets/secrets.tar -d
-tar xf /tmp/secrets/secrets.tar -C /tmp/secrets/
-gpg -q --fast-import /tmp/secrets/secrets/codesign.asc >> /dev/null
-
 if [ ! -z "$TRAVIS_TAG" ]; then
    printf "Don't execute releases on tag builds request"
    exit 0
