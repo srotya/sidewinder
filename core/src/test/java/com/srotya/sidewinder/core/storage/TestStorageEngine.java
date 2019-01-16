@@ -180,7 +180,7 @@ public class TestStorageEngine {
 				for (int i = 0; i < 100; i++) {
 					Point dp = MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tagd, t + i * 1000, i);
 					try {
-						engine.writeDataPointLocked(dp, false);
+						engine.writeDataPointWithLock(dp, false);
 					} catch (Exception e) {
 						e.printStackTrace();
 						throw new RuntimeException(e);
@@ -218,7 +218,7 @@ public class TestStorageEngine {
 		}
 		try {
 			for (int i = 0; i < 10; i++) {
-				engine.writeDataPointLocked(
+				engine.writeDataPointWithLock(
 						MiscUtils.buildDataPoint("test", "ss", "value", tagd, ts + (i * 4096 * 1000), 2.2), false);
 			}
 		} catch (Exception e) {
@@ -234,7 +234,7 @@ public class TestStorageEngine {
 	public void testConfigure() throws IOException {
 		List<Tag> tagd = Arrays.asList(Tag.newBuilder().setTagKey("t").setTagValue("e").build());
 		try {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint("test", "ss", "value", tagd, System.currentTimeMillis(), 2.2), false);
 			fail("Engine not initialized, shouldn't be able to write a datapoint");
 		} catch (Exception e) {
@@ -252,7 +252,7 @@ public class TestStorageEngine {
 			fail("No IOException should be thrown");
 		}
 		try {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint("test", "ss", "value", tagd, System.currentTimeMillis(), 2.2), false);
 			String md = new String(Files.readAllBytes(new File("target/db2/data/test/.md").toPath()),
 					Charset.forName("utf8"));
@@ -277,8 +277,8 @@ public class TestStorageEngine {
 		long ts = System.currentTimeMillis();
 		Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24, map);
 		assertEquals(0, db.size());
-		engine.writeDataPointLocked(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts, 1), false);
-		engine.writeDataPointLocked(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts + (400 * 60000), 4),
+		engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts, 1), false);
+		engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts + (400 * 60000), 4),
 				false);
 		assertEquals(1, engine.getOrCreateMeasurement("test3", "cpu").getSeriesKeys().size());
 		List<SeriesOutput> queryDataPoints = null;
@@ -326,7 +326,7 @@ public class TestStorageEngine {
 		long ts = base;
 		List<Tag> tagd = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("1").build());
 		for (int i = 320; i >= 0; i--) {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint("test", "cpu2", "value", tagd, base - (3600_000 * i), 2L), false);
 		}
 		engine.getMeasurementMap().get("test").get("cpu2").collectGarbage(null);
@@ -340,11 +340,11 @@ public class TestStorageEngine {
 	public void testGetMeasurementsLike() throws Exception {
 		List<Tag> tagd = Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("e").build());
 		engine.configure(conf, bgTasks);
-		engine.writeDataPointLocked(
+		engine.writeDataPointWithLock(
 				MiscUtils.buildDataPoint("test", "cpu", "value", tagd, System.currentTimeMillis(), 2L), false);
-		engine.writeDataPointLocked(
+		engine.writeDataPointWithLock(
 				MiscUtils.buildDataPoint("test", "mem", "value", tagd, System.currentTimeMillis() + 10, 3L), false);
-		engine.writeDataPointLocked(
+		engine.writeDataPointWithLock(
 				MiscUtils.buildDataPoint("test", "netm", "value", tagd, System.currentTimeMillis() + 20, 5L), false);
 		Set<String> result = engine.getMeasurementsLike("test", " ");
 		assertEquals(3, result.size());
@@ -390,7 +390,7 @@ public class TestStorageEngine {
 		System.out.println("Base timestamp=" + new Date(ts));
 
 		for (int i = 0; i < 100; i++) {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, "value", tagd, ts + (i * 60000), 2.2), false);
 		}
 		long endTs = ts + 99 * 60000;
@@ -466,7 +466,7 @@ public class TestStorageEngine {
 				long ts = System.currentTimeMillis();
 				for (int i = 0; i < 1000; i++) {
 					try {
-						engine.writeDataPointLocked(
+						engine.writeDataPointWithLock(
 								MiscUtils.buildDataPoint("test", "helo" + p, "value", tagd, ts + i * 60, ts + i),
 								false);
 					} catch (IOException e) {
@@ -494,14 +494,14 @@ public class TestStorageEngine {
 		String measurementName = "cpu";
 		String valueFieldName = "value";
 		try {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, null, curr, 2.2 * 0), false);
 			fail("Must reject the above datapoint due to missing tags");
 		} catch (Exception e) {
 		}
 		List<Tag> tagd = Arrays.asList(Tag.newBuilder().setTagKey(dbName).setTagValue("1").build());
 		for (int i = 1; i <= 3; i++) {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tagd, curr + i, 2.2 * i), false);
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
@@ -542,14 +542,14 @@ public class TestStorageEngine {
 		for (int i = 1; i <= 3; i++) {
 			List<Tag> tagd = Arrays.asList(Tag.newBuilder().setTagKey("p").setTagValue(String.valueOf(i)).build(),
 					Tag.newBuilder().setTagKey("k").setTagValue(String.valueOf(i + 7)).build());
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tagd, curr, 2 * i), false);
 		}
 
 		for (int i = 1; i <= 3; i++) {
 			List<Tag> tagd = Arrays.asList(Tag.newBuilder().setTagKey("p").setTagValue(String.valueOf(i)).build(),
 					Tag.newBuilder().setTagKey("k").setTagValue(String.valueOf(i + 12)).build());
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName + "2", tagd, curr, 2 * i), false);
 		}
 		Set<String> tags = engine.getTagKeysForMeasurement(dbName, measurementName);
@@ -585,7 +585,7 @@ public class TestStorageEngine {
 		for (int i = 1; i <= 3; i++) {
 			List<Tag> tagd = Arrays.asList(Tag.newBuilder().setTagKey(tag).setTagValue(String.valueOf(i)).build(),
 					Tag.newBuilder().setTagKey(tag).setTagValue(String.valueOf(i + 1)).build());
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tagd, curr + i, 2 * i), false);
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
@@ -666,13 +666,13 @@ public class TestStorageEngine {
 		String measurementName = "cpu";
 		String valueFieldName = "value";
 		try {
-			engine.writeDataPointLocked(build(dbName, measurementName, valueFieldName, null, curr, 2 * 0), false);
+			engine.writeDataPointWithLock(build(dbName, measurementName, valueFieldName, null, curr, 2 * 0), false);
 			fail("Must reject the above datapoint due to missing tags");
 		} catch (Exception e) {
 		}
 		Tag tag = Tag.newBuilder().setTagKey("host").setTagValue("123123").build();
 		for (int i = 1; i <= 3; i++) {
-			engine.writeDataPointLocked(MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName,
+			engine.writeDataPointWithLock(MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName,
 					Arrays.asList(tag), curr + i, 2 * i), false);
 		}
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
@@ -736,7 +736,7 @@ public class TestStorageEngine {
 		String valueFieldName = "value";
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("host").setTagValue("123123").build());
 		for (int i = 1; i <= 10000; i++) {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, Arrays.asList(valueFieldName), tags,
 							curr + i * 1000, Arrays.asList(Double.doubleToLongBits(i * 1.1)), Arrays.asList(true)),
 					false);
@@ -791,7 +791,7 @@ public class TestStorageEngine {
 		String valueFieldName = "value";
 		List<Tag> tags = Arrays.asList(Tag.newBuilder().setTagKey("host").setTagValue("123123").build());
 		for (int i = 1; i <= 10000; i++) {
-			engine.writeDataPointLocked(
+			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, Arrays.asList(valueFieldName), tags,
 							curr + i * 1000, Arrays.asList(Double.doubleToLongBits(i * 1.1)), Arrays.asList(true)),
 					false);
@@ -858,17 +858,17 @@ public class TestStorageEngine {
 		Point dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr)
 				.addValueFieldName("user").addValue(20).addFp(false).addValueFieldName("system").addValue(11)
 				.addFp(false).addTags(Tag.newBuilder().setTagKey("host").setTagValue("test1.xyz.com").build()).build();
-		engine.writeDataPointLocked(dp, true);
+		engine.writeDataPointWithLock(dp, true);
 
 		dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr).addValueFieldName("user")
 				.addValue(24).addFp(false).addValueFieldName("system").addValue(12).addFp(false)
 				.addTags(Tag.newBuilder().setTagKey("host").setTagValue("test2.xyz.com").build()).build();
-		engine.writeDataPointLocked(dp, true);
+		engine.writeDataPointWithLock(dp, true);
 
 		dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr).addValueFieldName("user")
 				.addValue(21).addFp(false).addValueFieldName("system").addValue(10).addFp(false)
 				.addTags(Tag.newBuilder().setTagKey("host").setTagValue("test3.xyz.com").build()).build();
-		engine.writeDataPointLocked(dp, true);
+		engine.writeDataPointWithLock(dp, true);
 
 		TagFilter filter = MiscUtils.buildTagFilter("host=test1.xyz.com");
 		List<SeriesOutput> series = engine.queryDataPoints("db1", "cpu", "system", curr - 1, curr + 10, filter);
@@ -889,17 +889,17 @@ public class TestStorageEngine {
 		dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr + 1000)
 				.addValueFieldName("user").addValue(20).addFp(false).addValueFieldName("system").addValue(11)
 				.addFp(false).addTags(Tag.newBuilder().setTagKey("host").setTagValue("test1.xyz.com").build()).build();
-		engine.writeDataPointLocked(dp, true);
+		engine.writeDataPointWithLock(dp, true);
 
 		dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr + 1000)
 				.addValueFieldName("user").addValue(24).addFp(false).addValueFieldName("system").addValue(12)
 				.addFp(false).addTags(Tag.newBuilder().setTagKey("host").setTagValue("test2.xyz.com").build()).build();
-		engine.writeDataPointLocked(dp, true);
+		engine.writeDataPointWithLock(dp, true);
 
 		dp = Point.newBuilder().setDbName("db1").setMeasurementName("cpu").setTimestamp(curr + 1000)
 				.addValueFieldName("user").addValue(21).addFp(false).addValueFieldName("system").addValue(10)
 				.addFp(false).addTags(Tag.newBuilder().setTagKey("host").setTagValue("test3.xyz.com").build()).build();
-		engine.writeDataPointLocked(dp, true);
+		engine.writeDataPointWithLock(dp, true);
 
 		series = engine.queryDataPoints("db1", "cpu", ".*", curr, curr + 10, filter);
 		assertEquals(2, series.size());

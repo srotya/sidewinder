@@ -61,7 +61,7 @@ public class TestMiscUtils {
 	}
 
 	@Test
-	public void testExtractTargetFromQuery() {
+	public void testExtractTargetFromQuery() throws Exception {
 		TargetSeries series = MiscUtils.extractTargetFromQuery("cpu.value.tes=2|tes=3");
 		assertEquals("cpu", series.getMeasurementName());
 		assertEquals("value", series.getFieldName());

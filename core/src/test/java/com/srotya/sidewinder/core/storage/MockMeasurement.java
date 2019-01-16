@@ -72,7 +72,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public void loadTimeseriesFromMeasurements() throws IOException {
+	public void loadTimeseriesInMeasurements() throws IOException {
 	}
 
 	@Override
@@ -125,7 +125,7 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public Series getSeriesFromKey(ByteString key) {
+	public Series getSeriesUsingKey(ByteString key) {
 		return null;
 	}
 

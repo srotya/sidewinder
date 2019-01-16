@@ -16,7 +16,6 @@
 package com.srotya.sidewinder.core.analytics;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.BitSet;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -36,6 +35,7 @@ public class Nd4jTest {
 		// }
 	}
 
+	@SuppressWarnings("unused")
 	private static void extracted() {
 		ByteBuffer allocate = ByteBuffer.allocate(1024);
 		BitSet set = BitSet.valueOf(allocate);

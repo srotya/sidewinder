@@ -42,7 +42,8 @@ import java.util.stream.Stream;
 
 import com.codahale.metrics.Counter;
 import com.srotya.sidewinder.core.filters.TagFilter;
-import com.srotya.sidewinder.core.functions.Function;
+import com.srotya.sidewinder.core.functions.iterative.FunctionIteratorFactory;
+import com.srotya.sidewinder.core.functions.list.Function;
 import com.srotya.sidewinder.core.predicates.Predicate;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
@@ -73,7 +74,7 @@ public interface Measurement {
 
 	public Set<ByteString> getSeriesKeys();
 
-	public default Series getSeriesFromKey(ByteString key) {
+	public default Series getSeriesUsingKey(ByteString key) {
 		Integer index = getSeriesMap().get(key);
 		if (index == null) {
 			return null;
@@ -84,7 +85,7 @@ public interface Measurement {
 
 	public TagIndex getTagIndex();
 
-	public void loadTimeseriesFromMeasurements() throws IOException;
+	public void loadTimeseriesInMeasurements() throws IOException;
 
 	public void close() throws IOException;
 
@@ -94,11 +95,11 @@ public interface Measurement {
 		}
 		ByteString seriesId = constructSeriesId(tags);
 		int index = 0;
-		Series series = getSeriesFromKey(seriesId);
+		Series series = getSeriesUsingKey(seriesId);
 		if (series == null) {
 			getLock().lock();
 			try {
-				if ((series = getSeriesFromKey(seriesId)) == null) {
+				if ((series = getSeriesUsingKey(seriesId)) == null) {
 					index = getSeriesList().size();
 					Measurement.indexRowKey(getTagIndex(), index, tags);
 					series = new Series(seriesId, index);
@@ -157,10 +158,10 @@ public interface Measurement {
 		return new ByteString(rowKey);
 	}
 
-	public static void serializeTagForKey(StringBuilder builder, Tag tag) {
-		builder.append(tag.getTagKey());
-		builder.append(TAG_KV_SEPARATOR);
-		builder.append(tag.getTagValue());
+	public static void serializeTagForKey(StringBuilder output, Tag tag) {
+		output.append(tag.getTagKey());
+		output.append(TAG_KV_SEPARATOR);
+		output.append(tag.getTagValue());
 	}
 
 	public default ByteString constructSeriesId(List<Tag> tags) throws IOException {
@@ -198,12 +199,12 @@ public interface Measurement {
 		return getTagIndex().searchRowKeysForTagFilter(tagFilterTree);
 	}
 
-	public default void addPointLocked(Point dp, boolean preSorted) throws IOException {
+	public default void addPointWithLocking(Point dp, boolean preSorted) throws IOException {
 		Series fieldMap = getOrCreateSeries(new ArrayList<>(dp.getTagsList()), preSorted);
 		fieldMap.addPoint(dp, this);
 	}
 
-	public default void addPointUnlocked(Point dp, boolean preSorted) throws IOException {
+	public default void addPointWithoutLocking(Point dp, boolean preSorted) throws IOException {
 		Series fieldMap = getOrCreateSeries(new ArrayList<>(dp.getTagsList()), preSorted);
 		fieldMap.addPoint(dp, this);
 	}
@@ -311,7 +312,7 @@ public interface Measurement {
 		Collections.sort(tags, TAG_COMPARATOR);
 		ByteString rowKey = constructSeriesId(tags);
 		// check and create timeseries
-		Series map = getSeriesFromKey(rowKey);
+		Series map = getSeriesUsingKey(rowKey);
 		return map;
 	}
 
@@ -366,7 +367,8 @@ public interface Measurement {
 					throw new NullPointerException(
 							"NPEfor:" + entry + " rowkeys:" + fields + " vfn:" + valueFieldNamePattern);
 				}
-				populateDataPoints(valueFieldNames, entry, startTime, endTime, valuePredicate, p, resultMap, function);
+				populateDataPointsInResult(valueFieldNames, entry, startTime, endTime, valuePredicate, p, resultMap,
+						function);
 			} catch (Exception e) {
 				getLogger().log(Level.SEVERE, "Failed to query data points: " + entry, e);
 			}
@@ -383,33 +385,15 @@ public interface Measurement {
 			rowKeys = getTagFilteredRowKeys(tagFilter);
 		}
 		getLogger().fine(() -> "Filtered row keys to query(" + valueFieldNames + "," + tagFilter + "):" + rowKeys);
-		Pattern p = null;
-		if (regex) {
-			try {
-				StringBuilder patternBuilder = new StringBuilder();
-				for (String vfn : valueFieldNames) {
-					patternBuilder.append(vfn + "|");
-				}
-				p = Pattern.compile(patternBuilder.toString());
-			} catch (Exception e) {
-				throw new IOException("Invalid regex for value field name:" + e.getMessage());
-			}
-		}
+		Pattern p = checkAndBuildPattern(valueFieldNames, regex);
 		Set<String> fieldSet = getFields();
 
-		if (regex) {
-			for (Iterator<String> iterator = fieldSet.iterator(); iterator.hasNext();) {
-				String fieldSetEntry = iterator.next();
-				if (!p.matcher(fieldSetEntry).matches()) {
-					iterator.remove();
-				}
-			}
-		}
+		filterFieldsBasedOnRegex(regex, p, fieldSet);
 
 		List<Series> seriesList = new ArrayList<>();
 		if (rowKeys != null) {
 			for (ByteString key : rowKeys) {
-				Series series = getSeriesFromKey(key);
+				Series series = getSeriesUsingKey(key);
 				getLogger().fine(() -> "Row key queried" + key + " Fields:" + getFields());
 				seriesList.add(series);
 			}
@@ -440,15 +424,42 @@ public interface Measurement {
 		}
 	}
 
+	default void filterFieldsBasedOnRegex(boolean regex, Pattern p, Set<String> fieldSet) {
+		if (regex) {
+			for (Iterator<String> iterator = fieldSet.iterator(); iterator.hasNext();) {
+				String fieldSetEntry = iterator.next();
+				if (!p.matcher(fieldSetEntry).matches()) {
+					iterator.remove();
+				}
+			}
+		}
+	}
+
+	default Pattern checkAndBuildPattern(List<String> valueFieldNames, boolean regex) throws IOException {
+		Pattern p = null;
+		if (regex) {
+			try {
+				StringBuilder patternBuilder = new StringBuilder();
+				for (String vfn : valueFieldNames) {
+					patternBuilder.append(vfn + "|");
+				}
+				p = Pattern.compile(patternBuilder.toString());
+			} catch (Exception e) {
+				throw new IOException("Invalid regex for value field name:" + e.getMessage());
+			}
+		}
+		return p;
+	}
+
 	public default Set<String> getFields() {
 		return new TreeSet<>(getFieldTypeMap().keySet());
 	}
 
-	public default void populateDataPoints(List<String> valueFieldNames, ByteString rowKey, long startTime,
+	public default void populateDataPointsInResult(List<String> valueFieldNames, ByteString rowKey, long startTime,
 			long endTime, Predicate valuePredicate, Pattern p, List<SeriesOutput> resultMap, Function function)
 			throws IOException {
 		List<Tag> seriesTags = decodeStringToTags(rowKey);
-		Series series = getSeriesFromKey(rowKey);
+		Series series = getSeriesUsingKey(rowKey);
 
 		FieldReaderIterator[][] queryTimePairIterators = series.queryTimePairIterators(this, valueFieldNames, null,
 				startTime, endTime);
@@ -640,5 +651,94 @@ public interface Measurement {
 	public SortedMap<String, Boolean> getFieldTypeMap();
 
 	ByteStringCache getFieldCache();
+
+	public default void queryDataPointsv2(String valueFieldNamePattern, long startTime, long endTime,
+			TagFilter tagFilter, Predicate valuePredicate, List<SeriesOutputv2> result,
+			FunctionIteratorFactory template) throws IOException {
+		final Set<ByteString> rowKeys;
+		if (tagFilter == null) {
+			rowKeys = getSeriesKeys();
+		} else {
+			rowKeys = getTagFilteredRowKeys(tagFilter);
+		}
+		getLogger()
+				.fine(() -> "Filtered row keys to query(" + valueFieldNamePattern + "," + tagFilter + "):" + rowKeys);
+		final Pattern p;
+		try {
+			p = Pattern.compile(valueFieldNamePattern);
+		} catch (Exception e) {
+			throw new IOException("Invalid regex for value field name:" + e.getMessage());
+		}
+		Set<ByteString> outputKeys = new HashSet<>();
+		final Map<ByteString, List<String>> fields = new HashMap<>();
+		if (rowKeys != null) {
+			for (ByteString key : rowKeys) {
+				List<String> fieldMap = new ArrayList<>();
+				List<String> fieldSet = new ArrayList<>(getFields());
+				getLogger().fine(() -> "Row key:" + key + " Fields:" + fieldSet);
+				for (String fieldSetEntry : fieldSet) {
+					if (p.matcher(fieldSetEntry).matches() && !fieldSetEntry.equalsIgnoreCase(Series.TS)) {
+						fieldMap.add(fieldSetEntry);
+					}
+				}
+				if (fieldMap.size() > 0) {
+					fields.put(key, fieldMap);
+					outputKeys.add(key);
+				}
+			}
+		}
+
+		getLogger().fine(() -> "Output keys:" + outputKeys.size());
+		for (ByteString entry : outputKeys) {
+			try {
+				List<String> valueFieldNames = fields.get(entry);
+				if (valueFieldNames == null) {
+					throw new NullPointerException(
+							"NPEfor:" + entry + " rowkeys:" + fields + " vfn:" + valueFieldNamePattern);
+				}
+				populateResultsIterators(valueFieldNames, entry, startTime, endTime, valuePredicate, p, result,
+						template);
+			} catch (Exception e) {
+				getLogger().log(Level.SEVERE, "Failed to query data points: " + entry, e);
+			}
+		}
+	}
+
+	public default void populateResultsIterators(List<String> valueFieldNames, ByteString rowKey, long startTime,
+			long endTime, Predicate valuePredicate, Pattern p, List<SeriesOutputv2> result,
+			FunctionIteratorFactory template) throws Exception {
+		List<Tag> seriesTags = decodeStringToTags(rowKey);
+		Series series = getSeriesUsingKey(rowKey);
+
+		FieldReaderIterator[][] queryTimePairIterators = series.queryTimePairIterators(this, valueFieldNames, null,
+				startTime, endTime);
+		if (queryTimePairIterators == null) {
+			return;
+		}
+		try {
+			for (FieldReaderIterator[] pairIterator : queryTimePairIterators) {
+				// ignore entries that are null
+				if (pairIterator == null || pairIterator[1]==null) {
+					continue;
+				}
+				// apply function
+				String vfn = pairIterator[1].getFieldName();
+				getLogger().fine(() -> "Reading datapoints for:" + vfn + " ");
+				SeriesOutputv2 seriesQueryOutput = new SeriesOutputv2(getMeasurementName(), vfn, seriesTags);
+				seriesQueryOutput.setFp(isFieldFp(vfn));
+				seriesQueryOutput.setIterator(new DataPointIterator(pairIterator[0], pairIterator[1]));
+				if (template != null) {
+					DataPointIterator functionedIterator = template.build(seriesQueryOutput.getIterator(),
+							seriesQueryOutput.isFp());
+					seriesQueryOutput.setIterator(functionedIterator);
+				}
+				result.add(seriesQueryOutput);
+			}
+		} catch (Exception e) {
+			getLogger().severe("Failed to populate data points for: " + rowKey.toString() + " " + valueFieldNames + " "
+					+ Arrays.toString(queryTimePairIterators[0]));
+			throw e;
+		}
+	}
 
 }

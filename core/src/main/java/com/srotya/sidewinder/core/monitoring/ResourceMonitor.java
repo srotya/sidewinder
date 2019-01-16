@@ -93,7 +93,7 @@ public class ResourceMonitor {
 				.build();
 
 		try {
-			storageEngine.writeDataPointLocked(point, true);
+			storageEngine.writeDataPointWithLock(point, true);
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
@@ -112,7 +112,7 @@ public class ResourceMonitor {
 				.addTags(Tag.newBuilder().setTagKey("node").setTagValue("local").build()).addValueFieldName("count")
 				.addFp(false).addValue(count).addValueFieldName("time").addFp(false).addValue(time).build();
 		try {
-			storageEngine.writeDataPointLocked(point, true);
+			storageEngine.writeDataPointWithLock(point, true);
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}
@@ -121,7 +121,7 @@ public class ResourceMonitor {
 	private void validateCPUUsage() {
 		double systemLoadAverage = ManagementFactory.getOperatingSystemMXBean().getSystemLoadAverage();
 		try {
-			storageEngine.writeDataPointLocked(MiscUtils.buildDataPoint(DB, "cpu", "load",
+			storageEngine.writeDataPointWithLock(MiscUtils.buildDataPoint(DB, "cpu", "load",
 					Arrays.asList(Tag.newBuilder().setTagKey("node").setTagValue("local").build()),
 					System.currentTimeMillis(), systemLoadAverage), true);
 		} catch (Exception e) {
@@ -136,7 +136,7 @@ public class ResourceMonitor {
 		}
 		long used = mem.getUsed();
 		try {
-			storageEngine.writeDataPointLocked(MiscUtils.buildDataPoint(DB, "memory", "used",
+			storageEngine.writeDataPointWithLock(MiscUtils.buildDataPoint(DB, "memory", "used",
 					Arrays.asList(Tag.newBuilder().setTagKey("type").setTagValue(type).build()),
 					System.currentTimeMillis(), used), true);
 		} catch (Exception e) {
@@ -149,7 +149,7 @@ public class ResourceMonitor {
 				.addFp(false).addValue(max).addValueFieldName("used").addFp(false).addValue(used).build();
 
 		try {
-			storageEngine.writeDataPointLocked(point, true);
+			storageEngine.writeDataPointWithLock(point, true);
 		} catch (Exception e) {
 			logger.log(Level.SEVERE, "Unable to write internal metrics", e);
 		}

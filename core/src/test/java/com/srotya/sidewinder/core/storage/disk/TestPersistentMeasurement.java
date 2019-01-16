@@ -94,7 +94,7 @@ public class TestPersistentMeasurement {
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 100;
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointLocked(MiscUtils.buildDataPoint(DBNAME, "m1", "value" + i, tags, ts, 1L), true);
+			measurement.addPointWithLocking(MiscUtils.buildDataPoint(DBNAME, "m1", "value" + i, tags, ts, 1L), true);
 		}
 		measurement.close();
 
@@ -120,7 +120,7 @@ public class TestPersistentMeasurement {
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 100000;
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointLocked(TestMeasurement.build("value", tags, ts + i * 1000, 1L), false);
+			measurement.addPointWithLocking(TestMeasurement.build("value", tags, ts + i * 1000, 1L), false);
 		}
 		measurement.close();
 
@@ -157,7 +157,7 @@ public class TestPersistentMeasurement {
 		int LIMIT = 8000;
 		String valueFieldName = "value1";
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointLocked(TestMeasurement.build(valueFieldName, tags, ts + i, 1.2 * i), false);
+			measurement.addPointWithLocking(TestMeasurement.build(valueFieldName, tags, ts + i, 1.2 * i), false);
 		}
 		assertEquals(1, measurement.getSeriesList().size());
 		Series series = measurement.getSeriesList().iterator().next();
@@ -206,7 +206,7 @@ public class TestPersistentMeasurement {
 			assertEquals(i * 1.2, dp.getValue(), 0.01);
 		}
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointLocked(TestMeasurement.build(valueFieldName, tags, LIMIT + ts + i, 1.2), false);
+			measurement.addPointWithLocking(TestMeasurement.build(valueFieldName, tags, LIMIT + ts + i, 1.2), false);
 		}
 		series.getBucketMap().entrySet().iterator().next().getValue().values().stream()
 				.flatMap(f -> f.getWriters().stream())
@@ -244,7 +244,7 @@ public class TestPersistentMeasurement {
 				for (int j = 0; j < LIMIT; j++) {
 					try {
 						long timestamp = t + j * 1000;
-						measurement.addPointLocked(TestMeasurement.build("vf1", tags, timestamp, j), false);
+						measurement.addPointWithLocking(TestMeasurement.build("vf1", tags, timestamp, j), false);
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
