@@ -77,7 +77,7 @@ public class TestDiskStorageEngine {
 		long ts = System.currentTimeMillis();
 		try {
 			for (int i = 0; i < 10; i++) {
-				engine.writeDataPointLocked(MiscUtils.buildDataPoint("test" + i, "ss", "value", tagd, ts, 2.2), false);
+				engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test" + i, "ss", "value", tagd, ts, 2.2), false);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -105,7 +105,7 @@ public class TestDiskStorageEngine {
 		long ts = System.currentTimeMillis();
 		try {
 			for (int i = 0; i < 10; i++) {
-				engine.writeDataPointLocked(MiscUtils.buildDataPoint("test" + i, "ss", "value", tagd, ts, 2.2), false);
+				engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test" + i, "ss", "value", tagd, ts, 2.2), false);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -131,8 +131,8 @@ public class TestDiskStorageEngine {
 			long ts = System.currentTimeMillis();
 			Map<String, Measurement> db = engine.getOrCreateDatabase("test3");
 			assertEquals(0, db.size());
-			engine.writeDataPointLocked(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts, 1), false);
-			engine.writeDataPointLocked(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts + (400 * 60000), 4),
+			engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts, 1), false);
+			engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts + (400 * 60000), 4),
 					false);
 			Measurement measurement = engine.getOrCreateMeasurement("test3", "cpu");
 			assertEquals(1, measurement.getSeriesKeys().size());

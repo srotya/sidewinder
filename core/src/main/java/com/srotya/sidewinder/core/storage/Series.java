@@ -390,7 +390,7 @@ public class Series {
 		}
 		int tsStartBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;
 		int tsEndBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
-		if (Integer.compare(tsStartBucket, bucketFieldMap.firstKey()) < 0) {
+		if (tsStartBucket - bucketFieldMap.firstKey() < 0) {
 			tsStartBucket = bucketFieldMap.firstKey();
 			logger.finest(() -> "Corrected query startKey to:" + bucketFieldMap.firstKey());
 		}
@@ -401,6 +401,10 @@ public class Series {
 			if (Integer.compare(tsEndBucket, bucketFieldMap.lastKey()) > 0 || tsEndBucket < 0) {
 				series = bucketFieldMap.tailMap(tsStartBucket);
 				logger.finest(() -> "Endkey exceeds last key, using tailmap instead");
+			} else if (tsStartBucket - bucketFieldMap.firstKey() == 0) {
+				tsEndBucket = tsEndBucket + 1;
+				series = bucketFieldMap.headMap(tsEndBucket);
+				logger.finest(() -> "First key is the start");
 			} else {
 				tsEndBucket = tsEndBucket + 1;
 				series = bucketFieldMap.subMap(tsStartBucket, tsEndBucket);

@@ -148,7 +148,7 @@ public class TestMeasurement {
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointLocked(Point.newBuilder().setDbName(DBNAME).setMeasurementName("m1").addAllTags(tags)
+			measurement.addPointWithLocking(Point.newBuilder().setDbName(DBNAME).setMeasurementName("m1").addAllTags(tags)
 					.setTimestamp(ts + i * 1000).addFp(false).addValue(1L).addValueFieldName("value1").addFp(false)
 					.addValue(1L).addValueFieldName("value2").build(), true);
 		}
@@ -191,7 +191,7 @@ public class TestMeasurement {
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointLocked(build("value1", tags, ts + i * 1000, 1L), false);
+			measurement.addPointWithLocking(build("value1", tags, ts + i * 1000, 1L), false);
 		}
 		measurement.runCleanupOperation("print", s -> {
 			// don't cleanup anything
@@ -210,7 +210,7 @@ public class TestMeasurement {
 		measurement.configure(conf, null, 1024, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 34500;
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointLocked(build("value1", tags, ts + i * 100, 1.2), false);
+			measurement.addPointWithLocking(build("value1", tags, ts + i * 100, 1.2), false);
 		}
 		// measurement.collectGarbage(null);
 		System.err.println("Gc complete");
@@ -234,7 +234,7 @@ public class TestMeasurement {
 		measurement.configure(conf, null, 1024, DBNAME, "m4", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 12000;
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointLocked(build("value1", tags, ts + i, 1.2 * i), false);
+			measurement.addPointWithLocking(build("value1", tags, ts + i, 1.2 * i), false);
 		}
 		assertEquals(1, measurement.getSeriesList().size());
 		Series series = measurement.getSeriesList().iterator().next();
@@ -292,7 +292,7 @@ public class TestMeasurement {
 		int LIMIT = 20000;
 		for (int i = 0; i < LIMIT; i++) {
 			for (int k = 0; k < 2; k++) {
-				measurement.addPointLocked(build("value" + k, tags, ts + i * 10000, i * 1.2), false);
+				measurement.addPointWithLocking(build("value" + k, tags, ts + i * 10000, i * 1.2), false);
 			}
 		}
 
@@ -337,7 +337,7 @@ public class TestMeasurement {
 		measurement.configure(conf, engine, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		long t = System.currentTimeMillis();
 		for (int i = 0; i < 100; i++) {
-			measurement.addPointLocked(build("vf1", tags, t + i * 1000, i), false);
+			measurement.addPointWithLocking(build("vf1", tags, t + i * 1000, i), false);
 		}
 		Series s = measurement.getOrCreateSeries(tags, false);
 		List<DataPoint> dps = s.queryDataPoints(measurement, Arrays.asList("vf1"), t, t + 1000 * 100, null).get("vf1");
@@ -391,7 +391,7 @@ public class TestMeasurement {
 					for (int j = 0; j < 100; j++) {
 						try {
 							long timestamp = t + j * 1000;
-							measurement.addPointLocked(build(valueFieldName, tags, timestamp, j), false);
+							measurement.addPointWithLocking(build(valueFieldName, tags, timestamp, j), false);
 						} catch (Exception e) {
 							e.printStackTrace();
 						}
@@ -434,7 +434,7 @@ public class TestMeasurement {
 					for (int j = 0; j < LIMIT; j++) {
 						try {
 							long timestamp = t + j * 1000;
-							measurement.addPointLocked(build("vf1", tags, timestamp, j), false);
+							measurement.addPointWithLocking(build("vf1", tags, timestamp, j), false);
 						} catch (Exception e) {
 							e.printStackTrace();
 						}

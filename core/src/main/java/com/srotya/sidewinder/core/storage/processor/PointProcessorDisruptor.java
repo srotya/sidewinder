@@ -127,7 +127,7 @@ public class PointProcessorDisruptor implements PointProcessor {
 		public void onEvent(DPWrapper event, long sequence, boolean endOfBatch) throws Exception {
 			if (event.getHashValue() % handlerCount == handlerIndex) {
 				try {
-					engine.writeDataPointLocked(event.getDp(), true);
+					engine.writeDataPointWithLock(event.getDp(), true);
 				} catch (IOException e) {
 				} catch (Exception e) {
 				}

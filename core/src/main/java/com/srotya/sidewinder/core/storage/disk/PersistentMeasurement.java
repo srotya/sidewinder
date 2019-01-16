@@ -125,7 +125,7 @@ public class PersistentMeasurement implements Measurement {
 		this.tagIndex.configure(getConf(), indexDirectory, this);
 		malloc = new DiskMalloc();
 		malloc.configure(conf, dataDirectory, measurementName, engine, bgTaskPool, mallocLock);
-		loadTimeseriesFromMeasurements();
+		loadTimeseriesInMeasurements();
 	}
 
 	private void enableMetricsMonitoring(StorageEngine engine, ScheduledExecutorService bgTaskPool) {
@@ -202,10 +202,10 @@ public class PersistentMeasurement implements Measurement {
 				loadEntry(entry);
 			}
 		} catch (Exception e) {
-			System.out.println(set.size() + "  " + Integer.parseInt(set.last(), 16));
+			logger.severe(set.size() + "  " + Integer.parseInt(set.last(), 16));
 			int i = 0;
 			for (String s : set) {
-				System.out.println(i++ + " s:" + Integer.parseInt(s, 16));
+				logger.severe(i++ + " s:" + Integer.parseInt(s, 16));
 			}
 			throw e;
 		}
@@ -240,7 +240,7 @@ public class PersistentMeasurement implements Measurement {
 	}
 
 	@Override
-	public void loadTimeseriesFromMeasurements() throws IOException {
+	public void loadTimeseriesInMeasurements() throws IOException {
 		String fieldFilePath = getFieldMetadataPath();
 		File file = new File(fieldFilePath);
 		if (!file.exists()) {
@@ -275,12 +275,12 @@ public class PersistentMeasurement implements Measurement {
 			ByteString seriesId = localCache.get(split[0]);
 			Integer seriesIndex = seriesMap.get(seriesId);
 			Series series = seriesList.get(seriesIndex);
-			
-			if(series.getSeriesId()!=seriesId) {
+
+			if (series.getSeriesId() != seriesId) {
 				seriesMap.put(seriesId, seriesIndex);
 				series.setSeriesId(seriesId);
 			}
-			
+
 			List<Entry<Integer, BufferObject>> list = entry.getValue();
 			if (list != null) {
 				try {
@@ -408,12 +408,12 @@ public class PersistentMeasurement implements Measurement {
 	public SortedMap<String, Boolean> getFieldTypeMap() {
 		return fieldTypeMap;
 	}
-	
+
 	@Override
 	public Counter getMetricsCleanupBufferCounter() {
 		return metricsCleanupBufferCounter;
 	}
-	
+
 	@Override
 	public Counter getMetricsCompactionCounter() {
 		return metricsCompactionCounter;

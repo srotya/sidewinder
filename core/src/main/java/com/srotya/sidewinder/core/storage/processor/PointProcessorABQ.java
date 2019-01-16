@@ -67,7 +67,7 @@ public class PointProcessorABQ implements PointProcessor {
 	}
 
 	public void writeDataPoint(Point point) throws InterruptedException, IOException {
-		engine.writeDataPointLocked(point, true);
+		engine.writeDataPointWithLock(point, true);
 		// extracted(point);
 	}
 

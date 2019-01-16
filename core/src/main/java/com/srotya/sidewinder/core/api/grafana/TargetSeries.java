@@ -16,7 +16,8 @@
 package com.srotya.sidewinder.core.api.grafana;
 
 import com.srotya.sidewinder.core.filters.TagFilter;
-import com.srotya.sidewinder.core.functions.Function;
+import com.srotya.sidewinder.core.functions.iterative.FunctionIteratorFactory;
+import com.srotya.sidewinder.core.functions.list.Function;
 
 public class TargetSeries {
 
@@ -25,14 +26,16 @@ public class TargetSeries {
 	private boolean autoCorrelate;
 	private TagFilter tagFilter;
 	private Function function;
+	private FunctionIteratorFactory functionIterator;
 
 	public TargetSeries(String measurementName, String fieldName, TagFilter tagFilter,
-			Function function, boolean autoCorrelate) {
+			Function function, boolean autoCorrelate, FunctionIteratorFactory functionIterator) {
 		this.measurementName = measurementName;
 		this.fieldName = fieldName;
 		this.tagFilter = tagFilter;
 		this.function = function;
 		this.autoCorrelate = autoCorrelate;
+		this.functionIterator = functionIterator;
 	}
 
 	/**
@@ -92,6 +95,10 @@ public class TargetSeries {
 	 */
 	public Function getAggregationFunction() {
 		return function;
+	}
+	
+	public FunctionIteratorFactory getFunctionIterator() {
+		return functionIterator;
 	}
 
 	@Override

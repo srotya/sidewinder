@@ -62,7 +62,7 @@ public class TestMemStorageEngine {
 	public void testConfigure() {
 		StorageEngine engine = new MemStorageEngine();
 		try {
-			engine.writeDataPointLocked(MiscUtils.buildDataPoint("test", "ss", Arrays.asList("value"),
+			engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test", "ss", Arrays.asList("value"),
 					Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()),
 					System.currentTimeMillis(), Arrays.asList(Double.doubleToLongBits(2.2)), Arrays.asList(true)), false);
 		} catch (Exception e) {
@@ -74,7 +74,7 @@ public class TestMemStorageEngine {
 			fail("No IOException should be thrown");
 		}
 		try {
-			engine.writeDataPointLocked(MiscUtils.buildDataPoint("test", "ss", Arrays.asList("value"),
+			engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test", "ss", Arrays.asList("value"),
 					Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()),
 					System.currentTimeMillis(), Arrays.asList(Double.doubleToLongBits(2.2)), Arrays.asList(true)), false);
 		} catch (Exception e) {
@@ -87,13 +87,13 @@ public class TestMemStorageEngine {
 	public void testGetMeasurementsLike() throws Exception {
 		StorageEngine engine = new MemStorageEngine();
 		engine.configure(conf, bgTasks);
-		engine.writeDataPointLocked(MiscUtils.buildDataPoint("test", "cpu", Arrays.asList("value"),
+		engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test", "cpu", Arrays.asList("value"),
 				Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()), System.currentTimeMillis(),
 				Arrays.asList(2L), Arrays.asList(false)), false);
-		engine.writeDataPointLocked(MiscUtils.buildDataPoint("test", "mem", Arrays.asList("value"),
+		engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test", "mem", Arrays.asList("value"),
 				Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()),
 				System.currentTimeMillis() + 10, Arrays.asList(3L), Arrays.asList(false)), false);
-		engine.writeDataPointLocked(MiscUtils.buildDataPoint("test", "netm", Arrays.asList("value"),
+		engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test", "netm", Arrays.asList("value"),
 				Arrays.asList(Tag.newBuilder().setTagKey("test").setTagValue("2").build()),
 				System.currentTimeMillis() + 20, Arrays.asList(5L), Arrays.asList(false)), false);
 
@@ -121,7 +121,7 @@ public class TestMemStorageEngine {
 				long ts = System.currentTimeMillis();
 				for (int i = 0; i < 1000; i++) {
 					try {
-						engine.writeDataPointLocked(MiscUtils.buildDataPoint("test", "helo" + p, Arrays.asList("value"),
+						engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test", "helo" + p, Arrays.asList("value"),
 								Arrays.asList(Tag.newBuilder().setTagKey("k").setTagValue("2").build()), ts + i * 60,
 								Arrays.asList(ts + i), Arrays.asList(false)), false);
 					} catch (IOException e) {

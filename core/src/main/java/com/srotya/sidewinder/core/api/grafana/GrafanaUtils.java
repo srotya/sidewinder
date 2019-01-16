@@ -16,6 +16,8 @@
 package com.srotya.sidewinder.core.api.grafana;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Stack;
 import java.util.logging.Level;
@@ -31,11 +33,15 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter;
 import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.TagFilter;
-import com.srotya.sidewinder.core.functions.Function;
-import com.srotya.sidewinder.core.functions.FunctionTable;
+import com.srotya.sidewinder.core.functions.iterative.FunctionIterator;
+import com.srotya.sidewinder.core.functions.iterative.FunctionIteratorFactory;
+import com.srotya.sidewinder.core.functions.iterative.FunctionIteratorTable;
+import com.srotya.sidewinder.core.functions.list.Function;
+import com.srotya.sidewinder.core.functions.list.FunctionTable;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.SeriesOutput;
+import com.srotya.sidewinder.core.storage.SeriesOutputv2;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.InvalidFilterException;
 import com.srotya.sidewinder.core.utils.MiscUtils;
@@ -51,7 +57,7 @@ public class GrafanaUtils {
 	}
 
 	public static void queryAndGetData(StorageEngine engine, String dbName, long startTs, long endTs,
-			List<Target> output, TargetSeries targetSeriesEntry) throws IOException {
+			List<GrafanaOutput> output, TargetSeries targetSeriesEntry) throws IOException {
 		List<SeriesOutput> points;
 		try {
 			points = engine.queryDataPoints(dbName, targetSeriesEntry.getMeasurementName(),
@@ -65,7 +71,7 @@ public class GrafanaUtils {
 		}
 		if (points != null) {
 			for (SeriesOutput entry : points) {
-				Target tar = new Target(entry.toString());
+				GrafanaOutput tar = new GrafanaOutput(entry.toString());
 				List<DataPoint> dps = entry.getDataPoints();
 				if (dps != null) {
 					for (DataPoint point : dps) {
@@ -82,14 +88,36 @@ public class GrafanaUtils {
 		}
 	}
 
+	public static Iterator<GrafanaOutputv2> queryAndGetDatav2(StorageEngine engine, String dbName, long startTs,
+			long endTs, TargetSeries targetSeriesEntry) throws IOException {
+		List<SeriesOutputv2> series;
+		try {
+			series = engine.queryDataPointsv2(dbName, targetSeriesEntry.getMeasurementName(),
+					targetSeriesEntry.getFieldName(), startTs, endTs, targetSeriesEntry.getTagFilter(), null,
+					targetSeriesEntry.getFunctionIterator());
+		} catch (ItemNotFoundException e) {
+			throw new NotFoundException(e.getMessage());
+		} catch (Exception e) {
+			e.printStackTrace();
+			throw new BadRequestException(e.getMessage());
+		}
+		if (series != null) {
+			Iterator<GrafanaOutputv2> outputIterator = new GrafanaOutputv2Iterator(series);
+			return outputIterator;
+		} else {
+			return null;
+		}
+	}
+
 	/**
 	 * Extract target series from Grafana Json query payload
 	 * 
 	 * @param json
 	 * @param targetSeries
-	 * @throws InvalidFilterException 
+	 * @throws InvalidFilterException
 	 */
-	public static void extractTargetsFromJson(JsonObject json, List<TargetSeries> targetSeries) throws InvalidFilterException {
+	public static void extractTargetsFromJson(JsonObject json, List<TargetSeries> targetSeries)
+			throws InvalidFilterException {
 		JsonArray targets = json.get("targets").getAsJsonArray();
 		for (int i = 0; i < targets.size(); i++) {
 			JsonObject jsonElement = targets.get(i).getAsJsonObject();
@@ -99,17 +127,25 @@ public class GrafanaUtils {
 			if (jsonElement.has("target") && jsonElement.has("field")) {
 				TagFilter filter = extractGrafanaFilter(jsonElement);
 				Function aggregationFunction = extractGrafanaAggregation(jsonElement);
+				FunctionIteratorFactory functionIterator = extractGrafanaFunction(jsonElement);
 				boolean correlate = false;
 				if (jsonElement.has("correlate")) {
 					correlate = jsonElement.get("correlate").getAsBoolean();
 				}
 				TargetSeries e = new TargetSeries(jsonElement.get("target").getAsString(),
-						jsonElement.get("field").getAsString(), filter, aggregationFunction, correlate);
+						jsonElement.get("field").getAsString(), filter, aggregationFunction, correlate,
+						functionIterator);
 				targetSeries.add(e);
 				logger.log(Level.FINE, () -> "Parsed and extracted target:" + e);
 			} else if (jsonElement.has("raw") && jsonElement.get("rawQuery").getAsBoolean()) {
 				// raw query recieved
-				TargetSeries e = MiscUtils.extractTargetFromQuery(jsonElement.get("raw").getAsString());
+				TargetSeries e;
+				try {
+					e = MiscUtils.extractTargetFromQuery(jsonElement.get("raw").getAsString());
+				} catch (Exception e1) {
+					throw new InvalidFilterException("Bad function expression:" + jsonElement.get("raw").getAsString()
+							+ " reason:" + e1.getMessage());
+				}
 				logger.log(Level.FINE, () -> "Parsed and extracted raw query:" + e);
 				if (e != null) {
 					targetSeries.add(e);
@@ -166,6 +202,59 @@ public class GrafanaUtils {
 				return instance;
 			} catch (Exception e) {
 				logger.log(Level.FINE, "Failed to extract aggregate function:" + jsonElement, e);
+			}
+		}
+		return null;
+	}
+
+	public static FunctionIteratorFactory extractGrafanaFunction(JsonObject jsonElement) {
+		if (!jsonElement.has("aggregator")) {
+			return null;
+		}
+		JsonObject obj = jsonElement.get("aggregator").getAsJsonObject();
+		if (!obj.has("name") || !obj.has("args")) {
+			return null;
+		}
+		String name = obj.get("name").getAsString();
+		if (name.equalsIgnoreCase("none")) {
+			return null;
+		}
+		int multipleFactor = 1;
+		if (obj.has("unit")) {
+			multipleFactor = toSeconds(obj.get("unit").getAsString());
+		}
+		Class<? extends FunctionIterator> functionIteratorClass = FunctionIteratorTable.get().lookupFunction(name);
+		if (functionIteratorClass != null) {
+			try {
+				JsonArray ary = obj.get("args").getAsJsonArray();
+				Object[] args = new Object[ary.size()];
+				for (JsonElement element : ary) {
+					JsonObject arg = element.getAsJsonObject();
+					// ignore invalid aggregation function
+					if (!arg.has("index") || !arg.has("value")) {
+						return null;
+					}
+					int index = arg.get("index").getAsInt();
+					switch (arg.get("type").getAsString().toLowerCase()) {
+					case "string":
+						args[index] = arg.get("value").getAsString();
+						break;
+					case "int":
+						args[index] = arg.get("value").getAsInt() * multipleFactor;
+						break;
+					case "long":
+						args[index] = arg.get("value").getAsLong() * multipleFactor;
+						break;
+					case "double":
+						args[index] = arg.get("value").getAsDouble();
+						break;
+					}
+				}
+				FunctionIteratorFactory template = new FunctionIteratorFactory(
+						Arrays.asList(new FunctionIteratorFactory.FunctionTemplate(functionIteratorClass, args)));
+				return template;
+			} catch (Exception e) {
+				logger.log(Level.SEVERE, "Failed to extract aggregate function:" + jsonElement, e);
 			}
 		}
 		return null;

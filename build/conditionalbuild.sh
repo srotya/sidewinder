@@ -1,6 +1,11 @@
 #!/bin/bash -e
 # ref: https://raw.githubusercontent.com/cdown/travis-automerge/master/travis-automerge
 
+mkdir -p "/tmp/secrets"
+printf "Extracting Keys"
+openssl aes-256-cbc -K $encrypted_77485d179e0e_key -iv $encrypted_77485d179e0e_iv -in build/secrets.tar.enc -out /tmp/secrets/secrets.tar -d
+tar xf /tmp/secrets/secrets.tar -C /tmp/secrets/
+
 if [ ! -z "$TRAVIS_TAG" ]; then
    printf "Don't execute releases on tag builds request"
    exit 0
@@ -18,10 +23,6 @@ fi
 
 if [ "master" == "$TRAVIS_BRANCH" ]; then
     printf "Master branch will cut a release to Maven central"
-    mkdir -p "/tmp/secrets"
-    printf "Extracting SSH Key"
-    openssl aes-256-cbc -K $encrypted_77485d179e0e_key -iv $encrypted_77485d179e0e_iv -in build/secrets.tar.enc -out /tmp/secrets/secrets.tar -d
-    tar xf /tmp/secrets/secrets.tar -C /tmp/secrets/
 
     mkdir -p ~/.ssh
     chmod 700 ~/.ssh

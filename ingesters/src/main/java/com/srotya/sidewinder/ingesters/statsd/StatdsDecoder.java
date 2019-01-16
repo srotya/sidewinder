@@ -101,13 +101,13 @@ public class StatdsDecoder extends SimpleChannelInboundHandler<String> {
 			double value = Double.parseDouble(metric[1]);
 			logger.fine("Writing statds metric (fp)" + dbName + "," + measurementName + "," + valueFieldName + ","
 					+ tags + "," + timestamp + "," + value);
-			storageEngine.writeDataPointLocked(
+			storageEngine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value), false);
 		} else {
 			long value = Long.parseLong(metric[1]);
 			logger.fine("Writing statds metric (fp)" + dbName + "," + measurementName + "," + valueFieldName + ","
 					+ tags + "," + timestamp + "," + value);
-			storageEngine.writeDataPointLocked(
+			storageEngine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value), false);
 		}
 	}

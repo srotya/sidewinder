@@ -100,13 +100,13 @@ public class GraphiteDecoder extends SimpleChannelInboundHandler<String> {
 			double value = Double.parseDouble(parts[1]);
 			logger.fine("Writing graphite metric (fp)" + dbName + "," + measurementName + "," + valueFieldName + ","
 					+ tags + "," + timestamp + "," + value);
-			storageEngine.writeDataPointLocked(
+			storageEngine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value), false);
 		} else {
 			long value = Long.parseLong(parts[1]);
 			logger.fine("Writing graphite metric (fp)" + dbName + "," + measurementName + "," + valueFieldName + ","
 					+ tags + "," + timestamp + "," + value);
-			storageEngine.writeDataPointLocked(
+			storageEngine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint(dbName, measurementName, valueFieldName, tags, timestamp, value), false);
 		}
 	}

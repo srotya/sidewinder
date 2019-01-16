@@ -35,9 +35,13 @@ import com.srotya.sidewinder.core.filters.ComplexTagFilter.ComplexFilterType;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter;
 import com.srotya.sidewinder.core.filters.SimpleTagFilter.FilterType;
 import com.srotya.sidewinder.core.filters.TagFilter;
-import com.srotya.sidewinder.core.functions.ChainFunction;
-import com.srotya.sidewinder.core.functions.Function;
-import com.srotya.sidewinder.core.functions.FunctionTable;
+import com.srotya.sidewinder.core.functions.iterative.FunctionIterator;
+import com.srotya.sidewinder.core.functions.iterative.FunctionIteratorFactory;
+import com.srotya.sidewinder.core.functions.iterative.FunctionIteratorFactory.FunctionTemplate;
+import com.srotya.sidewinder.core.functions.list.ChainFunction;
+import com.srotya.sidewinder.core.functions.list.Function;
+import com.srotya.sidewinder.core.functions.list.FunctionTable;
+import com.srotya.sidewinder.core.functions.iterative.FunctionIteratorTable;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.rpc.Tag;
@@ -222,6 +226,38 @@ public class MiscUtils {
 		return filter;
 	}
 
+	public static FunctionIteratorFactory createIteratorChain(String[] parts, int startIndex) throws Exception {
+		List<FunctionTemplate> templates = new ArrayList<>();
+		for (int k = startIndex; k < parts.length; k++) {
+			String[] args = parts[k].split(",");
+			Class<? extends FunctionIterator> lookupFunction = FunctionIteratorTable.get().lookupFunction(args[0]);
+			if (lookupFunction == null) {
+				throw new BadRequestException("Unknown function:" + args[0]);
+			}
+			FunctionIterator instance = FunctionIterator.getDummyInstance(lookupFunction);
+			if (args.length - 1 < instance.getNumberOfArgs()) {
+				throw new BadRequestException("Insufficient arguments for aggregation function, needed:"
+						+ instance.getNumberOfArgs() + ", found:" + (args.length - 1));
+			}
+			Object[] ary = new Object[args.length - 1];
+			for (int i = 1; i < args.length; i++) {
+				Matcher matcher = NUMBER.matcher(args[i]);
+				if (matcher.matches()) {
+					if (matcher.group(1) != null) {
+						ary[i - 1] = Double.parseDouble(args[i]);
+					} else {
+						ary[i - 1] = Integer.parseInt(args[i]);
+					}
+				} else {
+					ary[i - 1] = args[i];
+				}
+			}
+			instance.init(ary);
+			templates.add(new FunctionTemplate(lookupFunction, ary));
+		}
+		return new FunctionIteratorFactory(templates);
+	}
+
 	public static Function createFunctionChain(String[] parts, int startIndex)
 			throws InstantiationException, IllegalAccessException, Exception {
 		Function[] arguments = new Function[parts.length - startIndex];
@@ -257,7 +293,7 @@ public class MiscUtils {
 		return function;
 	}
 
-	public static TargetSeries extractTargetFromQuery(String query) {
+	public static TargetSeries extractTargetFromQuery(String query) throws Exception {
 		if (query == null || query.isEmpty()) {
 			return null;
 		}
@@ -286,15 +322,20 @@ public class MiscUtils {
 			}
 		}
 		Function aggregationFunction = null;
+		// if (parts.length > 1) {
+		// try {
+		// aggregationFunction = createFunctionChain(parts, 1);
+		// } catch (Exception e) {
+		// throw new BadRequestException(e.getMessage());
+		// }
+		// }
+
+		FunctionIteratorFactory template = null;
 		if (parts.length > 1) {
-			try {
-				aggregationFunction = createFunctionChain(parts, 1);
-			} catch (Exception e) {
-				throw new BadRequestException(e.getMessage());
-			}
+			template = createIteratorChain(parts, 1);
 		}
 
-		return new TargetSeries(measurementName, valueFieldName, tagFilter, aggregationFunction, false);
+		return new TargetSeries(measurementName, valueFieldName, tagFilter, aggregationFunction, false, template);
 	}
 
 	public static Point buildDP(String dbName, String measurementName, List<String> valueFieldName, List<Tag> tags,
