@@ -258,7 +258,7 @@ public class TestMappedWAL {
 		es1 = Executors.newScheduledThreadPool(1);
 		wal = new MappedWAL();
 		wal.configure(conf, es1);
-		assertEquals(5, wal.getSegmentCounter());
+		assertEquals("Files:" + Arrays.toString(new File(walDir).list()), 5, wal.getSegmentCounter());
 		wal.read("f2".hashCode(), 4, 100, false);
 		assertEquals(1, wal.getFollowers().size());
 	}
