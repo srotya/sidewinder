@@ -1,0 +1,103 @@
+/**
+ * Copyright Ambud Sharma
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ * 		http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.srotya.minuteman.rpc";
+option optimize_for = SPEED;
+
+package rpcs;
+
+service ReplicationService {
+
+	rpc RequestBatchReplication (BatchDataRequest) returns (BatchDataResponse) {}
+	
+	rpc WriteData (DataRequest) returns (GenericResponse) {}
+
+	rpc AddRoute (RouteRequest) returns (RouteResponse) {}
+	
+	rpc AddReplica (ReplicaRequest) returns (GenericResponse) {}
+	
+	rpc UpdateIsr (IsrUpdateRequest) returns (GenericResponse) {}
+
+}
+
+message IsrUpdateRequest {
+
+	string routeKey = 1;
+	map<string, bool> isrMap = 2;
+
+}
+
+message DataRequest {
+
+	string routeKey = 1;
+	bytes data = 2;
+
+}
+
+message ReplicaRequest {
+
+	string routeKey = 1;
+	string replicaAddress = 2;
+	string replicaNodeKey = 3;
+	int32 replicaPort = 4;
+	string leaderNodeKey = 5;
+	string leaderAddress = 6;
+	int32 leaderPort = 7;
+
+}
+
+message GenericResponse {
+
+	int32 responseCode = 1;
+	string responseString = 2;
+
+}
+
+message RouteRequest {
+
+	string routeKey = 1;
+	int32 replicationFactor = 2;
+
+}
+
+message RouteResponse {
+
+	int32 responseCode = 1;
+	string responseString = 2;
+	repeated string replicaids = 3;
+	string leaderid = 4;
+
+}
+
+message BatchDataRequest {
+
+	int64 offset = 1;
+	string nodeId = 2;
+	int32 maxBytes = 3;
+	string routeKey = 5; 
+
+}
+
+message BatchDataResponse {
+
+	repeated bytes data = 1;
+	int64 nextOffset = 2;
+	int32 responseCode = 4;
+	int64 commitOffset = 5;
+
+}

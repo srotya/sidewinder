@@ -1,0 +1,2 @@
+cluster.grpc.port=55022
+cluster.cc.slaves=localhost:55022

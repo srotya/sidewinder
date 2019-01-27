@@ -170,6 +170,11 @@ public class MemStorageEngine implements StorageEngine {
 	public Map<String, Measurement> getOrCreateDatabase(String dbName) {
 		return getOrCreateDatabase(dbName, defaultRetentionHours, getConf());
 	}
+	
+	@Override
+	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retention) throws IOException {
+		return getOrCreateDatabase(dbName, retention, conf);
+	}
 
 	@Override
 	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy, Map<String, String> conf) {

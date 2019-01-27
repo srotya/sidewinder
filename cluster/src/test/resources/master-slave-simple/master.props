@@ -1,0 +1,2 @@
+cluster.cc.ismaster=true
+cluster.cc.slaves=localhost:55022

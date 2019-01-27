@@ -19,6 +19,7 @@
     <module>ingesters</module>
     <module>dist</module>
     <module>tools</module>
+    <module>cluster</module>
   </modules>
   <properties>
     <grpc.version>1.2.0</grpc.version>

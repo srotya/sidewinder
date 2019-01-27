@@ -12,6 +12,7 @@
   <name>sidewinder-dist</name>
   <modules>
     <module>standalone</module>
+    <module>cluster</module>
   </modules>
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

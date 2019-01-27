@@ -450,6 +450,16 @@ public interface StorageEngine {
 	 * @throws IOException
 	 */
 	public Map<String, Measurement> getOrCreateDatabase(String dbName) throws IOException;
+	
+	/**
+	 * Gets the database, creates it if it doesn't already exist
+	 * 
+	 * @param dbName
+	 * @param retentionPolicy
+	 * @return databaseMap
+	 * @throws IOException
+	 */
+	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy) throws IOException;
 
 	/**
 	 * Gets the database, creates it with supplied rention policy if it doesn't

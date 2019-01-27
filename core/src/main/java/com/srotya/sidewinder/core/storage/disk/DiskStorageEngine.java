@@ -182,6 +182,11 @@ public class DiskStorageEngine implements StorageEngine {
 	public Map<String, Measurement> getOrCreateDatabase(String dbName) throws IOException {
 		return getOrCreateDatabase(dbName, defaultRetentionHours, conf);
 	}
+	
+	@Override
+	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retention) throws IOException {
+		return getOrCreateDatabase(dbName, retention, conf);
+	}
 
 	private void saveDBMetadata(String dbName, DBMetadata metadata) throws IOException {
 		String dbDirectory = dbDirectoryPath(dbName);
