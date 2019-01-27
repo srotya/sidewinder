@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.cluster.pull.api;
+package com.srotya.sidewinder.cluster.api;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -45,11 +45,11 @@ import com.codahale.metrics.Timer.Context;
 import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.JsonFormat;
 import com.srotya.sidewinder.cluster.Utils;
-import com.srotya.sidewinder.cluster.pull.api.MerkleTreeUtils.MerkleTree;
-import com.srotya.sidewinder.cluster.pull.rpc.DeltaUtils;
+import com.srotya.sidewinder.cluster.api.MerkleTreeUtils.MerkleTree;
 import com.srotya.sidewinder.cluster.rpc.DataObject;
 import com.srotya.sidewinder.cluster.rpc.DeltaObject;
 import com.srotya.sidewinder.cluster.rpc.DeltaResponse;
+import com.srotya.sidewinder.cluster.rpc.DeltaUtils;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.ByteString;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.cluster.pull;
+package com.srotya.sidewinder.cluster;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -34,9 +34,9 @@ import com.srotya.minuteman.cluster.WALManagerImpl;
 import com.srotya.minuteman.connectors.ClusterConnector;
 import com.srotya.minuteman.connectors.ConfigConnector;
 import com.srotya.sidewinder.cluster.ClusterConfiguration;
-import com.srotya.sidewinder.cluster.pull.api.InfluxApi;
-import com.srotya.sidewinder.cluster.pull.consistency.SidewinderWALClient;
-import com.srotya.sidewinder.cluster.pull.rpc.ClusterReadServiceImpl;
+import com.srotya.sidewinder.cluster.api.InfluxApi;
+import com.srotya.sidewinder.cluster.consistency.SidewinderWALClient;
+import com.srotya.sidewinder.cluster.rpc.ClusterReadServiceImpl;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApiv2;
 import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
 import com.srotya.sidewinder.core.monitoring.SidewinderDropwizardReporter;
