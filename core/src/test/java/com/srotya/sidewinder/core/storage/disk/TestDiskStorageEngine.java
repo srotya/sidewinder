@@ -34,6 +34,7 @@ import org.junit.Test;
 
 import com.srotya.sidewinder.core.filters.TagFilter;
 import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.Database;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesOutput;
@@ -62,7 +63,7 @@ public class TestDiskStorageEngine {
 	
 	@Test
 	public void testMultipleDrives() throws ItemNotFoundException, IOException {
-		StorageEngine engine = new DiskStorageEngine();
+		DiskStorageEngine engine = new DiskStorageEngine();
 		HashMap<String, String> map = new HashMap<>();
 		MiscUtils.delete(new File("targer/db10221/"));
 		map.put("index.dir", "target/db10221/index");
@@ -129,7 +130,7 @@ public class TestDiskStorageEngine {
 			map.put("data.dir", "target/db201/data");
 			engine.configure(map, bgTasks);
 			long ts = System.currentTimeMillis();
-			Map<String, Measurement> db = engine.getOrCreateDatabase("test3");
+			Database db = engine.getOrCreateDatabase("test3");
 			assertEquals(0, db.size());
 			engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts, 1), false);
 			engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts + (400 * 60000), 4),

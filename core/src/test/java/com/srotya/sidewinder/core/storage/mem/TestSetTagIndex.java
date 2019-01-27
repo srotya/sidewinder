@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.BeforeClass;
 
+import com.srotya.sidewinder.core.storage.Database;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.disk.DiskStorageEngine;
@@ -62,11 +63,12 @@ public class TestSetTagIndex {
 			es.submit(() -> {
 				for (int i = 0; i < 200_000_000; i++) {
 					try {
-//						engine.getOrCreateTimeSeries("db1", "m1", "v10",
-//								Arrays.asList(String.valueOf(i % 10_000), "test=" + "asdasdasd" + String.valueOf(i % 5),
-//										"test2=" + String.valueOf(i % 5), "goliath=" + String.valueOf(i % 100_000),
-//										"goliath2=" + String.valueOf(i % 1_500)),
-//								4096, true);
+						// engine.getOrCreateTimeSeries("db1", "m1", "v10",
+						// Arrays.asList(String.valueOf(i % 10_000), "test=" + "asdasdasd" +
+						// String.valueOf(i % 5),
+						// "test2=" + String.valueOf(i % 5), "goliath=" + String.valueOf(i % 100_000),
+						// "goliath2=" + String.valueOf(i % 1_500)),
+						// 4096, true);
 					} catch (Exception e) {
 						e.printStackTrace();
 					}
@@ -79,11 +81,11 @@ public class TestSetTagIndex {
 		es.shutdown();
 		es.awaitTermination(1000, TimeUnit.SECONDS);
 		System.err.println("Index time:" + (System.currentTimeMillis() - ms));
-		Map<String, Map<String, Measurement>> index = engine.getMeasurementMap();
-		assertEquals(1, index.size());
-		Entry<String, Map<String, Measurement>> next = index.entrySet().iterator().next();
+		Map<String, Database> databaseMap = engine.getDatabaseMap();
+		assertEquals(1, databaseMap.size());
+		Entry<String, Database> next = databaseMap.entrySet().iterator().next();
 		assertEquals("db1", next.getKey());
-		Entry<String, Measurement> itr = next.getValue().entrySet().iterator().next();
+		Entry<String, Measurement> itr = next.getValue().getMeasurementMap().entrySet().iterator().next();
 		assertEquals("m1", itr.getKey());
 	}
 

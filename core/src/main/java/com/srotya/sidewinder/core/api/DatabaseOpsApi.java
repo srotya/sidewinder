@@ -18,7 +18,6 @@ package com.srotya.sidewinder.core.api;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -39,6 +38,7 @@ import javax.ws.rs.core.MediaType;
 
 import com.google.gson.Gson;
 import com.srotya.sidewinder.core.api.grafana.TargetSeries;
+import com.srotya.sidewinder.core.storage.Database;
 import com.srotya.sidewinder.core.storage.ItemNotFoundException;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.SeriesOutput;
@@ -173,12 +173,12 @@ public class DatabaseOpsApi {
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
 	public int collectGarbage(@PathParam(DatabaseOpsApi.DB_NAME) String dbName) {
-		Map<String, Measurement> map = storageEngine.getDatabaseMap().get(dbName);
-		if (map == null) {
+		Database db = storageEngine.getDatabaseMap().get(dbName);
+		if (db == null) {
 			throw new NotFoundException("Database not found:" + dbName);
 		}
 		int counter = 0;
-		for (Entry<String, Measurement> entry : map.entrySet()) {
+		for (Entry<String, Measurement> entry : db.getMeasurementMap().entrySet()) {
 			try {
 				Set<String> collectGarbage = entry.getValue().collectGarbage(null);
 				if (collectGarbage != null) {
@@ -196,12 +196,12 @@ public class DatabaseOpsApi {
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
 	public int compact(@PathParam(DatabaseOpsApi.DB_NAME) String dbName) {
-		Map<String, Measurement> map = storageEngine.getDatabaseMap().get(dbName);
-		if (map == null) {
+		Database db = storageEngine.getDatabaseMap().get(dbName);
+		if (db == null) {
 			throw new NotFoundException("Database not found:" + dbName);
 		}
 		int counter = 0;
-		for (Entry<String, Measurement> entry : map.entrySet()) {
+		for (Entry<String, Measurement> entry : db.getMeasurementMap().entrySet()) {
 			try {
 				Set<String> compactedBuffers = entry.getValue().compact();
 				if (compactedBuffers != null) {

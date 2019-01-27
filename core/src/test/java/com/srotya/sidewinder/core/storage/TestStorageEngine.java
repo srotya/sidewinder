@@ -121,7 +121,7 @@ public class TestStorageEngine {
 		engine.configure(conf, bgTasks);
 		engine.getOrCreateMeasurement("db1", "m1");
 		engine.updateDefaultTimeSeriesRetentionPolicy("db1", 10);
-		assertEquals(10, engine.getDbMetadataMap().get("db1").getRetentionHours());
+		assertEquals(10, engine.getDatabaseMap().get("db1").getDbMetadata().getRetentionHours());
 		Measurement m = engine.getOrCreateMeasurement("db1", "m1");
 		int buckets = m.getRetentionBuckets().get();
 		engine.updateDefaultTimeSeriesRetentionPolicy("db1", 30);
@@ -192,7 +192,7 @@ public class TestStorageEngine {
 		es.shutdown();
 		es.awaitTermination(100, TimeUnit.SECONDS);
 		assertEquals(1, engine.getAllMeasurementsForDb(dbName).size());
-		assertEquals(1, engine.getMeasurementMap().size());
+		assertEquals(1, engine.getDatabaseMap().size());
 		try {
 			Series timeSeries = engine.getTimeSeries(dbName, measurementName, valueFieldName, tagd);
 			assertNotNull(timeSeries);
@@ -275,8 +275,8 @@ public class TestStorageEngine {
 		map.put("data.dir", "target/db15/data");
 		engine.configure(map, bgTasks);
 		long ts = System.currentTimeMillis();
-		Map<String, Measurement> db = engine.getOrCreateDatabase("test3", 24, map);
-		assertEquals(0, db.size());
+		Database db = engine.getOrCreateDatabase("test3", 24, map);
+		assertEquals(0, db.getMeasurements().size());
 		engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts, 1), false);
 		engine.writeDataPointWithLock(MiscUtils.buildDataPoint("test3", "cpu", "value", tagd, ts + (400 * 60000), 4),
 				false);
@@ -329,7 +329,7 @@ public class TestStorageEngine {
 			engine.writeDataPointWithLock(
 					MiscUtils.buildDataPoint("test", "cpu2", "value", tagd, base - (3600_000 * i), 2L), false);
 		}
-		engine.getMeasurementMap().get("test").get("cpu2").collectGarbage(null);
+		engine.getDatabaseMap().get("test").getMeasurement("cpu2").collectGarbage(null);
 		List<SeriesOutput> queryDataPoints = engine.queryDataPoints("test", "cpu2", "value", ts - (3600_000 * 320), ts,
 				null, null);
 		assertEquals(27, queryDataPoints.iterator().next().getDataPoints().size());

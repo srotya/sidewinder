@@ -28,13 +28,12 @@ import java.util.logging.Logger;
 import com.codahale.metrics.Counter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
-import com.srotya.sidewinder.core.storage.DBMetadata;
+import com.srotya.sidewinder.core.storage.Database;
 import com.srotya.sidewinder.core.storage.Measurement;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.archival.Archiver;
 import com.srotya.sidewinder.core.storage.archival.NoneArchiver;
 import com.srotya.sidewinder.core.storage.compression.Writer;
-import com.srotya.sidewinder.core.storage.disk.DiskMalloc;
 
 /**
  * In-memory Timeseries {@link StorageEngine} implementation that uses the
@@ -61,8 +60,7 @@ import com.srotya.sidewinder.core.storage.disk.DiskMalloc;
 public class MemStorageEngine implements StorageEngine {
 
 	private static final Logger logger = Logger.getLogger(MemStorageEngine.class.getName());
-	private Map<String, Map<String, Measurement>> databaseMap;
-	private Map<String, DBMetadata> dbMetadataMap;
+	private Map<String, Database> databaseMap;
 	private int defaultRetentionHours;
 	private int defaultTimebucketSize;
 	private Archiver archiver;
@@ -82,10 +80,8 @@ public class MemStorageEngine implements StorageEngine {
 				.parseInt(conf.getOrDefault(RETENTION_HOURS, String.valueOf(DEFAULT_RETENTION_HOURS)));
 		logger.info("Setting default timeseries retention hours policy to:" + defaultRetentionHours);
 		databaseMap = new ConcurrentHashMap<>();
-		dbMetadataMap = new ConcurrentHashMap<>();
 
 		setCodecsForCompression(conf);
-
 		try {
 			archiver = (Archiver) Class.forName(conf.getOrDefault("archiver.class", NoneArchiver.class.getName()))
 					.newInstance();
@@ -97,8 +93,9 @@ public class MemStorageEngine implements StorageEngine {
 				.parseInt(conf.getOrDefault(DEFAULT_BUCKET_SIZE, String.valueOf(DEFAULT_TIME_BUCKET_CONSTANT)));
 		if (bgTaskPool != null) {
 			bgTaskPool.scheduleAtFixedRate(() -> {
-				for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
-					for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
+				for (Entry<String, Database> measurementMap : databaseMap.entrySet()) {
+					for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().getMeasurementMap()
+							.entrySet()) {
 						Measurement value = measurementEntry.getValue();
 						try {
 							// value.collectGarbage(archiver);
@@ -113,8 +110,9 @@ public class MemStorageEngine implements StorageEngine {
 			if (Boolean.parseBoolean(conf.getOrDefault(StorageEngine.COMPACTION_ENABLED, "false"))) {
 				logger.info("Compaction is enabled");
 				bgTaskPool.scheduleAtFixedRate(() -> {
-					for (Entry<String, Map<String, Measurement>> measurementMap : databaseMap.entrySet()) {
-						for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().entrySet()) {
+					for (Entry<String, Database> measurementMap : databaseMap.entrySet()) {
+						for (Entry<String, Measurement> measurementEntry : measurementMap.getValue().getMeasurementMap()
+								.entrySet()) {
 							Measurement value = measurementEntry.getValue();
 							try {
 								value.compact();
@@ -143,82 +141,31 @@ public class MemStorageEngine implements StorageEngine {
 	}
 
 	@Override
-	public void updateTimeSeriesRetentionPolicy(String dbName, String measurementName, int retentionHours)
-			throws IOException {
-		if (!checkIfExists(dbName, measurementName)) {
-			throw NOT_FOUND_EXCEPTION;
-		}
-		Measurement measurement = databaseMap.get(dbName).get(measurementName);
-		measurement.setRetentionHours(retentionHours);
-	}
-
-	@Override
-	public void updateTimeSeriesRetentionPolicy(String dbName, int retentionHours) {
-		DBMetadata metadata = dbMetadataMap.get(dbName);
-		synchronized (metadata) {
-			metadata.setRetentionHours(retentionHours);
-			Map<String, Measurement> measurementMap = databaseMap.get(dbName);
-			if (measurementMap != null) {
-				for (Measurement m : measurementMap.values()) {
-					m.setRetentionHours(retentionHours);
-				}
-			}
-		}
-	}
-
-	@Override
-	public Map<String, Measurement> getOrCreateDatabase(String dbName) {
+	public Database getOrCreateDatabase(String dbName) throws IOException {
 		return getOrCreateDatabase(dbName, defaultRetentionHours, getConf());
 	}
-	
+
 	@Override
-	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retention) throws IOException {
+	public Database getOrCreateDatabase(String dbName, int retention) throws IOException {
 		return getOrCreateDatabase(dbName, retention, conf);
 	}
 
 	@Override
-	public Map<String, Measurement> getOrCreateDatabase(String dbName, int retentionPolicy, Map<String, String> conf) {
-		Map<String, Measurement> measurementMap = databaseMap.get(dbName);
-		if (measurementMap == null) {
+	public Database getOrCreateDatabase(String dbName, int retentionPolicy, Map<String, String> conf) throws IOException {
+		Database database = databaseMap.get(dbName);
+		if (database == null) {
 			synchronized (databaseMap) {
-				if ((measurementMap = databaseMap.get(dbName)) == null) {
-					measurementMap = new ConcurrentHashMap<>();
-					databaseMap.put(dbName, measurementMap);
-					DBMetadata metadata = new DBMetadata();
-					metadata.setRetentionHours(defaultRetentionHours);
-					metadata.setBufIncrementSize(DiskMalloc.getBufIncrement(conf));
-					dbMetadataMap.put(dbName, metadata);
+				if ((database = databaseMap.get(dbName)) == null) {
+					database = new MemoryDatabase(dbName, this);
+					database.init(retentionPolicy, conf);
+					databaseMap.put(dbName, database);
 					logger.info("Created new database:" + dbName + " with retention period:" + defaultRetentionHours
 							+ " hours");
 					metricsDbCounter.inc();
 				}
 			}
 		}
-		return measurementMap;
-	}
-
-	@Override
-	public Measurement getOrCreateMeasurement(String dbName, String measurementName) throws IOException {
-		Map<String, Measurement> measurementMap = getOrCreateDatabase(dbName);
-		return getOrCreateMeasurement(measurementMap, dbName, measurementName);
-	}
-
-	protected Measurement getOrCreateMeasurement(Map<String, Measurement> measurementMap, String dbName,
-			String measurementName) throws IOException {
-		Measurement measurement = measurementMap.get(measurementName);
-		if (measurement == null) {
-			synchronized (measurementMap) {
-				if ((measurement = measurementMap.get(measurementName)) == null) {
-					measurement = new MemoryMeasurement();
-					measurement.configure(conf, this, getDefaultTimebucketSize(), dbName, measurementName, "", "",
-							dbMetadataMap.get(dbName), bgTaskPool);
-					measurementMap.put(measurementName, measurement);
-					logger.info("Created new measurement:" + measurementName);
-					metricsMeasurementCounter.inc();
-				}
-			}
-		}
-		return measurement;
+		return database;
 	}
 
 	@Override
@@ -227,9 +174,9 @@ public class MemStorageEngine implements StorageEngine {
 		if (!checkIfExists(dbName, measurementName)) {
 			throw NOT_FOUND_EXCEPTION;
 		}
-		Map<String, Measurement> dbMap = getOrCreateDatabase(dbName);
+		Database dbMap = getOrCreateDatabase(dbName);
 		// check and create measurement map
-		Measurement measurement = getOrCreateMeasurement(dbMap, dbName, measurementName);
+		Measurement measurement = dbMap.getOrCreateMeasurement(measurementName);
 		return measurement.isFieldFp(valueFieldName);
 	}
 
@@ -257,7 +204,7 @@ public class MemStorageEngine implements StorageEngine {
 
 	@Override
 	public void dropMeasurement(String dbName, String measurementName) throws Exception {
-		databaseMap.get(dbName).remove(measurementName);
+		databaseMap.get(dbName).dropMeasurement(measurementName);
 		metricsMeasurementCounter.dec();
 	}
 
@@ -269,7 +216,7 @@ public class MemStorageEngine implements StorageEngine {
 	 * @return
 	 */
 	protected Measurement getMeasurement(String dbName, String measurementName) {
-		return databaseMap.get(dbName).get(measurementName);
+		return databaseMap.get(dbName).getMeasurement(measurementName);
 	}
 
 	@Override
@@ -280,17 +227,8 @@ public class MemStorageEngine implements StorageEngine {
 	public void shutdown() throws IOException {
 	}
 
-	public Map<String, DBMetadata> getDbMetadataMap() {
-		return dbMetadataMap;
-	}
-
 	@Override
-	public Map<String, Map<String, Measurement>> getMeasurementMap() {
-		return databaseMap;
-	}
-
-	@Override
-	public Map<String, Map<String, Measurement>> getDatabaseMap() {
+	public Map<String, Database> getDatabaseMap() {
 		return databaseMap;
 	}
 
@@ -312,5 +250,9 @@ public class MemStorageEngine implements StorageEngine {
 	@Override
 	public Map<String, String> getConf() {
 		return conf;
+	}
+
+	public ScheduledExecutorService getBgTaskPool() {
+		return bgTaskPool;
 	}
 }
