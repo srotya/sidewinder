@@ -7,7 +7,7 @@
     <version>0.2.14-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
-  <artifactId>dist</artifactId>
+  <artifactId>sidewinder-dist</artifactId>
   <packaging>pom</packaging>
   <name>sidewinder-dist</name>
   <modules>
