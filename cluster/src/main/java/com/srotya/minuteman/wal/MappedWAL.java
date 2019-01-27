@@ -184,7 +184,7 @@ public class MappedWAL implements WAL {
 				flush();
 				counter = 0;
 			}
-			logger.info("Wrote data:" + data.length + " at new offset:" + currentWrite.position() + " new file:"
+			logger.finest("Wrote data:" + data.length + " at new offset:" + currentWrite.position() + " new file:"
 					+ segmentCounter);
 		} finally {
 			write.unlock();
