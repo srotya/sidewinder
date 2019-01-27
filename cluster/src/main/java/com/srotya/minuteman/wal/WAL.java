@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,19 +43,19 @@ public interface WAL {
 
 	void write(byte[] data, boolean flush) throws IOException;
 
-	WALRead read(String followerId, long offset, int maxBytes, boolean readCommitted) throws IOException;
+	WALRead read(Integer followerId, long offset, int maxBytes, boolean readCommitted) throws IOException;
 
 	long getCurrentOffset();
 
-	long getFollowerOffset(String followerId);
+	long getFollowerOffset(Integer followerId);
 
-	Collection<String> getFollowers();
+	Collection<Integer> getFollowers();
 
 	void setCommitOffset(long commitOffset);
 
 	long getCommitOffset();
 
-	boolean isIsr(String followerId);
+	boolean isIsr(Integer followerId);
 
 	void setWALDeletion(boolean status);
 

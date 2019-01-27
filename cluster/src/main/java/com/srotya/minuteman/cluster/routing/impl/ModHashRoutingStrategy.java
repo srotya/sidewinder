@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.cluster.pull.routing.impl;
+package com.srotya.minuteman.cluster.routing.impl;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import com.srotya.sidewinder.cluster.push.routing.Node;
-import com.srotya.sidewinder.cluster.push.routing.RoutingStrategy;
+import com.srotya.minuteman.cluster.Node;
 
 /**
  * @author ambud
@@ -33,13 +33,15 @@ public class ModHashRoutingStrategy implements RoutingStrategy {
 	private ReentrantReadWriteLock.WriteLock writeLock = lock.writeLock();
 	private ReentrantReadWriteLock.ReadLock readLock = lock.readLock();
 	private Map<Integer, Node> nodeSet;
+	private Map<Integer, Node> nodeMap;
 
 	public ModHashRoutingStrategy() {
 		nodeSet = new ConcurrentHashMap<>();
+		nodeMap = new ConcurrentHashMap<>();
 	}
 
 	@Override
-	public Node getNode(Integer key) {
+	public Node getRoute(Integer key) {
 		readLock.lock();
 		int size = key % nodeSet.size();
 		Node node = nodeSet.get(size);
@@ -48,12 +50,13 @@ public class ModHashRoutingStrategy implements RoutingStrategy {
 	}
 
 	@Override
-	public List<Node> getNodes(Integer key, int replicas) {
+	public List<Node> getRoute(Integer key, int replicas) {
 		readLock.lock();
 		List<Node> nodes = new ArrayList<>();
+		int id = key % nodeSet.size();
+		Node node = nodeSet.get(id);
 		for (int i = 0; i < replicas; i++) {
-			int size = key % nodeSet.size();
-			Node node = nodeSet.get(size);
+			node = nodeSet.get((id + i) % nodeSet.size());
 			nodes.add(node);
 		}
 		readLock.unlock();
@@ -64,11 +67,8 @@ public class ModHashRoutingStrategy implements RoutingStrategy {
 	public void addNode(Node node) {
 		writeLock.lock();
 		nodeSet.put(nodeSet.size(), node);
+		nodeMap.put(node.getNodeKey(), node);
 		writeLock.unlock();
-	}
-
-	@Override
-	public void removeNode(Node node) {
 	}
 
 	@Override
@@ -81,12 +81,38 @@ public class ModHashRoutingStrategy implements RoutingStrategy {
 		writeLock.lock();
 		for (Node node : nodes) {
 			nodeSet.put(nodeSet.size(), node);
+			nodeMap.put(node.getNodeKey(), node);
 		}
 		writeLock.unlock();
 	}
 
 	@Override
 	public void removeNodes(List<Node> nodes) {
+	}
+
+	@Override
+	public int size() {
+		return nodeSet.size();
+	}
+
+	@Override
+	public Node removeNode(Integer nodeId) {
+		writeLock.lock();
+		Node remove = nodeMap.remove(nodeId);
+		for (Entry<Integer, Node> entry : nodeSet.entrySet()) {
+			if (entry.getValue().getNodeKey() == nodeId) {
+				nodeId = entry.getKey();
+				break;
+			}
+		}
+		nodeMap.remove(nodeId);
+		writeLock.unlock();
+		return remove;
+	}
+
+	@Override
+	public Node get(Integer nodeKey) {
+		return nodeMap.get(nodeKey);
 	}
 
 }

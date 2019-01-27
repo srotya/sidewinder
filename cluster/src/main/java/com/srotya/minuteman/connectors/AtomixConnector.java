@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ public class AtomixConnector extends ClusterConnector {
 	}
 
 	@Override
-	public void initializeRouterHooks(final WALManager manager) throws IOException {
+	public void initializeRouterListener(final WALManager manager) throws IOException {
 		port = manager.getPort();
 		address = manager.getAddress();
 		DistributedGroup.Config config = new DistributedGroup.Config().withMemberExpiration(Duration.ofSeconds(20));
@@ -134,7 +134,7 @@ public class AtomixConnector extends ClusterConnector {
 					isLeader = false;
 					logger.info("This node is not the leader");
 				}
-				Node node = manager.getNodeMap().get(t.leader().id());
+				Node node = manager.getStrategy().get(t.leader().id().hashCode());
 				if (node == null) {
 					logger.info("Leader node is empty:" + t.leader().id());
 					node = buildNode(t.leader().id());
@@ -165,9 +165,9 @@ public class AtomixConnector extends ClusterConnector {
 
 			@Override
 			public void accept(GroupMember t) {
-				logger.info("Node left:" + t.id());
+				logger.info("Node left:" + t.id().hashCode());
 				try {
-					manager.removeNode(t.id());
+					manager.removeNode(t.id().hashCode());
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -257,7 +257,7 @@ public class AtomixConnector extends ClusterConnector {
 		public Node read(Class<Node> arg0, BufferInput arg1, Serializer arg2) {
 			String address = arg1.readUTF8();
 			int port = arg1.readInt();
-			return new Node(address + ":" + port, address, port);
+			return new Node((address + ":" + port).hashCode(), address, port);
 		}
 
 		@Override
@@ -278,7 +278,7 @@ public class AtomixConnector extends ClusterConnector {
 			replica.setLeaderPort(buf.readInt());
 			replica.setReplicaAddress(buf.readString());
 			replica.setReplicaPort(buf.readInt());
-			replica.setRouteKey(buf.readString());
+			replica.setRouteKey(buf.readInt());
 			replica.setIsr(buf.readBoolean());
 			return replica;
 		}
@@ -289,7 +289,7 @@ public class AtomixConnector extends ClusterConnector {
 			buf.writeInt(replica.getLeaderPort());
 			buf.writeUTF8(replica.getReplicaAddress());
 			buf.writeInt(replica.getReplicaPort());
-			buf.writeUTF8(replica.getRouteKey());
+			buf.writeInt(replica.getRouteKey());
 			buf.writeBoolean(replica.isIsr());
 		}
 

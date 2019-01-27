@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.cluster.push.routing;
+package com.srotya.minuteman.cluster.routing.impl;
 
 import java.util.List;
+
+import com.srotya.minuteman.cluster.Node;
 
 /**
  * A Strategy design pattern to compute data placement using different placement
@@ -31,7 +33,7 @@ public interface RoutingStrategy {
 	 * @param key
 	 * @return placementNode
 	 */
-	public Node getNode(Integer key);
+	public Node getRoute(Integer key);
 
 	/**
 	 * Get a list of placement nodes with n number of replicas.
@@ -40,7 +42,7 @@ public interface RoutingStrategy {
 	 * @param replicas
 	 * @return placementNodes
 	 */
-	public List<Node> getNodes(Integer key, int replicas);
+	public List<Node> getRoute(Integer key, int replicas);
 
 	/**
 	 * 
@@ -50,10 +52,18 @@ public interface RoutingStrategy {
 
 	public void addNodes(List<Node> nodes);
 
-	public void removeNode(Node node);
+	public default Node removeNode(Node node) {
+		return removeNode(node.getNodeKey());
+	}
+
+	public Node removeNode(Integer nodeId);
 
 	public void removeNodes(List<Node> nodes);
 
 	public List<Node> getAllNodes();
+
+	public int size();
+
+	public Node get(Integer nodeKey);
 
 }

@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -57,7 +57,7 @@ public class MappedWAL implements WAL {
 	private volatile int segmentCounter;
 	private RandomAccessFile raf;
 	private String walDirectory;
-	private Map<String, MappedWALFollower> followerMap;
+	private Map<Integer, MappedWALFollower> followerMap;
 	private volatile int counter;
 	private int maxCounter;
 	private int isrThreshold;
@@ -105,9 +105,9 @@ public class MappedWAL implements WAL {
 
 	public void updateISR() {
 		long currentOffset = (currentWrite.position() + (long) ((segmentCounter - 1) * segmentSize));
-		for (Entry<String, MappedWALFollower> entry : followerMap.entrySet()) {
+		for (Entry<Integer, MappedWALFollower> entry : followerMap.entrySet()) {
 			MappedWALFollower follower = entry.getValue();
-			String followerId = entry.getKey();
+			Integer followerId = entry.getKey();
 			if (currentOffset - follower.getOffset() > isrThreshold) {
 				follower.setIsr(false);
 				logger.fine("Follower no longer an ISR:" + followerId + " wal:" + walDirectory + " current offset:"
@@ -154,7 +154,7 @@ public class MappedWAL implements WAL {
 		if (raf != null) {
 			raf.close();
 		}
-		for (Entry<String, MappedWALFollower> entry : followerMap.entrySet()) {
+		for (Entry<Integer, MappedWALFollower> entry : followerMap.entrySet()) {
 			if (entry.getValue().getReader() != null) {
 				entry.getValue().getReader().close();
 			}
@@ -184,7 +184,7 @@ public class MappedWAL implements WAL {
 				flush();
 				counter = 0;
 			}
-			logger.finest("Wrote data:" + data.length + " at new offset:" + currentWrite.position() + " new file:"
+			logger.info("Wrote data:" + data.length + " at new offset:" + currentWrite.position() + " new file:"
 					+ segmentCounter);
 		} finally {
 			write.unlock();
@@ -192,7 +192,7 @@ public class MappedWAL implements WAL {
 	}
 
 	@Override
-	public WALRead read(String followerId, long requestOffset, int maxBytes, boolean readCommitted) throws IOException {
+	public WALRead read(Integer followerId, long requestOffset, int maxBytes, boolean readCommitted) throws IOException {
 		read.lock();
 		MappedWALFollower follower = followerMap.get(followerId);
 		if (follower == null) {
@@ -233,7 +233,7 @@ public class MappedWAL implements WAL {
 		return readData;
 	}
 
-	private void readDataAndUpdateOffset(String followerId, long requestOffset, int maxBytes,
+	private void readDataAndUpdateOffset(Integer followerId, long requestOffset, int maxBytes,
 			MappedWALFollower follower, WALRead readData, int segmentId, int pos, boolean readCommitted) {
 		ByteBuffer buf = follower.getBuf();
 		int offset = rawOffsetToSegmentOffset(requestOffset);
@@ -280,7 +280,7 @@ public class MappedWAL implements WAL {
 		readData.setData(data);
 	}
 
-	private WALRead initializeBuffer(MappedWALFollower follower, int segmentId, String followerId, WALRead readData)
+	private WALRead initializeBuffer(MappedWALFollower follower, int segmentId, Integer followerId, WALRead readData)
 			throws IOException {
 		File file = new File(getSegmentFileName(walDirectory, segmentId));
 		if (!file.exists() && segmentId < segmentCounter) {
@@ -300,7 +300,7 @@ public class MappedWAL implements WAL {
 		}
 	}
 
-	private void checkAndCleanupSegment(String followerId, MappedWALFollower follower, int segmentId,
+	private void checkAndCleanupSegment(Integer followerId, MappedWALFollower follower, int segmentId,
 			int followerSegmentId) throws IOException {
 		if (segmentId != followerSegmentId) {
 			logger.info("Follower file(" + followerSegmentId + ") is doesn't match requested file id(" + segmentId
@@ -422,7 +422,7 @@ public class MappedWAL implements WAL {
 	}
 
 	@Override
-	public long getFollowerOffset(String followerId) {
+	public long getFollowerOffset(Integer followerId) {
 		MappedWALFollower mappedWALFollower = followerMap.get(followerId);
 		if (mappedWALFollower != null) {
 			return mappedWALFollower.getOffset();
@@ -432,9 +432,9 @@ public class MappedWAL implements WAL {
 
 	private long getMinimumOffset() {
 		logger.finest("Getting minimum offset among followers");
-		String[] array = followerMap.keySet().toArray(new String[0]);
+		Integer[] array = followerMap.keySet().toArray(new Integer[0]);
 		long offsetMarker = Long.MAX_VALUE;
-		for (String tracker : array) {
+		for (Integer tracker : array) {
 			MappedWALFollower follower = followerMap.get(tracker);
 			if (!follower.isIsr()) {
 				logger.finest("Ignoring(" + tracker + ") since it's not an ISR offset:" + follower.getOffset()
@@ -466,9 +466,9 @@ public class MappedWAL implements WAL {
 		}
 		write.lock();
 		int segmentMarker = Integer.MAX_VALUE;
-		String[] array = followerMap.keySet().toArray(new String[0]);
+		Integer[] array = followerMap.keySet().toArray(new Integer[0]);
 		logger.fine("Follower Count:" + array.length);
-		for (String tracker : array) {
+		for (Integer tracker : array) {
 			MappedWALFollower follower = followerMap.get(tracker);
 			int fId = rawOffsetToSegmentId(follower.getOffset()) - 1;
 			if (fId < segmentMarker) {
@@ -489,12 +489,12 @@ public class MappedWAL implements WAL {
 	}
 
 	@Override
-	public Collection<String> getFollowers() {
+	public Collection<Integer> getFollowers() {
 		return followerMap.keySet();
 	}
 
 	@Override
-	public boolean isIsr(String followerId) {
+	public boolean isIsr(Integer followerId) {
 		return followerMap.get(followerId).isr;
 	}
 

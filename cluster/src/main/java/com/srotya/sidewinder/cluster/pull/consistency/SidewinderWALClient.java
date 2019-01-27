@@ -38,7 +38,7 @@ public class SidewinderWALClient extends LocalWALClient {
 	private static AtomicInteger counter = new AtomicInteger();
 
 	@Override
-	public LocalWALClient configure(Map<String, String> conf, String nodeId, WAL localWAL, Object storageObject)
+	public LocalWALClient configure(Map<String, String> conf, Integer nodeId, WAL localWAL, Object storageObject)
 			throws IOException {
 		conf.put("wal.local.read.mode", "uncommitted");
 		super.configure(conf, nodeId, localWAL, storageObject);

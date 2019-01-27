@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -84,20 +84,22 @@ public class TestWALManagerImpl {
 		try {
 			mgr.init(conf, connector, es, null);
 		} catch (Exception e) {
+			e.printStackTrace();
 			fail("Shouldn't throw exception:" + e.getMessage());
 		}
 		assertNotNull(mgr.getCoordinator());
 		try {
-			mgr.addRoutableKey("key", 3);
+			mgr.addRoutableKey("key".hashCode(), 3);
 			fail("Should throw insufficient nodes exception");
 		} catch (Exception e) {
 			System.err.println(e.getMessage());
 		}
 		try {
-			List<Replica> replica = mgr.addRoutableKey("key", 1);
-			assertEquals("localhost:55021", replica.get(0).getLeaderNodeKey());
-			assertEquals("localhost:55021", replica.get(0).getReplicaNodeKey());
+			List<Replica> replica = mgr.addRoutableKey("key".hashCode(), 1);
+			assertEquals("localhost:55021".hashCode(), replica.get(0).getLeaderNodeKey().intValue());
+			assertEquals("localhost:55021".hashCode(), replica.get(0).getReplicaNodeKey().intValue());
 		} catch (Exception e) {
+			e.printStackTrace();
 			fail("Shouldn't throw insufficient nodes exception");
 		}
 		ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", 55021)
@@ -105,11 +107,11 @@ public class TestWALManagerImpl {
 
 		ReplicationServiceBlockingStub stub = ReplicationServiceGrpc.newBlockingStub(channel);
 		RouteResponse response = stub
-				.addRoute(RouteRequest.newBuilder().setRouteKey("test").setReplicationFactor(1).build());
+				.addRoute(RouteRequest.newBuilder().setRouteKey("test".hashCode()).setReplicationFactor(1).build());
 		assertEquals(200, response.getResponseCode());
 
 		try {
-			assertNotNull(mgr.getWAL("test"));
+			assertNotNull(mgr.getWAL("test".hashCode()));
 		} catch (IOException e) {
 			fail("Must not fail to get the WAL");
 		}
@@ -140,8 +142,8 @@ public class TestWALManagerImpl {
 		}
 		assertNotNull(mgr.getCoordinator());
 		try {
-			mgr.addRoutableKey("key", 4);
-			fail("Should throw insufficient nodes exception");
+			mgr.addRoutableKey("key".hashCode(), 4);
+			fail("Must throw insufficient nodes exception");
 		} catch (Exception e) {
 			System.err.println(e.getMessage());
 		}
@@ -159,17 +161,17 @@ public class TestWALManagerImpl {
 		assertTrue(connector.isCoordinator());
 		assertTrue(!connector2.isCoordinator());
 		try {
-			List<Replica> replica = mgr.addRoutableKey("key", 2);
-			assertEquals("localhost:55021", replica.get(0).getLeaderNodeKey());
-			assertEquals("localhost:55021", replica.get(0).getReplicaNodeKey());
-			assertEquals("localhost:55021", replica.get(1).getLeaderNodeKey());
-			assertEquals("localhost:55022", replica.get(1).getReplicaNodeKey());
-			// validate round robin leader assignment
-			replica = mgr.addRoutableKey("key2", 2);
-			assertEquals("localhost:55022", replica.get(0).getLeaderNodeKey());
-			assertEquals("localhost:55022", replica.get(0).getReplicaNodeKey());
-			assertEquals("localhost:55022", replica.get(1).getLeaderNodeKey());
-			assertEquals("localhost:55021", replica.get(1).getReplicaNodeKey());
+			List<Replica> replica = mgr.addRoutableKey("key".hashCode(), 2);
+			assertEquals("localhost:55022".hashCode(), replica.get(0).getLeaderNodeKey().intValue());
+			assertEquals("localhost:55022".hashCode(), replica.get(0).getReplicaNodeKey().intValue());
+			assertEquals("localhost:55022".hashCode(), replica.get(1).getLeaderNodeKey().intValue());
+			assertEquals("localhost:55021".hashCode(), replica.get(1).getReplicaNodeKey().intValue());
+			// validate mod hash leader assignment
+			replica = mgr.addRoutableKey("key2".hashCode(), 2);
+			assertEquals("localhost:55022".hashCode(), replica.get(0).getLeaderNodeKey().intValue());
+			assertEquals("localhost:55022".hashCode(), replica.get(0).getReplicaNodeKey().intValue());
+			assertEquals("localhost:55022".hashCode(), replica.get(1).getLeaderNodeKey().intValue());
+			assertEquals("localhost:55021".hashCode(), replica.get(1).getReplicaNodeKey().intValue());
 		} catch (Exception e) {
 			e.printStackTrace();
 			fail("Shouldn't throw insufficient nodes exception");
@@ -179,11 +181,11 @@ public class TestWALManagerImpl {
 
 		ReplicationServiceBlockingStub stub = ReplicationServiceGrpc.newBlockingStub(channel);
 		RouteResponse response = stub
-				.addRoute(RouteRequest.newBuilder().setRouteKey("test5").setReplicationFactor(1).build());
+				.addRoute(RouteRequest.newBuilder().setRouteKey("test5".hashCode()).setReplicationFactor(1).build());
 		assertEquals(500, response.getResponseCode());
 
 		try {
-			assertNull(mgr2.getWAL("test5"));
+			assertNull(mgr2.getWAL("test5".hashCode()));
 		} catch (IOException e) {
 			fail("Must not fail to get the WAL");
 		}
@@ -194,7 +196,8 @@ public class TestWALManagerImpl {
 				.compressorRegistry(CompressorRegistry.getDefaultInstance()).usePlaintext(true).build();
 
 		stub = ReplicationServiceGrpc.newBlockingStub(channel);
-		response = stub.addRoute(RouteRequest.newBuilder().setRouteKey("test5").setReplicationFactor(2).build());
+		response = stub
+				.addRoute(RouteRequest.newBuilder().setRouteKey("test5".hashCode()).setReplicationFactor(2).build());
 		assertEquals(200, response.getResponseCode());
 
 		mgr.stop();
@@ -258,8 +261,8 @@ public class TestWALManagerImpl {
 		}
 
 		// verify nodes are connected to the cluster
-		assertEquals(2, mgr.getNodeMap().size());
-		assertEquals(2, mgr2.getNodeMap().size());
+		assertEquals(2, mgr.getStrategy().size());
+		assertEquals(2, mgr2.getStrategy().size());
 
 		// add key to coordinator, invalid replication factor
 		WALManager mg = mgr;
@@ -267,17 +270,19 @@ public class TestWALManagerImpl {
 			mg = mgr2;
 		}
 		try {
-			mg.addRoutableKey("test1", 3);
+			mg.addRoutableKey("test1".hashCode(), 3);
 			fail("Must throw illegal argument exception");
 		} catch (IllegalArgumentException e) {
 		}
 
 		// add key to coordinator, invalid replication factor
 		try {
-			mg.addRoutableKey("test1", 2);
+			mg.addRoutableKey("test1".hashCode(), 2);
 		} catch (IllegalArgumentException e) {
 			fail("Must NOT throw illegal argument exception");
 		}
+
+		System.out.println("Routing tested");
 
 		// join a node after keys are already created
 		WALManager mgr3 = new WALManagerImpl();
@@ -297,13 +302,17 @@ public class TestWALManagerImpl {
 			fail("Shouldn't throw exception:" + e.getMessage());
 		}
 		try {
-			mg.addRoutableKey("test3", 3);
+			List<Replica> addRoutableKey = mg.addRoutableKey("test3".hashCode(), 3);
+			System.out.println(
+					"Leader:" + addRoutableKey.get(0).getLeaderAddress() + ":" + addRoutableKey.get(0).getLeaderPort());
 		} catch (IllegalArgumentException e) {
 			fail("Must NOT throw illegal argument exception");
 		}
 
 		mgr3.stop();
 		connector3.stop();
+
+		System.out.println("Reconnecting to cluster");
 
 		// reconnect to cluster from machine 3, validate replicas are recovered
 		mgr3 = new WALManagerImpl();
@@ -323,23 +332,21 @@ public class TestWALManagerImpl {
 			fail("Shouldn't throw exception:" + e.getMessage());
 		}
 
-		mg.getWAL("test3").write("test".getBytes(), false);
+		mgr2.getWAL("test3".hashCode()).write("test".getBytes(), false);
 
 		int c = 0;
-		while (mgr2.getWAL("test3").getOffset() != 12) {
+		while (mgr.getWAL("test3".hashCode()).getOffset() != 12) {
 			Thread.sleep(100);
 			c++;
 			if (c % 100 == 0) {
-				System.out.println("Offset:" + mgr2.getWAL("test3").getOffset());
+				System.out.println("Offset:" + mgr.getWAL("test3".hashCode()).getOffset());
 			}
 		}
 
-		System.out.println("Offset:" + mgr2.getWAL("test3").getOffset());
+		System.out.println("Offset:" + mgr.getWAL("test3".hashCode()).getOffset());
 		// fail the leader
 		System.out.println("Primary has been stopped");
 
-		// validate replica's take over; wait a full leader election cycle
-		Thread.sleep(5000);
 		System.out.println("Test completed, stopping managers");
 	}
 }

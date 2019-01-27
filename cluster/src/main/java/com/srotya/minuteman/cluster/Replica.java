@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import com.srotya.minuteman.wal.WALClient;
  */
 public class Replica {
 
-	private String routeKey;
+	private Integer routeKey;
 	private String replicaAddress;
 	private int replicaPort;
 	private String leaderAddress;
@@ -57,8 +57,8 @@ public class Replica {
 	/**
 	 * @return the replicaNodeKey
 	 */
-	public String getReplicaNodeKey() {
-		return replicaAddress + ":" + replicaPort;
+	public Integer getReplicaNodeKey() {
+		return (replicaAddress + ":" + replicaPort).hashCode();
 	}
 
 	/**
@@ -79,14 +79,14 @@ public class Replica {
 	/**
 	 * @return the leaderNodeKey
 	 */
-	public String getLeaderNodeKey() {
-		return leaderAddress + ":" + leaderPort;
+	public Integer getLeaderNodeKey() {
+		return (leaderAddress + ":" + leaderPort).hashCode();
 	}
 
 	/**
 	 * @return the routeKey
 	 */
-	public String getRouteKey() {
+	public Integer getRouteKey() {
 		return routeKey;
 	}
 
@@ -94,7 +94,7 @@ public class Replica {
 	 * @param routeKey
 	 *            the routeKey to set
 	 */
-	public void setRouteKey(String routeKey) {
+	public void setRouteKey(Integer routeKey) {
 		this.routeKey = routeKey;
 	}
 

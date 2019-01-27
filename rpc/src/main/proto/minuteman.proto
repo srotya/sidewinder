@@ -37,25 +37,25 @@ service ReplicationService {
 
 message IsrUpdateRequest {
 
-	string routeKey = 1;
-	map<string, bool> isrMap = 2;
+	int32 routeKey = 1;
+	map<int32, bool> isrMap = 2;
 
 }
 
 message DataRequest {
 
-	string routeKey = 1;
+	int32 routeKey = 1;
 	bytes data = 2;
 
 }
 
 message ReplicaRequest {
 
-	string routeKey = 1;
+	int32 routeKey = 1;
 	string replicaAddress = 2;
-	string replicaNodeKey = 3;
+	int32 replicaNodeKey = 3;
 	int32 replicaPort = 4;
-	string leaderNodeKey = 5;
+	int32 leaderNodeKey = 5;
 	string leaderAddress = 6;
 	int32 leaderPort = 7;
 
@@ -70,7 +70,7 @@ message GenericResponse {
 
 message RouteRequest {
 
-	string routeKey = 1;
+	int32 routeKey = 1;
 	int32 replicationFactor = 2;
 
 }
@@ -79,17 +79,17 @@ message RouteResponse {
 
 	int32 responseCode = 1;
 	string responseString = 2;
-	repeated string replicaids = 3;
-	string leaderid = 4;
+	repeated int32 replicaids = 3;
+	int32 leaderid = 4;
 
 }
 
 message BatchDataRequest {
 
 	int64 offset = 1;
-	string nodeId = 2;
+	int32 nodeId = 2;
 	int32 maxBytes = 3;
-	string routeKey = 5; 
+	int32 routeKey = 5; 
 
 }
 

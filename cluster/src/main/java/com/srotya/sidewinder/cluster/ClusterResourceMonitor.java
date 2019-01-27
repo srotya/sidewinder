@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import com.srotya.sidewinder.cluster.push.connectors.ClusterConnector;
+import com.srotya.minuteman.connectors.ClusterConnector;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Tag;
 import com.srotya.sidewinder.core.storage.StorageEngine;

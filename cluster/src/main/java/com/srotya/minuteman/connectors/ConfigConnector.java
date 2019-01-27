@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package com.srotya.minuteman.connectors;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -43,19 +44,19 @@ public class ConfigConnector extends ClusterConnector {
 	public void init(Map<String, String> conf) throws Exception {
 		String master = conf.getOrDefault(CLUSTER_CC_MASTER, "localhost:55021");
 		masterNode = buildNode(master);
-		String[] slaves = conf.getOrDefault(CLUSTER_CC_SLAVES, "").split(",");
+		List<String> slaves = Arrays.asList(conf.getOrDefault(CLUSTER_CC_SLAVES, "").split(","));
 		for (String slave : slaves) {
 			slave = slave.trim();
-			if (!slave.isEmpty() && !slave.equals(masterNode.getNodeKey())) {
+			if (!slave.isEmpty() && slave.hashCode() != masterNode.getNodeKey()) {
 				slavesList.add(buildNode(slave));
 			}
 		}
 	}
 
 	@Override
-	public void initializeRouterHooks(WALManager manager) throws IOException {
+	public void initializeRouterListener(WALManager manager) throws IOException {
 		String node = manager.getAddress() + ":" + manager.getPort();
-		if (node.equals(masterNode.getNodeKey())) {
+		if (node.hashCode() == masterNode.getNodeKey()) {
 			isMaster = true;
 		} else {
 			isMaster = false;

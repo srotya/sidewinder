@@ -82,27 +82,23 @@ public class InfluxApi {
 		if (dps.isEmpty()) {
 			throw new BadRequestException("Empty request no acceptable");
 		}
-		Map<Integer, List<Point>> measurementMap = new HashMap<>();
+		Map<Integer, List<Point>> shardMap = new HashMap<>();
 
-		if (!presorted) {
-			for (Point dp : dps) {
-				List<Point> list = measurementMap.get(Utils.pointToRouteKey(dp));
-				if (list == null) {
-					list = new ArrayList<>();
-					measurementMap.put(Utils.pointToRouteKey(dp), list);
-				}
-				list.add(dp);
+		for (Point dp : dps) {
+			Integer pointToRouteKey = Utils.pointToRouteKey(dp) % 2;
+			List<Point> list = shardMap.get(pointToRouteKey);
+			if (list == null) {
+				list = new ArrayList<>();
+				shardMap.put(pointToRouteKey, list);
 			}
-		} else {
-			measurementMap.put(Utils.pointToRouteKey(dps.get(0)), dps);
+			list.add(dp);
 		}
 
-		for (Entry<Integer, List<Point>> entry : measurementMap.entrySet()) {
-			String key = String.valueOf(entry.getKey());
-			String replicaLeader = mgr.getReplicaLeader(key);
+		for (Entry<Integer, List<Point>> entry : shardMap.entrySet()) {
+			Integer replicaLeader = mgr.getReplicaLeader(entry.getKey());
 			// add route key
 			if (replicaLeader == null) {
-				replicaLeader = requestRouteKey(mgr, key, replica);
+				replicaLeader = requestRouteKey(mgr, entry.getKey(), replica);
 				if (replicaLeader == null) {
 					continue;
 				}
@@ -110,32 +106,26 @@ public class InfluxApi {
 			byte[] ary = BatchData.newBuilder().addAllPoints(entry.getValue()).build().toByteArray();
 			if (replicaLeader.equals(mgr.getThisNodeKey())) {
 				try {
-					// ary = Snappy.compress(ary);
-					mgr.getWAL(key).write(ary, false);
+					mgr.getWAL(entry.getKey()).write(ary, false);
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
 			} else {
 				DataRequest dataRequest = DataRequest.newBuilder().setData(ByteString.copyFrom(ary))
-						.setRouteKey(key).build();
-				Node node = mgr.getNodeMap().get(replicaLeader);
+						.setRouteKey(entry.getKey()).build();
+				Node node = mgr.getStrategy().get(replicaLeader);
 				ReplicationServiceBlockingStub rpc = ReplicationServiceGrpc.newBlockingStub(node.getChannel());
 				GenericResponse response = rpc.writeData(dataRequest);
 				if (response.getResponseCode() != 200) {
 					logger.severe("Error writing data");
 				}
 			}
-			// else {
-			// System.out.println("Wrote data:" + entry.getKey() + " to node:" +
-			// node.getNodeKey());
-			// }
 		}
-		// System.out.println("Requests received:" + counter.get());
 		meter.mark(dps.size());
 	}
 
-	private String requestRouteKey(WALManager mgr, String key, int replicationFactor) {
+	private Integer requestRouteKey(WALManager mgr, Integer key, int replicationFactor) {
 		ReplicationServiceBlockingStub stub = ReplicationServiceGrpc.newBlockingStub(mgr.getCoordinator().getChannel());
 		RouteResponse route = stub
 				.addRoute(RouteRequest.newBuilder().setRouteKey(key).setReplicationFactor(replicationFactor).build());

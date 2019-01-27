@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ public class ReplicationServiceImpl extends ReplicationServiceImplBase {
 		try {
 			logger.info("Request to add new route key and compute routes for it:" + request.getRouteKey());
 			List<Replica> replicas = mgr.addRoutableKey(request.getRouteKey(), request.getReplicationFactor());
-			List<String> collect = replicas.stream().map(r -> r.getReplicaNodeKey()).collect(Collectors.toList());
+			List<Integer> collect = replicas.stream().map(r -> r.getReplicaNodeKey()).collect(Collectors.toList());
 			responseObserver.onNext(builder.addAllReplicaids(collect).setLeaderid(replicas.get(0).getLeaderNodeKey())
 					.setResponseCode(200).setResponseString("Successful").build());
 		} catch (Exception e) {
@@ -141,8 +141,8 @@ public class ReplicationServiceImpl extends ReplicationServiceImplBase {
 
 	@Override
 	public void updateIsr(IsrUpdateRequest request, StreamObserver<GenericResponse> responseObserver) {
-		String routeKey = request.getRouteKey();
-		Map<String, Boolean> isrUpdateMap = request.getIsrMapMap();
+		Integer routeKey = request.getRouteKey();
+		Map<Integer, Boolean> isrUpdateMap = request.getIsrMapMap();
 		com.srotya.minuteman.rpc.GenericResponse.Builder builder = GenericResponse.newBuilder();
 		try {
 			mgr.updateReplicaIsrStatus(routeKey, isrUpdateMap);

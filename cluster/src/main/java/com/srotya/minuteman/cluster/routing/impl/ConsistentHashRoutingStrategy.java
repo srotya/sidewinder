@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.sidewinder.cluster.pull.routing.impl;
+package com.srotya.minuteman.cluster.routing.impl;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -26,8 +26,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import com.google.common.hash.HashFunction;
 import com.google.common.hash.Hashing;
-import com.srotya.sidewinder.cluster.push.routing.Node;
-import com.srotya.sidewinder.cluster.push.routing.RoutingStrategy;
+import com.srotya.minuteman.cluster.Node;
 
 /**
  * @author ambud
@@ -74,30 +73,17 @@ public class ConsistentHashRoutingStrategy implements RoutingStrategy {
 		writeLock.unlock();
 	}
 
-	// private List<Integer> recomputeKeydistribution() {
-	// List<Integer> keyMovements = new ArrayList<>();
-	// ArrayList<Integer> keySet = new ArrayList<>(routeTable.keySet());
-	// for (Integer keyEntry : keySet) {
-	// List<Node> list = routeTable.get(keyEntry);
-	// if (list == null) {
-	// // TODO handle this weird situation and check if it's at all
-	// // possible
-	// continue;
-	// }
-	// List<Node> newList = computeNodePlacement(keyEntry, list.size());
-	// if (!list.equals(newList)) {
-	// keyMovements.add(keyEntry);
-	// routeTable.put(keyEntry, newList);
-	// }
-	// }
-	// return keyMovements;
-	// }
-
-	public void removeNode(Node node) {
-		int key = hash(node.getNodeKey());
+	@Override
+	public Node removeNode(Integer nodeId) {
 		writeLock.lock();
-		map.remove(key);
+		Node remove = map.remove(nodeId);
 		writeLock.unlock();
+		return remove;
+	}
+
+	@Override
+	public Node get(Integer nodeKey) {
+		return map.get(nodeKey);
 	}
 
 	public void removeNodes(List<Node> nodes) {
@@ -127,7 +113,7 @@ public class ConsistentHashRoutingStrategy implements RoutingStrategy {
 		return nodes;
 	}
 
-	public Node getNode(Integer value) {
+	public Node getRoute(Integer value) {
 		readLock.lock();
 		Node node = computeNodePlacement(value, 1).get(0);
 		readLock.unlock();
@@ -135,7 +121,7 @@ public class ConsistentHashRoutingStrategy implements RoutingStrategy {
 	}
 
 	@Override
-	public List<Node> getNodes(Integer value, int replicas) {
+	public List<Node> getRoute(Integer value, int replicas) {
 		readLock.lock();
 		List<Node> nodes = computeNodePlacement(value, replicas);
 		readLock.unlock();
@@ -147,16 +133,9 @@ public class ConsistentHashRoutingStrategy implements RoutingStrategy {
 		return new ArrayList<>(map.values());
 	}
 
-	// @Override
-	// public int getReplicationFactor(Integer key) {
-	// int replica = 0;
-	// writeLock.lock();
-	// List<Node> list = routeTable.get(key);
-	// if (list != null) {
-	// replica = list.size();
-	// }
-	// writeLock.unlock();
-	// return replica;
-	// }
+	@Override
+	public int size() {
+		return map.size();
+	}
 
 }

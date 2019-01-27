@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
+import com.srotya.minuteman.cluster.routing.impl.RoutingStrategy;
 import com.srotya.minuteman.connectors.ClusterConnector;
 import com.srotya.minuteman.wal.MappedWAL;
 import com.srotya.minuteman.wal.WAL;
@@ -42,18 +43,18 @@ public abstract class WALManager {
 	private int port;
 	private String address;
 	private Map<String, String> conf;
-	private Map<String, Node> nodeMap;
 	private Node coordinatorKey;
 	private ScheduledExecutorService bgtask;
 	protected Object storageObject;
+	protected ClusterConnector connector;
 
 	public WALManager() {
-		this.nodeMap = new HashMap<>();
 	}
-
-	public void init(Map<String, String> conf, ClusterConnector connector, ScheduledExecutorService bgtask, Object storageObject)
-			throws Exception {
+	
+	public void init(Map<String, String> conf, ClusterConnector connector, ScheduledExecutorService bgtask,
+			Object storageObject) throws Exception {
 		this.conf = conf;
+		this.connector = connector;
 		this.bgtask = bgtask;
 		this.storageObject = storageObject;
 		this.port = Integer.parseInt(conf.getOrDefault(CLUSTER_GRPC_PORT, DEFAULT_CLUSTER_GRPC_PORT));
@@ -68,7 +69,7 @@ public abstract class WALManager {
 		return port;
 	}
 
-	public WAL initializeWAL(String routeKey) throws IOException {
+	public WAL initializeWAL(Integer routeKey) throws IOException {
 		WAL wal = new MappedWAL();
 		Map<String, String> local = new HashMap<>(conf);
 		local.put(WAL.WAL_DIR, conf.getOrDefault(WAL.WAL_DIR, WAL.DEFAULT_WAL_DIR) + "/" + routeKey);
@@ -76,16 +77,12 @@ public abstract class WALManager {
 		return wal;
 	}
 
-	public Map<String, Node> getNodeMap() {
-		return nodeMap;
-	}
-
 	public Map<String, String> getConf() {
 		return conf;
 	}
 
-	public String getThisNodeKey() {
-		return address + ":" + port;
+	public Integer getThisNodeKey() {
+		return (address + ":" + port).hashCode();
 	}
 
 	public Node getCoordinator() {
@@ -93,23 +90,19 @@ public abstract class WALManager {
 	}
 
 	public void setCoordinator(Node node) {
-		Node n = getNodeMap().get(node.getNodeKey());
-		if (n == null) {
-			n = node;
-			getNodeMap().put(node.getNodeKey(), node);
-		}
-		this.coordinatorKey = n;
+		System.out.println("Setting coordinator:" + node);
+		this.coordinatorKey = getStrategy().get(node.getNodeKey());
 	}
 
 	public abstract void addNode(Node node) throws IOException;
 
-	public abstract void removeNode(String nodeId) throws Exception;
+	public abstract void removeNode(Integer nodeId) throws Exception;
 
 	public abstract void makeCoordinator() throws Exception;
 
-	public abstract WAL getWAL(String key) throws IOException;
+	public abstract WAL getWAL(Integer key) throws IOException;
 
-	public abstract List<Replica> addRoutableKey(String routingKey, int replicationFactor) throws Exception;
+	public abstract List<Replica> addRoutableKey(Integer routingKey, int replicationFactor) throws Exception;
 
 	public abstract void resume() throws IOException;
 
@@ -121,10 +114,15 @@ public abstract class WALManager {
 
 	public abstract void stop() throws InterruptedException, IOException;
 
-	public abstract String getReplicaLeader(String routeKey);
+	public abstract Integer getReplicaLeader(Integer routeKey);
 
-	public abstract void updateReplicaIsrStatus(String routeKey, Map<String, Boolean> isrUpdateMap) throws Exception;
+	public abstract void updateReplicaIsrStatus(Integer routeKey, Map<Integer, Boolean> isrUpdateMap) throws Exception;
 
 	public abstract void setRouteTable(Object newValue);
+
+	public RoutingStrategy getStrategy() {
+		// TODO Auto-generated method stub
+		return null;
+	}
 
 }

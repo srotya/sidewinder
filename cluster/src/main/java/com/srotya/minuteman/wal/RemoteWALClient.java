@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,7 +42,7 @@ public class RemoteWALClient extends WALClient {
 	private AtomicLong metricRequestTime;
 	private AtomicLong metricWriteTime;
 	private AtomicLong loopCounter;
-	private String routeKey;
+	private Integer routeKey;
 
 	public RemoteWALClient() {
 		metricRequestTime = new AtomicLong();
@@ -50,8 +50,8 @@ public class RemoteWALClient extends WALClient {
 		loopCounter = new AtomicLong();
 	}
 
-	public RemoteWALClient configure(Map<String, String> conf, String nodeId, ManagedChannel channel, WAL wal,
-			String routeKey) throws IOException {
+	public RemoteWALClient configure(Map<String, String> conf, Integer nodeId, ManagedChannel channel, WAL wal,
+			Integer routeKey) throws IOException {
 		super.configure(conf, nodeId, wal);
 		this.routeKey = routeKey;
 		this.counter = new AtomicInteger(0);

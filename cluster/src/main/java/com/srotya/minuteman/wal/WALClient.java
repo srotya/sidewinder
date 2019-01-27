@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ public abstract class WALClient implements Runnable{
 	private AtomicBoolean ctrl;
 	protected int retryWait;
 	protected int errorRetryWait;
-	protected String nodeId;
+	protected Integer nodeId;
 	protected WAL wal;
 	protected int maxFetchBytes;
 	protected long offset;
@@ -44,7 +44,7 @@ public abstract class WALClient implements Runnable{
 		}
 	}
 
-	public WALClient configure(Map<String, String> conf, String nodeId, WAL localWAL) throws IOException {
+	public WALClient configure(Map<String, String> conf, Integer nodeId, WAL localWAL) throws IOException {
 		if (localWAL == null || nodeId == null || conf == null) {
 			throw new IllegalArgumentException("Arguments can't be null:" + localWAL + "," + nodeId + "," + conf);
 		}

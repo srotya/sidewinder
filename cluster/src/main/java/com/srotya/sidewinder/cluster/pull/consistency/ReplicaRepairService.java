@@ -43,14 +43,11 @@ import org.apache.http.util.EntityUtils;
 
 import com.srotya.minuteman.cluster.Node;
 import com.srotya.minuteman.cluster.WALManager;
-import com.srotya.sidewinder.cluster.Utils;
 import com.srotya.sidewinder.cluster.rpc.ClusterReadServiceGrpc;
 import com.srotya.sidewinder.cluster.rpc.ClusterReadServiceGrpc.ClusterReadServiceBlockingStub;
 import com.srotya.sidewinder.cluster.rpc.DeltaObject;
 import com.srotya.sidewinder.cluster.rpc.DeltaRequest;
 import com.srotya.sidewinder.cluster.rpc.DeltaResponse;
-import com.srotya.sidewinder.core.rpc.Tag;
-import com.srotya.sidewinder.core.storage.Series;
 import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
@@ -138,8 +135,9 @@ public class ReplicaRepairService implements Managed {
 	}
 
 	private List<DeltaObject> getObjects(String db, String measurement, String valueFieldName) {
-		String leader = mgr.getReplicaLeader(Utils.buildRouteKey(db, measurement, valueFieldName));
-		Node node = mgr.getNodeMap().get(leader);
+		Integer leader = null; 
+//				mgr.getReplicaLeader(Utils.buildRouteKey(db, measurement, valueFieldName));
+		Node node = mgr.getStrategy().get(leader);
 		ClusterReadServiceBlockingStub stub = ClusterReadServiceGrpc.newBlockingStub(node.getChannel());
 		DeltaResponse deltas = stub.getDeltas(DeltaRequest.newBuilder().setCompact(false).setDbName(db)
 				.setMeasurementName(measurement).setValueFieldName(valueFieldName).build());
@@ -172,8 +170,9 @@ public class ReplicaRepairService implements Managed {
 	private String connectToLeaderAndFetchDeltas(String db, String measurement, String valueFieldName)
 			throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException, IOException,
 			ClientProtocolException {
-		String leader = mgr.getReplicaLeader(Utils.buildRouteKey(db, measurement, valueFieldName));
-		Node node = mgr.getNodeMap().get(leader);
+		Integer leader = null;
+//		mgr.getReplicaLeader(Utils.buildRouteKey(db, measurement, valueFieldName));
+		Node node = mgr.getStrategy().get(leader);
 		String baseUrl = "http://" + node.getAddress() + ":8080/rpc/delta/";
 		HttpGet deltaRequest = new HttpGet(baseUrl + db + "/" + measurement);
 		CloseableHttpClient client = buildClient(baseUrl, 5000, 5000);

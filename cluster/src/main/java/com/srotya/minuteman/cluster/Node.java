@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@ import io.grpc.ManagedChannelBuilder;
 
 public class Node {
 
-	private String nodeKey;
+	private int nodeKey;
 	private String address;
 	private int port;
 	private transient ManagedChannel inBoundChannel;
 
-	public Node(String nodeKey, String address, int port) {
+	public Node(Integer nodeKey, String address, int port) {
 		super();
 		this.nodeKey = nodeKey;
 		this.address = address;
@@ -36,13 +36,13 @@ public class Node {
 	
 	@Override
 	public int hashCode() {
-		return nodeKey.hashCode();
+		return nodeKey;
 	}
 	
 	@Override
 	public boolean equals(Object obj) {
 		if(obj instanceof Node) {
-			return nodeKey.equals(((Node)obj).nodeKey);
+			return nodeKey == ((Node)obj).nodeKey;
 		}
 		return false;
 	}
@@ -50,7 +50,7 @@ public class Node {
 	/**
 	 * @return the nodeKey
 	 */
-	public String getNodeKey() {
+	public Integer getNodeKey() {
 		return nodeKey;
 	}
 
@@ -58,7 +58,7 @@ public class Node {
 	 * @param nodeKey
 	 *            the nodeKey to set
 	 */
-	public void setNodeKey(String nodeKey) {
+	public void setNodeKey(Integer nodeKey) {
 		this.nodeKey = nodeKey;
 	}
 

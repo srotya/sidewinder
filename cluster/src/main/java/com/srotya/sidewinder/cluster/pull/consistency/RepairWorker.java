@@ -35,7 +35,6 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.util.EntityUtils;
 
 import com.google.gson.Gson;
-import com.srotya.sidewinder.cluster.ThreadLocalCaches;
 import com.srotya.sidewinder.cluster.rpc.DataObject;
 import com.srotya.sidewinder.cluster.rpc.DeltaObject;
 import com.srotya.sidewinder.core.storage.Series;
@@ -46,6 +45,7 @@ public class RepairWorker implements Runnable {
 	private static Logger logger = Logger.getLogger(RepairWorker.class.getName());
 	private ArrayBlockingQueue<RepairTask> repairQueue;
 	private StorageEngine engine;
+	private Gson gson;
 
 	public RepairWorker(ArrayBlockingQueue<RepairTask> repairQueue, StorageEngine engine) {
 		this.repairQueue = repairQueue;
@@ -91,7 +91,6 @@ public class RepairWorker implements Runnable {
 	private DataObject httpGetData(RepairTask task, DeltaObject obj) {
 		String url = task.getUrl() + "/data/";
 		try {
-			Gson gson = ThreadLocalCaches.getGsonInstance();
 			CloseableHttpClient client = ReplicaRepairService.buildClient(url, 5000, 5000);
 			HttpPost req = new HttpPost(url);
 			req.setEntity(new StringEntity(gson.toJson(obj)));

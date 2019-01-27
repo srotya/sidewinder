@@ -46,13 +46,12 @@ public class Utils {
 	private Utils() {
 	}
 
-	public static SortedMap<Integer, List<Writer>> checkAndScopeTimeRange(long startTime, long endTime,
-			Series series, SortedMap<Integer, List<Writer>> bucketRawMap, int timeBucketSize) {
+	public static SortedMap<Integer, List<Writer>> checkAndScopeTimeRange(long startTime, long endTime, Series series,
+			SortedMap<Integer, List<Writer>> bucketRawMap, int timeBucketSize) {
 		Integer startBucket = bucketRawMap.firstKey();
 		Integer endBucket = bucketRawMap.lastKey();
 		if (startTime > 0 && TimeUtils.getTimeFromBucketString(startBucket) > startTime) {
-			startBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize)
-					- timeBucketSize;
+			startBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, startTime, timeBucketSize) - timeBucketSize;
 		}
 		if (endTime > 0 && endTime < TimeUtils.getTimeFromBucketString(endBucket)) {
 			endBucket = TimeUtils.getTimeBucket(TimeUnit.MILLISECONDS, endTime, timeBucketSize);
@@ -107,7 +106,7 @@ public class Utils {
 		}
 	}
 
-	public static byte[] compress(byte[] data) throws IOException {
+	public static byte[] compressGzip(byte[] data) throws IOException {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream(data.length);
 		GZIPOutputStream gzip = new GZIPOutputStream(bos);
 		gzip.write(data);
@@ -117,7 +116,7 @@ public class Utils {
 		return compressed;
 	}
 
-	public static byte[] uncompress(byte[] compressed) throws IOException {
+	public static byte[] uncompressGzip(byte[] compressed) throws IOException {
 		ByteArrayOutputStream bos = new ByteArrayOutputStream();
 		ByteArrayInputStream bis = new ByteArrayInputStream(compressed);
 		GZIPInputStream gis = new GZIPInputStream(bis);
@@ -130,12 +129,8 @@ public class Utils {
 		return bos.toByteArray();
 	}
 
-	public static String buildRouteKey(String dbName, String measurementName, String valueFieldName) {
-		return dbName + "#" + measurementName + "#" + valueFieldName;
-	}
-
 	public static Integer pointToRouteKey(Point dp) {
-		return MiscUtils.tagHashCode(dp.getTagsList());
+		return Math.abs(MiscUtils.tagHashCode(dp.getTagsList()));
 	}
 
 }

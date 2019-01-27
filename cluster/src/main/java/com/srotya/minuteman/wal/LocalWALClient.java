@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ public class LocalWALClient extends WALClient {
 	public LocalWALClient() {
 	}
 
-	public LocalWALClient configure(Map<String, String> conf, String nodeId, WAL localWAL, Object storageObject)
+	public LocalWALClient configure(Map<String, String> conf, Integer nodeId, WAL localWAL, Object storageObject)
 			throws IOException {
 		super.configure(conf, nodeId, localWAL);
 		this.counter = new AtomicInteger(0);

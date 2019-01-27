@@ -1,5 +1,5 @@
 /**
- * Copyright 2017 Ambud Sharma
+ * Copyright Ambud Sharma
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,7 +41,7 @@ public abstract class ClusterConnector {
 
 	public abstract void init(Map<String, String> conf) throws Exception;
 
-	public abstract void initializeRouterHooks(final WALManager manager) throws IOException;
+	public abstract void initializeRouterListener(final WALManager manager) throws IOException;
 
 	public abstract int getClusterSize() throws Exception;
 
@@ -62,7 +62,7 @@ public abstract class ClusterConnector {
 				"Coordinator messaging replica:" + replica.getReplicaNodeKey() + " for key:" + replica.getRouteKey());
 		if (!delete) {
 			ReplicationServiceBlockingStub stub = ReplicationServiceGrpc
-					.newBlockingStub(mgr.getNodeMap().get(replica.getReplicaNodeKey()).getChannel());
+					.newBlockingStub(mgr.getStrategy().get(replica.getReplicaNodeKey()).getChannel());
 			ReplicaRequest build = ReplicaRequest.newBuilder().setLeaderAddress(replica.getLeaderAddress())
 					.setLeaderNodeKey(replica.getLeaderNodeKey()).setLeaderPort(replica.getLeaderPort())
 					.setReplicaAddress(replica.getReplicaAddress()).setReplicaNodeKey(replica.getReplicaNodeKey())
@@ -73,7 +73,7 @@ public abstract class ClusterConnector {
 		}
 	}
 
-	public String requestNewRoute(String routeKey, int replicationFactor) throws Exception {
+	public Integer requestNewRoute(Integer routeKey, int replicationFactor) throws Exception {
 		logger.info("Requesting route key:" + routeKey + " with replication factor:" + replicationFactor);
 		ReplicationServiceBlockingStub stub = ReplicationServiceGrpc.newBlockingStub(getCoordinator().getChannel());
 		RouteResponse response = stub.addRoute(
@@ -90,7 +90,7 @@ public abstract class ClusterConnector {
 
 	public Node buildNode(String id) {
 		String[] split = id.split(":");
-		Node node = new Node(id, split[0], Integer.parseInt(split[1]));
+		Node node = new Node(id.hashCode(), split[0], Integer.parseInt(split[1]));
 		node.setInBoundChannel(ManagedChannelBuilder.forAddress(node.getAddress(), node.getPort())
 				.compressorRegistry(CompressorRegistry.getDefaultInstance()).usePlaintext(true).build());
 		logger.info("New connection to:" + id);
