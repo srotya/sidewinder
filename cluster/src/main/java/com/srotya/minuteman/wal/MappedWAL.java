@@ -482,7 +482,7 @@ public class MappedWAL implements WAL {
 			logger.fine("Segment compaction, will delete:" + segmentMarker + " files");
 			for (int i = 0; i < segmentMarker; i++) {
 				new File(getSegmentFileName(walDirectory, i)).delete();
-				logger.fine("Segment compaction, deleting file:" + getSegmentFileName(walDirectory, i));
+				logger.info("Segment compaction, deleting file:" + getSegmentFileName(walDirectory, i));
 			}
 		}
 		write.unlock();
