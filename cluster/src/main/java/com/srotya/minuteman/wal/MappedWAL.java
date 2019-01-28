@@ -89,7 +89,7 @@ public class MappedWAL implements WAL {
 		// disable wal deletion i.e. all WALs will be preserved even after it
 		// is
 		// read by the follower
-		walDeletion = new AtomicBoolean(Boolean.parseBoolean(conf.getOrDefault(WAL_DELETION_DISABLED, "true")));
+		walDeletion = new AtomicBoolean(Boolean.parseBoolean(conf.getOrDefault(WAL_DELETION, "false")));
 		logger.info("WAL deletion is set to:" + walDeletion.get());
 		// isr polling thread
 		es.scheduleAtFixedRate(() -> {

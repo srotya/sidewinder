@@ -31,7 +31,7 @@ public interface WAL {
 	public static final String WAL_SEGMENT_SIZE = "wal.segment.size";
 	public static final String WAL_DIR = "wal.dir";
 	public static final String WAL_ISR_THRESHOLD = "wal.isr.threshold";
-	public static final String WAL_DELETION_DISABLED = "wal.deletion.disabled";
+	public static final String WAL_DELETION = "wal.deletion";
 	public static final String WAL_ISRCHECK_FREQUENCY = "wal.isrcheck.frequency";
 	public static final String WAL_ISRCHECK_DELAY = "wal.isrcheck.delay";
 

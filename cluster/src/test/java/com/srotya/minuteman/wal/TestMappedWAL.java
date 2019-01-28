@@ -247,6 +247,7 @@ public class TestMappedWAL {
 		Map<String, String> conf = new HashMap<>();
 		conf.put(MappedWAL.WAL_DIR, walDir);
 		conf.put(MappedWAL.WAL_SEGMENT_SIZE, String.valueOf(5000));
+		conf.put(MappedWAL.WAL_DELETION, "false");
 		wal.configure(conf, es1);
 		for (int i = 0; i < 2000; i++) {
 			String str = ("test" + String.format("%03d", i));
@@ -254,10 +255,12 @@ public class TestMappedWAL {
 		}
 		wal.read("f2".hashCode(), 4, 100, false);
 		wal.close();
+		System.err.println("Closed WAL:" + walDir);
 		es1.shutdownNow();
 		es1 = Executors.newScheduledThreadPool(1);
 		wal = new MappedWAL();
 		wal.configure(conf, es1);
+		System.err.println("Reopenned WAL:" + walDir);
 		assertEquals("Files:" + Arrays.toString(new File(walDir).list()), 5, wal.getSegmentCounter());
 		wal.read("f2".hashCode(), 4, 100, false);
 		assertEquals(1, wal.getFollowers().size());
