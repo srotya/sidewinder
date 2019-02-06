@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
 
-import com.srotya.minuteman.cluster.routing.impl.RoutingStrategy;
+import com.srotya.minuteman.cluster.router.RoutingStrategy;
 import com.srotya.minuteman.connectors.ClusterConnector;
 import com.srotya.minuteman.wal.MappedWAL;
 import com.srotya.minuteman.wal.WAL;
@@ -84,7 +84,7 @@ public abstract class WALManager {
 	public Integer getThisNodeKey() {
 		return (address + ":" + port).hashCode();
 	}
-
+	
 	public Node getCoordinator() {
 		return coordinatorKey;
 	}
@@ -120,9 +120,6 @@ public abstract class WALManager {
 
 	public abstract void setRouteTable(Object newValue);
 
-	public RoutingStrategy getStrategy() {
-		// TODO Auto-generated method stub
-		return null;
-	}
+	public abstract RoutingStrategy getStrategy();
 
 }

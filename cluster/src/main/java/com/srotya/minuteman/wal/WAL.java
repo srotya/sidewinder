@@ -26,7 +26,7 @@ import java.util.concurrent.ScheduledExecutorService;
 public interface WAL {
 
 	public static final String DEFAULT_WAL_DIR = "target/wal";
-	public static final int DEFAULT_WALL_SIZE = 200 * 1024 * 1024; // 200MB
+	public static final int DEFAULT_WAL_SEGMENT_SIZE_SIZE = 200 * 1024 * 1024; // 200MB
 	public static final String WAL_SEGMENT_FLUSH_COUNT = "wal.segment.flush.count";
 	public static final String WAL_SEGMENT_SIZE = "wal.segment.size";
 	public static final String WAL_DIR = "wal.dir";
@@ -56,11 +56,15 @@ public interface WAL {
 	long getCommitOffset();
 
 	boolean isIsr(Integer followerId);
+	
+	boolean isLeader();
 
 	void setWALDeletion(boolean status);
 
 	void close() throws IOException;
 
 	int getSegmentCounter();
+
+	void setLeader(boolean isLeader);
 
 }

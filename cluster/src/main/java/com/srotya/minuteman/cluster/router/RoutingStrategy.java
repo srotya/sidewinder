@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.minuteman.cluster.routing.impl;
+package com.srotya.minuteman.cluster.router;
 
 import java.util.List;
 

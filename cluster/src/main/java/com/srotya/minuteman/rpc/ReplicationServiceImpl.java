@@ -84,7 +84,7 @@ public class ReplicationServiceImpl extends ReplicationServiceImplBase {
 			List<Replica> replicas = mgr.addRoutableKey(request.getRouteKey(), request.getReplicationFactor());
 			List<Integer> collect = replicas.stream().map(r -> r.getReplicaNodeKey()).collect(Collectors.toList());
 			responseObserver.onNext(builder.addAllReplicaids(collect).setLeaderid(replicas.get(0).getLeaderNodeKey())
-					.setResponseCode(200).setResponseString("Successful").build());
+					.setResponseCode(200).build());
 		} catch (Exception e) {
 			logger.log(Level.SEVERE,
 					"Failed request to add new route key:" + request.getRouteKey() + " reason:" + e.getMessage());
@@ -121,12 +121,17 @@ public class ReplicationServiceImpl extends ReplicationServiceImplBase {
 		try {
 			WAL wal = mgr.getWAL(request.getRouteKey());
 			if (wal != null) {
-				wal.write(request.getData().toByteArray(), false);
-				responseObserver.onNext(
-						GenericResponse.newBuilder().setResponseCode(200).setResponseString("Success!").build());
+				if (wal.isLeader()) {
+					wal.write(request.getData().toByteArray(), false);
+					responseObserver.onNext(
+							GenericResponse.newBuilder().setResponseCode(200).setResponseString("Success!").build());
+				} else {
+					responseObserver.onNext(
+							GenericResponse.newBuilder().setResponseCode(400).setResponseString("Not an ISR").build());
+				}
 			} else {
 				responseObserver
-						.onNext(GenericResponse.newBuilder().setResponseCode(400)
+						.onNext(GenericResponse.newBuilder().setResponseCode(404)
 								.setResponseString(
 										"Wal not found on node:" + request.getRouteKey() + " " + mgr.getThisNodeKey())
 								.build());

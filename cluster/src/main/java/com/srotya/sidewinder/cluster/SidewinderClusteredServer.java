@@ -31,12 +31,10 @@ import com.codahale.metrics.MetricFilter;
 import com.codahale.metrics.MetricRegistry;
 import com.srotya.minuteman.cluster.WALManager;
 import com.srotya.minuteman.cluster.WALManagerImpl;
+import com.srotya.minuteman.connectors.AtomixConnector;
 import com.srotya.minuteman.connectors.ClusterConnector;
-import com.srotya.minuteman.connectors.ConfigConnector;
-import com.srotya.sidewinder.cluster.ClusterConfiguration;
 import com.srotya.sidewinder.cluster.api.InfluxApi;
 import com.srotya.sidewinder.cluster.consistency.SidewinderWALClient;
-import com.srotya.sidewinder.cluster.rpc.ClusterReadServiceImpl;
 import com.srotya.sidewinder.core.api.grafana.GrafanaQueryApiv2;
 import com.srotya.sidewinder.core.monitoring.ResourceMonitor;
 import com.srotya.sidewinder.core.monitoring.SidewinderDropwizardReporter;
@@ -45,9 +43,7 @@ import com.srotya.sidewinder.core.utils.BackgrounThreadFactory;
 
 import io.dropwizard.Application;
 import io.dropwizard.setup.Environment;
-import io.grpc.DecompressorRegistry;
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
 
 /**
  * @author ambud
@@ -71,10 +67,6 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		}
 		ScheduledExecutorService bgTasks = Executors.newScheduledThreadPool(2, new BackgrounThreadFactory("bgtasks"));
 
-		// FileUtils.delete(new File(conf.get("wal.dir")));
-		// FileUtils.delete(new File(conf.get("data.dir")));
-		// FileUtils.delete(new File(conf.get("index.dir")));
-		conf.put(WALManager.WAL_CLIENT_CLASS, SidewinderWALClient.class.getName());
 		String storageEngineClass = conf.getOrDefault("storage.engine",
 				"com.srotya.sidewinder.core.storage.mem.MemStorageEngine");
 		try {
@@ -88,22 +80,40 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 		ResourceMonitor rm = ResourceMonitor.getInstance();
 		rm.init(storageEngine, bgTasks);
 		registerMetrics(registry, storageEngine, bgTasks);
-		WALManager walManager = buildClusterAndWALManager(conf, bgTasks, registry, storageEngine);
-		System.out.println("WAL Manager:" + walManager.getAddress());
-
+		
+		WALManager walManager = initializeCluster(registry, conf, bgTasks);
+		
 		env.jersey().register(new InfluxApi(walManager, storageEngine, conf));
 		env.jersey().register(new GrafanaQueryApiv2(storageEngine));
 
-		server = ServerBuilder.forPort(Integer.parseInt(conf.getOrDefault("cluster.port", "9882")))
-				.decompressorRegistry(DecompressorRegistry.getDefaultInstance())
-				.addService(new ClusterReadServiceImpl(conf, storageEngine)).build().start();
+		// server =
+		// ServerBuilder.forPort(Integer.parseInt(conf.getOrDefault("cluster.port",
+		// "9882")))
+		// .decompressorRegistry(DecompressorRegistry.getDefaultInstance())
+		// .addService(new ClusterReadServiceImpl(conf, storageEngine)).build().start();
+	}
+
+	private WALManager initializeCluster(final MetricRegistry registry, Map<String, String> conf,
+			ScheduledExecutorService bgTasks) throws IOException, Exception {
+		conf.put(WALManager.WAL_CLIENT_CLASS, SidewinderWALClient.class.getName());
+		WALManager walManager = buildClusterAndWALManager(conf, bgTasks, registry, storageEngine);
+		logger.info("WAL Manager:" + walManager.getAddress());
+		
+		// initialize shards
+		int shards = Integer.parseInt(conf.getOrDefault("cluster.node.shard.count", "1"));
+		
+//		walManager.initializeWAL(routeKey)
+		
+		return walManager;
 	}
 
 	private WALManager buildClusterAndWALManager(Map<String, String> conf, ScheduledExecutorService bgTasks,
 			MetricRegistry registry, StorageEngine storageEngine) throws IOException, Exception {
 		final ClusterConnector connector;
 		try {
-			connector = new ConfigConnector();
+			connector = (ClusterConnector) Class
+					.forName(conf.getOrDefault("minuteman.connector.class", AtomixConnector.class.getName()))
+					.newInstance();
 			connector.init(conf);
 		} catch (Exception e) {
 			throw new IOException(e);

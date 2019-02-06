@@ -90,7 +90,7 @@ public abstract class ClusterConnector {
 
 	public Node buildNode(String id) {
 		String[] split = id.split(":");
-		Node node = new Node(id.hashCode(), split[0], Integer.parseInt(split[1]));
+		Node node = new Node(split[0], Integer.parseInt(split[1]));
 		node.setInBoundChannel(ManagedChannelBuilder.forAddress(node.getAddress(), node.getPort())
 				.compressorRegistry(CompressorRegistry.getDefaultInstance()).usePlaintext(true).build());
 		logger.info("New connection to:" + id);

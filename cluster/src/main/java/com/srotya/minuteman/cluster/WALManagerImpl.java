@@ -31,8 +31,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-import com.srotya.minuteman.cluster.routing.impl.ModHashRoutingStrategy;
-import com.srotya.minuteman.cluster.routing.impl.RoutingStrategy;
+import com.srotya.minuteman.cluster.router.ModHashRoutingStrategy;
+import com.srotya.minuteman.cluster.router.RoutingStrategy;
 import com.srotya.minuteman.connectors.ClusterConnector;
 import com.srotya.minuteman.rpc.GenericResponse;
 import com.srotya.minuteman.rpc.IsrUpdateRequest;
@@ -76,7 +76,9 @@ public class WALManagerImpl extends WALManager {
 	public void init(Map<String, String> conf, ClusterConnector connector, ScheduledExecutorService bgTasks,
 			Object storageObject) throws Exception {
 		super.init(conf, connector, bgTasks, storageObject);
-		this.strategy = (RoutingStrategy) Class.forName(conf.getOrDefault("assignment.strategy.class", ModHashRoutingStrategy.class.getName())).newInstance();
+		this.strategy = (RoutingStrategy) Class
+				.forName(conf.getOrDefault("assignment.strategy.class", ModHashRoutingStrategy.class.getName()))
+				.newInstance();
 		this.walClientClass = (Class<LocalWALClient>) Class
 				.forName(conf.getOrDefault(WAL_CLIENT_CLASS, LocalWALClient.class.getName()));
 
@@ -249,7 +251,7 @@ public class WALManagerImpl extends WALManager {
 						leader = getFirstIsr(value);
 						if (value.isEmpty() || leader == null) {
 							// no suitable nodes left for this route key
-							logger.info("No suitable replicas left for this route key:" + entry.getKey());
+							logger.info("No suitable ISRs left for this route key:" + entry.getKey());
 							continue;
 						}
 						leader.setLeaderAddress(leader.getReplicaAddress());
@@ -270,19 +272,23 @@ public class WALManagerImpl extends WALManager {
 			strategy.removeNode(node2);
 			nodes.remove(node2);
 			if (node2 != null) {
-				for (Iterator<Entry<Integer, Replica>> iterator = localReplicaTable.entrySet().iterator(); iterator
-						.hasNext();) {
-					Entry<Integer, Replica> entry = iterator.next();
-					if (nodeId.equals(entry.getValue().getLeaderNodeKey())) {
-						entry.getValue().getClient().stop();
-						// TODO delete wal
-						iterator.remove();
-					}
-				}
+				stopAllLocalFollowers(nodeId);
 			}
 			logger.info("Node(" + nodeId + ") removed from WALManager");
 		} finally {
 			write.unlock();
+		}
+	}
+
+	private void stopAllLocalFollowers(Integer nodeId) {
+		for (Iterator<Entry<Integer, Replica>> iterator = localReplicaTable.entrySet().iterator(); iterator
+				.hasNext();) {
+			Entry<Integer, Replica> entry = iterator.next();
+			if (nodeId.equals(entry.getValue().getLeaderNodeKey())) {
+				entry.getValue().getClient().stop();
+				// TODO delete wal
+				iterator.remove();
+			}
 		}
 	}
 
@@ -312,11 +318,11 @@ public class WALManagerImpl extends WALManager {
 			}
 			// check if this node is the leader for this WAL
 			if (!isLeader(local)) {
+				local.getWal().setLeader(false);
 				// initialize a remote WAL client to copy data from the leader
 				Node node = strategy.get(replica.getLeaderNodeKey());
 				logger.info("Node leader update:" + strategy.get(getThisNodeKey()) + "\tReplica leader:"
-						+ (node != null ? node : "null") + "\t"
-						+ local.getWal() + "\t" + local.getRouteKey());
+						+ (node != null ? node : "null") + "\t" + local.getWal() + "\t" + local.getRouteKey());
 				local.setClient(new RemoteWALClient().configure(getConf(), getThisNodeKey(), node.getChannel(),
 						local.getWal(), local.getRouteKey()));
 				Thread th = new Thread(local.getClient());
@@ -324,6 +330,8 @@ public class WALManagerImpl extends WALManager {
 				th.start();
 				logger.info("Starting replication thread for:" + replica.getRouteKey() + " on replica => "
 						+ local.getReplicaNodeKey());
+			} else {
+				local.getWal().setLeader(true);
 			}
 			// there's no local follower, create one
 			if (local.getLocal() == null) {
@@ -458,7 +466,7 @@ public class WALManagerImpl extends WALManager {
 		routeTable = (Map<Integer, List<Replica>>) newValue;
 		write.unlock();
 	}
-	
+
 	@Override
 	public RoutingStrategy getStrategy() {
 		return strategy;

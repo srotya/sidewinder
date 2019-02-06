@@ -15,34 +15,38 @@
  */
 package com.srotya.minuteman.cluster;
 
+import com.google.common.hash.Hashing;
+
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 
 public class Node {
 
-	private int nodeKey;
 	private String address;
 	private int port;
 	private transient ManagedChannel inBoundChannel;
+	
+	public Node(String address, int port, boolean t) {
+		this.address = address;
+		this.port = port;
+	}
 
-	public Node(Integer nodeKey, String address, int port) {
-		super();
-		this.nodeKey = nodeKey;
+	public Node(String address, int port) {
 		this.address = address;
 		this.port = port;
 		inBoundChannel = ManagedChannelBuilder.forAddress(address, port).usePlaintext(true)
 				.maxInboundMessageSize(10 * 1024 * 1024).build();
 	}
-	
+
 	@Override
 	public int hashCode() {
-		return nodeKey;
+		return getNodeKey();
 	}
-	
+
 	@Override
 	public boolean equals(Object obj) {
-		if(obj instanceof Node) {
-			return nodeKey == ((Node)obj).nodeKey;
+		if (obj instanceof Node) {
+			return getNodeKey() == ((Node) obj).getNodeKey();
 		}
 		return false;
 	}
@@ -51,15 +55,7 @@ public class Node {
 	 * @return the nodeKey
 	 */
 	public Integer getNodeKey() {
-		return nodeKey;
-	}
-
-	/**
-	 * @param nodeKey
-	 *            the nodeKey to set
-	 */
-	public void setNodeKey(Integer nodeKey) {
-		this.nodeKey = nodeKey;
+		return Hashing.sha1().hashUnencodedChars(address + ":" + port).asInt();
 	}
 
 	/**
@@ -107,12 +103,14 @@ public class Node {
 		this.inBoundChannel = inBoundChannel;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
 	public String toString() {
-		return "Node [nodeKey=" + nodeKey + ", address=" + address + ", port=" + port + "]";
+		return "Node [nodeKey=" + getNodeKey() + ", address=" + address + ", port=" + port + "]";
 	}
 
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.srotya.minuteman.cluster.routing.impl;
+package com.srotya.minuteman.cluster.router;
 
 import java.nio.charset.Charset;
 import java.util.ArrayList;
@@ -43,7 +43,7 @@ public class ConsistentHashRoutingStrategy implements RoutingStrategy {
 	public ConsistentHashRoutingStrategy() {
 		map = new TreeMap<>();
 		// murmur = new MurmurHash(MurmurHash.JCOMMON_SEED);
-		hf = Hashing.sha1();
+		hf = Hashing.crc32();
 	}
 
 	public int hash(String node) {
@@ -59,24 +59,28 @@ public class ConsistentHashRoutingStrategy implements RoutingStrategy {
 	public void addNodes(List<Node> nodes) {
 		writeLock.lock();
 		for (Node node : nodes) {
-			int key = hash(node.getNodeKey());
-			map.put(key, node);
+			addNode(node);
 		}
 		writeLock.unlock();
 	}
 
 	public void addNode(Node node) {
-		int key = hash(node.getNodeKey());
-		writeLock.lock();
-		map.put(key, node);
-		// List<Integer> keyMovements = recomputeKeydistribution();
-		writeLock.unlock();
+		// generate vnodes
+		for (int i = 0; i < 10; i++) {
+			int key = hash(node.getNodeKey() + i * 51);
+			writeLock.lock();
+			map.put(key, node);
+			writeLock.unlock();
+		}
 	}
 
 	@Override
 	public Node removeNode(Integer nodeId) {
 		writeLock.lock();
-		Node remove = map.remove(nodeId);
+		Node remove = null;
+		for (int i = 0; i < 10; i++) {
+			remove = map.remove(hash(nodeId + i * 51));
+		}
 		writeLock.unlock();
 		return remove;
 	}

@@ -257,7 +257,7 @@ public class AtomixConnector extends ClusterConnector {
 		public Node read(Class<Node> arg0, BufferInput arg1, Serializer arg2) {
 			String address = arg1.readUTF8();
 			int port = arg1.readInt();
-			return new Node((address + ":" + port).hashCode(), address, port);
+			return new Node(address, port);
 		}
 
 		@Override

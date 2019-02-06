@@ -66,6 +66,7 @@ public class MappedWAL implements WAL {
 	private AtomicBoolean walDeletion;
 	private RandomAccessFile metaraf;
 	private MappedByteBuffer metaBuf;
+	private boolean isLeader;
 
 	public MappedWAL() {
 	}
@@ -77,7 +78,7 @@ public class MappedWAL implements WAL {
 		new File(walDirectory).mkdirs();
 		// maximum size of a segment
 		// each segment is memory mapped in whole; default's 100MB
-		segmentSize = Integer.parseInt(conf.getOrDefault(WAL_SEGMENT_SIZE, String.valueOf(DEFAULT_WALL_SIZE)));
+		segmentSize = Integer.parseInt(conf.getOrDefault(WAL_SEGMENT_SIZE, String.valueOf(DEFAULT_WAL_SEGMENT_SIZE_SIZE)));
 		logger.info("Configuring segment size:" + segmentSize);
 		// maximum number of writes after which a force flush is triggered
 		maxCounter = Integer.parseInt(conf.getOrDefault(WAL_SEGMENT_FLUSH_COUNT, String.valueOf(-1)));
@@ -496,6 +497,16 @@ public class MappedWAL implements WAL {
 	@Override
 	public boolean isIsr(Integer followerId) {
 		return followerMap.get(followerId).isr;
+	}
+	
+	@Override
+	public boolean isLeader() {
+		return isLeader;
+	}
+	
+	@Override
+	public void setLeader(boolean isLeader) {
+		this.isLeader = isLeader;
 	}
 
 	private class MappedWALFollower {

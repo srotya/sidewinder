@@ -130,7 +130,8 @@ public class Utils {
 	}
 
 	public static Integer pointToRouteKey(Point dp) {
-		return Math.abs(MiscUtils.tagHashCode(dp.getTagsList()));
+//		return Math.abs(MiscUtils.tagHashCode(dp.getTagsList()));
+		return Math.abs(dp.getDbName().hashCode());
 	}
 
 }

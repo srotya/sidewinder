@@ -85,7 +85,7 @@ public class InfluxApi {
 		Map<Integer, List<Point>> shardMap = new HashMap<>();
 
 		for (Point dp : dps) {
-			Integer pointToRouteKey = Utils.pointToRouteKey(dp) % 2;
+			Integer pointToRouteKey = Utils.pointToRouteKey(dp);
 			List<Point> list = shardMap.get(pointToRouteKey);
 			if (list == null) {
 				list = new ArrayList<>();
@@ -136,5 +136,4 @@ public class InfluxApi {
 			return route.getLeaderid();
 		}
 	}
-
 }
