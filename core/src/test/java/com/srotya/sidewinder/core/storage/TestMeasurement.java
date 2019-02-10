@@ -64,7 +64,7 @@ import com.srotya.sidewinder.core.utils.MiscUtils;
 public class TestMeasurement {
 
 	private Map<String, String> conf = new HashMap<>();
-	private DBMetadata metadata = new DBMetadata(28, 32768, 1024 * 10);
+	private DBMetadata metadata = new DBMetadata(28, 32768, 1024 * 10, 32768);
 	private static ScheduledExecutorService bgTaskPool = Executors.newScheduledThreadPool(1);
 	private static String DBNAME = "test";
 	@Parameter
@@ -148,9 +148,9 @@ public class TestMeasurement {
 		measurement.configure(conf, null, 4096, DBNAME, "m1", indexDir, dataDir, metadata, bgTaskPool);
 		int LIMIT = 1000;
 		for (int i = 0; i < LIMIT; i++) {
-			measurement.addPointWithLocking(Point.newBuilder().setDbName(DBNAME).setMeasurementName("m1").addAllTags(tags)
-					.setTimestamp(ts + i * 1000).addFp(false).addValue(1L).addValueFieldName("value1").addFp(false)
-					.addValue(1L).addValueFieldName("value2").build(), true);
+			measurement.addPointWithLocking(Point.newBuilder().setDbName(DBNAME).setMeasurementName("m1")
+					.addAllTags(tags).setTimestamp(ts + i * 1000).addFp(false).addValue(1L).addValueFieldName("value1")
+					.addFp(false).addValue(1L).addValueFieldName("value2").build(), true);
 		}
 		List<SeriesOutput> resultMap = new ArrayList<>();
 		measurement.queryDataPoints("value.*$", ts, ts + 1000 * LIMIT, null, null, resultMap, null);

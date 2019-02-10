@@ -58,7 +58,7 @@ public class TestPersistentMeasurement {
 
 	private static final String TARGET_MEASUREMENT_COMMON = "target/measurement-persistent";
 	private Map<String, String> conf = new HashMap<>();
-	private DBMetadata metadata = new DBMetadata(28, 1024, 10240);
+	private DBMetadata metadata = new DBMetadata(28, 1024, 10240, 32768);
 	private String dataDir;
 	private String indexDir;
 	private PersistentMeasurement measurement;

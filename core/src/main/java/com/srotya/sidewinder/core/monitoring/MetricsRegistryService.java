@@ -15,6 +15,7 @@
  */
 package com.srotya.sidewinder.core.monitoring;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ScheduledExecutorService;
@@ -61,16 +62,22 @@ public class MetricsRegistryService {
 		if (reg == null) {
 			reg = new MetricRegistry();
 			if (!DISABLE_SELF_MONITORING) {
-				SidewinderDropwizardReporter reporter = new SidewinderDropwizardReporter(reg, key, new MetricFilter() {
+				SidewinderDropwizardReporter reporter;
+				try {
+					reporter = new SidewinderDropwizardReporter(reg, key, new MetricFilter() {
 
-					@Override
-					public boolean matches(String name, Metric metric) {
-						return true;
-					}
-					
-				}, TimeUnit.SECONDS, TimeUnit.SECONDS, engine, es);
-				reporter.start(1, TimeUnit.SECONDS);
-				this.reporter.put(key, reporter);
+						@Override
+						public boolean matches(String name, Metric metric) {
+							return true;
+						}
+						
+					}, TimeUnit.SECONDS, TimeUnit.SECONDS, engine, es);
+					reporter.start(1, TimeUnit.SECONDS);
+					this.reporter.put(key, reporter);
+				} catch (IOException e) {
+					e.printStackTrace();
+					throw new RuntimeException(e);
+				}
 			}
 			registry.put(key, reg);
 		}

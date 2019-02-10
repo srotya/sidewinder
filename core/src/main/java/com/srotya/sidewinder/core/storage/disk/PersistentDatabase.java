@@ -52,6 +52,8 @@ public class PersistentDatabase implements Database {
 	@Override
 	public void init(int retentionHours, Map<String, String> conf) throws IOException {
 		createDatabaseDirectory(dbName);
+		metadata.setTimeBucketSize(
+				Integer.parseInt(conf.getOrDefault(BUCKET_SIZE, String.valueOf(engine.getDefaultTimebucketSize()))));
 		metadata.setRetentionHours(retentionHours);
 		metadata.setBufIncrementSize(DiskMalloc.getBufIncrement(conf));
 		metadata.setFileIncrementSize(DiskMalloc.getFileIncrement(conf));
@@ -61,7 +63,7 @@ public class PersistentDatabase implements Database {
 	@Override
 	public void load() throws IOException {
 		measurementMap = new ConcurrentHashMap<>();
-		readMetadata(dbName);
+		metadata = readMetadata(dbName);
 		loadMeasurements(dbName, measurementMap, metadata);
 	}
 
@@ -70,7 +72,7 @@ public class PersistentDatabase implements Database {
 		File file = new File(path);
 		if (!file.exists()) {
 			return new DBMetadata(engine.getDefaultRetentionHours(), DiskMalloc.getBufIncrement(engine.getConf()),
-					DiskMalloc.getFileIncrement(engine.getConf()));
+					DiskMalloc.getFileIncrement(engine.getConf()), engine.getDefaultTimebucketSize());
 		}
 		List<String> lines = MiscUtils.readAllLines(file);
 		StringBuilder builder = new StringBuilder();
@@ -122,7 +124,7 @@ public class PersistentDatabase implements Database {
 			logger.info("Loading measurements:" + measurementName);
 			futures.add(engine.getBgTaskPool().submit(() -> {
 				try {
-					measurement.configure(engine.getConf(), engine, engine.getDefaultTimebucketSize(), dbName,
+					measurement.configure(engine.getConf(), engine, metadata.getTimeBucketSize(), dbName,
 							measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName), metadata,
 							engine.getBgTaskPool());
 				} catch (IOException e) {
@@ -146,7 +148,7 @@ public class PersistentDatabase implements Database {
 			synchronized (measurementMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					measurement = new PersistentMeasurement();
-					measurement.configure(engine.getConf(), engine, engine.getDefaultTimebucketSize(), dbName,
+					measurement.configure(engine.getConf(), engine, metadata.getTimeBucketSize(), dbName,
 							measurementName, dbIndexPath(dbName), dbDirectoryPath(dbName), metadata,
 							engine.getBgTaskPool());
 					measurementMap.put(measurementName, measurement);

@@ -15,6 +15,9 @@
  */
 package com.srotya.sidewinder.core.monitoring;
 
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -31,7 +34,9 @@ import com.codahale.metrics.Timer;
 import com.srotya.sidewinder.core.rpc.Point;
 import com.srotya.sidewinder.core.rpc.Point.Builder;
 import com.srotya.sidewinder.core.rpc.Tag;
+import com.srotya.sidewinder.core.storage.Database;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.disk.DiskMalloc;
 
 /**
  * @author ambud
@@ -44,7 +49,7 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 	private String name;
 
 	public SidewinderDropwizardReporter(MetricRegistry registry, String name, MetricFilter filter, TimeUnit rateUnit,
-			TimeUnit durationUnit, StorageEngine engine, ScheduledExecutorService es) {
+			TimeUnit durationUnit, StorageEngine engine, ScheduledExecutorService es) throws IOException {
 		super(registry, name, filter, rateUnit, durationUnit, es);
 		this.name = name;
 		this.engine = engine;
@@ -54,6 +59,18 @@ public class SidewinderDropwizardReporter extends ScheduledReporter {
 	public void report(@SuppressWarnings("rawtypes") SortedMap<String, Gauge> gauges,
 			SortedMap<String, Counter> counters, SortedMap<String, Histogram> histograms,
 			SortedMap<String, Meter> meters, SortedMap<String, Timer> timers) {
+		try {
+			if(!engine.checkIfExists(_INTERNAL)) {
+				Map<String, String> conf = new HashMap<>();
+				conf.put(Database.BUCKET_SIZE, "3600");
+				conf.put(DiskMalloc.CONF_MEASUREMENT_FILE_INCREMENT, "10485760");
+				conf.put(DiskMalloc.CONF_MALLOC_PTRFILE_INCREMENT, "1048576");
+				conf.put(DiskMalloc.CONF_MEASUREMENT_BUF_INCREMENT_SIZE, "1024");
+				this.engine.getOrCreateDatabase(_INTERNAL, 24, conf);
+			}
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		}
 		long ts = System.currentTimeMillis();
 		if (counters != null && !counters.isEmpty()) {
 			Builder builder = Point.newBuilder();

@@ -80,7 +80,7 @@ public class TestTagIndices {
 	@Before
 	public void before() throws IOException, InstantiationException, IllegalAccessException {
 		m = new MemoryMeasurement();
-		DBMetadata md = new DBMetadata(10, 4096, 1024 * 10);
+		DBMetadata md = new DBMetadata(10, 4096, 1024 * 10, 32768);
 		m.configure(new HashMap<>(), engine, 1024, "", "", "", "", md, null);
 		index = clazz.newInstance();
 		new File("target/index-common").mkdirs();

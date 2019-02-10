@@ -21,6 +21,8 @@ import java.util.Map;
 import java.util.Set;
 
 public interface Database {
+	
+	public static final String BUCKET_SIZE = "bucket.size";
 
 	public Map<String, Measurement> getMeasurementMap();
 

@@ -20,14 +20,16 @@ public class DBMetadata {
 	private int retentionHours;
 	private int bufIncrementSize;
 	private int fileIncrementSize;
+	private int timeBucketSize;
 	
 	public DBMetadata() {
 	}
 
-	public DBMetadata(int retentionHours, int bufIncrementSize, int fileIncrementSize) {
+	public DBMetadata(int retentionHours, int bufIncrementSize, int fileIncrementSize, int timeBucketSize) {
 		this.retentionHours = retentionHours;
 		this.bufIncrementSize = bufIncrementSize;
 		this.fileIncrementSize = fileIncrementSize;
+		this.timeBucketSize = timeBucketSize;
 	}
 
 	/**
@@ -58,6 +60,14 @@ public class DBMetadata {
 
 	public void setFileIncrementSize(int fileIncrementSize) {
 		this.fileIncrementSize = fileIncrementSize;
+	}
+	
+	public int getTimeBucketSize() {
+		return timeBucketSize;
+	}
+	
+	public void setTimeBucketSize(int timeBucketSize) {
+		this.timeBucketSize = timeBucketSize;
 	}
 
 }

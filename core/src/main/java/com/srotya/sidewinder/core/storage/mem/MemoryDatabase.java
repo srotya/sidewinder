@@ -69,6 +69,8 @@ public class MemoryDatabase implements Database {
 	@Override
 	public void init(int retentionHours, Map<String, String> conf) throws IOException {
 		metadata.setRetentionHours(retentionHours);
+		metadata.setTimeBucketSize(
+				Integer.parseInt(conf.getOrDefault(BUCKET_SIZE, String.valueOf(engine.getDefaultTimebucketSize()))));
 		metadata.setBufIncrementSize(DiskMalloc.getBufIncrement(conf));
 	}
 
@@ -79,7 +81,7 @@ public class MemoryDatabase implements Database {
 			synchronized (measurementMap) {
 				if ((measurement = measurementMap.get(measurementName)) == null) {
 					measurement = new MemoryMeasurement();
-					measurement.configure(engine.getConf(), engine, engine.getDefaultTimebucketSize(), dbName,
+					measurement.configure(engine.getConf(), engine, metadata.getTimeBucketSize(), dbName,
 							measurementName, "", "", metadata, engine.getBgTaskPool());
 					measurementMap.put(measurementName, measurement);
 					logger.info("Created new measurement:" + measurementName);
