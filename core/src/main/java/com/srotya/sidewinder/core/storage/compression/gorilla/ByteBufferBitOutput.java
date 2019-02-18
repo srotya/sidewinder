@@ -16,8 +16,8 @@
 package com.srotya.sidewinder.core.storage.compression.gorilla;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.compression.RollOverException;
 
 /**
@@ -28,7 +28,7 @@ import com.srotya.sidewinder.core.storage.compression.RollOverException;
 public class ByteBufferBitOutput implements BitOutput {
 	public static final int DEFAULT_ALLOCATION = 4096;
 
-	private ByteBuffer bb;
+	private Buffer bb;
 	private byte b;
 	private int bitsLeft = Byte.SIZE;
 
@@ -36,24 +36,9 @@ public class ByteBufferBitOutput implements BitOutput {
 	 * Creates a new ByteBufferBitOutput with a default allocated size of 4096
 	 * bytes.
 	 */
-	public ByteBufferBitOutput() {
-		this(DEFAULT_ALLOCATION);
-	}
 	
-	public ByteBufferBitOutput(ByteBuffer buf) {
+	public ByteBufferBitOutput(Buffer buf) {
 		bb = buf;
-		b = bb.get(bb.position());
-	}
-
-	/**
-	 * Give an initialSize different than DEFAULT_ALLOCATIONS. Recommended to use
-	 * values which are dividable by 4096.
-	 *
-	 * @param initialSize
-	 *            New initialsize to use
-	 */
-	public ByteBufferBitOutput(int initialSize) {
-		bb = ByteBuffer.allocateDirect(initialSize);
 		b = bb.get(bb.position());
 	}
 
@@ -132,7 +117,7 @@ public class ByteBufferBitOutput implements BitOutput {
 	 *
 	 * @return ByteBuffer of type DirectByteBuffer
 	 */
-	public ByteBuffer getByteBuffer() {
+	public Buffer getByteBuffer() {
 		return this.bb;
 	}
 }

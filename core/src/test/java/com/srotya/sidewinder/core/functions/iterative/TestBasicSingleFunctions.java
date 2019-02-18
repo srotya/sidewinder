@@ -19,11 +19,16 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
-import java.util.HashMap;
 
 import org.junit.Before;
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.functions.iterative.BasicSingleFunctions.FirstFunction;
+import com.srotya.sidewinder.core.functions.iterative.BasicSingleFunctions.LastFunction;
+import com.srotya.sidewinder.core.functions.iterative.BasicSingleFunctions.MaxFunction;
+import com.srotya.sidewinder.core.functions.iterative.BasicSingleFunctions.MeanFunction;
+import com.srotya.sidewinder.core.functions.iterative.BasicSingleFunctions.MinFunction;
+import com.srotya.sidewinder.core.functions.iterative.BasicSingleFunctions.SumFunction;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.DataPointIterator;
@@ -34,7 +39,6 @@ import com.srotya.sidewinder.core.storage.NoLock;
 import com.srotya.sidewinder.core.storage.TimeField;
 import com.srotya.sidewinder.core.storage.ValueField;
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
-import com.srotya.sidewinder.core.functions.iterative.BasicSingleFunctions.*;
 
 public class TestBasicSingleFunctions {
 
@@ -45,15 +49,13 @@ public class TestBasicSingleFunctions {
 	public void before() throws IOException {
 		measurement = new MockMeasurement(32768, 100);
 		TimeField.compressionClass = CompressionFactory.getTimeClassByName("byzantine");
-		Field tField = new TimeField(measurement, new LinkedByteString().concat(new ByteString("time")), 121213,
-				new HashMap<>());
+		Field tField = new TimeField(measurement, new LinkedByteString().concat(new ByteString("time")), 121213);
 		long ts = 1546755991280L;
 		for (int i = 0; i < 200; i++) {
 			tField.addDataPoint(measurement, ts + i * 1000);
 		}
 
-		Field vField = new ValueField(measurement, new LinkedByteString().concat(new ByteString("field1")), 121213,
-				new HashMap<>());
+		Field vField = new ValueField(measurement, new LinkedByteString().concat(new ByteString("field1")), 121213);
 		for (int i = 0; i < 100; i++) {
 			vField.addDataPoint(measurement, i * 1L);
 		}
@@ -78,7 +80,7 @@ public class TestBasicSingleFunctions {
 		DataPoint next = f.next();
 		assertEquals(1, next.getLongValue());
 	}
-	
+
 	@Test
 	public void testMax() {
 		FunctionIterator f = new MaxFunction(itr, false);
@@ -86,7 +88,7 @@ public class TestBasicSingleFunctions {
 		DataPoint next = f.next();
 		assertEquals(100, next.getLongValue());
 	}
-	
+
 	@Test
 	public void testMin() {
 		FunctionIterator f = new MinFunction(itr, false);
@@ -94,7 +96,7 @@ public class TestBasicSingleFunctions {
 		DataPoint next = f.next();
 		assertEquals(0, next.getLongValue());
 	}
-	
+
 	@Test
 	public void testSum() {
 		FunctionIterator f = new SumFunction(itr, false);
@@ -102,7 +104,7 @@ public class TestBasicSingleFunctions {
 		DataPoint next = f.next();
 		assertEquals(10000, next.getLongValue());
 	}
-	
+
 	@Test
 	public void testMean() {
 		FunctionIterator f = new MeanFunction(itr, true);

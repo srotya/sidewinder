@@ -156,12 +156,6 @@ public class MockMeasurement implements Measurement {
 	}
 
 	@Override
-	public Map<String, String> getConf() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public Map<ByteString, Integer> getSeriesMap() {
 		// TODO Auto-generated method stub
 		return null;

@@ -16,8 +16,8 @@
 package com.srotya.sidewinder.core.storage.compression.byzantine;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.compression.ValueCodec;
 import com.srotya.sidewinder.core.storage.compression.ValueWriter;
@@ -31,7 +31,7 @@ import com.srotya.sidewinder.core.storage.compression.ValueWriter;
 public class ByzantineValueWriter implements ValueWriter {
 
 	private int count;
-	private ByteBuffer buf;
+	private Buffer buf;
 	private long prevValue;
 	private boolean readOnly;
 	private volatile boolean full;
@@ -46,13 +46,13 @@ public class ByzantineValueWriter implements ValueWriter {
 	 * 
 	 * @param buf
 	 */
-	protected ByzantineValueWriter(byte[] buf) {
+	protected ByzantineValueWriter(Buffer buf) {
 		this();
-		this.buf = ByteBuffer.allocateDirect(buf.length);
+		this.buf = buf;
 	}
 
 	@Override
-	public void configure(ByteBuffer buf, boolean isNew, int startOffset) throws IOException {
+	public void configure(Buffer buf, boolean isNew, int startOffset) throws IOException {
 		this.startOffset = startOffset;
 		this.buf = buf;
 		this.buf.position(startOffset);
@@ -86,7 +86,7 @@ public class ByzantineValueWriter implements ValueWriter {
 		updateCount();
 	}
 
-	private void compressAndWriteValue(ByteBuffer tBuf, long value) {
+	private void compressAndWriteValue(Buffer tBuf, long value) {
 		long xor = prevValue ^ value;
 		if (xor == 0) {
 			tBuf.put((byte) 0);
@@ -119,7 +119,7 @@ public class ByzantineValueWriter implements ValueWriter {
 
 	public ByzantineValueReader getReader() throws IOException {
 		ByzantineValueReader reader = null;
-		ByteBuffer rbuf = buf.duplicate();
+		Buffer rbuf = buf.duplicate();
 		rbuf.rewind();
 		reader = new ByzantineValueReader(rbuf, startOffset);
 		return reader;
@@ -152,7 +152,7 @@ public class ByzantineValueWriter implements ValueWriter {
 	/**
 	 * @return the buf
 	 */
-	protected ByteBuffer getBuf() {
+	protected Buffer getBuf() {
 		return buf;
 	}
 
@@ -164,13 +164,13 @@ public class ByzantineValueWriter implements ValueWriter {
 	}
 
 	@Override
-	public ByteBuffer getRawBytes() {
-		ByteBuffer b = buf.duplicate();
+	public Buffer getRawBytes() {
+		Buffer b = buf.duplicate();
 		return b;
 	}
 
 	@Override
-	public void bootstrap(ByteBuffer buf) throws IOException {
+	public void bootstrap(Buffer buf) throws IOException {
 		this.buf.rewind();
 		buf.rewind();
 		if (this.buf.limit() < buf.limit()) {

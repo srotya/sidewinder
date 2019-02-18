@@ -15,14 +15,12 @@
  */
 package com.srotya.sidewinder.core.storage;
 
-import java.nio.ByteBuffer;
-
 public class BufferObject {
 
 	private LinkedByteString bufferId;
-	private ByteBuffer buf;
+	private Buffer buf;
 	
-	public BufferObject(LinkedByteString bufferId, ByteBuffer buf) {
+	public BufferObject(LinkedByteString bufferId, Buffer buf) {
 		this.bufferId = bufferId;
 		this.buf = buf;
 	}
@@ -41,13 +39,13 @@ public class BufferObject {
 	/**
 	 * @return the buf
 	 */
-	public ByteBuffer getBuf() {
+	public Buffer getBuf() {
 		return buf;
 	}
 	/**
 	 * @param buf the buf to set
 	 */
-	public void setBuf(ByteBuffer buf) {
+	public void setBuf(Buffer buf) {
 		this.buf = buf;
 	}
 

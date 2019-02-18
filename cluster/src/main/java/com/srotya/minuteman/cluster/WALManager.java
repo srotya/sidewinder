@@ -82,7 +82,7 @@ public abstract class WALManager {
 	}
 
 	public Integer getThisNodeKey() {
-		return (address + ":" + port).hashCode();
+		return Node.generateNodeKey(address, port);
 	}
 	
 	public Node getCoordinator() {
@@ -96,7 +96,7 @@ public abstract class WALManager {
 
 	public abstract void addNode(Node node) throws IOException;
 
-	public abstract void removeNode(Integer nodeId) throws Exception;
+	public abstract void removeNode(Node nodeId) throws Exception;
 
 	public abstract void makeCoordinator() throws Exception;
 

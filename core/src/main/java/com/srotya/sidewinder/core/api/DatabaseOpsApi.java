@@ -46,6 +46,7 @@ import com.srotya.sidewinder.core.storage.StorageEngine;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 @Path("/databases")
+@Consumes({ MediaType.APPLICATION_JSON })
 public class DatabaseOpsApi {
 
 	public static final String DB_NAME = "dbName";
@@ -64,7 +65,7 @@ public class DatabaseOpsApi {
 	@Path("/{" + DB_NAME + "}")
 	@PUT
 	public void createDatabase(@PathParam(DB_NAME) String dbName,
-			@DefaultValue("28") @QueryParam("retentionPolicy") String retentionPolicy) {
+			@DefaultValue("28") @QueryParam("retentionPolicy") String retentionPolicy, String dbMetadataConf) {
 		try {
 			storageEngine.getOrCreateDatabase(dbName);
 		} catch (NumberFormatException | IOException e) {
@@ -191,7 +192,7 @@ public class DatabaseOpsApi {
 		}
 		return counter;
 	}
-	
+
 	@Path("/{" + DB_NAME + "}/compact")
 	@POST
 	@Produces({ MediaType.APPLICATION_JSON })
@@ -208,8 +209,7 @@ public class DatabaseOpsApi {
 					counter += compactedBuffers.size();
 				}
 			} catch (IOException e) {
-				throw new InternalServerErrorException("Failed to compact:" + dbName + "." + entry.getKey(),
-						e);
+				throw new InternalServerErrorException("Failed to compact:" + dbName + "." + entry.getKey(), e);
 			}
 		}
 		return counter;

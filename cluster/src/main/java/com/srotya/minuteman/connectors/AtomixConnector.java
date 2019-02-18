@@ -134,7 +134,8 @@ public class AtomixConnector extends ClusterConnector {
 					isLeader = false;
 					logger.info("This node is not the leader");
 				}
-				Node node = manager.getStrategy().get(t.leader().id().hashCode());
+				String[] split = t.leader().id().split(":");
+				Node node = manager.getStrategy().get(Node.generateNodeKey(split[0], Integer.parseInt(split[1])));
 				if (node == null) {
 					logger.info("Leader node is empty:" + t.leader().id());
 					node = buildNode(t.leader().id());
@@ -165,9 +166,10 @@ public class AtomixConnector extends ClusterConnector {
 
 			@Override
 			public void accept(GroupMember t) {
-				logger.info("Node left:" + t.id().hashCode());
+				logger.info("Node left:" + t.id());
 				try {
-					manager.removeNode(t.id().hashCode());
+					String[] split = t.id().split(":");
+					manager.removeNode(new Node(split[0], Integer.parseInt(split[1])));
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();

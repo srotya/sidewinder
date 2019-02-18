@@ -58,7 +58,6 @@ public class MemoryMeasurement implements Measurement {
 	private String dbName;
 	private Malloc malloc;
 	private int timeBucketSize;
-	private Map<String, String> conf;
 	private boolean enableMetricsCapture;
 	private Counter metricsTimeSeriesCounter;
 	private AtomicInteger retentionBuckets;
@@ -82,7 +81,6 @@ public class MemoryMeasurement implements Measurement {
 			metricsCleanupBufferCounter = metaops.counter("cleanbuf-counter");
 			enableMetricsCapture = true;
 		}
-		this.conf = conf;
 		this.timeBucketSize = defaultTimeBucketSize;
 		this.dbName = dbName;
 		this.measurementName = measurementName;
@@ -90,7 +88,7 @@ public class MemoryMeasurement implements Measurement {
 		this.metadata = metadata;
 		this.seriesList = new ArrayList<>(10_000);
 		this.tagIndex = new MemTagIndex();
-		tagIndex.configure(getConf(), null, this);
+		tagIndex.configure(conf, null, this);
 		this.seriesMap = new ConcurrentHashMap<>();
 		this.fieldTypeMap = new ConcurrentSkipListMap<>();
 		this.retentionBuckets = new AtomicInteger(0);
@@ -186,11 +184,6 @@ public class MemoryMeasurement implements Measurement {
 	@Override
 	public DBMetadata getMetadata() {
 		return metadata;
-	}
-
-	@Override
-	public Map<String, String> getConf() {
-		return conf;
 	}
 
 	@Override

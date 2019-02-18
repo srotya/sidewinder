@@ -16,13 +16,11 @@
 package com.srotya.sidewinder.core.storage;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.locks.Lock;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -30,6 +28,7 @@ import java.util.logging.Logger;
 
 import com.srotya.sidewinder.core.monitoring.MetricsRegistryService;
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.buffer.GenericBuffer;
 import com.srotya.sidewinder.core.storage.compression.CompressionFactory;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.RollOverException;
@@ -65,7 +64,7 @@ public class ValueField implements Field {
 	 * @param conf
 	 * @throws IOException
 	 */
-	public ValueField(Measurement measurement, LinkedByteString fieldId, int tsBucket, Map<String, String> conf)
+	public ValueField(Measurement measurement, LinkedByteString fieldId, int tsBucket)
 			throws IOException {
 		writerList = Collections.synchronizedList(new ArrayList<>(4));
 		this.fieldId = fieldId;
@@ -137,9 +136,9 @@ public class ValueField implements Field {
 	public void loadBucketMap(Measurement measurement, List<BufferObject> bufferEntries) throws IOException {
 		logger.fine(() -> "Scanning buffer for:" + fieldId);
 		for (BufferObject entry : bufferEntries) {
-			ByteBuffer duplicate = entry.getBuf();
+			Buffer duplicate = entry.getBuf();
 			duplicate.rewind();
-			ByteBuffer slice = duplicate.slice();
+			Buffer slice = duplicate.slice();
 			int codecId = (int) slice.get();
 			// int listIndex = (int) slice.get();
 			Class<ValueWriter> classById = CompressionFactory.getValueClassById(codecId);
@@ -273,7 +272,7 @@ public class ValueField implements Field {
 		double bufSize = total * compactionRatio;
 		logger.finer("Allocating buffer:" + total + " Vs. " + pointCount * 16 + " max compacted buffer:" + bufSize);
 		logger.finer("Getting sublist from:" + 0 + " to:" + (writerList.size() - 1));
-		ByteBuffer buf = ByteBuffer.allocateDirect((int) bufSize);
+		Buffer buf = GenericBuffer.allocateDirect((int) bufSize);
 		buf.put((byte) id);
 		// since this buffer will be the first one
 		buf.put(1, (byte) 0);
@@ -300,7 +299,7 @@ public class ValueField implements Field {
 			return null;
 		}
 		// get the raw compressed bytes
-		ByteBuffer rawBytes = writer.getRawBytes();
+		Buffer rawBytes = writer.getRawBytes();
 		// limit how much data needs to be read from the buffer
 		rawBytes.limit(rawBytes.position());
 		// convert buffer length request to size of 2
@@ -383,7 +382,7 @@ public class ValueField implements Field {
 			}
 			byte[] bs = bufList.get(i);
 			BufferObject bufPair = measurement.getMalloc().createNewBuffer(fieldId, tsBucket, bs.length);
-			ByteBuffer buf = bufPair.getBuf();
+			Buffer buf = bufPair.getBuf();
 			buf.put(bs);
 			buf.rewind();
 			ValueWriter writer = CompressionFactory.getValueClassById(buf.get(0)).newInstance();

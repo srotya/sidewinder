@@ -20,12 +20,13 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.predicates.GreaterThanEqualsPredicate;
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.storage.buffer.GenericBuffer;
 import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.RollOverException;
@@ -56,7 +57,7 @@ public class TestByzantineTimestampReadWrite {
 
 	@Test
 	public void testByzantineReaderInit() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024);
 		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
 		writer.configure(buf, false, startOffset);
 		assertEquals(0, writer.getCount());
@@ -64,7 +65,7 @@ public class TestByzantineTimestampReadWrite {
 		assertEquals(0, writer.getPrevTs());
 
 		long ts = System.currentTimeMillis();
-		writer = new ByzantineTimestampWriter(ts, new byte[1024]);
+		writer = new ByzantineTimestampWriter(ts, GenericBuffer.allocate(new byte[1024]));
 		assertEquals(0, writer.getCount());
 		assertEquals(1024, writer.getBuf().capacity());
 		assertEquals(0, writer.getDelta());
@@ -73,7 +74,7 @@ public class TestByzantineTimestampReadWrite {
 
 	@Test
 	public void testWriteDataPoint() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
+		Buffer buf = GenericBuffer.allocateDirect(1024);
 		ByzantineTimestampWriter bwriter = new ByzantineTimestampWriter();
 		TimeWriter writer = bwriter;
 		writer.configure(buf, true, startOffset);
@@ -94,7 +95,7 @@ public class TestByzantineTimestampReadWrite {
 
 	@Test
 	public void testReadWriteDataPoints() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024);
 		TimeWriter writer = new ByzantineTimestampWriter();
 		writer.configure(buf, true, startOffset);
 		long ts = System.currentTimeMillis();
@@ -121,7 +122,7 @@ public class TestByzantineTimestampReadWrite {
 
 	@Test
 	public void testWriteRead() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 100);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 100);
 		TimeWriter writer = new ByzantineTimestampWriter();
 		writer.configure(buf, true, startOffset);
 		long ts = System.currentTimeMillis();
@@ -169,7 +170,7 @@ public class TestByzantineTimestampReadWrite {
 
 	@Test
 	public void testBootstrapDiskRecovery() throws IOException, InterruptedException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
 		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
@@ -183,7 +184,7 @@ public class TestByzantineTimestampReadWrite {
 			long pair = reader.read();
 			assertEquals("Iteration:" + i, ots + i * 1000, pair);
 		}
-		ByteBuffer rawBytes = writer.getRawBytes();
+		Buffer rawBytes = writer.getRawBytes();
 		try {
 			writer = new ByzantineTimestampWriter();
 			writer.configure(buf, false, startOffset);
@@ -205,7 +206,7 @@ public class TestByzantineTimestampReadWrite {
 
 	@Test
 	public void testWriteReject() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
 		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
@@ -224,7 +225,7 @@ public class TestByzantineTimestampReadWrite {
 
 	@Test
 	public void testDiskRecovery() throws IOException, InterruptedException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
 		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
@@ -265,7 +266,7 @@ public class TestByzantineTimestampReadWrite {
 
 	@Test
 	public void testBufferFull() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 512);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 512);
 		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
 		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
@@ -284,7 +285,7 @@ public class TestByzantineTimestampReadWrite {
 
 	@Test
 	public void testArrayReads() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
 		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
@@ -312,7 +313,7 @@ public class TestByzantineTimestampReadWrite {
 
 	@Test
 	public void testPredicateFilter() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
 		writer.configure(buf, true, startOffset);
 		long ots = System.currentTimeMillis();
@@ -424,7 +425,7 @@ public class TestByzantineTimestampReadWrite {
 	 */
 	@Test
 	public void testDiskWrites() throws IOException, InterruptedException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineTimestampWriter writer = new ByzantineTimestampWriter();
 		writer.configure(buf, true, startOffset);
 		long ts = System.currentTimeMillis();

@@ -616,8 +616,6 @@ public interface Measurement {
 		// do nothing default implementation
 	}
 
-	public Map<String, String> getConf();
-
 	Map<ByteString, Integer> getSeriesMap();
 
 	boolean isEnableMetricsCapture();
@@ -718,7 +716,7 @@ public interface Measurement {
 		try {
 			for (FieldReaderIterator[] pairIterator : queryTimePairIterators) {
 				// ignore entries that are null
-				if (pairIterator == null || pairIterator[1]==null) {
+				if (pairIterator == null || pairIterator[1] == null) {
 					continue;
 				}
 				// apply function
@@ -740,5 +738,4 @@ public interface Measurement {
 			throw e;
 		}
 	}
-
 }

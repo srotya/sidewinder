@@ -18,13 +18,11 @@ package com.srotya.sidewinder.core.functions.iterative;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
 import org.junit.Test;
 
-import com.srotya.sidewinder.core.functions.iterative.DownsampleFunction;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.DataPoint;
 import com.srotya.sidewinder.core.storage.DataPointIterator;
@@ -48,15 +46,13 @@ public class TestDownSamplingIFunction {
 
 	@Test
 	public void testBasicSumDownSampling() throws IOException {
-		Field tField = new TimeField(measurement, new LinkedByteString().concat(new ByteString("time")), 121213,
-				new HashMap<>());
+		Field tField = new TimeField(measurement, new LinkedByteString().concat(new ByteString("time")), 121213);
 		long ts = 1546755994280L;
 		for (int i = 0; i < 100; i++) {
 			tField.addDataPoint(measurement, ts + i * 1000);
 		}
 
-		Field vField = new ValueField(measurement, new LinkedByteString().concat(new ByteString("field1")), 121213,
-				new HashMap<>());
+		Field vField = new ValueField(measurement, new LinkedByteString().concat(new ByteString("field1")), 121213);
 		for (int i = 0; i < 100; i++) {
 			vField.addDataPoint(measurement, i);
 		}
@@ -88,15 +84,13 @@ public class TestDownSamplingIFunction {
 
 	@Test
 	public void testAverageDownsampling() throws IOException {
-		Field tField = new TimeField(measurement, new LinkedByteString().concat(new ByteString("time")), 121213,
-				new HashMap<>());
+		Field tField = new TimeField(measurement, new LinkedByteString().concat(new ByteString("time")), 121213);
 		long ts = 1546755994280L;
 		for (int i = 0; i < 100; i++) {
 			tField.addDataPoint(measurement, ts + i * 1000);
 		}
 
-		Field vField = new ValueField(measurement, new LinkedByteString().concat(new ByteString("field1")), 121213,
-				new HashMap<>());
+		Field vField = new ValueField(measurement, new LinkedByteString().concat(new ByteString("field1")), 121213);
 		for (int i = 0; i < 100; i++) {
 			vField.addDataPoint(measurement, 1L);
 		}

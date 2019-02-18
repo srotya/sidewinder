@@ -48,6 +48,7 @@ import com.srotya.sidewinder.core.storage.ByteString.ByteStringCache;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.buffer.GenericBuffer;
 import com.srotya.sidewinder.core.utils.MiscUtils;
 
 /**
@@ -127,13 +128,12 @@ public class DiskMalloc implements Malloc {
 	}
 
 	public static int getBufIncrement(Map<String, String> conf) {
-		return Integer
-				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_BUF_INCREMENT_SIZE, String.valueOf(DEFAULT_INCREMENT_SIZE)));
+		return Integer.parseInt(
+				conf.getOrDefault(CONF_MEASUREMENT_BUF_INCREMENT_SIZE, String.valueOf(DEFAULT_INCREMENT_SIZE)));
 	}
 
 	public static int getMaxFileSize(Map<String, String> conf) {
-		return Integer
-				.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_MAX, String.valueOf(DEFAULT_MAX_FILE_SIZE)));
+		return Integer.parseInt(conf.getOrDefault(CONF_MEASUREMENT_FILE_MAX, String.valueOf(DEFAULT_MAX_FILE_SIZE)));
 	}
 
 	public static int getFileIncrement(Map<String, String> conf) {
@@ -202,7 +202,7 @@ public class DiskMalloc implements Malloc {
 			if (enableMetricsCapture) {
 				metricsBufferCounter.inc();
 			}
-			return new BufferObject(ptrKey, buf);
+			return new BufferObject(ptrKey, new GenericBuffer(buf));
 		} finally {
 			lock.unlock();
 		}
@@ -282,7 +282,8 @@ public class DiskMalloc implements Malloc {
 				list = new ArrayList<>();
 				seriesBuffers.put(seriesId, list);
 			}
-			list.add(new AbstractMap.SimpleEntry<>(Integer.parseInt(tsBucket, 16), new BufferObject(bsLine, slice)));
+			list.add(new AbstractMap.SimpleEntry<>(Integer.parseInt(tsBucket, 16),
+					new BufferObject(bsLine, new GenericBuffer(slice))));
 		}
 	}
 

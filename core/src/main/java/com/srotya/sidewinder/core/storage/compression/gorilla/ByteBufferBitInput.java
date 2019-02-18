@@ -15,7 +15,7 @@
 **/  
 package com.srotya.sidewinder.core.storage.compression.gorilla;
 
-import java.nio.ByteBuffer;
+import com.srotya.sidewinder.core.storage.Buffer;
 
 /**
  * An implementation of BitInput that parses the data from byte array or existing ByteBuffer.
@@ -23,7 +23,7 @@ import java.nio.ByteBuffer;
  * @author Michael Burman
  */
 public class ByteBufferBitInput implements BitInput {
-    private ByteBuffer bb;
+    private Buffer bb;
     private byte b;
     private int bitsLeft = 0;
 
@@ -32,13 +32,9 @@ public class ByteBufferBitInput implements BitInput {
      *
      * @param buf Use existing ByteBuffer
      */
-    public ByteBufferBitInput(ByteBuffer buf) {
+    public ByteBufferBitInput(Buffer buf) {
         bb = buf;
         flipByte();
-    }
-
-    public ByteBufferBitInput(byte[] input) {
-        this(ByteBuffer.wrap(input));
     }
 
     /**
@@ -109,7 +105,7 @@ public class ByteBufferBitInput implements BitInput {
      *
      * @return ByteBuffer that's connected to the underlying stream
      */
-    public ByteBuffer getByteBuffer() {
+    public Buffer getByteBuffer() {
         return this.bb;
     }
 }

@@ -17,7 +17,6 @@ package com.srotya.sidewinder.core.storage.mem;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -25,11 +24,13 @@ import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.ReentrantLock;
 
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.BufferObject;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.Malloc;
 import com.srotya.sidewinder.core.storage.StorageEngine;
+import com.srotya.sidewinder.core.storage.buffer.GenericBuffer;
 
 public class MemMalloc implements Malloc {
 
@@ -49,7 +50,7 @@ public class MemMalloc implements Malloc {
 	}
 
 	public BufferObject createNewBuffer(LinkedByteString seriesId, Integer tsBucket, int newSize) throws IOException {
-		ByteBuffer allocateDirect = ByteBuffer.allocateDirect(newSize);
+		Buffer allocateDirect = GenericBuffer.allocateDirect(newSize);
 		LinkedByteString str = new LinkedByteString().concat(seriesId);
 		str.concat(STR2).concat(String.valueOf(tsBucket));
 		return new BufferObject(str, allocateDirect);

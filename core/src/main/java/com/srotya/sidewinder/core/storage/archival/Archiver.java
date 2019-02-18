@@ -18,11 +18,11 @@ package com.srotya.sidewinder.core.storage.archival;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 
 import com.srotya.sidewinder.core.storage.ArchiveException;
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.ByteString;
 import com.srotya.sidewinder.core.storage.compression.Writer;
 
@@ -60,7 +60,7 @@ public interface Archiver {
 	}
 
 	public static byte[] writerToByteArray(Writer writer) {
-		ByteBuffer rawBytes = writer.getRawBytes();
+		Buffer rawBytes = writer.getRawBytes();
 		int limit = rawBytes.remaining();
 		byte[] buf = new byte[limit];
 		rawBytes.get(buf);

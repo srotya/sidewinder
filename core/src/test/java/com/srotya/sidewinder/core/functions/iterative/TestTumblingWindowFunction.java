@@ -18,7 +18,6 @@ package com.srotya.sidewinder.core.functions.iterative;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
-import java.util.HashMap;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -45,15 +44,13 @@ public class TestTumblingWindowFunction {
 
 	@Test
 	public void testBasicSumDownSampling() throws Exception {
-		Field tField = new TimeField(measurement, new LinkedByteString().concat(new ByteString("time")), 121213,
-				new HashMap<>());
+		Field tField = new TimeField(measurement, new LinkedByteString().concat(new ByteString("time")), 121213);
 		long ts = 1546755991280L;
 		for (int i = 0; i < 100; i++) {
 			tField.addDataPoint(measurement, ts + i * 1000);
 		}
 
-		Field vField = new ValueField(measurement, new LinkedByteString().concat(new ByteString("field1")), 121213,
-				new HashMap<>());
+		Field vField = new ValueField(measurement, new LinkedByteString().concat(new ByteString("field1")), 121213);
 		for (int i = 0; i < 100; i++) {
 			vField.addDataPoint(measurement, 1L);
 		}
@@ -69,18 +66,16 @@ public class TestTumblingWindowFunction {
 		}
 		assertEquals(11, c);
 	}
-	
+
 	@Test
 	public void testBasicMinDownSampling() throws Exception {
-		Field tField = new TimeField(measurement, new LinkedByteString().concat(new ByteString("time")), 121213,
-				new HashMap<>());
+		Field tField = new TimeField(measurement, new LinkedByteString().concat(new ByteString("time")), 121213);
 		long ts = 1546755991280L;
 		for (int i = 0; i < 100; i++) {
 			tField.addDataPoint(measurement, ts + i * 1000);
 		}
 
-		Field vField = new ValueField(measurement, new LinkedByteString().concat(new ByteString("field1")), 121213,
-				new HashMap<>());
+		Field vField = new ValueField(measurement, new LinkedByteString().concat(new ByteString("field1")), 121213);
 		for (int i = 0; i < 100; i++) {
 			vField.addDataPoint(measurement, i);
 		}

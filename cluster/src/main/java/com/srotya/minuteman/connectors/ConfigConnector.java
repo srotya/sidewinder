@@ -56,7 +56,7 @@ public class ConfigConnector extends ClusterConnector {
 	@Override
 	public void initializeRouterListener(WALManager manager) throws IOException {
 		String node = manager.getAddress() + ":" + manager.getPort();
-		if (node.hashCode() == masterNode.getNodeKey()) {
+		if (node.hashCode() == masterNode.hashCode()) {
 			isMaster = true;
 		} else {
 			isMaster = false;

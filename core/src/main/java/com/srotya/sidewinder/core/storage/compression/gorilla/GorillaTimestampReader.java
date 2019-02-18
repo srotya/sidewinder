@@ -15,10 +15,10 @@
  */
 package com.srotya.sidewinder.core.storage.compression.gorilla;
 
-import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
@@ -29,10 +29,10 @@ public class GorillaTimestampReader implements Reader {
 	private int counter;
 	private Predicate valuePredicate;
 	private GorillaTimestampDecompressor decompressor;
-	private ByteBuffer buf;
+	private Buffer buf;
 	private int checkSumLocation;
 
-	public GorillaTimestampReader(ByteBuffer buf, int startOffset, int checkSumLocation) {
+	public GorillaTimestampReader(Buffer buf, int startOffset, int checkSumLocation) {
 		this.buf = buf;
 		this.checkSumLocation = checkSumLocation;
 		buf.position(startOffset);
@@ -72,7 +72,7 @@ public class GorillaTimestampReader implements Reader {
 
 	@Override
 	public byte[] getDataHash() throws NoSuchAlgorithmException {
-		ByteBuffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate();
 		duplicate.rewind();
 		duplicate.position(checkSumLocation);
 		byte[] ary = new byte[GorillaTimestampWriter.MD5_PADDING];

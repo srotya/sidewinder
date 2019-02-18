@@ -55,6 +55,10 @@ public class Node {
 	 * @return the nodeKey
 	 */
 	public Integer getNodeKey() {
+		return generateNodeKey(address, port);
+	}
+	
+	public static Integer generateNodeKey(String address, int port) {
 		return Hashing.sha1().hashUnencodedChars(address + ":" + port).asInt();
 	}
 

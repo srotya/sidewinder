@@ -16,8 +16,8 @@
 package com.srotya.sidewinder.core.storage.compression.byzantine;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.compression.TimeCodec;
 import com.srotya.sidewinder.core.storage.compression.TimeWriter;
@@ -33,7 +33,7 @@ public class ByzantineTimestampWriter implements TimeWriter {
 	private long prevTs;
 	private long tsDelta;
 	private int count;
-	private ByteBuffer buf;
+	private Buffer buf;
 	private boolean readOnly;
 	private volatile boolean full;
 	private int startOffset;
@@ -48,14 +48,14 @@ public class ByzantineTimestampWriter implements TimeWriter {
 	 * @param headerTimestamp
 	 * @param buf
 	 */
-	protected ByzantineTimestampWriter(long headerTimestamp, byte[] buf) {
+	protected ByzantineTimestampWriter(long headerTimestamp, Buffer buf) {
 		this();
-		this.buf = ByteBuffer.allocateDirect(buf.length);
+		this.buf = buf;
 		setHeaderTimestamp(headerTimestamp);
 	}
 
 	@Override
-	public void configure(ByteBuffer buf, boolean isNew, int startOffset) throws IOException {
+	public void configure(Buffer buf, boolean isNew, int startOffset) throws IOException {
 		this.startOffset = startOffset;
 		this.buf = buf;
 		this.buf.position(startOffset);
@@ -97,7 +97,7 @@ public class ByzantineTimestampWriter implements TimeWriter {
 		}
 	}
 
-	private void compressAndWriteTimestamp(ByteBuffer tBuf, long timestamp) {
+	private void compressAndWriteTimestamp(Buffer tBuf, long timestamp) {
 		long ts = timestamp;
 		long newDelta = (ts - prevTs);
 		int deltaOfDelta = (int) (newDelta - tsDelta);
@@ -129,7 +129,7 @@ public class ByzantineTimestampWriter implements TimeWriter {
 	@Override
 	public ByzantineTimestampReader getReader() throws IOException {
 		ByzantineTimestampReader reader = null;
-		ByteBuffer rbuf = buf.duplicate();
+		Buffer rbuf = buf.duplicate();
 		rbuf.rewind();
 		reader = new ByzantineTimestampReader(rbuf, startOffset);
 		return reader;
@@ -184,18 +184,18 @@ public class ByzantineTimestampWriter implements TimeWriter {
 	/**
 	 * @return the buf
 	 */
-	protected ByteBuffer getBuf() {
+	protected Buffer getBuf() {
 		return buf;
 	}
 
 	@Override
-	public ByteBuffer getRawBytes() {
-		ByteBuffer b = buf.duplicate();
+	public Buffer getRawBytes() {
+		Buffer b = buf.duplicate();
 		return b;
 	}
 
 	@Override
-	public void bootstrap(ByteBuffer buf) throws IOException {
+	public void bootstrap(Buffer buf) throws IOException {
 		this.buf.rewind();
 		buf.rewind();
 		if (this.buf.limit() < buf.limit()) {

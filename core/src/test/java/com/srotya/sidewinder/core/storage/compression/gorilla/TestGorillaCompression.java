@@ -18,17 +18,18 @@ package com.srotya.sidewinder.core.storage.compression.gorilla;
 import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import org.junit.Test;
 
+import com.srotya.sidewinder.core.storage.Buffer;
+import com.srotya.sidewinder.core.storage.buffer.GenericBuffer;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 
 public class TestGorillaCompression {
 
 	@Test
 	public void testValueCompressor() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocate(1024);
+		GenericBuffer buf = GenericBuffer.allocate(1024);
 		ByteBufferBitOutput out = new ByteBufferBitOutput(buf);
 		ValueCompressor c = new ValueCompressor(out);
 		for (int i = 0; i < 100; i++) {
@@ -44,7 +45,7 @@ public class TestGorillaCompression {
 
 	@Test
 	public void testCompressUncompress() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocate(1024);
+		GenericBuffer buf = GenericBuffer.allocate(1024);
 		GorillaTimestampWriter writer = new GorillaTimestampWriter();
 		writer.configure(buf, true, 0);
 		long ts = System.currentTimeMillis();
@@ -62,7 +63,7 @@ public class TestGorillaCompression {
 
 	@Test
 	public void testCompressUncompressFloating() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocate(1024);
+		GenericBuffer buf = GenericBuffer.allocate(1024);
 		GorillaValueWriter writer = new GorillaValueWriter();
 		writer.configure(buf, true, 0);
 		for (int i = 0; i < 100; i++) {
@@ -78,7 +79,7 @@ public class TestGorillaCompression {
 
 	@Test
 	public void testRecovery() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocate(1024);
+		GenericBuffer buf = GenericBuffer.allocate(1024);
 		GorillaTimestampWriter writer = new GorillaTimestampWriter();
 		writer.configure(buf, true, 0);
 		long ts = System.currentTimeMillis();
@@ -87,7 +88,7 @@ public class TestGorillaCompression {
 			writer.add(ts + i * 100);
 		}
 		writer.makeReadOnly(false);
-		ByteBuffer rawBytes = writer.getRawBytes();
+		Buffer rawBytes = writer.getRawBytes();
 
 		writer = new GorillaTimestampWriter();
 		writer.configure(rawBytes, false, 0);

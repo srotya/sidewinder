@@ -58,6 +58,8 @@ public class PersistentDatabase implements Database {
 		metadata.setBufIncrementSize(DiskMalloc.getBufIncrement(conf));
 		metadata.setFileIncrementSize(DiskMalloc.getFileIncrement(conf));
 		saveDBMetadata(dbName, metadata);
+		logger.info("Created new database:" + dbName + "\t with retention period:" + retentionHours + " hours ("
+				+ (retentionHours * 3600 / metadata.getTimeBucketSize()) + " buckets)");
 	}
 
 	@Override

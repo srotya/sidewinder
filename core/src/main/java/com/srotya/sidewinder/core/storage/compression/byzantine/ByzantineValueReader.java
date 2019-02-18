@@ -15,10 +15,10 @@
  */
 package com.srotya.sidewinder.core.storage.compression.byzantine;
 
-import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 
 import com.srotya.sidewinder.core.predicates.Predicate;
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.RejectException;
 import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
@@ -32,10 +32,10 @@ public class ByzantineValueReader implements Reader {
 	private int counter;
 	private int count;
 	private Predicate predicate;
-	private ByteBuffer buf;
+	private Buffer buf;
 	private long prevValue;
 
-	public ByzantineValueReader(ByteBuffer buf, int startOffset) {
+	public ByzantineValueReader(Buffer buf, int startOffset) {
 		buf.position(startOffset);
 		this.buf = buf;
 		this.count = buf.getInt();
@@ -93,9 +93,9 @@ public class ByzantineValueReader implements Reader {
 
 	@Override
 	public byte[] getDataHash() throws NoSuchAlgorithmException {
-		ByteBuffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate();
 		duplicate.rewind();
-		ByteBuffer copy = ByteBuffer.allocate(duplicate.capacity());
+		Buffer copy = duplicate.newInstance(duplicate.capacity());
 		copy.put(duplicate);
 		byte[] array = copy.array();
 		return ByteUtils.md5(array);

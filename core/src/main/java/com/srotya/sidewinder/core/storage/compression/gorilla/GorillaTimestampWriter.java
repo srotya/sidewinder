@@ -16,9 +16,9 @@
 package com.srotya.sidewinder.core.storage.compression.gorilla;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.TimeCodec;
@@ -31,7 +31,7 @@ public class GorillaTimestampWriter implements TimeWriter {
 	public static final int MD5_PADDING = 32;
 	private boolean full;
 	private LinkedByteString bufferId;
-	private ByteBuffer buf;
+	private Buffer buf;
 	private GorillaTimestampCompressor compressor;
 	private int counter;
 	private long timestamp;
@@ -41,7 +41,7 @@ public class GorillaTimestampWriter implements TimeWriter {
 	private int checkSumLocaltion;
 
 	@Override
-	public void configure(ByteBuffer buf, boolean isNew, int startOffset) throws IOException {
+	public void configure(Buffer buf, boolean isNew, int startOffset) throws IOException {
 		this.buf = buf;
 		this.checkSumLocaltion = startOffset;
 		this.startOffset = startOffset + MD5_PADDING;
@@ -79,7 +79,7 @@ public class GorillaTimestampWriter implements TimeWriter {
 
 	@Override
 	public Reader getReader() throws IOException {
-		ByteBuffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate();
 		duplicate.rewind();
 		GorillaTimestampReader reader = new GorillaTimestampReader(duplicate, startOffset, checkSumLocaltion);
 		return reader;
@@ -91,12 +91,12 @@ public class GorillaTimestampWriter implements TimeWriter {
 	}
 
 	@Override
-	public void bootstrap(ByteBuffer buf) throws IOException {
+	public void bootstrap(Buffer buf) throws IOException {
 	}
 
 	@Override
-	public ByteBuffer getRawBytes() {
-		ByteBuffer duplicate = buf.duplicate();
+	public Buffer getRawBytes() {
+		Buffer duplicate = buf.duplicate();
 		return duplicate;
 	}
 
@@ -128,9 +128,9 @@ public class GorillaTimestampWriter implements TimeWriter {
 	}
 
 	private byte[] bufferToHash() throws NoSuchAlgorithmException {
-		ByteBuffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate();
 		duplicate.rewind();
-		ByteBuffer copy = ByteBuffer.allocate(duplicate.capacity());
+		Buffer copy = duplicate.newInstance(duplicate.capacity());
 		copy.put(duplicate);
 		byte[] array = copy.array();
 		return ByteUtils.md5(array);

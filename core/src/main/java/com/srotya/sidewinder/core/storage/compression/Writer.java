@@ -16,10 +16,10 @@
 package com.srotya.sidewinder.core.storage.compression;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 import javax.validation.constraints.NotNull;
 
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.LinkedByteString;
 import com.srotya.sidewinder.core.storage.RejectException;
 
@@ -41,11 +41,11 @@ public interface Writer {
 
 	public double getCompressionRatio();
 
-	public void configure(ByteBuffer buf, boolean isNew, int startOffset) throws IOException;
+	public void configure(Buffer buf, boolean isNew, int startOffset) throws IOException;
 
-	public void bootstrap(ByteBuffer buf) throws IOException;
+	public void bootstrap(Buffer buf) throws IOException;
 
-	public ByteBuffer getRawBytes();
+	public Buffer getRawBytes();
 
 	public void setCounter(int counter);
 

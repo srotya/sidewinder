@@ -186,8 +186,6 @@ public class DiskStorageEngine implements StorageEngine {
 					database = new PersistentDatabase(dbName, this);
 					database.init(retentionHours, conf);
 					databaseMap.put(dbName, database);
-					logger.info("Created new database:" + dbName + "\t with retention period:" + retentionHours
-							+ " hours (" + (retentionHours * 3600 / defaultTimebucketSize) + " buckets)");
 					metricsDbCounter.inc();
 				}
 			}

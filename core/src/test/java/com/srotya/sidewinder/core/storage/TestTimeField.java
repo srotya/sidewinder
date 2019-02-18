@@ -19,7 +19,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
 
 import org.junit.Before;
@@ -41,7 +40,7 @@ public class TestTimeField {
 
 	@Test
 	public void testReadWrite() throws IOException {
-		Field field = new TimeField(measurement, fieldId, 121213, new HashMap<>());
+		Field field = new TimeField(measurement, fieldId, 121213);
 		long ts = System.currentTimeMillis();
 		for (int i = 0; i < 100; i++) {
 			field.addDataPoint(measurement, ts + i * 1000);
@@ -73,7 +72,7 @@ public class TestTimeField {
 
 	@Test
 	public void testReadWriteResize() throws IOException {
-		TimeField field = new TimeField(measurement, fieldId, 121213, new HashMap<>());
+		TimeField field = new TimeField(measurement, fieldId, 121213);
 		for (int i = 0; i < 40000; i++) {
 			field.addDataPoint(measurement, i);
 		}
@@ -88,7 +87,7 @@ public class TestTimeField {
 	public void testCompactionByzantine() throws IOException {
 		TimeField.compactionClass = CompressionFactory.getTimeClassByName("byzantine");
 		TimeField.compactionRatio = 2.2;
-		TimeField field = new TimeField(measurement, fieldId, 121213, new HashMap<>());
+		TimeField field = new TimeField(measurement, fieldId, 121213);
 		long ts = 1497720652566L;
 		for (int i = 0; i < 80000; i++) {
 			field.addDataPoint(measurement, ts + i * 1000);
@@ -104,7 +103,7 @@ public class TestTimeField {
 	public void testCompactionGorilla() throws IOException {
 		TimeField.compactionClass = CompressionFactory.getTimeClassByName("gorilla");
 		TimeField.compactionRatio = 0.6;
-		TimeField field = new TimeField(measurement, fieldId, 121213, new HashMap<>());
+		TimeField field = new TimeField(measurement, fieldId, 121213);
 		long ts = 1497720652566L;
 		for (int i = 0; i < 80000; i++) {
 			field.addDataPoint(measurement, ts + i * 1000);

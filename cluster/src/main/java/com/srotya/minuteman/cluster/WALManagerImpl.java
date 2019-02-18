@@ -237,7 +237,7 @@ public class WALManagerImpl extends WALManager {
 	}
 
 	@Override
-	public void removeNode(Integer nodeId) throws Exception {
+	public void removeNode(Node node) throws Exception {
 		write.lock();
 		try {
 			// if coordinator then fix the routes of all other followers
@@ -245,7 +245,7 @@ public class WALManagerImpl extends WALManager {
 				for (Entry<Integer, List<Replica>> entry : routeTable.entrySet()) {
 					List<Replica> value = entry.getValue();
 					Replica leader = value.get(0);
-					if (nodeId.equals(leader.getLeaderNodeKey())) {
+					if (node.getNodeKey().equals(leader.getLeaderNodeKey())) {
 						value.remove(0);
 						// find next ISR
 						leader = getFirstIsr(value);
@@ -267,14 +267,14 @@ public class WALManagerImpl extends WALManager {
 				}
 				connector.updateTable(routeTable);
 			}
-			logger.info("Removing node(" + nodeId + ") from WALManager");
-			Node node2 = strategy.removeNode(nodeId);
+			logger.info("Removing node(" + node + ") from WALManager");
+			Node node2 = strategy.removeNode(node);
 			strategy.removeNode(node2);
 			nodes.remove(node2);
 			if (node2 != null) {
-				stopAllLocalFollowers(nodeId);
+				stopAllLocalFollowers(node.getNodeKey());
 			}
-			logger.info("Node(" + nodeId + ") removed from WALManager");
+			logger.info("Node(" + node + ") removed from WALManager");
 		} finally {
 			write.unlock();
 		}
@@ -384,7 +384,7 @@ public class WALManagerImpl extends WALManager {
 			logger.info("No route table in metastore, created an empty one");
 		} else {
 			if (getCoordinator() != null && !getThisNodeKey().equals(getCoordinator().getNodeKey())) {
-				removeNode(getCoordinator().getNodeKey());
+				removeNode(getCoordinator());
 			} else {
 				logger.warning("Ignoring route table correction because of self last coordinator");
 			}

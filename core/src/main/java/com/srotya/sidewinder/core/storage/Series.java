@@ -73,9 +73,9 @@ public class Series {
 				LinkedByteString fieldId = new LinkedByteString().concat(seriesId)
 						.concat(Measurement.SERIESID_SEPARATOR_BS).concat(cachedFieldName);
 				if (valueFieldName == TS) {
-					field = new TimeField(measurement, fieldId, timeBucket, measurement.getConf());
+					field = new TimeField(measurement, fieldId, timeBucket);
 				} else {
-					field = new ValueField(measurement, fieldId, timeBucket, measurement.getConf());
+					field = new ValueField(measurement, fieldId, timeBucket);
 				}
 				if (measurement.getFieldTypeMap().get(valueFieldName) == null) {
 					measurement.getFieldTypeMap().put(valueFieldName.intern(), fp);
@@ -147,9 +147,9 @@ public class Series {
 				LinkedByteString fieldId = new LinkedByteString().concat(seriesId)
 						.concat(Measurement.SERIESID_SEPARATOR_BS).concat(cachedFieldName);
 				if (fieldName.equals(TS)) {
-					field = new TimeField(measurement, fieldId, entry.getKey(), conf);
+					field = new TimeField(measurement, fieldId, entry.getKey());
 				} else {
-					field = new ValueField(measurement, fieldId, entry.getKey(), conf);
+					field = new ValueField(measurement, fieldId, entry.getKey());
 				}
 				map.put(fieldName.intern(), field);
 				fieldMap.put(field, new ArrayList<>());

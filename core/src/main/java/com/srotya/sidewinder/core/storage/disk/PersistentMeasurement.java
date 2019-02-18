@@ -384,7 +384,6 @@ public class PersistentMeasurement implements Measurement {
 		return timeBucketSize;
 	}
 
-	@Override
 	public Map<String, String> getConf() {
 		return conf;
 	}

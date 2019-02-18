@@ -20,12 +20,12 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
-
 import org.junit.Test;
 
 import com.srotya.sidewinder.core.predicates.GreaterThanEqualsPredicate;
+import com.srotya.sidewinder.core.storage.Buffer;
 import com.srotya.sidewinder.core.storage.RejectException;
+import com.srotya.sidewinder.core.storage.buffer.GenericBuffer;
 import com.srotya.sidewinder.core.storage.compression.FilteredValueException;
 import com.srotya.sidewinder.core.storage.compression.Reader;
 import com.srotya.sidewinder.core.storage.compression.RollOverException;
@@ -57,19 +57,19 @@ public class TestByzantineValueReadWrite {
 
 	@Test
 	public void testByzantineReaderInit() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024);
 		ByzantineValueWriter writer = new ByzantineValueWriter();
 		writer.configure(buf, false, startOffset);
 		assertEquals(0, writer.getCount());
 
-		writer = new ByzantineValueWriter(new byte[1024]);
+		writer = new ByzantineValueWriter(GenericBuffer.allocate(new byte[1024]));
 		assertEquals(0, writer.getCount());
 		assertEquals(1024, writer.getBuf().capacity());
 	}
 
 	@Test
 	public void testWriteDataPoint() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
+		Buffer buf = GenericBuffer.allocateDirect(1024);
 		ByzantineValueWriter bwriter = new ByzantineValueWriter();
 		Writer writer = bwriter;
 		writer.configure(buf, true, startOffset);
@@ -86,7 +86,7 @@ public class TestByzantineValueReadWrite {
 
 	@Test
 	public void testReadWriteDataPoints() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024);
 		Writer writer = new ByzantineValueWriter();
 		writer.configure(buf, true, startOffset);
 		for (long i = 0; i < 100; i++) {
@@ -111,7 +111,7 @@ public class TestByzantineValueReadWrite {
 
 	@Test
 	public void testWriteRead() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 100);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 100);
 		ValueWriter writer = new ByzantineValueWriter();
 		writer.configure(buf, true, startOffset);
 		int LIMIT = 10000;
@@ -150,7 +150,7 @@ public class TestByzantineValueReadWrite {
 
 	@Test
 	public void testBootstrapDiskRecovery() throws IOException, InterruptedException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineValueWriter writer = new ByzantineValueWriter();
 		writer.configure(buf, true, startOffset);
 		int limit = 1_000_000;
@@ -161,7 +161,7 @@ public class TestByzantineValueReadWrite {
 		for (int i = 0; i < limit; i++) {
 			assertEquals("Iteration:" + i, i, reader.read());
 		}
-		ByteBuffer rawBytes = writer.getRawBytes();
+		Buffer rawBytes = writer.getRawBytes();
 		try {
 			writer = new ByzantineValueWriter();
 			writer.configure(buf, false, startOffset);
@@ -181,7 +181,7 @@ public class TestByzantineValueReadWrite {
 
 	@Test
 	public void testWriteReject() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineValueWriter writer = new ByzantineValueWriter();
 		writer.configure(buf, true, startOffset);
 		int limit = 1_000_000;
@@ -198,7 +198,7 @@ public class TestByzantineValueReadWrite {
 
 	@Test
 	public void testDiskRecovery() throws IOException, InterruptedException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineValueWriter writer = new ByzantineValueWriter();
 		writer.configure(buf, true, startOffset);
 		int limit = 1_000_000;
@@ -234,7 +234,7 @@ public class TestByzantineValueReadWrite {
 
 	@Test
 	public void testBufferFull() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024);
 		ByzantineValueWriter writer = new ByzantineValueWriter();
 		writer.configure(buf, true, startOffset);
 		int limit = 1_000_000;
@@ -250,7 +250,7 @@ public class TestByzantineValueReadWrite {
 
 	@Test
 	public void testArrayReads() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineValueWriter writer = new ByzantineValueWriter();
 		writer.configure(buf, true, startOffset);
 		int limit = 1_000_000;
@@ -277,7 +277,7 @@ public class TestByzantineValueReadWrite {
 
 	@Test
 	public void testPredicateFilter() throws IOException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineValueWriter writer = new ByzantineValueWriter();
 		writer.configure(buf, true, startOffset);
 		int limit = 1_000_000;
@@ -383,7 +383,7 @@ public class TestByzantineValueReadWrite {
 	 */
 	@Test
 	public void testDiskWrites() throws IOException, InterruptedException {
-		ByteBuffer buf = ByteBuffer.allocateDirect(1024 * 1024 * 10);
+		GenericBuffer buf = GenericBuffer.allocateDirect(1024 * 1024 * 10);
 		ByzantineValueWriter writer = new ByzantineValueWriter();
 		writer.configure(buf, true, startOffset);
 		int limit = 1_000_000;

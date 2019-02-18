@@ -19,8 +19,8 @@ import com.srotya.minuteman.wal.WAL;
 import com.srotya.minuteman.wal.WALClient;
 
 /**
- * A node is a logical member of the Minuteman cluster where one more more
- * nodes form a cluster.
+ * A node is a logical member of the Minuteman cluster where one more more nodes
+ * form a cluster.
  * 
  * @author ambud
  */
@@ -58,7 +58,7 @@ public class Replica {
 	 * @return the replicaNodeKey
 	 */
 	public Integer getReplicaNodeKey() {
-		return (replicaAddress + ":" + replicaPort).hashCode();
+		return Node.generateNodeKey(replicaAddress, replicaPort);
 	}
 
 	/**
@@ -80,7 +80,7 @@ public class Replica {
 	 * @return the leaderNodeKey
 	 */
 	public Integer getLeaderNodeKey() {
-		return (leaderAddress + ":" + leaderPort).hashCode();
+		return Node.generateNodeKey(leaderAddress, leaderPort);
 	}
 
 	/**
@@ -190,13 +190,16 @@ public class Replica {
 	}
 
 	/**
-	 * @param isr the isr to set
+	 * @param isr
+	 *            the isr to set
 	 */
 	public void setIsr(boolean isr) {
 		this.isr = isr;
 	}
 
-	/* (non-Javadoc)
+	/*
+	 * (non-Javadoc)
+	 * 
 	 * @see java.lang.Object#toString()
 	 */
 	@Override
