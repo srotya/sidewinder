@@ -72,7 +72,7 @@ public class GorillaValueReader implements Reader {
 
 	@Override
 	public byte[] getDataHash() throws NoSuchAlgorithmException {
-		Buffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate(true);
 		duplicate.rewind();
 		duplicate.position(checkSumLocation);
 		byte[] ary = new byte[GorillaTimestampWriter.MD5_PADDING];

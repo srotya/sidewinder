@@ -129,7 +129,7 @@ public class ByzantineTimestampWriter implements TimeWriter {
 	@Override
 	public ByzantineTimestampReader getReader() throws IOException {
 		ByzantineTimestampReader reader = null;
-		Buffer rbuf = buf.duplicate();
+		Buffer rbuf = buf.duplicate(true);
 		rbuf.rewind();
 		reader = new ByzantineTimestampReader(rbuf, startOffset);
 		return reader;
@@ -190,7 +190,7 @@ public class ByzantineTimestampWriter implements TimeWriter {
 
 	@Override
 	public Buffer getRawBytes() {
-		Buffer b = buf.duplicate();
+		Buffer b = buf.duplicate(false);
 		return b;
 	}
 

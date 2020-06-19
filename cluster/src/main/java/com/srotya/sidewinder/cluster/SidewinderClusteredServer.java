@@ -148,7 +148,7 @@ public class SidewinderClusteredServer extends Application<ClusterConfiguration>
 	}
 
 	private void registerMetrics(final MetricRegistry registry, StorageEngine storageEngine,
-			ScheduledExecutorService es) {
+			ScheduledExecutorService es) throws IOException {
 		@SuppressWarnings("resource")
 		SidewinderDropwizardReporter requestReporter = new SidewinderDropwizardReporter(registry, "request",
 				new MetricFilter() {

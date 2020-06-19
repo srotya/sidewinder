@@ -119,7 +119,7 @@ public class ByzantineValueWriter implements ValueWriter {
 
 	public ByzantineValueReader getReader() throws IOException {
 		ByzantineValueReader reader = null;
-		Buffer rbuf = buf.duplicate();
+		Buffer rbuf = buf.duplicate(true);
 		rbuf.rewind();
 		reader = new ByzantineValueReader(rbuf, startOffset);
 		return reader;
@@ -165,7 +165,7 @@ public class ByzantineValueWriter implements ValueWriter {
 
 	@Override
 	public Buffer getRawBytes() {
-		Buffer b = buf.duplicate();
+		Buffer b = buf.duplicate(false);
 		return b;
 	}
 

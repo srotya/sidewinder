@@ -2,62 +2,62 @@ package com.srotya.sidewinder.core.storage;
 
 public interface Buffer {
 
-	void put(int offset, byte b);
+	byte[] array();
 
-	int remaining();
+	int capacity();
+
+	Buffer duplicate(boolean readOnly);
+
+	void flip();
+
+	byte get();
 
 	void get(byte[] buf);
 
-	void position(int startOffset);
-
-	void putInt(int i);
+	byte get(int position);
 
 	int getInt();
 
 	long getLong();
 
-	byte get();
+	long getLong(int position);
 
 	int getShort();
 
-	Buffer duplicate();
-
-	void putShort(short xor);
-
-	void putLong(long xor);
+	boolean hasRemaining();
 
 	boolean isReadOnly();
 
-	void rewind();
-
-	void putInt(int index, int value);
-
-	int position();
-
 	int limit();
-
-	void put(Buffer buf);
-
-	int capacity();
-
-	byte[] array();
-
-	byte get(int position);
-
-	boolean hasRemaining();
-
-	void put(byte[] b);
-
-	long getLong(int position);
-	
-	Buffer newInstance(int capacity);
-
-	Buffer slice();
-
-	void put(byte b);
 
 	void limit(int position);
 
-	void flip();
+	Buffer newInstance(int capacity);
+
+	int position();
+
+	void position(int startOffset);
+
+	void put(Buffer buf);
+
+	void put(byte b);
+
+	void put(byte[] b);
+
+	void put(int offset, byte b);
+
+	void putInt(int i);
+
+	void putInt(int index, int value);
+	
+	void putLong(long xor);
+
+	void putShort(short xor);
+
+	int remaining();
+
+	void rewind();
+
+	Buffer slice();
 
 }

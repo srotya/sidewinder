@@ -79,7 +79,7 @@ public class GorillaValueWriter implements ValueWriter {
 
 	@Override
 	public GorillaValueReader getReader() throws IOException {
-		Buffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate(true);
 		duplicate.rewind();
 		GorillaValueReader reader = new GorillaValueReader(duplicate, startOffset, checkSumLocaltion);
 		return reader;
@@ -96,7 +96,7 @@ public class GorillaValueWriter implements ValueWriter {
 
 	@Override
 	public Buffer getRawBytes() {
-		Buffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate(false);
 		return duplicate;
 	}
 
@@ -126,7 +126,7 @@ public class GorillaValueWriter implements ValueWriter {
 	}
 
 	private byte[] bufferToHash() throws NoSuchAlgorithmException {
-		Buffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate(true);
 		duplicate.rewind();
 		Buffer copy = duplicate.newInstance(duplicate.capacity());
 		copy.put(duplicate);

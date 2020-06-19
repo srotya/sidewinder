@@ -79,7 +79,7 @@ public class GorillaTimestampWriter implements TimeWriter {
 
 	@Override
 	public Reader getReader() throws IOException {
-		Buffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate(true);
 		duplicate.rewind();
 		GorillaTimestampReader reader = new GorillaTimestampReader(duplicate, startOffset, checkSumLocaltion);
 		return reader;
@@ -96,7 +96,7 @@ public class GorillaTimestampWriter implements TimeWriter {
 
 	@Override
 	public Buffer getRawBytes() {
-		Buffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate(false);
 		return duplicate;
 	}
 
@@ -128,7 +128,7 @@ public class GorillaTimestampWriter implements TimeWriter {
 	}
 
 	private byte[] bufferToHash() throws NoSuchAlgorithmException {
-		Buffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate(true);
 		duplicate.rewind();
 		Buffer copy = duplicate.newInstance(duplicate.capacity());
 		copy.put(duplicate);

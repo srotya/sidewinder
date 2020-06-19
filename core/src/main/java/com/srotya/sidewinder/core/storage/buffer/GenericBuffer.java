@@ -6,32 +6,47 @@ import com.srotya.sidewinder.core.storage.Buffer;
 
 public class GenericBuffer implements Buffer {
 
-	private ByteBuffer buffer;
-
-	public GenericBuffer(ByteBuffer existingBuffer) {
-		buffer = existingBuffer;
+	public static GenericBuffer allocate(byte[] bytes) {
+		return new GenericBuffer(ByteBuffer.wrap(bytes));
 	}
 
 	public static GenericBuffer allocate(int capacity) {
 		return new GenericBuffer(ByteBuffer.allocate(capacity));
 	}
 
-	public static GenericBuffer allocate(byte[] bytes) {
-		return new GenericBuffer(ByteBuffer.wrap(bytes));
-	}
-
 	public static GenericBuffer allocateDirect(int capacity) {
 		return new GenericBuffer(ByteBuffer.allocateDirect(capacity));
 	}
 
-	@Override
-	public void put(byte b) {
-		buffer.put(b);
+	private ByteBuffer buffer;
+
+	public GenericBuffer(ByteBuffer existingBuffer) {
+		buffer = existingBuffer;
 	}
 
 	@Override
-	public int remaining() {
-		return buffer.remaining();
+	public byte[] array() {
+		return buffer.array();
+	}
+
+	@Override
+	public int capacity() {
+		return buffer.capacity();
+	}
+
+	@Override
+	public Buffer duplicate(boolean readOnly) {
+		return new GenericBuffer(this.buffer.duplicate());
+	}
+
+	@Override
+	public void flip() {
+		buffer.flip();
+	}
+
+	@Override
+	public byte get() {
+		return buffer.get();
 	}
 
 	@Override
@@ -40,13 +55,8 @@ public class GenericBuffer implements Buffer {
 	}
 
 	@Override
-	public void position(int offset) {
-		buffer.position(offset);
-	}
-
-	@Override
-	public void putInt(int value) {
-		buffer.putInt(value);
+	public byte get(int position) {
+		return buffer.get(position);
 	}
 
 	@Override
@@ -60,8 +70,8 @@ public class GenericBuffer implements Buffer {
 	}
 
 	@Override
-	public byte get() {
-		return buffer.get();
+	public long getLong(int position) {
+		return buffer.getLong(position);
 	}
 
 	@Override
@@ -70,18 +80,8 @@ public class GenericBuffer implements Buffer {
 	}
 
 	@Override
-	public Buffer duplicate() {
-		return new GenericBuffer(this.buffer.duplicate());
-	}
-
-	@Override
-	public void putShort(short value) {
-		buffer.putShort(value);
-	}
-
-	@Override
-	public void putLong(long value) {
-		buffer.putLong(value);
+	public boolean hasRemaining() {
+		return buffer.hasRemaining();
 	}
 
 	@Override
@@ -90,13 +90,18 @@ public class GenericBuffer implements Buffer {
 	}
 
 	@Override
-	public void rewind() {
-		buffer.rewind();
+	public int limit() {
+		return buffer.limit();
 	}
 
 	@Override
-	public void putInt(int index, int value) {
-		buffer.putInt(index, value);
+	public void limit(int position) {
+		buffer.limit(position);
+	}
+
+	@Override
+	public Buffer newInstance(int capacity) {
+		return GenericBuffer.allocate(capacity);
 	}
 
 	@Override
@@ -105,8 +110,8 @@ public class GenericBuffer implements Buffer {
 	}
 
 	@Override
-	public int limit() {
-		return buffer.limit();
+	public void position(int offset) {
+		buffer.position(offset);
 	}
 
 	@Override
@@ -117,23 +122,8 @@ public class GenericBuffer implements Buffer {
 	}
 
 	@Override
-	public int capacity() {
-		return buffer.capacity();
-	}
-
-	@Override
-	public byte[] array() {
-		return buffer.array();
-	}
-
-	@Override
-	public byte get(int position) {
-		return buffer.get(position);
-	}
-
-	@Override
-	public boolean hasRemaining() {
-		return buffer.hasRemaining();
+	public void put(byte b) {
+		buffer.put(b);
 	}
 
 	@Override
@@ -142,33 +132,43 @@ public class GenericBuffer implements Buffer {
 	}
 
 	@Override
-	public long getLong(int position) {
-		return buffer.getLong(position);
-	}
-
-	@Override
-	public Buffer newInstance(int capacity) {
-		return GenericBuffer.allocate(capacity);
-	}
-
-	@Override
-	public Buffer slice() {
-		return new GenericBuffer(buffer.slice());
-	}
-
-	@Override
 	public void put(int offset, byte b) {
 		buffer.put(offset, b);
 	}
 
 	@Override
-	public void limit(int position) {
-		buffer.limit(position);
+	public void putInt(int value) {
+		buffer.putInt(value);
 	}
 
 	@Override
-	public void flip() {
-		buffer.flip();
+	public void putInt(int index, int value) {
+		buffer.putInt(index, value);
+	}
+
+	@Override
+	public void putLong(long value) {
+		buffer.putLong(value);
+	}
+
+	@Override
+	public void putShort(short value) {
+		buffer.putShort(value);
+	}
+
+	@Override
+	public int remaining() {
+		return buffer.remaining();
+	}
+
+	@Override
+	public void rewind() {
+		buffer.rewind();
+	}
+
+	@Override
+	public Buffer slice() {
+		return new GenericBuffer(buffer.slice());
 	}
 
 }

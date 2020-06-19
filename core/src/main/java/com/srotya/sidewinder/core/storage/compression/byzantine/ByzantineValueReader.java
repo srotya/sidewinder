@@ -93,7 +93,7 @@ public class ByzantineValueReader implements Reader {
 
 	@Override
 	public byte[] getDataHash() throws NoSuchAlgorithmException {
-		Buffer duplicate = buf.duplicate();
+		Buffer duplicate = buf.duplicate(true);
 		duplicate.rewind();
 		Buffer copy = duplicate.newInstance(duplicate.capacity());
 		copy.put(duplicate);
